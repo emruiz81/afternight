@@ -14,9 +14,9 @@ masks: none
 external: The StarNet2 command-line tool, 2.5.3 or newer, with its ONNX model, installed separately
 glance:
   enabled: >-
-    An image or a sequence view is active, no Starnet++ Star Mask window is open on it yet, and no window that needs
-    the image for itself is open on it. The window opens whether or not StarNet2 is installed, and OK waits until the
-    window says the program is ready.
+    An image or a sequence view is active, no Starnet++ Star Mask task is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks, whether or not StarNet2
+    is installed, and OK waits until the task says the program is ready.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, not a raw color-filter mosaic. StarNet2 asks for at
     least 512 by 512 pixels.
@@ -30,35 +30,27 @@ derived: true
 ---
 # Starnet++ Star Mask
 
-This window asks StarNet2, a trained neural network that runs as a separate program you install yourself, for a star
+This [task](../../reference/glossary.md#task) asks StarNet2, a trained neural network that runs as a separate program you install yourself, for a star
 [mask](../../reference/glossary.md#mask). AfterNight hands it the image as a 16-bit file, and can reduce the mask it
 answers to its lightness and then to black and white, with soft edges. There is no preview.
 
-**OK** opens the mask as `<target> - STARMASK`, a new view beside the target, which stays as it was. The window stays
+**OK** opens the mask as `<target> - STARMASK`, a new view beside the target, which stays as it was. The task stays
 open. To use the mask, attach it to a view through [Masks](../../interface/masks.md).
 
 ```figure
 image: ../../assets/images/processes/star-operations/starnet-star-mask.webp
 alt: >-
-  The Starnet++ Star Mask window. Under the title bar, the process name and a line that says it generates native
-  StarNet2 star masks. In the Mask Settings group, Lightness and Binary Mask ticked, and Lower limit at 0.100000,
-  Upper limit at 1.000000 and Smoothness at 2.00, each with its slider. In the StarNet2 Settings group, Pre-Stretch
-  linear image clear, Highlight protection ticked, Stride reading Standard (256) beside a grayed box reading 256,
-  Weights, an empty field showing Default StarNet2_weights.onnx in gray, with a Browse button, Upsample x2 clear, the
-  line StarNet2 is configured and ready to use, and a Configure button. Below the groups, Target Image reading RGB.
-  OK and Close run along the bottom.
+  The Starnet++ Star Mask task. Its header names the process and the stretched Carina master. The canvas at the left
+  shows the master as its view does, with no preview. The column at the right holds Target Image reading RGB, then
+  the Mask Settings section: Lightness and Binary Mask ticked, and Lower limit at 0.100000, Upper limit at 1.000000
+  and Smoothness at 2.00, each with its slider. Then the StarNet2 Settings section: Pre-Stretch linear image clear,
+  Highlight protection ticked, Stride reading Standard (256) beside a grayed box reading 256, Weights, an empty field
+  showing Default StarNet2_weights.onnx in gray, with a Browse button, Upsample x2 clear, the line StarNet2 is
+  configured and ready to use, and a Configure button. Close and OK stand in its footer.
 caption: >-
   Starnet++ Star Mask on the stretched Carina master with Lightness and Binary Mask ticked and Smoothness at 2, once
   AfterNight knows where StarNet2 is.
-pins:
-  - {n: 1, x: 2.0, y: 72.9}
-  - {n: 2, x: 2.0, y: 77.2}
-  - {n: 3, x: 2.0, y: 85.0}
-  - {n: 4, x: 2.0, y: 51.2}
-  - {n: 5, x: 2.0, y: 20.9}
-  - {n: 6, x: 2.0, y: 29.2}
-  - {n: 7, x: 2.0, y: 59.6}
-  - {n: 8, x: 66.0, y: 95.9}
+owed: true
 ```
 
 ## Before you start
@@ -74,9 +66,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image or [sequence](../../reference/glossary.md#sequence) the
+1. **Open the task.** Make the image or [sequence](../../reference/glossary.md#sequence) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Mask Generation > Starnet++ Star
-   Mask**. The line above **Configure** says whether AfterNight can run StarNet2.
+   Mask**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as
+   a page: the canvas at the left shows the target as its view does, the column at the right holds its controls. The
+   line above **Configure** says whether AfterNight can run StarNet2.
 2. **Point AfterNight at StarNet2.** When the line names a problem, click **Configure**, then **Detect** beside
    **StarNet2:** and the settings' **OK**. The line reads "StarNet2 is configured and ready to use."
 3. **Check the target.** **Target Image** names the image or sequence StarNet2 receives. The mask takes its name.
@@ -89,15 +83,14 @@ pins:
    and **Upper limit**, and raise **Smoothness** to soften the edges.
 7. **Leave the program's settings.** Keep **Highlight protection** ticked, **Stride** at **Standard (256)**,
    **Weights** empty and **Upsample x2** off for a first run.
-8. **Run.** Click **OK**. A progress window follows the program, and its **Cancel** stops it. The view
-   `<target> - STARMASK` opens as a tab beside the target.
+8. **Run.** Click **OK** in the column's footer. The column's run row follows the program, and **Cancel** in the
+   footer stops it. The view `<target> - STARMASK` opens as a tab beside the target.
 9. **Check at 100 %.** Compare the mask with the image at 100 %, in the same place. The stars are bright and the
    nebula dark.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md). This window reads its
-controls when you press **OK**.
+What every task shares is on [Tasks](../../interface/tasks.md). This task reads its controls when you press **OK**.
 
 ```controls
 window: Starnet++ Star Mask
@@ -108,15 +101,15 @@ controls:
     effect: For an RGB image, reduces the program's color mask to one gray channel, its CIE L* lightness divided by 100. Off keeps the mask as the program wrote it, with the image's three channels.
     enabled: Once the line above **Configure** says StarNet2 is ready. Its tick enables **Binary Mask**.
     tradeoff: The differences between the mask's colors are lost. The mask of a grayscale image has one channel already, and is left as it is.
-    scope: The new mask only, after the program's run. The red, green and blue are read as the **Channel** list of a process window reads a color image.
-    persistence: Until the window closes. The mask's lineage records the extraction of the lightness.
+    scope: The new mask only, after the program's run. The red, green and blue are read as the **Channel** list of a task reads a color image.
+    persistence: Until the task closes. The mask's lineage records the extraction of the lightness.
   - name: Binary Mask
     kind: check
     default: "Off"
     effect: Makes the lightness black and white by equation (3), 1 between **Lower limit** and **Upper limit** and 0 outside, then smooths it by **Smoothness**.
     enabled: With **Lightness** ticked, once the line above **Configure** says StarNet2 is ready. With **Lightness** off it is disabled, and its tick does nothing.
     tradeoff: The edges are hard until **Smoothness** softens them, with no ramp between the limits. A mask of one channel, from a grayscale image, is not selected, whatever the label suggests.
-    persistence: Until the window closes. The mask's lineage records the limits and the smoothness.
+    persistence: Until the task closes. The mask's lineage records the limits and the smoothness.
   - name: Lower limit
     kind: spinbox
     default: "0.100000"
@@ -124,7 +117,7 @@ controls:
     effect: Sets the faintest lightness the mask keeps. Higher leaves the faint wings of stars and faint stars out. Lower takes more of them in, and more of what is not a star.
     range: The limit itself is kept. Raising it above **Upper limit** raises **Upper limit** with it. With the two equal, only that one level is kept.
     enabled: With **Lightness** and **Binary Mask** ticked, once the line above **Configure** says StarNet2 is ready.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Upper limit
     kind: spinbox
     default: "1.000000"
@@ -132,7 +125,7 @@ controls:
     effect: Sets the brightest lightness the mask keeps. Lower leaves the brightest parts of the mask out.
     range: The limit itself is kept. Lowering it below **Lower limit** lowers **Lower limit** with it.
     enabled: With **Lightness** and **Binary Mask** ticked, once the line above **Configure** says StarNet2 is ready.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Smoothness
     kind: spinbox
     default: "0.00"
@@ -142,7 +135,7 @@ controls:
     enabled: With **Lightness** and **Binary Mask** ticked, once the line above **Configure** says StarNet2 is ready.
     tradeoff: A larger sigma softens the edges further, spreads the mask beyond the stars, can join neighbouring stars into one region, and takes longer.
     scope: After the selection. It does not change the limits.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Pre-Stretch linear image
     kind: check
     default: "Off"
@@ -150,14 +143,14 @@ controls:
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: A linear image reaches the program as a visible picture instead of a nearly black one. The mask is never brought back through the inverse curve, unlike the starless image of Starnet++. A stretched image stretched again gives another mask.
     scope: Every channel alike, in the copy only.
-    persistence: Until the window closes. The lineage records `pre-stretch linked`, or `pre-stretch none` when it is off.
+    persistence: Until the task closes. The lineage records `pre-stretch linked`, or `pre-stretch none` when it is off.
   - name: Highlight protection
     kind: check
     default: "On"
     effect: On, StarNet2 keeps its own protection of bright and nearly saturated regions, as it does by default. Off passes `--disable-highlights-protection`.
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author offers Off for comparison or troubleshooting. Off can leave worse marks around bright stars.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Stride
     object: stridePreset
     kind: combo
@@ -167,7 +160,7 @@ controls:
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author starts most images at 256 and suggests 384 for wide fields of generally small stars. A smaller stride usually costs more. How the program blends its windows is not published.
     scope: The program receives it as `--stride`.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Stride
     object: customStrideValue
     kind: spinbox
@@ -177,7 +170,7 @@ controls:
     range: Even values only. An odd value you type is lowered to the even value below it.
     enabled: With **Custom** chosen, once the line above **Configure** says StarNet2 is ready.
     tradeoff: A smaller stride takes longer, and extreme values change how the windows overlap.
-    persistence: Until the window closes. It keeps its value while the list shows another choice.
+    persistence: Until the task closes. It keeps its value while the list shows another choice.
   - name: Weights
     kind: field
     default: ""
@@ -188,7 +181,7 @@ controls:
       started.
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: AfterNight does not check the file, its model or its licence before the run. An unsuitable file makes the run fail when the program starts, and another model gives another mask.
-    persistence: Until the window closes. It is not saved. The lineage keeps it among the program's arguments.
+    persistence: Until the task closes. It is not saved. The lineage keeps it among the program's arguments.
   - name: Browse
     kind: button
     default: ""
@@ -202,41 +195,41 @@ controls:
     effect: Asks StarNet2 for its intermediate 2x mode, `--upsample`, which helps with very tight stars and with marks around them.
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author says it can take about four times as long, and it needs more memory. Very large stars can become harder to handle.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Status line
     kind: readout
     default: StarNet2 executable path is empty.
     effect: Says whether the program the settings name is one AfterNight can run. "StarNet2 is configured and ready to use." enables the controls and **OK**. Any other text keeps them disabled and says why.
-    range: The texts are the ones the Starnet++ window shows, such as "StarNet2 executable was not found." and "Could not detect StarNet2 version. StarNet2 2.5.3 or newer is required."
-    enabled: Worked out when the window opens and when the settings close after **Configure**, with `--machine-info` and then `--version`, within 3 seconds.
+    range: The texts are the ones the Starnet++ task shows, such as "StarNet2 executable was not found." and "Could not detect StarNet2 version. StarNet2 2.5.3 or newer is required."
+    enabled: Worked out when the task opens and when the settings close after **Configure**, with `--machine-info` and then `--version`, within 3 seconds.
     tradeoff: Ready means the program answered a version of 2.5.3 or newer, not that its model and runtime can complete a run.
-    scope: The window, and every run, which asks the program again before it writes anything.
-    persistence: The program's path is the one the Starnet++ window uses, kept in the settings for every session.
+    scope: The task, and every run, which asks the program again before it writes anything.
+    persistence: The program's path is the one the Starnet++ task uses, kept in the settings for every session.
   - name: Configure
     kind: button
     default: ""
-    effect: Opens the settings at **External Tools**, whose **StarNet2:** holds the program's path. When the settings close, the window reads the saved path and asks the program again.
+    effect: Opens the settings at **External Tools**, whose **StarNet2:** holds the program's path. When the settings close, the task reads the saved path and asks the program again.
     range: "**Detect** there finds the program on the system's `PATH` or in the usual folders of its installers."
-    enabled: Always, also while the other controls are disabled and while a run works.
+    enabled: Always, also while the other controls are disabled, but not while a run works.
     tradeoff: The check starts the program and sends it no image, so it does not check the model.
-    persistence: The path is kept for every session. The window's own values are not saved.
+    persistence: The path is kept for every session. The task's own values are not saved.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence the program receives. The mask is named after it and opens beside it.
     range: Whether the program can take the image is checked when you press **OK**, before anything is written.
-    enabled: Whether or not StarNet2 is ready, and also while a run works. A run keeps the view that was chosen when you pressed **OK**, and a change reaches the next run.
+    enabled: Whether or not StarNet2 is ready. It stands at the head of the column, and is disabled while a run works, which keeps the view that was chosen when you pressed **OK**.
     tradeoff: An image another process is still changing is refused with "Another process is executing for this image, please cancel that job first before running this process", with "sequence" for a sequence. Click **OK** again once its result is shown.
     scope: The whole image, every channel, without the mask on the view.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: OK
     kind: button
     default: ""
-    effect: Reads the window as it is, opens the progress window, runs StarNet2 for its star mask, shapes the mask as the window asks and opens it as `<target> - STARMASK` beside the target. The window stays open with its values for another run.
+    effect: Reads the task as it is, runs StarNet2 for its star mask, which the column's run row follows, shapes the mask as the task asks and opens it as `<target> - STARMASK` beside the target. The task stays open with its values for another run.
     enabled: >-
-      Once the line above **Configure** says StarNet2 is ready. It is disabled from the press until the run has ended.
-      The other controls stay enabled, and what you change reaches the next run only.
+      Once the line above **Configure** says StarNet2 is ready. From the press until the run has ended **Cancel** stands
+      in its place, and the task's controls and **Close** are disabled. ++ctrl+enter++ does the same as OK.
     tradeoff: >-
       StarNet2 always writes a starless image too, which AfterNight leaves unread. The run writes a 16-bit copy of the
       image and the program's two answers to disk and holds the copy and the mask in memory. **Lightness**,
@@ -249,48 +242,45 @@ controls:
       The target and its history are not changed. The mask's history begins with `StarNet2: Starmask image created
       from '<target>'`. A name already in use is made unique. Nothing is saved to a file.
     note: >-
-      A failed run says why in a message titled "Error running StarNet2", whose text starts "An error occurred when
-      running StarNet2 process:", and in the log, and opens nothing.
+      A failed run says why in the column's message strip, as "Error running StarNet2: An error occurred when
+      running StarNet2 process:" and the reason, and in the log, and opens nothing.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. Its values are discarded.
-    enabled: Always, also while a run works.
-    note: Closing the window while a run works hides it, and it closes when the run has ended. It does not stop the run, whose mask still opens. The progress window's **Cancel** stops it.
+    effect: Closes the task. Its values are discarded. ++esc++ does the same.
+    enabled: Disabled while a run works. The task does not close until its run has ended; **Cancel** stops the run.
 ```
 
 ```controls
-window: Progress
+window: The run in the column
 controls:
   - name: Progress
     kind: readout
     default: ""
     effect: >-
-      Follows the run, under the title `Starnet++ Star Mask <name>`. On an image, the text names each stage,
-      "Preparing StarNet2 execution...", "Executing StarNet2..." and "Processing output...", and the bar follows the
-      program's own percentages from 10 to 90 percent, then 95 while the mask is read and shaped. On a sequence, the
-      text reads `Executing StarNet2 on <name>` and the bar counts the frames.
+      Follows the run in the column's run row, which reads "applying", and in the task header. On an image, the bar
+      follows the program's own percentages from 10 to 90 percent, then 95 while the mask is read and shaped. On a
+      sequence, the bar counts the frames. No progress window opens.
     tradeoff: The bar moves forward only. The program's printed percentages are read, or its report for machines when its `--machine-info` answer offers one.
     note: The log keeps the line `Executing <program> <arguments>`, and the program's other lines at the Debug level.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. The program's output is read at least every 300 milliseconds, and the program is ended at the next read. The progress window closes quietly, without a view and without a message. Click **OK** again for another run.
+    effect: Stands in the footer in place of **OK**, and stops the run. The program's output is read at least every 300 milliseconds, and the program is ended at the next read. The run row leaves the column quietly, without a view and without a message. Click **OK** again for another run.
     range: The stop is also seen while the copy for the program is written, before the program starts, and before the mask is taken.
-    persistence: The target and its history stay as they were, and no view opens. The temporary files are removed.
+    persistence: The target and its history stay as they were, and no view opens. The temporary folder and its three files are removed however the run ends, cancelled or not.
 ```
 
 ## How it works
 
-1. When you press **OK**, the window reads its controls and its target. The run refuses a raw mosaic and an image of
+1. When you press **OK**, the task reads its controls and its target. The run refuses a raw mosaic and an image of
    other than one or three channels before anything is written, then asks the program its version again.
 2. The engine writes the image as unsigned 16-bit codes, rounded to the nearest code with ties to even, to
    `srcFile.tiff`, whole or not at all, in a folder of the run's own named after `starnet2` under the temporary files location. It maps the samples into 0 to 1 as
    [Starnet++](starnet.md) does and, with the pre-stretch, [stretches](../../reference/glossary.md#stretch) them by
    equation (1).
 3. AfterNight starts the program from its own folder with `--input`, `--output`, `--mask` and `--stride`, and adds
-   `--weights`, `--upsample`, `--disable-highlights-protection` and `--machine-progress` when they apply. The program
-   writes a starless image and its star mask. AfterNight reads only the mask.
+   `--weights`, `--upsample`, `--disable-highlights-protection` and `--machine-progress` when they apply.
 4. The mask is held to the image's width, height and channels, read as a
    [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale) and written in the target's
    [pixel type](../../reference/glossary.md#pixel-type), rounded to the nearest value and held to its range. It is the
@@ -341,7 +331,6 @@ as in [Range Selection](../analysis/range-selection.md).
   source holds a sample that is not finite in a pixel its validity admits".
 - A failure of the program, or a mask it did not write or wrote at another size, opens nothing. On a sequence, a
   failure in any frame opens no sequence.
-- The temporary folder and its three files are removed however the run ends, cancelled or not.
 - How the network decides what is a star, and how it treats the edges and the meeting of its windows, is the
   program's own and not published.
 
@@ -383,8 +372,7 @@ caption: >-
 ## When it goes wrong
 
 !!! warning "A sequence is processed whole"
-    **OK** runs the program once for every frame, whatever frames the player has selected, and opens one new
-    sequence. To make the mask of one frame, extract it first with **Image > Sequence > Extract Frame**.
+    **OK** runs the program on every frame and opens one new sequence. To make the mask of one frame, extract it first with **Image > Sequence > Extract Frame**.
 
 !!! warning "The mask follows the stretched copy"
     With **Pre-Stretch linear image**, the mask is made from the stretched copy and stays in its units, not the
@@ -434,7 +422,7 @@ The mask covers nebula detail, or misses stars
 - [Range Selection](../analysis/range-selection.md), to shape a mask of one channel by brightness.
 - [Masks](../../interface/masks.md), to attach, show and invert the mask on a view.
 - [Star Reduction](star-reduction.md), one of the processes a star mask can protect or limit.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

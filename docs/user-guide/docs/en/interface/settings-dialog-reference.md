@@ -16,9 +16,10 @@ Each section can be read on its own.
 | Page | A saved change takes effect |
 | --- | --- |
 | General | **Recent Files Limit:** at once. **Recent Processes Limit:** when the dialog closes. **Default Save Format:** at the next save window, the temporary folder for later work, the close question at the next close, **Clear temporary files on exit** at the next exit and start, the extension check at the next start. |
+| [Projects](../reference/glossary.md#project) | The location and the compression at the next **New Project...**, and the compression at the next step of a [history](../reference/glossary.md#history) kept outside a project. The integration choice at the next run, the compaction size when a project next opens, the last project at the next start. |
 | Raw Images | At the next camera raw file read: a read already on its way keeps the settings it was asked with. |
 | External Tools | At the next run of Starnet++, [Starnet++ Star Mask](../processes/star-operations/starnet-star-mask.md), Star Reduction's starless step or DeepSNR, which check the program again. |
-| Interface | The theme, contrast, accent, tint, animations and wheel zoom at once, in every open window and view. The file windows at the next one. The dock lock and the main window's size and place at the next start. |
+| Interface | The rows of **Colours and Size** as you choose them, in every window, kept by saving. The wheel zoom at once, in every view. The file windows at the next one. The layout lock at the next start and the next [workspace](../reference/glossary.md#workspace), the main window's size and place at the next start. |
 | Export | At the next image you save. |
 | Processing | The thread and memory limits at the next start. **Updates per second while dragging:** at the next drag. |
 | Logging | At once, and again at every start. |
@@ -35,12 +36,13 @@ Raw Images page.
   other, with no undo across pages. Saving a change on another page also rewrites `logging.conf`, and applies it again,
   when you showed the Logging page.
 - **The checks of OK.** **OK** checks the pages you showed before it saves: General creates and tests the temporary
-  folder, Logging the log folder, Processing refuses a memory limit under 1024 MB, and Raw Images the custom gains.
-  External Tools, Interface, Export, Catalogs & Data and Plate Solving check nothing, so a path that fails is saved.
-  **Apply** checks nothing at all.
-- **Interface.** Once its four appearance choices are stored, the theme, its contrast, accent and tint change in every
-  window, the animations follow, and every view takes the new wheel zoom. Its other choices wait for the next file
-  window or the next start.
+  folder, Projects refuses a default location that is no folder's full path, Logging creates and tests the log folder,
+  Processing refuses a memory limit under 1024 MB, and Raw Images checks the custom gains. External Tools, Interface,
+  Export, Catalogs & Data and Plate Solving check nothing, so a path that fails is saved. **Apply** checks nothing at
+  all.
+- **Interface.** The rows of **Colours and Size** are in force as soon as you choose them, and saving stores them;
+  **Cancel** puts back what was in force, and **Reset Page** shows the defaults at once. Saving makes every view take
+  the new wheel zoom. Its other choices wait for the next file window, the next workspace or the next start.
 - **Raw Images.** Saving publishes the white balance, the gains and the rotation together, for every raw read asked for
   afterwards. Importing a settings file that states any of them publishes all three when the import is saved.
 - **External Tools.** The page shows the stored paths without counting them as changes, then asks both programs for
@@ -50,8 +52,8 @@ Raw Images page.
   [SPCC](../reference/glossary.md#spcc), AfterNight's own `spcc_responses` folder when none is set. A saved pack that covers the pending region clears it. Downloads and
   deletions happen outside saving.
 - **Plate Solving.** Saving stores the default solver, or the first one set up when the chosen one is not.
-- **Nothing to an image.** No page changes an open image, its header, its
-  [history](../reference/glossary.md#history), its [mask](../reference/glossary.md#mask) or the frames of a
+- **Nothing to an image.** No page changes an open image, its header, its history, its
+  [mask](../reference/glossary.md#mask) or the frames of a
   [sequence](../reference/glossary.md#sequence). A [plate solution](../reference/glossary.md#plate-solution) is
   written into an image by the window that solves it, which writes the solution and keeps the rest of the header.
 
@@ -88,6 +90,10 @@ The temporary folder
 :   The folder **Location:** names, else the `temp` folder of the data folder, with one `AN_SESSION_...` folder for each
     session.
 
+The projects
+:   Each in a folder of its own, made under **Default location:**, which is `AfterNight Projects` in your Documents
+    folder unless you change it. The settings database keeps the ten projects used last and the one used last.
+
 The log
 :   `AfterNight.log` and its older copies, in the folder **Directory:** names.
 
@@ -105,18 +111,19 @@ holds `version`, `exportDate` and these sections.
 | `raw` | `whiteBalanceMode` as `none`, `daylight`, `camera_as_shot`, `auto_wb` or `custom`, `customWbR`, `customWbG`, `customWbB`, `autoRotate`, `demosaicAlgorithm`. |
 | `tools` | `starnetPath`, `deepsnrPath`, `astapPath`, `astrometryLocalPath`, and `astrometryApiKey` in plain text. |
 | `processing` | `maxThreadsBatch`, `maxThreadsPreview`, `gpuEnabled`, `preferredGpu`, `memoryLimitMb`, `previewFrameRate`. |
-| `interface` | `theme`, `materialBackdropMode`, `themeContrastProfile`, `themeAccentFamily`, `themeSurfaceTintFamily`, `zoomSensitivity`, `zoomRequiresCtrl`, `lockLayoutByDefault`, `rememberWindowSize`, `recentProcessIds`, `favoriteProcessIds`. |
+| `interface` | `theme`, `materialBackdropMode`, `themeContrastProfile`, `themeAccentFamily`, `themeSurfaceTintFamily`, `themeTintStrength`, `density`, `themePreset`, `startInNight`, `zoomSensitivity`, `zoomRequiresCtrl`, `lockLayoutByDefault`, `rememberWindowSize`, `recentProcessIds`, `favoriteProcessIds`. |
 | `export` | `tiffCompression`, `xisfCompression`, `xisfByteShuffle`, `xisfChecksum`, `jpegQuality`, `pngCompression`, `fitsFloatFormat`, `embedExif`, `embedHistory`, `defaultDirectory`. |
 | `logging` | `directory`, `level`, `maxSizeMb`, `maxFiles`. |
 | `platesolve` | `defaultSolver`, `searchRadius`, `downsample`, `timeout`, `indexPath`, `gaiaCatalogDirectory`, `gaiaCatalogPack`, `useHints`. |
 
 - **Values no page shows.** `maxThreadsPreview`, `materialBackdropMode`, `fitsFloatFormat`, `defaultDirectory` and
   `useHints` are stored and carried by the file, but no page of the dialog shows them, and a still-image save does not
-  read `fitsFloatFormat` or `defaultDirectory`. The database also keeps interface states no page shows: the
-  Dashboard's choices, the recent and favorite processes and the windows' sizes. Of these, only the recent and
-  favorite processes travel in a settings file.
-- **What a file leaves out.** The SPCC catalog's root and pack, its pending region, the response data's folder and the
-  choices of [response profiles](../reference/glossary.md#response-profile), the extensions' settings, the Dashboard's
+  read `fitsFloatFormat` or `defaultDirectory`. The database also keeps interface states no page shows: Home's
+  choices, the Session Console's drawer, the recent and favorite processes and the windows' sizes. Of these, only the
+  recent and favorite processes travel in a settings file.
+- **What a file leaves out.** The Projects page and the projects used last, the animations, the menu bar and the file
+  browser of the Interface page, the SPCC catalog's root and pack, its pending region, the response data's folder and
+  the choices of [response profiles](../reference/glossary.md#response-profile), the extensions' settings, Home's
   choices, the optics, observer and overlay choices the Plate Solve window keeps, and the catalogs themselves. A file
   is no backup of them.
 - **How an import reads.** The whole file is read at once, and nothing else: it never opens an image. A section the
@@ -145,8 +152,8 @@ a demand to log in says so (see [Messages](#messages)), and AfterNight then read
 
 ## What each part costs
 
-- **Saving.** A save is a small write. The theme repaints every window and the zoom reaches every view, so **Apply**
-  can pause the interface for a moment.
+- **Saving.** A save is a small write. A row of **Colours and Size** repaints every window as you choose it, and the
+  zoom reaches every view when you save, so either can pause the interface for a moment.
 - **The temporary folder.** Stacking, sequences and external tools write their intermediate files there. A fast local
   disk with room keeps that work quick, and a slow, small or removable one holds it up.
 - **External Tools.** The page asks for the versions away from the interface, but **Detect** asks while the dialog
@@ -196,6 +203,12 @@ a demand to log in says so (see [Messages](#messages)), and AfterNight then read
 "Export Failed" with "Could not write the settings file: ..."
 :   The folder cannot be written, or the disk is full. An earlier file of that name is left as it was.
 
+### Projects
+
+"The default location of projects must be a folder's full path."
+:   **Default location:** is empty, or names no folder from the root of a drive. Choose a folder with the folder
+    button.
+
 ### Raw Images
 
 "Custom white balance multipliers must be between 0.1 and 10.0"
@@ -234,6 +247,10 @@ a demand to log in says so (see [Messages](#messages)), and AfterNight then read
 "The log directory does not exist and could not be created: ..." and "The log directory is not writable: ..."
 :   **OK** could not create the folder, or write its test file `.afternight_log_test` there. Choose a folder you can
     write to, or fix the permissions of its parent.
+
+"Log Folder" with "The log folder '...' cannot be written, so the log stays in the file it was in. Choose a folder AfterNight can write to."
+:   The page was saved, or a settings file imported, with a log folder the running session cannot write to. The log
+    goes on in the file it was in. Choose another folder and save again.
 
 ### Catalogs & Data
 
@@ -311,7 +328,7 @@ Messages of the download that begin "Catalog manifest" or "SPCC catalog", such a
 
 Settings is not in the File menu
 :   **Cause.** It is in the Edit menu.
-:   **Fix.** Choose **Edit > Settings...**, press ++ctrl+comma++, or use the Settings button of the Dashboard.
+:   **Fix.** Choose **Edit > Settings...**, press ++ctrl+comma++, or choose **Settings** at the foot of the [rail](../reference/glossary.md#rail).
 
 A preview follows a dragged slider in steps, or a drag keeps the computer busy
 :   **Cause.** **Updates per second while dragging:** caps the previews of a drag.
@@ -376,7 +393,7 @@ The log folder reads the default after you saved it empty
 
 StarNet2 or DeepSNR stays unavailable after saving
 :   **Cause.** The path is empty, missing, cannot run, is too old or failed its check, and Settings saves it all the same.
-:   **Fix.** Wait for the line under the path to name a supported version, save, and open the process window again.
+:   **Fix.** Wait for the line under the path to name a supported version, save, and open the [task](../reference/glossary.md#task) again.
 
 SPCC's catalog is ready but its response data are missing
 :   **Cause.** The response data's download, which follows the full catalog, failed, was busy, was stopped by closing the
@@ -417,6 +434,6 @@ The web service is set up but its solves fail to log in or upload
 :   **Cause.** **Theme:** is **Light**, and OLED is for the dark theme.
 :   **Fix.** Choose **Dark** or **Follow System** first.
 
-The dock panels did not lock when you saved
-:   **Cause.** **Lock dock layout by default** is read at start.
-:   **Fix.** Restart AfterNight, or lock the layout now from the main window.
+A workspace did not lock when you saved
+:   **Cause.** **Lock dock layout by default** is read at the start and when a workspace is made.
+:   **Fix.** Choose **Lock layout** among the layout icons of the top bar.

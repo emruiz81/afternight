@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Exposure Correction window is open on it yet, and no window that needs
-    the image for itself is open on it.
+    An image or a sequence view is active, no Exposure Correction task is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the same size on
     its view.
@@ -45,19 +45,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/exposure-correction.webp
 alt: >-
-  The Exposure Correction window. On the left, a histogram with one broad peak near its left third and the lines
-  Clipping Low and Clipping High in its corner. Under it a toolbar, Exposure at 1.50 with its slider right of the
-  middle, Target Image, Channel at RGB and Preview checked. On the right, the preview shows a red nebula on a gray
-  background. Reset, Close and Apply run along the bottom.
+  The Exposure task. Its header reads Exposure on the stretched master, and the column's header Exposure Correction. The canvas at the left shows
+  the preview, a red nebula on a gray background. The column at the right opens with the compact readout of the
+  preview, then the Preview, Preview area and Processed toggles, Target Image and Channel at RGB, a histogram with one
+  broad peak near its left third and the lines Clipping Low and Clipping High in its corner, its toolbar, and Exposure
+  at 1.50 with its slider right of the middle. Reset, Close and Apply stand in its footer.
 caption: >-
   Exposure Correction on a stretched master with Exposure at 1.50, a factor of 1.3. The histogram is counted from the
-  brightened preview, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 8.7, y: 84.3}
-  - {n: 3, x: 2.1, y: 54.0}
-  - {n: 4, x: 2.6, y: 18.9}
-  - {n: 5, x: 45.3, y: 40.0}
-  - {n: 6, x: 90.6, y: 96.0}
+  brightened preview, and the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -78,26 +74,27 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the active one and choose **Process > Adjustments > Exposure**. The window
-   opens as **Exposure Correction**, its preview shows the image as its view displays it, and **Apply** is
-   disabled.
+1. **Open the task.** Make the image the active one and choose **Process > Adjustments > Exposure**, or find it in
+   the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas
+   at the left shows the image as its view displays it, the column at the right, headed **Exposure Correction**,
+   holds its controls, and **Apply** is disabled.
 2. **Choose the channel.** Leave **Channel** at **RGB** to scale the three channels by one factor. Choose a single
    channel or component only to change color on purpose.
 3. **Set the exposure.** Raise **Exposure** above 0 to brighten, or lower it below -0.10 to darken. The preview
    follows, and the peak of the histogram moves right or left.
 4. **Watch the highlights.** Read **Clipping High** in the corner of the histogram while you brighten. Lower the
    value again when it starts to rise: what it counts has become white.
-5. **Check the preview at 100 %.** Zoom the preview into the brightest stars and the brightest structure, and press
+5. **Check the preview at 100 %.** Zoom the canvas into the brightest stars and the brightest structure, and hold
    ++space++ over it to compare with the original. Star cores that turn flat or change color have clipped in a
    channel.
-6. **Apply.** Choose **Apply**. The image in its view is the scaled one, its history lists **Exposure Correction**
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the scaled one, its history lists **Exposure Correction**
    with the value you set, and the controls return to their defaults.
 
 ## Controls
 
 The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
-resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md).
+resolution** - changes only how the histogram is drawn, and is the same in every task that has one: see
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: The histogram
@@ -107,9 +104,9 @@ controls:
     default: ""
     effect: Shows how the samples of the image are spread between 0 and 1. With **Preview** on it is counted from the scaled preview, mask included. With **Preview** off it is counted from the image as it is.
     range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**. A finer resolution changes the drawing only, not the factor or the precision of the result.
-    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
+    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the canvas displays, and it shows the original while the canvas does.
     tradeoff: It is counted again after every preview, which adds to the time each change takes. While you drag the slider it may be counted from a reduced copy of the image, and the whole image follows when you release it.
-    scope: The window only. It never changes a sample.
+    scope: The task only. It never changes a sample.
     persistence: Counted again when the target, the preview or **Plot resolution** changes.
     note: Holding the left button shows the coordinates under the pointer until you release it. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer. **Reset** leaves the zoom as it is.
   - name: Clipping Low
@@ -117,8 +114,8 @@ controls:
     default: ""
     effect: Gives the share of the samples the histogram counts that are at or below 0. In a floating-point image no factor sends a sample above 0 to black, so this share comes from samples that were already there. In an integer image a strong darkening also rounds the lowest values to 0.
     range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
-    enabled: Shown while the toolbar's clipping button is on, as it is when the window opens.
-    scope: The window only.
+    enabled: Shown while the toolbar's clipping button is on, as it is when the task opens.
+    scope: The task only.
   - name: Clipping High
     kind: readout
     default: ""
@@ -126,7 +123,7 @@ controls:
     range: Counted as **Clipping Low** is.
     enabled: Shown while the toolbar's clipping button is on.
     tradeoff: It counts every sample at white, also those that were white before the factor and those a mask left alone. Compare it with **Preview** off to see what the factor adds.
-    scope: The window only.
+    scope: The task only.
 ```
 
 ```controls
@@ -141,16 +138,16 @@ controls:
     enabled: Disabled while Apply runs. Any value but 0 enables **Apply**.
     tradeoff: A factor above 1 sends every sample above 1 divided by the factor to white, which no later step brings back. The value is not a number of stops, and the label does not say which factor it stands for.
     scope: The preview and Apply, on the channel or component **Channel** selects, on images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
     note: The tooltip of the box and of the slider states the two factors.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
-    effect: Chooses the image Apply replaces, with the mask on its view. The title of the window, the choices of **Channel**, the histogram and the preview follow it.
+    options: [The active image, Every other open image or sequence the task can work on]
+    effect: Chooses the image Apply replaces, with the mask on its view. The task header, the choices of **Channel**, the histogram and the preview follow it.
     enabled: Disabled while Apply runs.
     tradeoff: Apply replaces the image chosen here, so check it before you Apply. A sequence is written again in a temporary place and replaced only when every frame is done.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -160,29 +157,29 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale** instead, and its one channel is multiplied. Disabled while Apply runs.
     tradeoff: Only **RGB** keeps the ratios between the colors, and only until a channel clips. Every other choice changes color on purpose and is not a change of exposure. A component choice adds two conversions to every preview and Apply.
     scope: The preview and Apply, on images and sequences. Only the chosen channel or component is held between 0 and 1. After a component choice the rebuilt colors of a floating-point image can leave that range, and those of an integer image stop at the limits of its type.
-    persistence: Until the window closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply return an RGB image to **RGB**.
+    persistence: Until the task closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply return an RGB image to **RGB**.
     note: A component is worked in single precision, or in double precision for a 64-bit floating-point image, and the conversion back is the exact inverse of the conversion there. An image described as linear is converted as linear RGB, any other as sRGB-encoded. The header, the plate solution and the acquisition data are kept with every choice.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the scaled image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the scaled image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: Each change scales the image again, or the **Preview area** alone, and counts the histogram again. On a large image, turn it off or use a **Preview area** while you try values, and check the whole image before Apply.
-    scope: The window only, on the image or on the frame of the sequence the view shows. It runs the same computation as Apply. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: The preview opens in the display mode of the image's view, **Linear** or **Autostretch**. In **Autostretch** it is stretched by the statistics of the image as it is, so a brighter exposure looks brighter. That display stretch can show faint structure and noise that the factor did not make, and it is not written by Apply. An image made with the preview's snapshot button is named `<target> - Exposure Correction - SNAPSHOT` and is not recorded as nonlinear.
+    scope: The task only, on the image or on the frame of the sequence the view shows. It runs the same computation as Apply. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: The canvas opens in the display mode of the image's view, **Linear** or **Autostretch**, and **Display Mode** in its floating toolbar changes it. In **Autostretch** the preview is stretched by the statistics of the image as it is, so a brighter exposure looks brighter. That display stretch can show faint structure and noise that the factor did not make, and it is not written by Apply. An image made with the preview's snapshot button is named `<target> - Exposure Correction - SNAPSHOT` and is not recorded as nonlinear.
   - name: Reset
     kind: button
     default: ""
     effect: Returns **Exposure** to 0 and, on an RGB image, **Channel** to **RGB**.
     range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
     enabled: Disabled while Apply runs.
-    scope: The window only. The image is not touched, and Apply is disabled afterwards.
+    scope: The task only. The image is not touched, and Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Scales the image, or every frame of the sequence, with the value and the channel as they are when you press it, and then returns the controls to their defaults.
-    enabled: When **Exposure** is not 0. That includes -0.10, where the factor is 1. It is disabled while the window opens and while a run works. While something else is working on the image, it only shows a warning.
+    enabled: When **Exposure** is not 0. That includes -0.10, where the factor is 1. It is disabled when the task opens, and **Cancel** takes its place while a run works. While something else is working on the image, it only shows a warning.
     tradeoff: The run writes the result beside the image, which needs the memory of a second image, in one pass over the processor threads it is given. A mask and a component choice add passes. When the memory limit cannot hold the result, nothing is written and a message says so.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
     persistence: >-
@@ -190,24 +187,24 @@ controls:
       **Exposure Correction** and reads, for example, `Adjust exposure to 1.5 in channel: RGB`, without the channel
       for a grayscale image. It records the value, not the factor or its stops, and not the toolbar's choices or
       the mask.
-    note: Closing the window instead discards the value and a preview on its way. The window has no presets, and nothing of it is saved between sessions.
+    note: Closing the task instead discards the value and a preview on its way. The task has no presets, and nothing of it is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and the frame being scaled, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being scaled, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: Every frame is read and written again in a temporary place, which needs the time of both and the disk space of a second copy until the run ends.
     scope: Every frame, scaled as a single image of it is, with the value, the channel and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view, which turns the frames of a mosaic sequence into RGB.
     persistence: A finished run replaces the sequence, adds one step to its history and returns the controls to their defaults.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The request is noticed before each frame and inside the scaling of one.
     note: The sequence is replaced only when every frame has been scaled. A frame that fails ends the run as Cancel does. After a cancelled run, Apply again and let it finish.
 ```
@@ -270,8 +267,7 @@ Under a mask whose value at a pixel is \(k\), from 0 for black to 1 for white, t
 - The factor is computed in single precision. Floating-point samples are worked in their own precision, 8-bit and
   16-bit integers in single precision and 32-bit integers in double precision.
 - A stopped run writes nothing: the image and its history stay as they were. A run stops on **Cancel** in the
-  progress window of a sequence, or when the image closes while Apply works.
-- A single image has no progress window and cannot be cancelled once Apply starts.
+  column's footer, or when the image closes while Apply works.
 
 ### Worked example
 
@@ -331,7 +327,7 @@ Apply is disabled
 Apply at -0.10 changed nothing you can see
 :   **Cause.** The factor at -0.10 is 1, yet the run still cuts floating-point samples outside 0 to 1, adds a
     history step and records the image as nonlinear.
-:   **Fix.** Undo the step. To leave an image as it is, close the window without Apply.
+:   **Fix.** Undo the step. To leave an image as it is, close the task without Apply.
 
 Highlights turn flat white, or bright stars change color
 :   **Cause.** Samples above 1 divided by the factor were cut to white, and the three channels reach white at
@@ -355,7 +351,7 @@ A floating-point image has samples outside 0 to 1 after a component choice
 ## Related
 
 - [Histogram Transformation](histogram-transformation.md) and [Statistical Stretch](statistical-stretch.md), to
-  make a linear master visible, which this window cannot do.
+  make a linear master visible, which this task cannot do.
 - [Gamma Correction](gamma-correction.md), to brighten or darken the midtones and keep black and white where they
   are.
 - [Adjust Brightness/Contrast](../color-adjustment/adjust-brightness-contrast.md), to shift the brightness and
@@ -363,5 +359,4 @@ A floating-point image has samples outside 0 to 1 after a component choice
 - [Image Statistics](../../interface/image-statistics.md), to measure the room above the highlights before you
   brighten.
 - [Image History](../../interface/image-history.md), to read the recorded value and to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.

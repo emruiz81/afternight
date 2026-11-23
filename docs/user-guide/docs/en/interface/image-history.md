@@ -1,75 +1,70 @@
 ---
 kind: interface
 summary: >-
-  Image History lists the steps of an image or sequence view and previews any of them. From it you restore, clone or
-  remove a step and save the list as text. Undo and Redo move through the same steps.
+  Every image keeps the steps made to it. The history strip under a view shows them with Undo and Redo, and the Image
+  History window previews, restores, clones or removes a step and saves the list as text.
 menu: Edit > Image History
 ---
 # Image History
 
 Every image or [sequence](../reference/glossary.md#sequence) view keeps a [history](../reference/glossary.md#history):
 the state the view began with, then one step for each change of the image - an Apply, a mirror or a turn, a format
-conversion, a [plate solution](../reference/glossary.md#plate-solution) written into it, a rename. **Edit > Undo** and
-**Edit > Redo** move the image one step back or forward. The Image History window lists the steps, shows any of them
-without changing the image, and restores, clones or removes one.
+conversion, a [plate solution](../reference/glossary.md#plate-solution) written into it, a rename. The history strip
+under the view, and under a [task](../reference/glossary.md#task)'s canvas, shows the steps with **Undo**, **Redo** and **Image History**. The Image
+History window lists the steps, shows any of them without changing the image, and restores, clones or removes one.
 
-A history keeps 20 states, the first one included, and lasts as long as its view. No file stores it, so save the
-states you need to keep.
+A history keeps 20 states, the first one included. Without a [project](projects.md) it lasts as long as its view, so
+save the states you need to keep. An image of a [project](../reference/glossary.md#project) keeps its history in the project's folder.
 
 ```figure
 owed: true
 image: ../assets/images/interface/image-history.webp
 alt: >-
-  The Image History window. Under the title bar, the heading Image History and a line about the edits of the image.
-  On the left, a card titled History Timeline holds a table with the columns Step, Executed and Description and three
-  rows: Initial state, Histogram Transformation, highlighted, and Color Saturation in bold. On the right, a card
-  titled Selected Step Preview names Histogram Transformation over its date and time, a line saying that a historical
-  step is previewed and its Shadows, Midtones and Highlights values, then a small picture of the stretched nebula and
-  a histogram of three colored areas. Along the bottom, an up arrow, a down arrow and a save button on the left,
-  Refresh and Close on the right.
+  The centre of the main window with the Carina Nebula master in its view, stretched, its tab named RGB with an
+  asterisk, and the floating toolbar near the bottom. Under the view, the history strip reads HISTORY, then three chips
+  joined by chevrons: Initial state, Histogram Transformation, and Gamma Correction with a check on an accent ground.
+  At its right are the undo, redo and history buttons.
 caption: >-
-  The history of the Carina master after Histogram Transformation and Color Saturation, with the earlier step
-  selected: the picture shows that step, while the image stays at the bold, current one.
+  The history strip of the Carina master after Histogram Transformation and Gamma Correction: the image shows the
+  last step.
 pins:
-  - {n: 1, x: 14.7, y: 9.2}
-  - {n: 2, x: 14.7, y: 18.4}
-  - {n: 3, x: 16.6, y: 33.7}
-  - {n: 4, x: 71.5, y: 18.4}
-  - {n: 5, x: 59.2, y: 48.5}
-  - {n: 6, x: 92.8, y: 72.0}
-  - {n: 7, x: 32.0, y: 94.5}
-  - {n: 8, x: 76.0, y: 94.5}
+  - {n: 1, x: 1.0, y: 97.9}
+  - {n: 2, x: 6.9, y: 97.9}
+  - {n: 3, x: 34.8, y: 97.9}
+  - {n: 4, x: 90.7, y: 97.9}
 ```
 
 ## What you see
 
-1. **The header.** The title bar names the view, as `Image History <RGB>`. Each time you open the window you get
-   another one, and it closes with its view.
-2. **History Timeline.** One row for each state: **Initial state** first, then the steps in the order they were
-   made, with the time each was recorded and what it recorded.
-3. **The current step.** The row in bold is the state the image is in now.
-4. **Selected Step Preview.** The name of the row you selected, its time, whether it is current, and its description.
-5. **The picture.** The selected state, reduced to fit. A state that is still linear is stretched for the screen, as
-   the recent files of the Dashboard are.
-6. **The histogram.** The samples of the selected state, counted at full precision, with the shares clipped at either
-   end.
-7. **The buttons on the left.** The arrows restore the step just before or after the bold one, and the disk saves the
-   list as a text file. An eye between them shows or hides inherited steps, when the image has some.
-8. **Refresh and Close.** **Refresh** reads the history again, and **Close** closes the window.
+1. **HISTORY.** The strip's label, at its left.
+2. **The steps.** A chip for each state of the image, the oldest at the left, with chevrons between them. Resting the
+   pointer on a chip shows what the step recorded. A step inherited from the image this one was made from is in pale
+   text.
+3. **The current step.** The chip with a check, in the accent color: the state the image shows.
+4. **Undo, Redo and Image History.** At the strip's right. **Undo** and **Redo** are enabled when the history has a
+   step for them.
+
+While a task is open on the image, a dashed chip after the current step names its process and "pending": the step it
+will make, which is not in the history until Apply. During the run it reads "writing". When the steps do not fit, the
+oldest give way to a "..." chip that opens the Image History window.
 
 ## What you can do
 
 ### Undo and redo a step
 
-Choose **Edit > Undo**, press ++ctrl+z++, or choose **Undo** on the view's toolbar. The command names the step it
-takes back, as `Undo <Color Saturation>`. **Redo**, or ++ctrl+y++, makes the step again. The state is read back in
-the background and replaces the image when it is ready. Until then the window stays responsive, and pressing the
-command again does nothing.
+Choose **Undo** on the history strip, **Edit > Undo**, or press ++ctrl+z++. The command names the step it takes back,
+as `Undo <Color Saturation>`. **Redo**, or ++ctrl+y++, makes the step again. The state is read back in the background
+and replaces the image when it is ready. Until then the window stays responsive, and pressing the command again does
+nothing. On a task's page, the strip and the commands act on the task's target.
+
+### Go to a step from the strip
+
+Click a chip of the strip. The image takes that state, as **Jump To Step** does in the window below, and the chip
+takes the check. The current chip and the inherited ones take no click.
 
 ### Look at an earlier state
 
-1. Choose **Edit > Image History**, choose **Image History** on the view's toolbar, or press ++ctrl+shift+z++ over the
-   view.
+1. Choose **Image History** on the history strip, **Edit > Image History**, or press ++ctrl+shift+z++ over the view.
 2. Click a row once. After a moment its picture, histogram and description appear on the right. The image does not
    change, and the bold row stays where it was.
 
@@ -100,38 +95,53 @@ then the image's own, with the current step marked by `*`. It keeps no pixels an
 ### See where an image came from
 
 A view made from another one - a duplicate, a clone, a snapshot, the new image of many processes - shows the other's
-steps above its own, under `Inherited from "<name>"`. This inherited [lineage](../reference/glossary.md#lineage) can
-be read and saved, but not selected, restored or cloned. The eye hides it and shows it again.
+steps above its own, under `Inherited from "<name>"`, and the strip shows them first, in pale text. This inherited
+[lineage](../reference/glossary.md#lineage) can be read and saved, but not selected, restored or cloned. The eye hides
+it and shows it again.
+
+### Keep a history with a project
+
+While a project is open, an image opened from a file, or saved, becomes the project's, and its steps are written into
+the project's folder. They stay there when the view closes. Opening the file again in the project gives its history
+back, the step the file holds being the current one. A file changed since is not given its old history: the project
+sets it aside and says so. A sequence keeps its history with the session. [Projects](projects.md) says how a project
+keeps, moves and compacts histories.
 
 ## Controls
 
-### Undo and Redo
+### History strip
 
 ```controls
-window: Undo and Redo
+window: History strip
 controls:
-  - name: Undo
-    kind: action
+  - name: Steps
+    kind: readout
     default: ""
-    effect: Restores the state before the bold step and moves the bold row up one. **Edit > Undo** names the step it takes back, as `Undo <Histogram Transformation>`, and so does the tooltip of the view's button.
-    enabled: When the active view has a step before the current one. ++ctrl+z++ and **Undo** on the view's toolbar do the same.
+    effect: A chip for each state, the oldest at the left, the current one with a check. The steps of the image the strip shows - the workspace's active image, or a task's target - and nothing of a floating image, which has no strip.
+    range: When the chips do not fit, the oldest give way to a "..." chip, whose tooltip reads "Earlier steps", and which opens the Image History window.
+    note: The tooltip of a step gives its description, of the current one "the image shows this step", and of an inherited one "inherited from the image this one was made from". A task open on the image adds its dashed chip, "pending" until Apply and "writing" during the run.
+  - name: Undo
+    kind: toolbutton
+    default: ""
+    effect: Restores the state before the bold step and moves the bold row up one. **Edit > Undo** names the step it takes back, as `Undo <Histogram Transformation>`, and so does the button's tooltip.
+    enabled: When the image the strip shows has a step before the current one. ++ctrl+z++ and **Edit > Undo** do the same.
     tradeoff: The state is read from its snapshot on disk in the background, and waits there for a snapshot still being written. A large image or slow temporary storage delays it. There is no progress window and no cancel.
     scope: The image or sequence of the active view - its pixels, its header and plate solution, its valid pixels and the name it had - as the step recorded them. A still image keeps the file it was opened from, so saving it writes there.
     persistence: The step after it stays, and **Redo** brings it back until the image changes again.
     note: "One restore runs at a time: pressing it again before the first has landed does nothing. A restore that fails changes nothing and says \"Could NOT undo the last step. Error message: ...\" in a message titled **Image History**. Without an active image it says \"No selected image to undo changes from\"."
   - name: Redo
-    kind: action
+    kind: toolbutton
     default: ""
-    effect: Restores the state after the bold step and moves the bold row down one. **Edit > Redo** names the step, as `Redo <Color Saturation>`.
-    enabled: After an Undo or a jump back, until the image changes. ++ctrl+y++ and **Redo** on the view's toolbar do the same.
+    effect: Restores the state after the bold step and moves the bold row down one. **Edit > Redo** names the step, as `Redo <Color Saturation>`, and so does the button's tooltip.
+    enabled: After an Undo or a jump back, until the image changes. ++ctrl+y++ and **Edit > Redo** do the same.
     note: "A restore that fails changes nothing and says \"Could NOT redo the next step. Error message: ...\". Without an active image it says \"No selected image to redo changes to\"."
   - name: Image History
-    kind: action
+    kind: toolbutton
     default: ""
-    effect: Opens the Image History window of the active view.
-    enabled: With an image or sequence view active. ++ctrl+shift+z++ over the view and **Image History** on its toolbar do the same. The preview of a process window has no history.
+    effect: Opens the Image History window of the image the strip shows.
+    enabled: With an image or sequence. ++ctrl+shift+z++ over the view and **Edit > Image History** do the same. A task's preview has no history of its own, and its strip shows the target's.
     persistence: Each choice opens another window, which leaves the rest of the application usable and closes with its view. Nothing of the window is kept when it closes.
-    note: Without an active image it says "No selected image to show history from".
+    note: Without an active image, **Edit > Image History** says "No selected image to show history from".
 ```
 
 ### The window
@@ -191,7 +201,7 @@ controls:
     effect: Counts the selected state at full precision and draws each channel as a filled area, with **Clipping Low** and **Clipping High** in its corner.
     enabled: Shown when the state could be read.
     tradeoff: Counting a large state takes time and memory.
-    note: It has no toolbar. The wheel with ++ctrl++ held zooms it, as in a process window.
+    note: It has no toolbar. The wheel with ++ctrl++ held zooms it, as in a task.
   - name: Up arrow
     kind: button
     default: ""
@@ -281,8 +291,8 @@ controls:
     effect: A copy of the image taken the moment the step is recorded, which later changes cannot reach. It is written to disk in the background with every sample, the header, the plate solution and the valid pixels, and read back bit for bit - every pixel type, extreme values, infinities and subnormals included.
     range: Up to two copies, and 1 GiB between them, wait for the writer across all open views, and a larger copy waits alone. An edit of a still image - an Apply, a mirror or a turn, a conversion, **Apply Stretch** - waits in the background until the state it replaces is written and its own copy has room, and only then is shown.
     tradeoff: A burst of edits on a large image, on slow storage, takes longer to appear, while the application keeps responding. A wait for the writer has no limit and no cancel, and an edit or a restore that seems stuck is waiting there. Read the Session Console when it lasts. A fast local disk for the temporary folder keeps the waits short, and closing views you no longer need frees the space of their snapshots.
-    scope: The snapshots of a view are written in a folder of their own, whose name starts with `AN_HISTORY_`, inside the session's folder in the temporary location of Settings. Each is a checksummed file, written under a temporary name and renamed when it is whole. The history reads back only the files it wrote, never the image's own file, whose name it never changes.
-    persistence: Closing the view drops the copies still waiting, stops the one being written, closes its history windows and deletes that folder, and nothing else.
+    scope: The snapshots of a view are written in a folder of their own, whose name starts with `AN_HISTORY_`, inside the session's folder in the temporary location of Settings, or in the project's folder for an image of a project. Each is an XISF image whose samples are compressed as **History compression** on the Projects page of Settings says, with a record only AfterNight reads; a state XISF cannot hold is written as a snapshot of AfterNight's own. A step is written whole or not at all. The history reads back only the files it wrote, never the image's own file, whose name it never changes.
+    persistence: Closing the view drops the copies still waiting, stops the one being written, closes its history windows and deletes that folder, and nothing else. A project's image keeps its folder in the project.
   - name: A rename
     kind: readout
     default: ""
@@ -296,7 +306,7 @@ controls:
   - name: What no step keeps
     kind: readout
     default: ""
-    effect: The view's own settings - its channel, display mode, zoom and position, its mask and the way the mask is shown, the process windows open on it - and its detected stars. A restore leaves the settings as they are, except that a mask that no longer fits is removed and the channels offered follow the restored image. It clears the detected stars and marks the image unsaved.
+    effect: The view's own settings - its channel, display mode, zoom and position, its mask and the way the mask is shown, the tasks open on it - and its detected stars. A restore leaves the settings as they are, except that a mask that no longer fits is removed and the channels offered follow the restored image. It clears the detected stars and marks the image unsaved.
   - name: A step that was not kept
     kind: readout
     default: ""
@@ -336,9 +346,9 @@ Undo restored the pixels but not the [mask](../reference/glossary.md#mask), the 
 
 ## Related
 
-- [Image Viewer](image-viewer.md), for the **Undo**, **Redo** and **Image History** buttons of a view.
-- [Process Windows](process-windows.md), for the step an Apply records.
-- [Toolbar & Menus](toolbar-and-menus.md), for the **Edit** menu.
+- [Image Viewer](image-viewer.md), for the view the history strip stands under.
+- [Tasks](tasks.md), for the step an Apply records and the pending chip of an open task.
+- [Projects](projects.md), which keep the histories of their images.
 - [Saving and Exporting](saving-and-exporting.md), to keep a state as a file.
 - [Session Console](log-viewer.md), for what a failed snapshot, restore or save wrote.
-- [Settings](settings-dialog.md), for the temporary folder the snapshots are written to.
+- [Settings](settings-dialog.md), for the temporary folder and the compression of the snapshots.

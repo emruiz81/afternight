@@ -12,20 +12,23 @@ each one is, whether it suits this AfterNight and whether its package is signed,
 removes them. It can also install a package file from your disk. It is no store, sells nothing and lists no other
 repository.
 
-Open it with **Extensions > Manage Extensions...**, with **Extension Manager** under the Dashboard's **···** button,
-or with **Open Extensions** in the message AfterNight shows after it starts when an installed extension has an update.
-Once a package is installed, the **Installed** tab says whether it can run: see [Using Extensions](using-extensions.md).
+Open it with **Extensions > Manage Extensions...**, its row in the
+[command palette](../reference/glossary.md#command-palette), **More actions > Extension Manager** on
+[Home](../interface/home.md), or **Open Extensions** in the message AfterNight shows after it starts when an installed
+extension has an update. Once a package is installed, the **Installed** tab says whether it can run: see
+[Using Extensions](using-extensions.md).
 
 ```figure
 owed: true
 image: ../assets/images/extensions/extension-marketplace.webp
 alt: >-
-  The Extensions window on its Browse tab. Under the tabs, a banner counts the packages the repository offers and a
-  line gives the disk space the extension environments take. A row holds a search box, a Filter list at All
-  Extensions, a Sort list at Name (A-Z), a Refresh button and a More Actions button. Package cards follow, each with
-  its name, badges for its state, its version and its signature, and the buttons Install or Installed, Uninstall and
-  Details. The first card is open on its details, in five parts from Overview to Trust. Two check boxes, Automatically
-  remove unused extension environments and Allow unsigned extensions, sit above Reset Tab and Close.
+  The Extensions window, a window of its own in front of the main window, on its Browse tab. Under its heading,
+  Extensions, and the tabs, a banner counts the packages the repository offers and a line gives the disk space the
+  extension environments take. A row holds a search box, a Filter list at All Extensions, a Sort list at Name (A-Z), a
+  Refresh button and a More Actions button. Package cards follow, each with its name, badges for its state, its
+  version and its signature, and the buttons Install or Installed, Uninstall and Details. The first card is open on
+  its details, in five parts from Overview to Trust. Two check boxes, Automatically remove unused extension
+  environments and Allow unsigned extensions, sit above Reset Tab at the left and Close at the right.
 caption: >-
   The Browse tab with the official repository's list, the first card open on its details.
 pins:
@@ -68,8 +71,9 @@ repository again in the background.
 
 ### Read a card before you install
 
-Choose **Details**, and read each part: what the package does, who wrote and publishes it, its licence, the work it
-derives from, its links and changelog, the platforms it runs on, and its **Trust**. Each is a decision of its own.
+Choose **Details**, and read each part: what the package does, who wrote and publishes it, its licence, how it runs
+and where its processes open, the work it derives from, its links and changelog, the platforms it runs on, and its
+**Trust**. Each is a decision of its own.
 **Signed** means that the package file comes from the publisher whose key this AfterNight trusts. It says nothing of
 whether the code is safe or suits your data. The package's own pages hold its documentation and its support.
 
@@ -80,7 +84,7 @@ whether the code is safe or suits your data. The package's own pages hold its do
 2. The button reads **Installing...**, and the summary and a bar show each step. **Cancel** stops the install, which
    then leaves nothing behind.
 3. When it is done, the summary reads "Installed", the name, the version and "Startup caches primed.", and the card's
-   state reads **Repository installed**. Its processes appear in the **Process** menu.
+   state reads **Repository installed**. Its processes appear in the menus and the command palette.
 4. Open the **Installed** tab and check that the package shows **Available**. A download that succeeded is not yet a
    package that runs.
 
@@ -92,7 +96,7 @@ settings. When the new version cannot be put in place, the version you had is pu
 
 ### Remove an extension
 
-Close the extension's windows, choose **Uninstall** on its card and then **Yes**. Its environment stays, until
+Close the extension's [tasks](../reference/glossary.md#task), choose **Uninstall** on its card and then **Yes**. Its environment stays, until
 **More Actions > Clean unused environments** removes the environments no package uses.
 
 ### Install a package file
@@ -284,7 +288,7 @@ controls:
       are disabled by policy." as its tooltip.
     tradeoff: >-
       It downloads the package and prepares its environment, which can take minutes, disk space and the network.
-      Keep the window open until the summary says it is done. Close the extension's windows before an update: a host
+      Keep the window open until the summary says it is done. Close the extension's tasks before an update: a host
       that runs is not started again on the new files.
   - name: Uninstall
     kind: button
@@ -318,7 +322,14 @@ controls:
     kind: readout
     default: ""
     effect: >-
-      **Description**, **State**, **Status**, **Version**, **Status Detail**, **Author**, **Publisher** and **License**.
+      **Description**, **State**, **Status**, **Version**, **Status Detail**, **Author**, **Publisher**, **License**,
+      **How It Runs** and **Where It Opens**, and **Processes It Added** for an extension that added processes while
+      it ran.
+    range: >-
+      **How It Runs** reads "With engine access" for a Full hosted package and "Without engine access" for the others.
+      **Where It Opens** reads "In the main window", "In a window of its own" or "Nowhere, it has no interface", each
+      process named where they differ, and "Known once it is installed" before the package is. **Processes It Added**
+      counts the processes AfterNight lists now, as "1 process" or "3 processes".
     note: A value the repository does not give reads "Not declared".
   - name: Provenance
     kind: readout
@@ -436,7 +447,8 @@ The install downloads, then fails
 - [Extension Marketplace Reference](extension-marketplace-reference.md), for how an install runs, what the trust
   states mean, what an install writes, and every message.
 - [Settings](../interface/settings-dialog.md), for **Check for extension updates on startup**.
-- [Dashboard](../interface/dashboard.md), for its **Extension Manager**.
+- [Extensions in the Window](extension-tasks.md), for how the processes of a package you installed show in the main
+  window.
 - [Session Console](../interface/log-viewer.md), for the lines the repository, the installs and the check at start
   write.
 - [System Requirements](../reference/system-requirements.md), for what the network and the disk must provide.

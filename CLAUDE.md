@@ -322,7 +322,9 @@ of one that were not found. A project's images close with it, and what it was le
 again (`ProjectLayoutStore`). Nothing below the shell includes it (`SourceGuards.ShellsDoNotReachEachOther`), and
 no source names the Classic style profile or includes a header that went with the classic shell of AfterNight 1.1
 (`SourceGuards.NoClassicProfileIsLeft`). Its cases are in `Test_ShellObservatory`, over `ObservatoryWindowCase`, beside
-the records of the interface (`data/*.txt`) and the cases of the settings pages and dialogs it opens.
+the records of the interface (`data/*.txt`) and the cases of the settings pages and dialogs it opens; one of them,
+`ShellUiInventory.MatchesTheRecord`, holds the user guide's record of the window's own controls
+(`docs/user-guide/data/ui/shell/`, written by the case with `AFTERNIGHT_WRITE_SHELL_INVENTORY`).
 
 ### AfterNightApp (`src/AfterNightApp/`)
 

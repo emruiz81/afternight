@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Bilateral Filter window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Bilateral Filter task is open on it yet, and no task that needs the image
+    to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, with finite samples, and an optional mask of the image's
     size on its view.
@@ -41,21 +42,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/bilateral-filter.webp
 alt: >-
-  The Bilateral Filter window. On the left, the Diameter, Sigma Space and Sigma Color boxes with their sliders, the
-  Link Sigma controls check box and the Amount box with its slider, and lower down Target Image, Channel at RGB and the
-  Preview check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch
-  over the preview of a red nebula, with the word PREVIEW in its corner and a small framed area in its middle. Reset,
-  Close and Apply run along the bottom.
+  The Bilateral Filter task. Its header names Bilateral Filter and the master. The canvas at the left shows the
+  preview of a red nebula, the word PREVIEW in its corner and a framed area in its middle, with a floating toolbar of
+  zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right holds the
+  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
+  at RGB, the Diameter, Sigma Space and Sigma Color boxes with their sliders, the Link Sigma controls check box and the
+  Amount box with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
   Bilateral Filter on the linear master with Sigma Color at 0.01 and the other values at their defaults. The framed
-  area shows what Apply writes there, over the original, in the Autostretch display mode.
-pins:
-  - {n: 2, x: 34.8, y: 85.4}
-  - {n: 3, x: 72.5, y: 54.6}
-  - {n: 4, x: 34.8, y: 24.7}
-  - {n: 5, x: 34.8, y: 15.7}
-  - {n: 6, x: 5.0, y: 39.2}
-  - {n: 8, x: 89.2, y: 96.0}
+  area of the canvas shows what Apply writes there, over the original, in the Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -74,28 +70,30 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Filters > Bilateral Filter**. The preview shows the filtered image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+1. **Open the task.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Filters > Bilateral Filter**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows the filtered image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, and the column at the right
+   holds its controls.
 2. **Choose what to smooth.** Leave **Channel** at **RGB** to filter the three channels, each on its own. Choose
    **CIE L* (Lightness)** to smooth the brightness and leave the colors as they are.
 3. **Place the area.** Move the frame over smooth background, faint nebula, a few stars and the edge of a dust lane,
-   and zoom the preview to 100 %.
+   and zoom the canvas to 100 %.
 4. **Lower Sigma Color.** Type a few times the grain of the background, or 0.01, the smallest value the box takes, on
    a [linear image](../../reference/glossary.md#linear-image), whose grain is often below it. The grain fades while the
    stars and the edges keep their values.
 5. **Set the reach.** Keep **Diameter** at 5 for grain of a pixel or two, and raise it to 7 or 9 for coarser blotches.
    Leave **Sigma Space** high, so that every pixel of the disc counts alike.
 6. **Set the strength.** Lower **Amount** to bring back part of the original when the result looks flat or waxy.
-7. **Check at 100 %.** Hold ++space++ over the preview to compare with the original. Then untick **Preview area** and
-   look at the whole image, its stars and its edges.
-8. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the filtered image, and its history
-   lists **Bilateral Filter** with the values.
+7. **Check at 100 %.** Hold ++space++ over the canvas to compare with the original. Then untick **Preview area** in
+   the column's toggles row and look at the whole image, its stars and its edges.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column follows the run, the view
+   shows the filtered image, and its history lists **Bilateral Filter** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Bilateral Filter
@@ -109,7 +107,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The work grows with the pixels of the disc, 13 at 5, 81 at 10 or 11 and 317 at 20, and up to 3,209 when the radius follows **Sigma Space**. The weights depend on the centre's value, so the filter cannot be split into two cheaper passes along the rows and the columns.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Sigma Space
     kind: spinbox
     default: "30.00"
@@ -119,7 +117,7 @@ controls:
     enabled: Disabled while Apply runs. With **Link Sigma controls** ticked, a change sets **Sigma Color** to the same number.
     tradeoff: With **Diameter** below 1, a large value makes a wide disc and a slow preview. Above 21 it changes only the weights inside that disc.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Sigma Color
     kind: spinbox
     default: "30.00"
@@ -129,7 +127,7 @@ controls:
     enabled: Disabled while Apply runs. With **Link Sigma controls** ticked, a change sets **Sigma Space** to the same number.
     tradeoff: The default is thirty times full scale. Even a jump from black to white then keeps 0.9994 of its weight, and the disc is averaged as a plain mean that blurs every edge. Too low a value leaves the grain, or smooths some of it and keeps the rest as flat patches with steps between them. The grain of a linear master is often well below 0.01, so even 0.01 also smooths faint texture. Lower **Amount** to keep some of it.
     scope: The preview and Apply, before **Amount** and the mask. Each channel or component is judged by its own differences.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Link Sigma controls
     kind: check
     default: "Off"
@@ -137,7 +135,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The two sigmas are on different scales, pixels and fractions of full scale. A **Sigma Space** of a few pixels is a **Sigma Color** that blurs every edge. A **Sigma Color** of 0.01 to 0.05, useful on a linear image, leaves the neighbours one pixel away no weight, and the image stays as it was.
     scope: The two sigmas of the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it. The history does not record it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it. The history does not record it.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -147,13 +145,13 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: It brings back grain and detail together. The filter runs in full at any value.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -161,19 +159,19 @@ controls:
     effect: Chooses what is filtered. **RGB** filters each of the three channels on its own, each weighed by its own differences, not by a distance between colors. **Red**, **Green** or **Blue** filters that channel and keeps the other two. Every other choice filters one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, an edge strong in one channel and weak in another is kept in the first and smoothed in the second, which can shift colors at faint colored edges. A component costs two conversions and a working copy, and the conversion back can change colors.
-    scope: The preview and Apply, before **Amount** and the mask. **Sigma Color** is read in the units of the component, which Process Windows gives.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. **Sigma Color** is read in the units of the component, which Tasks gives.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the filtered image beside the controls, with **Amount** and the mask applied.
+    effect: Shows the filtered image in the canvas, with **Amount** and the mask applied.
     range: >-
-      The pane opens with a **Preview area** of 800 by 800 pixels in the middle of the image, labelled "Preview:
-      Bilateral Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
-    tradeoff: Every change filters the area, or the whole image, again, and a large disc makes each preview slow. The area is filtered as an image of its own, mirrored at its own edges. While you drag a slider with no area drawn, the preview filters the part of the image the pane shows, at full scale, exactly as Apply writes it there.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+      The canvas opens with a **Preview area** of 800 by 800 pixels in the middle of the image, labelled "Preview:
+      Bilateral Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles row, and
+      **Take snapshot** on the canvas's floating toolbar.
+    tradeoff: Every change filters the area, or the whole image, again, and a large disc makes each preview slow. The area is filtered as an image of its own, mirrored at its own edges. While you drag a slider with no area drawn, the preview filters the part of the image the canvas shows, at full scale, exactly as Apply writes it there.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -183,8 +181,8 @@ controls:
     kind: button
     default: ""
     effect: Filters the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns the values to their defaults.
-    enabled: From the moment the window opens, at any values, a sigma of 0 included.
-    tradeoff: A single image shows a progress window too, and its **Cancel** is noticed between two rows. The filter takes a single-precision copy of one channel, bordered by the disc's radius and used for each channel in turn, beside the second copy every run needs. It works on the threads the run is granted.
+    enabled: From the moment the task opens, at any values, a sigma of 0 included.
+    tradeoff: The column shows the run of a single image too, and **Cancel**, in Apply's place meanwhile, is noticed between two rows. The filter takes a single-precision copy of one channel, bordered by the disc's radius and used for each channel in turn, beside the second copy every run needs. It works on the threads the run is granted.
     persistence: "The history step is **Bilateral Filter** and reads, for example, `Diameter: 5.00, Sigma Space: 30, Sigma Color: 0.01, Amount: 1.00 in channel: RGB`. For a grayscale image it ends after the amount. **Link Sigma controls** and the mask are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
@@ -231,7 +229,7 @@ With \(a\) the value of **Amount**, the result before the mask is
   discs as 0.
 - Every pixel type is filtered in single precision. A 64-bit floating-point image is narrowed to it, and an integer
   result is rounded to the nearest code.
-- **Cancel**, or closing the window, stops the run between two rows, and nothing is written.
+- **Cancel** stops the run between two rows, and nothing is written.
 
 ### Worked example
 
@@ -328,8 +326,7 @@ The preview area differs from the result of Apply
   reduce noise while keeping edges.
 - [Image History](../../interface/image-history.md), to undo the step.
 - [Masks](../../interface/masks.md), to filter the background and protect the stars.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

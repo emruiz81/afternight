@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Cosmetic Correction window is open on it yet, and no window that needs
-    the image to itself is open on it.
+    An image or a sequence view is active, no Cosmetic Correction task is open on it yet, and no task that needs the
+    image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply waits for
+    nothing else to be working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, a raw color-filter mosaic included, and an optional mask
     of the image's size on its view. No dark frame is needed.
@@ -43,29 +44,22 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 owed: true
 image: ../../assets/images/processes/calibration/cosmetic-correction.webp
 alt: >-
-  The Cosmetic Correction window. On the left, the Hot Pixels and Cold Pixels check boxes, each over a Threshold box at
-  0.50 with its slider, then General Settings with Kernel Size at 3x3 and Amount at 1.00 with its slider, and lower
-  down Target Image, Channel reading Grayscale and the Preview check box. On the right, a toolbar of zoom buttons, a
-  channel box and a display mode box reading Autostretch over the preview of a gray frame with a galaxy across its
-  middle, the word PREVIEW in its corner and a small framed area in its middle. Reset, Close and Apply run along the
-  bottom.
+  The Cosmetic Correction task. Its header names Cosmetic Correction and the raw light. The canvas at the left shows
+  the preview of a gray frame with a galaxy across its middle, the word PREVIEW in its corner and a framed area in its
+  middle, under a floating toolbar of zoom buttons and a channel box. The wide column at the right holds the toggles
+  Preview, Preview area and Processed, then Target Image, Channel reading Grayscale, the Hot Pixels and Cold Pixels
+  check boxes, each over a Threshold box at 0.50 with its slider, and General Settings with Kernel Size at 3x3 and
+  Amount at 1.00. Reset, Close and Apply stand in its footer.
 caption: >-
   Cosmetic Correction at its defaults on a raw light of NGC 253, in the Autostretch display mode: the framed area in
-  the middle shows what Apply writes there.
-pins:
-  - {n: 2, x: 2.4, y: 15.0}
-  - {n: 3, x: 72.8, y: 54.6}
-  - {n: 4, x: 2.4, y: 20.6}
-  - {n: 5, x: 2.4, y: 44.8}
-  - {n: 6, x: 2.4, y: 49.3}
-  - {n: 8, x: 90.0, y: 96.0}
+  the middle of the canvas shows what Apply writes there.
 ```
 
 ## Before you start
 
 - Where you have a [master](../../reference/glossary.md#master) [dark frame](../../reference/glossary.md#dark-frame),
   remove the defects in calibration: the cosmetic correction of [Image Calibration](image-calibration.md) finds them in
-  the master dark, and repairs a mosaic from pixels of the same color. Use this window for what calibration leaves, or
+  the master dark, and repairs a mosaic from pixels of the same color. Use this [task](../../reference/glossary.md#task) for what calibration leaves, or
   on lights without darks.
 - Correct a raw [CFA](../../reference/glossary.md#cfa) mosaic before you [debayer](../../reference/glossary.md#debayer)
   it: a defect is one sample there, and the debayer spreads it into its neighbors. The window's median mixes the
@@ -80,26 +74,29 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the frame the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Filters > Cosmetic Correction Filter**. The preview shows the corrected image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+1. **Open the task.** Make the frame the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Filters > Cosmetic Correction Filter**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the corrected image inside a framed [preview area](../../reference/glossary.md#preview-area) in the
+   middle of the image, and the column at the right holds its controls.
 2. **Choose what to replace.** Keep **Hot Pixels** and **Cold Pixels** ticked, or untick the kind your frame does not
    need. With both unticked, **Apply** is disabled.
-3. **Place the area.** Move the frame over hot pixels and a few stars, zoom the preview to 100 %, and hold ++space++
+3. **Place the area.** Move the frame over hot pixels and a few stars, zoom the canvas to 100 %, and hold ++space++
    over it to compare with the original.
 4. **Set the thresholds.** When defects stay, lower the **Threshold** of **Hot Pixels** in steps of 0.05 until they
    are gone. When the cores of stars change, raise it. Set the **Threshold** of **Cold Pixels** the same way.
 5. **Widen the window only for clusters.** Keep **Kernel Size** at **3x3**. Choose **5x5** when defects of several
    touching pixels stay, and check the stars again.
 6. **Soften the result if needed.** Lower **Amount** when a full replacement looks abrupt.
-7. **Check the whole image.** Untick **Preview area** and look at the whole frame and its edges.
-8. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the corrected image, and its history
-   lists **Cosmetic Correction** with the values.
+7. **Check the whole image.** Turn off **Preview area** in the column's toggles row and look at the whole frame and its
+   edges.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column follows the run, the view
+   shows the corrected image, and its history lists **Cosmetic Correction** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Cosmetic Correction
@@ -111,7 +108,7 @@ controls:
     enabled: It stays enabled while Apply runs, and a change then does not reach that run.
     tradeoff: Bright defects go, and so does any single pixel that stands out as far, such as the peak of a small star or one color's site in a star of a raw mosaic.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is. A new window opens with it ticked.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is. A new task opens with it ticked.
   - name: Threshold
     object: hotPixelsThresholdValue
     kind: spinbox
@@ -122,7 +119,7 @@ controls:
     enabled: Unticking **Hot Pixels** disables it, although **Reset** and the end of a run enable it again. Its value is used only while **Hot Pixels** is ticked. Disabled while Apply runs.
     tradeoff: Low values remove fainter defects, and then the grain and the cores of stars. High values leave faint defects.
     scope: The hot-pixel test only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Cold Pixels
     kind: check
     default: "On"
@@ -130,7 +127,7 @@ controls:
     enabled: It stays enabled while Apply runs, and a change then does not reach that run.
     tradeoff: Dead pixels go, and so does dark fine structure that stands out as far.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is. A new window opens with it ticked.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is. A new task opens with it ticked.
   - name: Threshold
     object: coldPixelsThresholdValue
     kind: spinbox
@@ -141,7 +138,7 @@ controls:
     enabled: Unticking **Cold Pixels** disables it, although **Reset** and the end of a run enable it again. Its value is used only while **Cold Pixels** is ticked. Disabled while Apply runs.
     tradeoff: Low values replace dark grain and the dark detail of structure. High values leave faint dead pixels.
     scope: The cold-pixel test only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Kernel Size
     kind: combo
     default: 3x3
@@ -151,7 +148,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A larger window costs more, takes its replacement from farther away, from structure unrelated to the pixel, and compares star cores with the darker sky around them, so it replaces more of them.
     scope: The median both tests use, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **3x3**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **3x3**.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -160,14 +157,14 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Below 1 a replaced defect keeps part of its excess. It lowers the change, not the work.
     scope: The preview and Apply, after the tests and before the mask. It does not change which samples are found.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. **Channel** and the preview follow it.
     tradeoff: A larger image or a sequence takes more time, memory and disk.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -175,19 +172,19 @@ controls:
     effect: Chooses what is corrected. **RGB** tests and corrects each of the three channels on its own, so a defect is replaced in the channels where it stands out. **Red**, **Green** or **Blue** corrects that channel and keeps the other two. Every other choice corrects one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image, a raw mosaic included, shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: "**RGB** ranks three medians, one for each channel, and the three can replace different pixels. A component costs two conversions and a working copy, and the conversion back can change colors around a corrected pixel."
-    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the corrected image beside the controls, with the mask blended in.
+    effect: Shows the corrected image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview:
-      Cosmetic Correction Filter", or the whole image when it is smaller. At the window's default size, **Preview area**
-      and **Take snapshot** are in the menu at the end of the pane's toolbar.
-    tradeoff: Every change corrects the area, or the whole image, again, so turn it off while you try a large window on a large image. The area is corrected as an image of its own, with its own edges. While you drag a slider with no area drawn, the preview corrects the part of the image the pane shows, at full scale, exactly as Apply writes it there.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is. **Apply** stays enabled with it off.
+      The canvas opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview:
+      Cosmetic Correction Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles
+      row, and **Take snapshot** on the canvas's floating toolbar.
+    tradeoff: Every change corrects the area, or the whole image, again, so turn it off while you try a large window on a large image. The area is corrected as an image of its own, with its own edges. While you drag a slider with no area drawn, the preview corrects the part of the image the canvas shows, at full scale, exactly as Apply writes it there.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is. **Apply** stays enabled with it off.
   - name: Reset
     kind: button
     default: ""
@@ -197,8 +194,8 @@ controls:
     kind: button
     default: ""
     effect: Corrects the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns both thresholds, **Kernel Size** and **Amount** to their defaults. **Hot Pixels** and **Cold Pixels** stay as they are.
-    enabled: While **Hot Pixels** or **Cold Pixels** is ticked, from the moment the window opens.
-    tradeoff: A single image shows a progress window too, and its **Cancel** is noticed between groups of rows. Its bar does not move inside one image. The run holds the medians of the whole image, in its pixel type, beside the second copy every run needs.
+    enabled: While **Hot Pixels** or **Cold Pixels** is ticked, from the moment the task opens.
+    tradeoff: The column shows the run of a single image too, and **Cancel**, in Apply's place meanwhile, is noticed between groups of rows. Its bar does not move inside one image. The run holds the medians of the whole image, in its pixel type, beside the second copy every run needs.
     persistence: "The history step is **Cosmetic Correction** and reads, for a grayscale image at the defaults, `Hot Pixels Threshold 0.5, Cold Pixels Threshold 0.5, Kernel size 3x3, Amount 1`. An unticked group leaves its part out, and an RGB image adds ` in channel: RGB`. The mask is not recorded. The header cards, the plate solution and the recorded processing state are kept."
     note: No map, count or report of the defects is written.
 ```
@@ -247,14 +244,14 @@ result is
 - Every pixel type keeps its type. The medians are ranked in single precision from the stored values, so the median of
   a 32-bit integer or a 64-bit floating-point image is rounded to it.
 - With both thresholds at 1.00 nothing is replaced, and **Apply** still adds a history step.
-- **Cancel**, or closing the window, stops the run between groups of rows, and nothing is written.
+- **Cancel** stops the run between groups of rows, and nothing is written.
 
 ### Worked example
 
 The frame is one raw light of NGC 253 from a QHY183C color camera: 5544 by 3684 pixels, 16-bit, RGGB, 180 seconds
 with the sensor at 21 °C, so it holds many hot pixels. It is opened as a mosaic, with **No** to the question, and no
 dark frame is used. Its median is 3712 codes, 0.057 of full scale, the red and blue sites near 0.050 and the green
-near 0.062. The window keeps its defaults: both thresholds at 0.50, **Kernel Size** at **3x3** and **Amount** at 1.00.
+near 0.062. The task keeps its defaults: both thresholds at 0.50, **Kernel Size** at **3x3** and **Amount** at 1.00.
 
 By equation (3), a background sample is hot above about 0.11 and cold below about 0.028. The pixel at x 2712, y 1649
 reads 65504 codes, nearly full scale, and the median of its window is 4000. Equation (1) gives 0.94, above 0.50, so it
@@ -341,8 +338,7 @@ The border of the image differs from its middle
   [Image Stacking](../stacking-integration/image-stacking.md), the steps after calibration.
 - [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to protect the stars and to
   undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

@@ -14,8 +14,9 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Mask Drawing window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Mask Drawing task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and OK runs only while nothing else
+    is working on the target.
   inputs: >-
     One image or sequence, whose width and height the mask takes, and optionally an image file of exactly that size
     to start from.
@@ -29,56 +30,50 @@ derived: false
 ---
 # Mask Drawing
 
-You paint a [mask](../../reference/glossary.md#mask) by hand in this window, over the preview of an image. A brush, an
+You paint a [mask](../../reference/glossary.md#mask) by hand in this [task](../../reference/glossary.md#task), over the preview of an image. A brush, an
 eraser, a fill, a gradient and shapes you can still move and resize lay values from 0 to 1, which the preview shows
 as a colored tint. Use it where no threshold or star detector finds the region you mean.
 
 **OK** opens the drawing as a new grayscale image, named after the target with ` - MASK`, beside the target and in
-its [pixel type](../../reference/glossary.md#pixel-type), and closes the window. The target is not changed, and the
+its [pixel type](../../reference/glossary.md#pixel-type), and closes the task. The target is not changed, and the
 new image is not attached to it as its mask.
 
 ```figure
 image: ../../assets/images/processes/masking/mask-drawing.webp
 alt: >-
-  The Mask Drawing window. On the left, the Tool group with six buttons and Shape pressed, the Brush group grayed out
-  with Tip Shape, Size, Hardness, Opacity, Flow, Spacing, Stabilization and Blend Mode, the Shapes group with Shape at
-  Ellipse, Feather at 100.0 and Filled ticked, Mask View at Red, the Import Mask and Export Mask buttons, Undo, Redo
-  and Clear, Target Image and a grayed Preview box. On the right, the preview of a red nebula with a red-tinted
-  ellipse over the middle of the frame, outlined, with four square handles on its sides. Reset, OK and Cancel run along the
-  bottom.
+  The Mask Drawing task. Its header names Mask Drawing and the master. The canvas at the left shows the preview of a
+  red nebula with a red-tinted ellipse over the middle of the frame, outlined, with four square handles on its sides,
+  and a floating toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column
+  at the right holds Target Image, the Tool group with six buttons and Shape pressed, the Brush group grayed out with
+  Tip Shape, Size, Hardness, Opacity, Flow, Spacing, Stabilization and Blend Mode, the Shapes group with Shape at
+  Ellipse, Feather at 100.0 and Filled ticked, Mask View at Red, the Import Mask and Export Mask buttons, and Undo, Redo
+  and Clear, in a body that scrolls. Reset, Cancel and OK stand in its footer.
 caption: >-
   Mask Drawing on the linear Carina master in the Autostretch display, with one ellipse drawn at Feather 100. The
-  tint is the mask, and the handles show that the ellipse can still be edited.
-pins:
-  - {n: 2, x: 3.4, y: 29.6}
-  - {n: 3, x: 3.4, y: 53.3}
-  - {n: 4, x: 3.4, y: 19.7}
-  - {n: 5, x: 34.7, y: 19.7}
-  - {n: 6, x: 3.4, y: 80.1}
-  - {n: 7, x: 3.4, y: 65.7}
-  - {n: 8, x: 3.4, y: 72.8}
-  - {n: 9, x: 78.3, y: 97.6}
+  tint in the canvas is the mask, and the handles show that the ellipse can still be edited.
+owed: true
 ```
 
 ## Before you start
 
 - The mask takes the target's width and height. Open the image the mask is for, or one of exactly its size.
-- **Size** and **Feather** are in pixels of the image. At a zoom that fits a large image in the pane, the brush is
+- **Size** and **Feather** are in pixels of the image. At a zoom that fits a large image in the canvas, the brush is
   small: zoom in to paint detail, and use a shape or a fill for large areas.
-- Choose the preview's **Display Mode** before you judge edges. The tint of **Mask View** changes nothing in the
+- Choose the canvas's **Display Mode** before you judge edges. The tint of **Mask View** changes nothing in the
   mask.
-- The drawing lives in the window only. **Cancel**, the window's close button, **Reset** and a target of another
-  size discard it with its undo steps. **Export Mask...** keeps a copy in a file.
+- The drawing lives in the task only. **Cancel**, any other way of closing the task, **Reset** and a target of
+  another size discard it with its undo steps. **Export Mask...** keeps a copy in a file.
 - The drawing holds four planes of 32-bit floating point at the image's size, about 16 bytes a pixel: about 630 MB
   for an image of 7246 × 5429 pixels.
-- A mask on the target's view plays no part here: the window neither reads it nor blends through it.
+- A mask on the target's view plays no part here: the task neither reads it nor blends through it.
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Mask Generation > Mask Drawing**. The preview shows the image with nothing drawn, and **Brush** is
-   the tool.
-2. **Paint.** Set **Size**, **Hardness** and **Opacity**, then drag over the preview with the left button. What you
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Mask Generation > Mask Drawing**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows the image with nothing drawn, and the
+   column at the right holds the tools, with **Brush** chosen.
+2. **Paint.** Set **Size**, **Hardness** and **Opacity**, then drag over the canvas with the left button. What you
    paint takes a red tint, stronger where the mask is higher.
 3. **Draw a shape.** Choose **Shape**, pick a shape in the **Shape** box and set **Feather**. Drag from corner to
    corner, or from the center for a **Circle**. For **Polygon** and **Line**, click each point and double-click the
@@ -89,18 +84,18 @@ pins:
    from 0 to **Opacity**. Both turn the shapes into paint that can no longer be edited.
 6. **Correct.** Choose **Eraser**, or press ++x++, and paint over what you want to remove. **Undo** and **Redo**
    step through your changes.
-7. **Check the mask.** Zoom the preview in on the edges. Choose another **Mask View** when the tint is hard to see
+7. **Check the mask.** Zoom the canvas in on the edges. Choose another **Mask View** when the tint is hard to see
    on the image.
 8. **Keep a copy.** To use the drawing again later, choose **Export Mask...** and save it as
    [FITS](../../reference/glossary.md#fits), [XISF](../../reference/glossary.md#xisf) or TIFF.
-9. **Create the mask.** Choose **OK**. A new image named after the target with ` - MASK` opens beside it, white
-   where you painted, and the window closes.
+9. **Create the mask.** Choose **OK** in the column's footer. A new image named after the target with ` - MASK` opens
+   beside it, white where you painted, and the task closes.
 
 ## Controls
 
-**Target Image**, **Preview**, the preview pane, **Cancel** and the progress window of a
-[sequence](../../reference/glossary.md#sequence) work as in every process window: see
-[Process Windows](../../interface/process-windows.md). The window has no histogram and no **Channel**.
+**Target Image**, **Preview**, the canvas, **Cancel** and the run of a [sequence](../../reference/glossary.md#sequence)
+in the column work as in every task: see [Tasks](../../interface/tasks.md). The task has no histogram and no
+**Channel**.
 
 ```controls
 window: Mask Drawing
@@ -112,7 +107,7 @@ controls:
     enabled: Pressing it enables the **Brush** group and disables the **Shapes** group. ++x++ switches between **Brush** and **Eraser**.
     tradeoff: A large or soft tip touches more pixels with each dab, which costs more work per stroke.
     scope: The drawing, with the mouse or a tablet, whose pressure scales **Flow**. A pressure that is not a number lays nothing.
-    persistence: Until the window closes. **Reset** chooses it again.
+    persistence: Until the task closes. **Reset** chooses it again.
   - name: Eraser
     kind: button
     default: "Off"
@@ -156,7 +151,7 @@ controls:
     effect: "**Round** measures a pixel's distance from the tip's center as a circle does, **Square** by the larger of its two offsets, which fills the corners."
     enabled: With **Brush** and **Eraser**. The cursor over the preview takes the same shape.
     tradeoff: At one **Size**, a square tip covers more pixels.
-    persistence: Until the window closes. **Reset** returns it to **Round**.
+    persistence: Until the task closes. **Reset** returns it to **Round**.
   - name: Size
     kind: spinbox
     default: "24"
@@ -166,7 +161,7 @@ controls:
     enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it. A **Line** shape is a quarter of it wide, and at least 1 pixel.
     tradeoff: A larger tip touches more pixels with each dab.
     scope: New strokes and new lines.
-    persistence: Until the window closes. **Reset** returns it to 24.
+    persistence: Until the task closes. **Reset** returns it to 24.
   - name: Hardness
     kind: spinbox
     default: "1.00"
@@ -175,7 +170,7 @@ controls:
     range: The slider moves in steps of 0.01.
     enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
     tradeoff: A low value leaves a wide gray rim around each stroke.
-    persistence: Until the window closes. **Reset** returns it to 1.
+    persistence: Until the task closes. **Reset** returns it to 1.
   - name: Opacity
     kind: spinbox
     default: "1.00"
@@ -185,7 +180,7 @@ controls:
     enabled: Disabled with **Shape**, which still takes its last value.
     tradeoff: At 0 a stroke, a fill or a shape changes nothing.
     scope: Every tool that draws.
-    persistence: Until the window closes. **Reset** returns it to 1.
+    persistence: Until the task closes. **Reset** returns it to 1.
   - name: Flow
     kind: spinbox
     default: "1.00"
@@ -194,7 +189,7 @@ controls:
     range: Tablet pressure multiplies it. The slider moves in steps of 0.01.
     enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
     tradeoff: At a low **Flow**, a closer **Spacing** makes the stroke denser.
-    persistence: Until the window closes. **Reset** returns it to 1.
+    persistence: Until the task closes. **Reset** returns it to 1.
   - name: Spacing
     kind: spinbox
     default: "0.25"
@@ -203,7 +198,7 @@ controls:
     range: The distance is never less than 1 pixel.
     enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
     tradeoff: High values leave scalloped or separate marks. Low values cost more work and add up **Flow** faster.
-    persistence: Until the window closes. **Reset** returns it to 0.25.
+    persistence: Until the task closes. **Reset** returns it to 0.25.
   - name: Stabilization
     kind: spinbox
     default: "0.00"
@@ -212,7 +207,7 @@ controls:
     range: Each point of the stroke moves from the last smoothed point toward the pointer by 1 minus 0.85 times this value. The first and the last point of a stroke are not smoothed.
     enabled: With **Brush** and **Eraser**.
     tradeoff: The last point jumps to the pointer when you release, which can leave a kink at the end of the stroke.
-    persistence: Until the window closes. **Reset** returns it to 0.
+    persistence: Until the task closes. **Reset** returns it to 0.
   - name: Blend Mode
     kind: combo
     default: Normal
@@ -221,7 +216,7 @@ controls:
     enabled: With **Brush**, **Fill** and **Gradient**. Disabled with **Eraser**, which always erases.
     tradeoff: "**Multiply** and **Overlay** can only darken where the mask is 0, so they change only what is already painted. **Screen** never darkens."
     scope: Strokes, fills and gradients. Shapes are always screened.
-    persistence: Until the window closes. **Reset** returns it to **Normal**.
+    persistence: Until the task closes. **Reset** returns it to **Normal**.
   - name: Shape
     object: shapeTypeCombo
     kind: combo
@@ -231,7 +226,7 @@ controls:
     range: A double-click adds the last point and ends the shape. A polygon needs three points and a line two.
     enabled: With **Shape**.
     scope: New shapes. A shape already drawn keeps its kind.
-    persistence: Until the window closes. **Reset** returns it to **Rectangle**.
+    persistence: Until the task closes. **Reset** returns it to **Rectangle**.
   - name: Feather
     kind: spinbox
     default: "0.0"
@@ -241,7 +236,7 @@ controls:
     enabled: With **Shape**. It softens outlines and lines as well as filled shapes.
     tradeoff: A wider feather widens the layer the shape keeps, which costs memory and time when the shape is drawn or moved.
     scope: New shapes.
-    persistence: Until the window closes. **Reset** returns it to 0.
+    persistence: Until the task closes. **Reset** returns it to 0.
     note: A wide feather may be blurred in several passes, which add up to the same blur.
   - name: Filled
     kind: check
@@ -249,7 +244,7 @@ controls:
     effect: On fills a rectangle, an ellipse, a circle or a polygon. Off draws only its outline, 1 pixel wide and smoothed.
     enabled: With **Shape**. A **Line** is always an outline.
     tradeoff: An outline makes a very narrow mask. **Feather** widens it.
-    persistence: Until the window closes. **Reset** turns it on.
+    persistence: Until the task closes. **Reset** turns it on.
   - name: Mask View
     kind: combo
     default: Red
@@ -257,13 +252,13 @@ controls:
     effect: Chooses how the mask is drawn over the preview. **Red**, **Green**, **Blue** and **Amber** tint it in that color, at most nearly two thirds opaque. **Grayscale** draws the mask's own gray. **Checkerboard** alternates two dark tints in squares of 8 pixels of the image.
     tradeoff: A change redraws the whole tint. It changes nothing in the mask or the result.
     scope: The preview only.
-    persistence: Until the window closes. **Reset** returns it to **Red**.
+    persistence: Until the task closes. **Reset** returns it to **Red**.
   - name: Import Mask...
     kind: button
     default: ""
     effect: Reads an image file and replaces the paint with it, removing every shape. A grayscale file's samples are read as fractions of full scale, and a color file's luma, 0.299 red plus 0.587 green plus 0.114 blue. Every value is then held between 0 and 1, and a sample that is not a number reads as 0.
     range: "The file must have exactly the target's width and height: it is never resized or aligned. A file of other channels than one, three or three and alpha is refused. The dialog lists FIT, FITS, TIF, TIFF, PNG and XISF files, or all files."
-    tradeoff: The file is read away from the window, which stays responsive, and the import lands after the edits made before it. Its undo step keeps the whole paint, twice.
+    tradeoff: The file is read away from the task, which stays responsive, and the import lands after the edits made before it. Its undo step keeps the whole paint, twice.
     scope: The drawing.
     persistence: One undo step. The import and export dialogs open in the folder either one last used.
     note: Without a drawing it shows "Open a target image before importing a mask." A drawing replaced by **Reset** or another target before the file is read drops the import.
@@ -272,8 +267,8 @@ controls:
     default: ""
     effect: Writes a copy of the drawing as it stands to a file, under the export settings of the application.
     range: The extension of the name you give chooses the format. FITS, XISF and TIFF keep the 32-bit floating-point values, PNG is written at 16 bits and JPEG at 8. Any other extension is refused.
-    tradeoff: The file is written away from the window, which stays responsive. Each export takes one more copy of the drawing in memory while it writes.
-    scope: A file only. The drawing, its undo steps and the window stay as they are, and nothing is attached as a mask.
+    tradeoff: The file is written away from the task, which stays responsive. Each export takes one more copy of the drawing in memory while it writes.
+    scope: A file only. The drawing, its undo steps and the task stay as they are, and nothing is attached as a mask.
     note: An empty drawing is written too. Without a drawing it shows "There is no mask to export yet."
   - name: Undo
     kind: button
@@ -283,7 +278,7 @@ controls:
     enabled: When there is a step to take back. ++ctrl+z++ does the same.
     tradeoff: A step keeps only the paint its change touched. A shape change keeps none, a gradient or an import the whole paint. Steps count against the memory the session allows for undo.
     scope: The drawing.
-    persistence: Until the window closes. **Reset** deletes the steps and frees their memory.
+    persistence: Until the task closes. **Reset** deletes the steps and frees their memory.
   - name: Redo
     kind: button
     default: ""
@@ -300,22 +295,22 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image under the drawing, which **OK** names the mask after and takes its size and pixel type from.
     range: An image of another size, or an edit that changes the target's size, replaces the drawing with a blank one and loses its undo steps. An image of the same size keeps the drawing.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Preview
     kind: check
     default: "On"
-    effect: Always on and disabled. The drawing is made on the preview pane, which shows the target with the tint over it.
-    scope: "The pane's toolbar offers **Display Mode**. While the pane shows the original, with ++space++, the right button or **Switch image**, the tint is hidden and you cannot draw."
+    effect: Always on and disabled. The drawing is made on the canvas, which shows the target with the tint over it.
+    scope: "The canvas's toolbar offers **Display Mode**. While the canvas shows the original, with ++space++, the right button or **Processed** in the toggles row, the tint is hidden and you cannot draw."
   - name: OK
     kind: button
     default: ""
-    effect: Takes a copy of the mask as it stands, writes it into a new grayscale image of the target's size, origin, pixel aspect and pixel type, named after the target with ` - MASK`, opens the image beside the target and closes the window.
+    effect: Takes a copy of the mask as it stands, writes it into a new grayscale image of the target's size, origin, pixel aspect and pixel type, named after the target with ` - MASK`, opens the image beside the target and closes the task.
     range: An edit still waiting to land is not in the copy. A floating-point target receives the values as they are. An integer target receives each value as a share of its range, rounded to the nearest code, so soft edges fall into its steps.
-    enabled: From the moment the window opens, also with nothing drawn, when the mask is black. While the run works, the tools, the drawing, **Reset** and **Cancel** are disabled.
-    tradeoff: A single image shows no progress window and its run cannot be cancelled. The copy is kept until the drawing changes.
+    enabled: From the moment the task opens, also with nothing drawn, when the mask is black. While the run works, a second **Cancel**, which stops the run, stands in its place, and the tools, the drawing, **Reset** and the first **Cancel** are disabled.
+    tradeoff: The column shows the run of a single image too. The copy is kept until the drawing changes.
     scope: "On a sequence it writes a new sequence of that name, each frame the same drawing in that frame's pixel type. A frame of another size stops the run with \"the drawing is not the size of the image\"."
     persistence: The new image's history starts with **Mask Drawing** and the text `Create painted grayscale mask`. It keeps the target's acquisition data, plate solution and lineage, and none of its header cards. It is not recorded as linear or as nonlinear.
     note: It does not attach the new image as a mask. Do that on the target with **Image > Mask > Select Mask**.
@@ -366,21 +361,21 @@ controls:
     kind: action
     default: ""
     effect: "`[` and `]` change **Size** by 1. ++x++ switches between **Brush** and **Eraser**, and chooses **Brush** from any other tool. ++f++ chooses **Fill** and ++g++ **Gradient**. ++delete++ removes the selected shape. ++ctrl+z++ undoes and ++ctrl+shift+z++ redoes, as does ++ctrl+y++ on Windows."
-    enabled: While the window has the keyboard.
+    enabled: While the task has the keyboard.
 ```
 
 ## How it works
 
-1. The window makes a drawing of the target's width and height: the paint, the paint as it was before the stroke
+1. The task makes a drawing of the target's width and height: the paint, the paint as it was before the stroke
    being drawn, that stroke, and the mask, which is the paint with every shape over it. Each is one channel of 32-bit
    floating point, counted against the memory the engine may use.
 2. Every edit is queued in the order you made it, and lands when the engine has room for it. A busy engine delays it
-   and drops nothing, and the window never waits.
+   and drops nothing, and the task never waits.
 3. A stroke's dabs add up in the stroke plane, which is blended once per pixel into the paint as it was before the
    stroke began. A fill and a gradient blend into the mask as it is. Each shape keeps a smoothed, feathered layer,
    screened over the paint at its opacity.
 4. The tint redraws the areas each edit changed.
-5. **OK** copies the mask, writes the copy into a new image of the target's pixel type away from the window, and
+5. **OK** copies the mask, writes the copy into a new image of the target's pixel type away from the task, and
    opens it beside the target. Its [lineage](../../reference/glossary.md#lineage) records the drawing.
 
 ### Model
@@ -420,8 +415,8 @@ So overlapping shapes add toward white and never take from each other. Every val
 - An undo step is admitted against the memory the session allows for undo. Redo steps, then the oldest steps, are
   dropped to make room. An edit whose step still does not fit is not made, without a message, and a stroke is taken
   back.
-- A drawing the memory budget cannot hold is refused when the window opens, in a message titled **Mask Drawing**,
-  and the window then has nothing to draw on. Free memory, then choose **Reset** or open the window again.
+- A drawing the memory budget cannot hold is refused when the task opens, in a message titled **Mask Drawing**,
+  and the task then has nothing to draw on. Free memory, then choose **Reset** or open the task again.
 - A run the engine refuses creates nothing and says why under "Error executing the process". With no drawing, the
   reason is "there is no drawing to create a mask from".
 
@@ -458,17 +453,17 @@ caption: >-
 
 ## When it goes wrong
 
-!!! warning "Export the drawing before you leave the window"
-    **Cancel**, the window's close button, **Reset** and a target of another size discard the drawing and its undo
-    steps. A file you exported stays. Choose **Export Mask...** first when you may need the drawing again.
+!!! warning "Export the drawing before you close the task"
+    **Cancel**, any other way of closing the task, **Reset** and a target of another size discard the drawing and its
+    undo steps. A file you exported stays. Choose **Export Mask...** first when you may need the drawing again.
 
 !!! warning "OK does not attach the mask"
     The new image is not the target's mask until you select it on the target with **Image > Mask > Select Mask**.
     Check which side is white before you run a process through it.
 
 Dragging over the preview draws nothing
-:   **Cause.** The pane shows the original, which hides the tint and stops drawing, or the tool is **Edit**.
-:   **Fix.** Release ++space++ or press **Switch image** again, and choose a tool that draws.
+:   **Cause.** The canvas shows the original, which hides the tint and stops drawing, or the tool is **Edit**.
+:   **Fix.** Release ++space++ or press **Original** in the toggles row, and choose a tool that draws.
 
 Strokes appear a moment after you draw them
 :   **Cause.** The engine is busy with other work, and your edits wait their turn.
@@ -507,4 +502,4 @@ The soft edge of the mask shows steps
 - [Binarize](binarize.md), to turn an image into black and white at a threshold.
 - [Morphological Transformation](morphological-transformation.md), to grow, shrink or smooth a mask.
 - [Image Statistics](../../interface/image-statistics.md), to check the range and channels of the new mask.
-- [Process Windows](../../interface/process-windows.md), for the preview pane and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas and what every task shares.

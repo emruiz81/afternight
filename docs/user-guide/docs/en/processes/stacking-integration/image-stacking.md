@@ -14,7 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window opens without an image and works on the files you list in it.
+    Always, from the menu or from the Image Stacking card of the Integration hub. The task opens as a page of its own
+    that it fills whole, without an image, and works on the files you list in it.
   inputs: >-
     Still image files, grouped by filter and, if you ask, by night and exposure. Within a group every frame has the
     first frame's size, pixel type, channel count and filter array. No open image, sequence or mask is used.
@@ -39,31 +40,23 @@ maps beside it, and can open each in a view. The source files are not changed.
 ```figure
 image: ../../assets/images/processes/stacking-integration/image-stacking.webp
 alt: >-
-  The Image Stacking window. Under its header, a warning strip that begins Stacking completed with warnings. On the
-  left, the preview of the first bias of NGC 253, black in the Linear display mode, with its statistics: Min 1090,
-  Max 3023, Median 1896. On the right, the Stacking Settings card with Method Average, Normalization None, Weighting None (Equal), a disabled Scale
-  Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card with the Name Template
-  master_bias.fit, the path of the masters folder in Directory, Open after stacking unchecked and the Stack Images
-  button. Across the bottom, the Frames table, showing the first two of the 30 biases, with Current Image 1 and Total
-  Images 30, the Frame Groups
-  section with Filter checked, and the folded Advanced section. Reset and Close at the bottom.
+  The Image Stacking task, a page that fills the centre of the main window under a header naming Image Stacking. At
+  the head of the page, a warning banner that begins Stacking completed with warnings. On the left, the preview of the
+  first bias of NGC 253, black in the Linear display mode, with its statistics: Min 1090, Max 3023, Median 1896. On
+  the right, the Stacking Settings card with Method Average, Normalization None, Weighting None (Equal), a disabled
+  Scale Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card with the Name
+  Template master_bias.fit, the path of the masters folder in Directory, Open after stacking unchecked and the Stack
+  Images button. Across the bottom, the Frames table of the 30 biases with Current Image 1 and Total Images 30, the
+  Frame Groups section with Filter checked, and the folded Advanced section. Reset and Close stand at the page's foot.
 caption: >-
-  Image Stacking after stacking the 30 biases of NGC 253 into master_bias.fit, with every other value as the window
+  Image Stacking after stacking the 30 biases of NGC 253 into master_bias.fit, with every other value as the task
   opens.
-pins:
-  - {n: 2, x: 8.0, y: 64.1}
-  - {n: 3, x: 82.1, y: 67.5}
-  - {n: 4, x: 30.8, y: 86.2}
-  - {n: 5, x: 70.5, y: 13.6}
-  - {n: 6, x: 73.5, y: 25.9}
-  - {n: 8, x: 82.1, y: 34.5}
-  - {n: 10, x: 88.9, y: 40.4}
-  - {n: 11, x: 79.1, y: 50.5}
+owed: true
 ```
 
 ## Before you start
 
-- Calibrate and register the lights first. The window stacks each pixel where it lies in the files and reads no
+- Calibrate and register the lights first. The [task](../../reference/glossary.md#task) stacks each pixel where it lies in the files and reads no
   alignment, so frames that do not line up give a soft or doubled master without a message. Biases, darks and flats
   need no registration.
 - List frames that belong in one master. Within a group every frame needs the first frame's size,
@@ -78,8 +71,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Preprocess > Image Stacking**. It needs no open image, and it opens with
-   the values and the list it had when it last closed.
+1. **Open the task.** Choose **Process > Preprocess > Image Stacking**, find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++, or choose **Image Stacking** under **Single
+   steps** in the [Integration hub](../../interface/integration-hub.md). The task opens as a page that fills the
+   centre. It needs no open image, and it opens with the values and the list it had when it last closed.
 2. **List the frames.** Choose **Add Files** and select the frames, or **Add Folder** to take a folder's files by
    frame type and filter. The rows appear in date order, and the selected file shows in the preview.
 3. **Check the list.** Compare **Size**, **Exposure**, **CFA** and **Depth** down the rows, and remove every file
@@ -99,16 +94,15 @@ pins:
 9. **Choose the folder.** Choose **Browse** and pick a folder. Its path appears in **Directory**.
 10. **Choose what the run keeps.** Turn **Open after stacking** off to write the files only. Check **64-bit** and
     **Sum exposure times** only when you need them.
-11. **Stack.** Choose **Stack Images**. A progress window names each group as it is stacked, and the window stays
-    usable meanwhile.
-12. **Check the result.** The progress window closes, and the Session Console lists `Image Stacking: saved` with the
-    path of each file. Open the master at 100 % and compare its level and noise with a single frame's.
+11. **Stack.** Choose **Stack Images**, or press ++ctrl+enter++. The head of the page names each group as it is
+    stacked, with **Cancel** at its end, and the page stays usable meanwhile.
+12. **Check the result.** The run's row goes, and the Session Console lists `Image Stacking: saved` with the path of
+    each file. Open the master at 100 % and compare its level and noise with a single frame's.
 
 ## Controls
 
-What every process window shares, such as the message strip and the window's size, is in
-[Process Windows](../../interface/process-windows.md). This window keeps its values and its list of files for the
-next window. Its preview is a still preview, whose toolbar and mouse work as in the
+What every task shares, such as the banner at the head of its page, is in [Tasks](../../interface/tasks.md). This
+task keeps its values and its list of files for the next task. Its preview is a still preview, whose toolbar and mouse work as in the
 [Image Viewer](../../interface/image-viewer.md).
 
 ### Stacking Settings
@@ -124,7 +118,7 @@ controls:
     range: Only **Average** takes a rejection and weights. Any other method disables **Rejection Settings** and ignores **Weighting**. **Sum** divides every sum by the largest, so the brightest pixel is 1, and writes the sums as they are, with a warning, when none is positive.
     tradeoff: "**Median**, **Auto-Adaptive Weighted Average** and every rejection hold the samples of every frame for a band of rows at once, which costs memory and time. **Maximum** and **Minimum** keep the extremes, trails and hot pixels among them. **Sum** keeps the ratios between pixels, not the totals: the integration time is in **Sum exposure times**."
     scope: Every channel of every group.
-    persistence: Kept for the next window. **Reset** returns it to **Average**.
+    persistence: Kept for the next task. **Reset** returns it to **Average**.
     note: "The auto-adaptive mean is made for samples between 0 and 1. The tooltip names each method's use, such as \"Median: robust to outliers but lower SNR.\""
   - name: Normalization
     kind: combo
@@ -134,7 +128,7 @@ controls:
     range: The first frame is the first of the group in the order of filter, session, exposure and file path, whatever the order of the list. A multiplicative mode is refused when that frame's median is zero.
     tradeoff: Each mode measures every frame once more, and **Local** fits a grid besides. A mode that does not suit the frames changes the background and the contrast between them.
     scope: Each channel of each frame, before the rejection judges it. Exact zeros and samples that are not numbers are left out of the measures.
-    persistence: Kept for the next window. **Reset** returns it to **None**.
+    persistence: Kept for the next task. **Reset** returns it to **None**.
   - name: Weighting
     kind: combo
     default: None (Equal)
@@ -143,8 +137,8 @@ controls:
     range: Only **Average** reads it, with or without a rejection, and **Comet** mode stacks with equal weights. When no frame has the figure, the stack uses equal weights and says why. When only some frames have it, the stack is refused.
     tradeoff: "**Noise** reads every frame once more before the stack. **FWHM**, **SNR** and **Stars** find their figures only in the `registration_metrics.db` of **Directory**."
     scope: One weight for each frame, the same in every channel.
-    persistence: Kept for the next window. **Reset** returns it to **None (Equal)**.
-    note: "**FWHM**, **Noise** and **Stars** are the weights Image Integration offers as Weighted FWHM, Noise and Number of stars. **SNR** and **Exposure** are this window's own. The tooltip says of **Noise** \"weight by each frame's measured background noise.\""
+    persistence: Kept for the next task. **Reset** returns it to **None (Equal)**.
+    note: "**FWHM**, **Noise** and **Stars** are the weights Image Integration offers as Weighted FWHM, Noise and Number of stars. **SNR** and **Exposure** are this task's own. The tooltip says of **Noise** \"weight by each frame's measured background noise.\""
   - name: Scale Estimator
     kind: combo
     default: IKSS
@@ -152,7 +146,7 @@ controls:
     effect: Chooses how the two **With Scaling** modes measure a frame's spread. **IKSS** takes a robust spread of the samples within six deviations of the median. **MAD** takes the [median absolute deviation](../../reference/glossary.md#median-absolute-deviation).
     enabled: With **Additive With Scaling** or **Multiplicative With Scaling** only, since no other mode reads it.
     tradeoff: "**IKSS** resists stars and defects better and takes longer. **MAD** is faster."
-    persistence: Kept for the next window. **Reset** returns it to **IKSS**.
+    persistence: Kept for the next task. **Reset** returns it to **IKSS**.
   - name: Comet Mode
     kind: combo
     default: Stars
@@ -160,7 +154,7 @@ controls:
     effect: "**Stars** stacks the listed files. **Comet** stacks, for each listed file, the copy aligned on the comet that Image Registration's comet registration wrote, as `registration_metrics.db` in **Directory** names it."
     enabled: Disabled while a run works.
     tradeoff: "**Comet** stacks with equal weights. It refuses the stack when the database has no active comet run that names a copy for every frame, rather than stack the files themselves."
-    persistence: Kept for the next window. **Reset** returns it to **Stars**.
+    persistence: Kept for the next task. **Reset** returns it to **Stars**.
   - name: Weighting warning
     kind: readout
     default: ""
@@ -172,7 +166,7 @@ controls:
     effect: Opens **Local Normalization Settings**, where the grid and estimators of the local fit are set.
     enabled: Shown only with **Normalization** at **Local**, under the note "Local normalization works best with aligned/registered frames.".
     tradeoff: A finer grid follows more of each frame's background and can print its noise into the stack.
-    persistence: The values you accept are kept for the next window. **Reset** returns them to the **Standard (Grid 4)** preset.
+    persistence: The values you accept are kept for the next task. **Reset** returns them to the **Standard (Grid 4)** preset.
   - name: Rejection Method
     kind: combo
     default: Winsorized Sigma Clipping
@@ -182,7 +176,7 @@ controls:
     enabled: Under **Rejection Settings**, which opens folded, with **Method** at **Average** only.
     tradeoff: Every method holds all the samples of a band of rows, and some iterate. Thresholds set too low leave out real signal, too high leave trails and hot pixels.
     scope: Each pixel of each channel, after the normalization.
-    persistence: Kept for the next window. **Reset** returns it to **Winsorized Sigma Clipping**.
+    persistence: Kept for the next task. **Reset** returns it to **Winsorized Sigma Clipping**.
   - name: Sigma Low
     kind: spinbox
     default: "3.000"
@@ -191,7 +185,7 @@ controls:
     range: "Its label and meaning follow **Rejection Method**, in deviations for the sigma methods. It reads **Linear Low**, in residuals of the line, for **Linear Fit**, set to 5 when you choose it. It reads **Low Fraction of Median** for **Percentile**, set to 0.2, which means 20 % of the median and not a percentile. It reads **ESD Outliers** for **GESDT**, the largest share of samples tested, set to 0.30 and kept below 1."
     enabled: With a rejection other than **None**.
     tradeoff: Too low removes dark real signal and leaves too few samples. Too high leaves dark defects, such as cold pixels.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Sigma High
     kind: spinbox
     default: "3.000"
@@ -200,7 +194,7 @@ controls:
     range: "**Linear High** for **Linear Fit**, set to 4. **High Fraction of Median** for **Percentile**, set to 0.1. **ESD Significance** for **GESDT**, the test's significance, set to 0.05 and kept below 1."
     enabled: With a rejection other than **None**.
     tradeoff: Too low removes star cores and bright signal. Too high leaves satellite trails, cosmic rays and hot pixels.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Save rejection maps
     kind: check
     default: "Off"
@@ -208,13 +202,13 @@ controls:
     enabled: With **Method** at **Average** and a rejection other than **None**.
     tradeoff: One or two more files of the master's size, in 32-bit floating point, and more memory while the run works.
     scope: Every group. A map shows how often samples were left out, not that a frame is bad, so compare it with the frames.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Merge rejection maps
     kind: check
     default: "On"
     effect: On writes one map, `<master>_rej_l+h`, of the samples left out below and above. Off writes two, `_rej_l` and `_rej_h`, which keep the side.
     enabled: With **Save rejection maps** checked.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Rejection maps
     kind: readout
     default: Rejection maps are disabled.
@@ -235,13 +229,13 @@ controls:
     enabled: Empty, it holds **Stack Images** back.
     tradeoff: A PNG or JPEG file holds no floating-point samples and no mosaic, so the run stacks and then fails to write. A file of the same name in the folder is replaced without a question.
     scope: Every group. When two groups would get one name, whatever its case, the second gets its group's name added, then a number.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Directory
     kind: readout
     default: ""
     effect: Shows the folder the masters and maps are written to, which is also where **FWHM**, **SNR**, **Stars** and **Comet** read `registration_metrics.db`. It cannot be typed in.
     range: A missing folder is created when the run writes.
-    persistence: Kept for the next window. **Reset** leaves it as it is.
+    persistence: Kept for the next task. **Reset** leaves it as it is.
   - name: Browse
     kind: button
     default: ""
@@ -253,13 +247,13 @@ controls:
     default: "Off"
     effect: Writes each master in 64-bit floating point. Off writes 32-bit, whatever the frames' own pixel type.
     tradeoff: Doubles the master on disk and in memory. It cannot add precision the frames did not have. Rejection maps stay 32-bit.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Open after stacking
     kind: check
     default: "On"
     effect: Opens each file the run writes in a view of its own, named after the file and fitted to it, the master first and then its maps. Off writes the files only.
     tradeoff: Many groups and maps open many views, which take memory. It changes nothing on disk.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
     note: The history of a master's view starts with a step such as "Stacked image created from 30 frame(s) using Average".
   - name: Sum exposure times
     kind: check
@@ -267,7 +261,7 @@ controls:
     effect: "On writes the sum of the frames' exposures as the master's `EXPTIME`, a frame that states none counted at the first frame's. Off writes the first frame's exposure."
     range: No `EXPTIME` is written when the frames state no exposure.
     tradeoff: It changes the header only, not a sample.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Stack Images
     kind: button
     default: ""
@@ -275,7 +269,7 @@ controls:
     range: It takes the list, the groups and the values as they are when you press it, and a change made during the run does not reach it. Pressed while headers are still being read, or while the weighting warning is being worked out, it does nothing.
     enabled: Once the list holds a file, **Directory** a folder and **Name Template** a name. Disabled while a run works, with **Add Files**, **Add Folder**, **Comet Mode** and **Reset**. The other controls stay enabled, and the list cannot be changed.
     tradeoff: Its time grows with the pixels, the frames and the channels. A group that fails stops the groups after it, and the files of the groups before it stay.
-    note: A run that ends with something to say shows "Stacking completed with warnings." in the strip under the header, each warning after its group's name, eight at most. A run that ends well says nothing more.
+    note: A run that ends with something to say shows "Stacking completed with warnings." in the banner at the head of the page, each warning after its group's name, eight at most. A run that ends well says nothing more.
 ```
 
 ### Frames
@@ -290,7 +284,7 @@ controls:
     range: Filter, ISO/Gain, Offset and Exposure read `-` when the header states none, and Exposure is in seconds. CFA reads Yes for a mosaic. Depth reads 8 bit, 16 bit, 32 bit int, 32 bit float or 64 bit float. Date is the creation time the header states, else the start of the exposure, else the time the file last changed, in UTC.
     enabled: The list is neither reordered nor changed while a run works.
     tradeoff: The order of the rows decides nothing. The groups sort their frames by filter, session, exposure and file path, and the first of each group is the one the others are normalized to.
-    persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size orders nothing. The list and its order are kept for the next window, and its files are read again when it opens.
+    persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size orders nothing. The list and its order are kept for the next task, and its files are read again when it opens.
     note: The full path of a file is its tooltip. Right-click a row for the row menu.
   - name: Add Files
     kind: button
@@ -298,7 +292,7 @@ controls:
     effect: Opens a file dialog for one or several still image files, and adds them to the list while their headers are read in the background.
     range: FITS, XISF, TIFF, PNG, JPEG and camera RAW files. A SER file, a video or another sequence is not offered, so extract its frames to still files first. A file already listed is passed over. A file that cannot be read is left out, and the others are added.
     enabled: Disabled while a run works.
-    tradeoff: Many headers take time to read, and the window stays usable meanwhile. When not every file is added, the window says how many it added, passed over and could not read, with the first reason.
+    tradeoff: Many headers take time to read, and the page stays usable meanwhile. When not every file is added, the task says how many it added, passed over and could not read, with the first reason.
     persistence: The dialog starts in the folder you last added from.
   - name: Add Folder
     kind: button
@@ -352,20 +346,20 @@ controls:
     range: A frame whose filter is empty, `-` or `N/A` belongs to the group `Broadband`, which is stacked like any other.
     tradeoff: A header that spells one filter two ways makes two groups.
     scope: The groups are made again at once.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Session
     kind: check
     default: "Off"
     effect: Makes a group for each night, by the date in UTC on which each frame was taken.
     range: A frame whose header states no time takes the date its file last changed, else the name of its folder.
     tradeoff: Frames of one night that cross midnight in UTC, or whose dates are wrong, split into two groups.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Exposure
     kind: check
     default: "Off"
     effect: Makes a group for each exposure, with frames within **Tolerance** of the group's mean exposure together.
     tradeoff: Many exposures make many small groups, and a group of fewer than three frames cannot take a rejection.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Tolerance
     kind: spinbox
     default: "5.0"
@@ -374,13 +368,13 @@ controls:
     range: A frame that states no exposure joins only a group of frames that state none.
     enabled: With **Exposure** checked.
     tradeoff: Too high mixes exposures that differ in signal, too low splits one exposure that varies slightly.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Frame Groups
     kind: readout
     default: ""
     effect: Lists the stacks the run will make, one row each, under Group, Frames, Filter, Session, Total Exposure and Output Name. It cannot be edited.
     range: The group's name joins its filter, date and exposure, or reads All Frames with every key off. Filter and Session read Mixed when the group holds several. Total Exposure is the sum of the frames' exposures, in seconds, or `-`.
-    enabled: The window gives the table no height of its own, so its rows do not show. The run stacks every group all the same.
+    enabled: The task gives the table no height of its own, so its rows do not show. The run stacks every group all the same.
     scope: It is made again when the list, a key, **Tolerance** or **Name Template** changes.
 ```
 
@@ -395,7 +389,7 @@ controls:
     effect: Holds the stack's working memory under **Max Memory**. Off leaves only the application's own memory limit.
     enabled: Under **Advanced**, which opens folded.
     tradeoff: A stack that does not fit is read in bands of rows, each file once for every band, and the run then ends with a warning that says so. Memory outside the stack, such as the files being decoded and the views, is not counted.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Max Memory
     kind: spinbox
     default: "1024"
@@ -404,14 +398,14 @@ controls:
     range: A limit too small for the master and one frame is refused, with the sizes it needed.
     enabled: With **Limit Memory Usage** checked.
     tradeoff: A rejection or a median holds every frame's samples for its band of rows, about 0.67 MB a row for 30 frames 5544 pixels wide.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Debayer CFA
     kind: check
     default: "Off"
     effect: Debayers a master that is still a mosaic after it is stacked, so it is written in color. It does not debayer the frames before the stack.
     range: It changes nothing for frames that are not mosaics.
     tradeoff: A debayered master no longer calibrates a mosaic, and frames registered without regard to their filter array make a master no debayer repairs.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Pattern
     kind: combo
     default: Auto
@@ -419,7 +413,7 @@ controls:
     effect: Chooses the filter array the debayer reads. **Auto** takes the one the frames state.
     enabled: With **Debayer CFA** checked.
     tradeoff: A wrong pattern gives wrong colors. A two-by-two pattern over an X-Trans mosaic is refused before anything is written.
-    persistence: Kept for the next window. **Reset** returns it to **Auto**.
+    persistence: Kept for the next task. **Reset** returns it to **Auto**.
   - name: Method
     kind: combo
     default: RCD
@@ -427,7 +421,7 @@ controls:
     effect: Chooses the debayer method, as [Debayer](../calibration/debayer.md) describes them.
     enabled: With **Debayer CFA** checked.
     tradeoff: "**AMaZE** and **LMMSE** take the longest. No method brings back detail the stack lost."
-    persistence: Kept for the next window. A method the window does not offer opens as **RCD**. **Reset** returns it to **RCD**.
+    persistence: Kept for the next task. A method the task does not offer opens as **RCD**. **Reset** returns it to **RCD**.
     range: DCB, HPHD and IGV are not offered here.
     note: A color pixel estimated from a pixel no frame reached is marked invalid.
 ```
@@ -440,9 +434,9 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window and keeps its values and its list for the next window.
-    range: ++esc++ and the window's own close button do the same.
-    enabled: Also while a run works. Closing then stops the run and the files being read, and the window closes at once.
+    effect: Closes the task and keeps its values and its list for the next task.
+    range: ++esc++ and the task header's **Close** do the same while no run works.
+    enabled: Also while a run works. Closing then stops the run and the files being read, and the task closes at once.
     tradeoff: The files of the groups already stacked stay. The group in progress leaves no file.
   - name: Reset
     kind: button
@@ -463,7 +457,7 @@ controls:
     default: ""
     effect: Shows the file of the selected row as it is recorded. A mosaic is debayered in color by the fast method, without a question. It never shows the stack.
     enabled: Empty until the list holds a file. A file that cannot be read shows nothing and is reported.
-    persistence: Nothing of the preview is kept for the next window.
+    persistence: Nothing of the preview is kept for the next task.
     note: The wheel zooms, a middle-button drag pans, and holding the left button opens the lens, as in an image view.
   - name: Fit To Window
     kind: toolbutton
@@ -561,7 +555,7 @@ controls:
     default: ""
     effect: Asks "This will delete the selected file from the disk permanently. Are you sure you want to proceed?", then removes the row and deletes its file.
     range: The file of the row you clicked only.
-    tradeoff: The file is gone for good. When it cannot be deleted, the row is gone all the same and the window says "Could not delete" with the path.
+    tradeoff: The file is gone for good. When it cannot be deleted, the row is gone all the same and the task says "Could not delete" with the path.
 ```
 
 ### Local Normalization Settings
@@ -674,23 +668,23 @@ controls:
     kind: button
     default: ""
     effect: Keeps the values for the stack. Nothing is computed until **Stack Images**.
-    persistence: The window keeps the values this dialog shows for the next window, and none of the ones it hides.
+    persistence: The task keeps the values this dialog shows for the next task, and none of the ones it hides.
 ```
 
-### Stacking progress
+### The run at the head of the page
 
 ```controls
-window: Stacking progress
+window: The run at the head of the page
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Names the group being stacked, as "Stacking group 'Broadband' (30 frames), 1 of 1", and moves from 0 to 100 percent over all the groups.
-    enabled: Shown while a run works, under the title Image Stacking.
+    effect: Starts from "stacking", then names the group being stacked, as "Stacking group 'Broadband' (30 frames), 1 of 1", and moves from 0 to 100 percent over all the groups. A line under it reads "The task keeps running if you leave this page."
+    enabled: Shown while a run works, in the place of the page's banner. No progress window opens. The task header and its item in the rail show the run too, and a run that ends while another place is shown says so at the foot of the centre, with **Show**.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The text reads "Canceling execution..." and the button is disabled.
+    effect: Asks the run to stop. Its tooltip reads "Stop the run".
     range: The group in progress stops at its next stop point and leaves no file. No later group starts.
     persistence: The files of the groups already stacked stay. A stopped run ends without a message.
 ```
@@ -748,7 +742,7 @@ what a master keeps. Nothing clips the result, so a master can hold values below
 - An exact zero and a sample that is not a number are neither combined nor judged in any frame, so a real sample of
   exactly zero is left out too. A pixel no frame reaches is written as 0 and marked invalid.
 - No alignment is read. Frames that do not line up stack without a message into a soft or doubled master.
-- A stop, or closing the window, keeps the files of the groups already stacked. The group in progress leaves no
+- A stop, or closing the task, keeps the files of the groups already stacked. The group in progress leaves no
   file, and a group that fails stops the ones after it.
 
 ### Worked example
@@ -760,14 +754,14 @@ a QHY183C color camera: 30 [bias frames](../../reference/glossary.md#bias-frame)
 of 5544 by 3684 pixels with `BAYERPAT = 'RGGB'`, and none states a filter. They make the masters that
 [Image Calibration](../calibration/image-calibration.md) takes.
 
-Open the window and choose **Add Files** with the 30 biases. They form one group, `Broadband`. Type
+Open the task and choose **Add Files** with the 30 biases. They form one group, `Broadband`. Type
 `master_bias.fit` in **Name Template**, choose **Browse** and a folder `masters`, turn **Open after stacking** off,
 and keep every other value. **Stack Images** writes `master_bias.fit`, a 32-bit mosaic of about 82 MB, whose
 `EXPTIME` is the first bias's 0.00025 s. The Session Console's line `Image Stacking: finished in` gives the run's
 time.
 
-With **Max Memory** at its default, the 30 frames do not fit at once, so the window reads them in bands of rows. The
-strip under the header then reads "Stacking completed with warnings." with "Whole-frame reads are multiplied by the
+With **Max Memory** at its default, the 30 frames do not fit at once, so the task reads them in bands of rows. The
+banner at the head of the page then reads "Stacking completed with warnings." with "Whole-frame reads are multiplied by the
 tile count". The master is the same either way. With **Max Memory** at 4096, each file of these three stacks is read
 once.
 
@@ -821,7 +815,7 @@ caption: >-
     Template**. Give each kind of master its own name, and keep the files you need elsewhere.
 
 !!! warning "Misaligned frames stack without a message"
-    The window reads no registration. Lights that do not line up give soft or doubled stars, and the run reports
+    The task reads no registration. Lights that do not line up give soft or doubled stars, and the run reports
     nothing. Register them with Image Registration first.
 
 !!! warning "A debayered master does not calibrate a mosaic"
@@ -875,7 +869,7 @@ More groups, or other file names, than you expected
 
 ## Related
 
-- [Image Calibration](../calibration/image-calibration.md), which takes the bias, dark and flat masters this window
+- [Image Calibration](../calibration/image-calibration.md), which takes the bias, dark and flat masters this task
   makes.
 - [Image Registration](../registration-alignment/image-registration.md), to align lights before the stack and to
   record the figures that **FWHM**, **SNR** and **Stars** read.
@@ -884,7 +878,7 @@ More groups, or other file names, than you expected
 - [Image Stacking Reference](image-stacking-reference.md), for every rejection, normalization and weighting rule, the
   names and files a run writes, the memory, and every message.
 - [Image Statistics](../../interface/image-statistics.md), for the level and noise of a master and of a frame.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

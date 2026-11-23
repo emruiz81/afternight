@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    A still image is active, no NB Color Mapper window is open on it yet, and no window that needs the image for
-    itself is open on it. Apply waits for every layer's image to be open and of one size.
+    A still image is active, no NB Color Mapper task is open on it yet, and no task that needs the image for itself
+    is open on it. The task opens as a page of its own, beside other tasks. Apply waits for every layer's image to be
+    open and of one size.
   inputs: >-
     Up to 64 layers, each an open grayscale or RGB still image of the first layer's width and height, in any pixel
     type. One image may serve several layers. An optional mask on the active image's view.
@@ -44,24 +45,23 @@ recorded as nonlinear. The sources stay as they are.
 ```figure
 image: ../../assets/images/processes/color-composition/nb-color-mapper.webp
 alt: >-
-  The NB Color Mapper window. On the left, under Histogram Controls, a histogram of three peaks close together over
-  its toolbar, then Midtones at 0.020 and Blackpoint at 0.036, and the Layers table with two rows: the
-  Ha master at H 0 / S 1.00 and the OIII master at H 180 / S 1.00, the second selected. On the right, the preview
-  shows the Eagle Nebula in red over a teal background with many stars. Reset, Close and Apply run along the
-  bottom.
+  The NB Color Mapper task. Its header reads NB Color Mapper on the Ha master. The canvas at the left shows the
+  preview, the Eagle Nebula in red over a teal background with many stars, with the word PREVIEW in its corner and the
+  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
+  Preview area and Processed toggles, the Histogram Controls section with a histogram of three peaks close together
+  over its toolbar, Midtones at 0.020 and Blackpoint at 0.036, and the Layers section with two rows: the Ha master at
+  H 0 / S 1.00 and the OIII master at H 180 / S 1.00, the second selected. The body scrolls on to the other sections,
+  and Reset, Close and Apply stand in its footer.
 caption: >-
   NB Color Mapper with the Ha master in red and the OIII master in cyan, each stretched on its own, the background
-  neutralized, and the preview in the Linear display mode under Preview STF.
-pins:
-  - {n: 1, x: 62.0, y: 25.5}
-  - {n: 2, x: 2.6, y: 36.6}
-  - {n: 4, x: 2.6, y: 56.4}
+  neutralized, and the canvas in the Linear display mode under Preview STF.
+owed: true
 ```
 
 ## Before you start
 
 - Register the masters to one grid and crop them alike, against the first layer's image.
-- Remove the gradients of each master and bring very different levels together first. The window stretches each
+- Remove the gradients of each master and bring very different levels together first. The [task](../../reference/glossary.md#task) stretches each
   layer and can neutralize the background, but knows nothing of exposures, filters or bandwidths.
 - Decide whether **Apply** writes a stretched image. **Preview STF** stretches only the preview's samples, and the
   view's [Autostretch](../../reference/glossary.md#autostretch) only displays them.
@@ -72,11 +72,13 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the first master active and choose **Process > Color Spaces > NB Color Mapper**.
-   **Layers** lists it as #1, and the preview shows it in pale red, the default color, stretched by **Preview STF**.
-   Set the preview's **Display Mode** to **Linear**, so that it is stretched once.
+1. **Open the task.** Make the first master active and choose **Process > Color Spaces > NB Color Mapper**, or find
+   it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the
+   canvas at the left shows the master in pale red, the default color, stretched by **Preview STF**, and the column at
+   the right holds the controls, where **Layers** lists it as #1. Set **Display Mode** in the canvas's floating
+   toolbar to **Linear**, so that it is stretched once.
 2. **Stretch the layer.** Set **Blackpoint** just below the master's median, as Image Statistics gives it, and lower
-   **Midtones** until its signal shows in the preview.
+   **Midtones** until its signal shows in the canvas.
 3. **Color it.** Drag in the hue wheel, or type **Hue**, and set **Saturation**.
 4. **Add the next layer.** Choose **Add**: a new row copies the selected one and is selected. Choose the next master
    in **Image**, then give it its own stretch and color.
@@ -85,15 +87,15 @@ pins:
    cast.
 7. **Choose the output.** Tick **Apply STF to combined output** for a stretched result, and **Create colorized layer
    images** for one more image per layer.
-8. **Apply.** Choose **Apply**. The result opens as a tab beside the active image, named after the first layer's
-   image with ` - NB Color Mapper`.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The result opens beside the active
+   image, named after the first layer's image with ` - NB Color Mapper`, and the task stays open.
 
 ## Controls
 
-The controls scroll in one column. **Midtones**, **Blackpoint** and the controls from **Image** to **Median offset**
-edit the row selected in **Layers** at once. Those from **Enable** down apply to the whole map. The preview is always
-on, with no **Preview** check box, and **Preview area** is off when the window opens. For the histogram and the
-toolbars, see [Process Windows](../../interface/process-windows.md).
+The controls scroll in the column's body, each group a section that opens and closes. **Midtones**, **Blackpoint**
+and the controls from **Image** to **Median offset** edit the row selected in **Layers** at once. Those from
+**Enable** down apply to the whole map. The preview is always on, with no **Preview** toggle, and **Preview area** is
+off when the task opens. For the histogram and the toolbars, see [Tasks](../../interface/tasks.md).
 
 ```controls
 window: The layer list
@@ -101,10 +103,10 @@ controls:
   - name: Layers
     kind: readout
     default: "#1, the active image"
-    effect: Lists the layers, one row each, under **Include** (Yes or No), **Layer** (#1, #2 and so on), **Image**, **Color** (as `H 0 / S 0.50`, RGB, or Excluded) and **Modifier** (None, or as `Add #2`). Click a row to load it into the controls of the window.
-    range: The active image is row #1 when the window opens, if it is a grayscale or RGB still image. The cells cannot be edited. Up to 64 rows can be mapped, and more make the run fail.
+    effect: Lists the layers, one row each, under **Include** (Yes or No), **Layer** (#1, #2 and so on), **Image**, **Color** (as `H 0 / S 0.50`, RGB, or Excluded) and **Modifier** (None, or as `Add #2`). Click a row to load it into the controls of the task.
+    range: The active image is row #1 when the task opens, if it is a grayscale or RGB still image. The cells cannot be edited. Up to 64 rows can be mapped, and more make the run fail.
     tradeoff: Every row, included or not, is read and stretched for each preview and Apply, so remove a row you do not need rather than exclude it.
-    persistence: Until the window closes. **Reset** and **Apply** keep every row. Nothing is kept between sessions.
+    persistence: Until the task closes. **Reset** and **Apply** keep every row. Nothing is kept between sessions.
     note: The order of the rows does not change the blend. The first row gives the result its size, its name, its header and its plate solution.
 ```
 
@@ -119,7 +121,7 @@ controls:
     range: It edits the selected row, grayscale or RGB, included or not, a modifier or not.
     tradeoff: Near either end, tones collapse and noise and clipping show.
     scope: Every channel of the selected layer, before its modifier and its color. A row used as a modifier is read through its own transfer.
-    persistence: Kept for each row until the window closes. **Reset** and a finished Apply return the selected row's to 0.5.
+    persistence: Kept for each row until the task closes. **Reset** and a finished Apply return the selected row's to 0.5.
   - name: Blackpoint
     kind: spinbox
     default: "0.000"
@@ -128,7 +130,7 @@ controls:
     range: It edits the selected row, as **Midtones** does.
     tradeoff: Set high, it erases faint signal, and leaves a modifier with little to act with.
     scope: As **Midtones**.
-    persistence: Kept for each row until the window closes. **Reset** and a finished Apply return the selected row's to 0.
+    persistence: Kept for each row until the task closes. **Reset** and a finished Apply return the selected row's to 0.
   - name: Add
     object: addLayerButton
     kind: button
@@ -136,13 +138,13 @@ controls:
     effect: Adds a row at the end that copies the selected row, image included, and selects it, so that the next image you choose in **Image** goes into it.
     range: It does nothing while **Image** reads `<--NO IMAGE-->`. One image may fill several rows, each with its own mapping.
     tradeoff: Each row adds a working copy of its image and work to every preview.
-    persistence: The row stays until you remove it or the window closes.
+    persistence: The row stays until you remove it or the task closes.
   - name: Remove
     object: removeLayerButton
     kind: button
     default: ""
     effect: Removes the selected row. A row that used it as its modifier returns to **None** in **Mode**, and the rows after it move up one number.
-    range: It does nothing without a selected row, and cannot be undone in the window.
+    range: It does nothing without a selected row, and cannot be undone in the task.
   - name: Image
     kind: combo
     default: "<--NO IMAGE-->"
@@ -226,14 +228,14 @@ controls:
     range: For an RGB result only. While it is on, **Upper sigma** must be above **Lower sigma**, or **Apply** stays dimmed.
     tradeoff: It removes a color cast, but where nebula fills the frame it takes signal for background. A channel whose window holds no sample is left as it is, without a message.
     scope: The preview and Apply, before the output stretch. A preview area measures itself alone. Not the colorized layer images.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `background neutralized`.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off. The history adds `background neutralized`.
   - name: Rescale high
     kind: check
     default: "Off"
     effect: On, the spread reaches up to each channel's highest corrected value. Off, it reaches up to one minus the channel's background.
     range: It acts only while **Enable** is on and the result is RGB.
     tradeoff: On gives back headroom, but lets one outlier set the range and can change the balance.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off.
   - name: Lower sigma
     kind: spinbox
     default: "-2.80"
@@ -241,7 +243,7 @@ controls:
     effect: Sets the lower edge of the background window, in deviations from the channel's median. Higher keeps more dark samples out, lower lets them in.
     range: It must stay below **Upper sigma** while **Enable** is on. It stays editable, and is not read, while **Enable** is off.
     tradeoff: A narrow window can hold no sample. A wide one can take in defects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to -2.80.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to -2.80.
   - name: Upper sigma
     kind: spinbox
     default: "2.00"
@@ -249,15 +251,15 @@ controls:
     effect: Sets the upper edge of the background window. Lower keeps more bright structure, such as stars and nebula, out. Higher lets it in.
     range: It must stay above **Lower sigma** while **Enable** is on.
     tradeoff: Too high takes stars and nebula for background. Too low can leave no sample.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 2.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 2.
   - name: Preview STF
     kind: check
     default: "On"
     effect: Stretches the preview and **Take snapshot** by equation (6), so that linear layers can be seen. It changes the preview's samples, not only their display.
     range: It never touches what **Apply** writes.
-    tradeoff: With the preview's **Display Mode** at **Autostretch**, the preview is stretched twice and looks far brighter than the result. It costs a pass to find the median.
-    scope: The preview and snapshots, before the mask. **Switch image** shows the active image without it.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it on.
+    tradeoff: With **Display Mode** of the canvas at **Autostretch**, the preview is stretched twice and looks far brighter than the result. It costs a pass to find the median.
+    scope: The preview and snapshots, before the mask. **Processed** shows the active image without it.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it on.
   - name: STF target
     kind: spinbox
     default: "0.250"
@@ -265,7 +267,7 @@ controls:
     effect: Sets where the output stretch puts the median of the mean of the channels, by equation (6). Higher brightens, lower darkens.
     range: It serves **Preview STF** and **Apply STF to combined output** alike, and is checked even while both are off.
     tradeoff: Near either end, tones compress and noise and clipping show.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.25.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.25.
   - name: Create colorized layer images
     kind: check
     default: "Off"
@@ -273,7 +275,7 @@ controls:
     range: An excluded row gives none. A row that stays gray, or that another row uses as its modifier, gives a grayscale image.
     tradeoff: Each is a full-size image in the result's precision, three channels for a colored row.
     scope: Apply only. Previews and snapshots never make them.
-    persistence: "Until the window closes. **Reset** and a finished Apply turn it off. Each image opens beside the active image after the result, named `<first layer's image> - <row's image> colorized`, with a history that starts with `NB Color Mapper colorized layer`. It keeps its own image's header and plate solution, its lineage gains the coloring, and it is recorded as nonlinear with the operation `nb-color-mapper-layer`."
+    persistence: "Until the task closes. **Reset** and a finished Apply turn it off. Each image opens beside the active image after the result, named `<first layer's image> - <row's image> colorized`, with a history that starts with `NB Color Mapper colorized layer`. It keeps its own image's header and plate solution, its lineage gains the coloring, and it is recorded as nonlinear with the operation `nb-color-mapper-layer`."
   - name: Apply STF to combined output
     kind: check
     default: "Off"
@@ -281,7 +283,7 @@ controls:
     range: Not the colorized layer images.
     tradeoff: Off leaves a result to stretch yourself. It is recorded as nonlinear either way.
     scope: Apply only, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `stretched`.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off. The history adds `stretched`.
   - name: Reset
     kind: button
     default: ""
@@ -291,9 +293,9 @@ controls:
   - name: Apply
     kind: button
     default: ""
-    effect: Maps every row as the window stands and opens the result as a new image, a tab beside the active image, named `<first row's image> - NB Color Mapper`. Then it does what **Reset** does.
-    enabled: While the active image is a still image, every row names an open grayscale or RGB image of the first row's size, a row is included, and the background window is ordered while **Enable** is on. While the run works, the controls of the window, **Apply**, **Reset**, **Close**, **Preview area** and **Take snapshot** are disabled.
-    tradeoff: There is no progress window and no **Cancel**. Each row is read as a working copy. The blend is spread over the processor's threads, while the background step, a median offset and the output stretch rank the whole image on one thread, in one or two planes of 8 bytes a pixel.
+    effect: Maps every row as the task stands and opens the result as a new image beside the active image, named `<first row's image> - NB Color Mapper`, and the task stays open. Then it does what **Reset** does.
+    enabled: While the active image is a still image, every row names an open grayscale or RGB image of the first row's size, a row is included, and the background window is ordered while **Enable** is on. While the run works **Cancel** takes its place in the footer, and the column's controls, the toggles, **Reset**, **Close** and **Take snapshot** are disabled until it ends.
+    tradeoff: There is no progress window; the column's run row reads "applying". Each row is read as a working copy. The blend is spread over the processor's threads, while the background step, a median offset and the output stretch rank the whole image on one thread, in one or two planes of 8 bytes a pixel.
     scope: Every row's whole image, then the mask on the active image's view, which blends the active image with the result. A preview area does not limit it.
     persistence: "The history starts with a step that reads like `Created NB Color Mapper combination from 2 layers, 2 included, background neutralized, stretched`, and shows the active image's steps above it as inherited lineage. The result is recorded as nonlinear with the operation `nb-color-mapper`, whatever the output stretch. No palette, preset, report, mask or file is written."
     note: "The header is built from every row's image, excluded and modifier rows included, the first leading. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Images that state the same exposure start are one acquisition and count once, with the largest integration and frame count any of them states, and one that states no start counts on its own. A single row keeps its own exposure. With several, their `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when an image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when an image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every image states the same, and so is every other card the first row's image shares with all of them. The first row's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC`, its WCS cards and its plate solution are kept, without a check that the other images share its grid. No processing-state or file identity card of an image is kept."
@@ -379,7 +381,7 @@ which sends \(P\) to \(T\). A median of 0 or 1 skips it.
 ### Worked example
 
 Make the Ha master of the Eagle Nebula active, a 3008 × 3004
-[linear image](../../reference/glossary.md#linear-image) in 32-bit floating point, and open the window: it is row #1.
+[linear image](../../reference/glossary.md#linear-image) in 32-bit floating point, and open the task: it is row #1.
 Set **Saturation** to 1, **Blackpoint** to 0.035 and **Midtones** to 0.020, and leave **Hue** at 0. Choose **Add**,
 choose the OIII master in **Image**, and set **Hue** to 180 and **Blackpoint** to 0.036. Tick
 **Enable** and **Apply STF to combined output**. Equation (1) lifts the Ha median, 0.03783, to 0.126 in red, and the
@@ -423,7 +425,7 @@ layer at 0.20 becomes 0.45, which hue 0 at full saturation colors \((0.45, 0, 0)
 ## When it goes wrong
 
 !!! danger "One size is not one grid"
-    The window compares width and height only: nothing matches stars, world coordinates, scale, rotation or star
+    The task compares width and height only: nothing matches stars, world coordinates, scale, rotation or star
     profiles. An unregistered layer gives colored halos and doubled stars, and a modifier carries its stars into the
     layer it modifies.
 
@@ -431,14 +433,10 @@ layer at 0.20 becomes 0.45, which hue 0 at full saturation colors \((0.45, 0, 0)
     The selected row loses its hue, saturation, stretch and modifier, and the other rows keep theirs. Note its
     values before you apply.
 
-!!! warning "The window stays on the image it opened on"
-    It has no **Target Image**. That image's mask blends the result, **Switch image** shows it, the result opens
-    beside it, and it names the result when no row names an image, even when it is no longer a layer. Open the window
-    from the master you want as the first layer.
-
-!!! warning "Apply shows no progress and has no Cancel"
-    The controls, **Apply**, **Reset** and **Close** stay disabled until the run ends. Closing the window another way
-    stops the run, and nothing opens.
+!!! warning "The task stays on the image it opened on"
+    It has no **Target Image**, and its header names that image. Its mask blends the result, **Processed** shows it,
+    the result opens beside it, and it names the result when no row names an image, even when it is no longer a
+    layer. Open the task from the master you want as the first layer.
 
 Apply stays dimmed, and the preview shows the active image unchanged
 :   **Cause.** A row's image is closed or of another size, no row is included, or **Upper sigma** is not above
@@ -479,8 +477,7 @@ The result is grayscale
 - [NBRGB Combination](nbrgb-combination.md), to add narrowband signal to a broadband color image.
 - [Narrowband Palette Composer](narrowband-palette-composer.md), for fixed palettes such as
   [SHO](../../reference/glossary.md#sho), side by side.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the histogram toolbar and what every task shares.
 
 ## Credits
 

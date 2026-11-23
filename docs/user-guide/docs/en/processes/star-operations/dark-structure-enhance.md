@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Dark Structure Enhance window is open on it yet, and no window that
-    needs the image for itself is open on it.
+    An image or a sequence view is active, no Dark Structure Enhance task is open on it yet, and no task that needs
+    the image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: One grayscale or RGB image or sequence, of any pixel type, and an optional mask of the image's size on its view.
   outputs: >-
     The same view, replaced, with one history step. Its size, channels and pixel type are kept. With Create mask image
@@ -40,26 +40,22 @@ the mask as an image of its own.
 ```figure
 image: ../../assets/images/processes/star-operations/dark-structure-enhance.webp
 alt: >-
-  The DarkStructureEnhance window. On the left, the Layers to Remove, Amount and Iterations boxes with their sliders,
-  the Scaling Function and Preview Mode lists, then Target Image and Channel at RGB. Near the bottom, the Preview box
-  ticked and Create mask image unticked. On the right, the preview shows a red nebula crossed by dark lanes on a gray
-  background, and a framed area in the middle shows the darkened result. Reset, Close and Apply run along the bottom.
+  The Dark Structure Enhance task. Its header names the process and the stretched master, and the column's header
+  reads DarkStructureEnhance. The canvas at the left shows a red nebula crossed by dark lanes on a gray background,
+  and a framed area in the middle shows the darkened result. The column at the right opens with the compact readout
+  of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel at RGB, the Layers to
+  Remove, Amount and Iterations boxes with their sliders, the Scaling Function and Preview Mode lists, and Create mask
+  image unticked. Reset, Close and Apply stand in its footer.
 caption: >-
-  Dark Structure Enhance on a stretched master at its defaults, with its preview area in the middle.
-pins:
-  - {n: 2, x: 2.0, y: 47.1}
-  - {n: 3, x: 2.0, y: 37.8}
-  - {n: 4, x: 2.0, y: 20.1}
-  - {n: 5, x: 2.0, y: 29.0}
-  - {n: 6, x: 34.5, y: 40.0}
-  - {n: 7, x: 90.6, y: 96.0}
+  Dark Structure Enhance on a stretched master at its defaults, with its preview area in the middle of the canvas.
+owed: true
 ```
 
 ## Before you start
 
 - [Stretch](../../reference/glossary.md#stretch) the image first. The darkening is a curve made for a picture whose
   dark structures already show.
-- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse.
+- **Apply** replaces the image. Its history keeps the step before, and this [task](../../reference/glossary.md#task) has no inverse.
 - Correct gradients first. A slope in the background can read as a broad dark structure.
 - A mask on the view blends the result with the original afterwards, as a second mask.
 - On a sequence, every frame gets the same settings and a mask built from its own samples, and the mask on the view
@@ -67,8 +63,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image active and choose **Process > Details > Dark Structure Enhance**.
-   The window is titled DarkStructureEnhance, and the preview shows the result inside a framed area in the middle.
+1. **Open the task.** Make the stretched image active and choose **Process > Details > Dark Structure Enhance**, or
+   find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page:
+   the canvas at the left shows the result inside a framed area in the middle, and the column at the right, headed
+   DarkStructureEnhance, holds its controls.
 2. **Choose what to measure.** Leave **Channel** at **RGB**, or choose **CIE L* (Lightness)** to darken the
    lightness alone and keep the colors closer.
 3. **Look at the mask.** Set **Preview Mode** to **Generated mask**, with the view's mask off. The dust lanes should
@@ -77,17 +75,16 @@ pins:
    slopes, star surroundings or noise. Then try the other **Scaling Function**.
 5. **Set the strength.** Return **Preview Mode** to **Processed image** and adjust **Amount**. Change **Iterations**
    only after it.
-6. **Check the whole image.** Untick [**Preview area**](../../reference/glossary.md#preview-area) in the preview's
-   toolbar, or in the menu at its end. Zoom to 100 % on the dark lanes and the stars beside them, and press
-   ++space++ to compare.
-7. **Apply.** Tick **Create mask image** to keep the mask, then choose **Apply**. The dust lanes are darker, the
+6. **Check the whole image.** Untick [**Preview area**](../../reference/glossary.md#preview-area) in the column's
+   toggles row. Zoom the canvas to 100 % on the dark lanes and the stars beside them, and hold ++space++ to compare.
+7. **Apply.** Tick **Create mask image** to keep the mask, then choose **Apply** in the column's footer. The dust lanes are darker, the
    history lists **DarkStructureEnhance**, and the mask opens beside the image when you asked for it.
 
 ## Controls
 
-**Target Image**, **Channel**, **Preview**, the preview pane, **Close** and the progress window work as in every
-process window: see [Process Windows](../../interface/process-windows.md). The entries below hold what is particular to
-this window, which has no histogram.
+**Target Image**, **Channel**, **Preview**, the canvas, **Close** and the run in the column work as in every task:
+see [Tasks](../../interface/tasks.md). The entries below hold what is particular to this task, which has no
+histogram.
 
 ```controls
 window: DarkStructureEnhance
@@ -101,7 +98,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Each layer more costs two more smoothing passes over each channel, and no more memory. On a small preview area a high value reaches far past the area's edges, and the mask is ruled by them.
     scope: The mask only, in the preview and in Apply, from every channel the run reads. It does not change the curve.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Scaling Function
     kind: combo
     default: 5x5 B3 Spline
@@ -111,7 +108,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The B3 spline reads five samples in each pass where the linear kernel reads three, so it costs more.
     scope: The mask only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **5x5 B3 Spline**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **5x5 B3 Spline**.
   - name: Amount
     kind: spinbox
     default: "0.40"
@@ -121,7 +118,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A high value crushes the detail inside the dark structures. At 0 the mask is still built, and its cost paid.
     scope: The darkening, on what **Channel** selects. It does not change the mask, although a **Generated mask** preview is computed again when it changes.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Iterations
     kind: spinbox
     default: "1"
@@ -131,7 +128,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Each pass adds a curve and a blend over every channel. A few passes crush the shadows quickly and can show steps between tones.
     scope: The darkening, on what **Channel** selects. It does not change the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Preview Mode
     kind: combo
     default: Processed image
@@ -141,14 +138,14 @@ controls:
     enabled: While **Preview** is on. Disabled while Apply runs.
     tradeoff: A mask on the target's view blends the mask preview with the image, as it blends a result. Turn the view's mask off to read the mask alone.
     scope: The preview and **Take snapshot** only. Apply always darkens the image. In **Generated mask**, switching to the original compares the mask with the image, and a preview area shows the mask inside the area and the image around it.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Processed image**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Processed image**.
     note: A snapshot in **Generated mask** is that mask, recorded as nonlinear with the operation `dark-structure-mask`. A snapshot in **Processed image** keeps the target's record and is not recorded as nonlinear. Neither opens a mask image.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it.
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Channel
     kind: combo
     default: RGB
@@ -157,15 +154,15 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: A lightness or a luma component changes the colors least. With **RGB** the three channels share one mask, which can shift colors. A hue or chroma component can jump, or leave the range on its way back to RGB.
     scope: The mask, the preview and Apply, on images and sequences. The history step names the choice.
-    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the preview beside the controls. Off removes it and disables **Preview Mode**.
-    enabled: Disabled while Apply runs.
+    effect: Shows the preview in the canvas. Off removes it and disables **Preview Mode**.
+    enabled: It stands in the column's toggles row, beside **Preview area**. Disabled while Apply runs.
     tradeoff: Inside a preview area the mask is measured on the area alone. Its smoothings reach the area's reflected edges and its rescalings use the area's own extremes, so the result there can differ a lot from what Apply writes.
-    scope: "The window only. The preview opens with a preview area of 800 by 800 pixels in the middle of the image, labelled \"Preview: DarkStructureEnhance\", and its toolbar offers **Display Mode**."
-    persistence: Until the window closes. **Reset** leaves it.
+    scope: "The task only. The canvas opens with a preview area of 800 by 800 pixels in the middle of the image, labelled \"Preview: DarkStructureEnhance\", and its floating toolbar offers **Display Mode**."
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Create mask image
     kind: check
     default: "Off"
@@ -174,8 +171,8 @@ controls:
     enabled: Disabled while Apply runs. It counts only for an Apply to a single image. The preview, a snapshot and an Apply to a sequence open no mask image.
     tradeoff: One more full-size image in memory. The darkening is the same either way.
     scope: The new image keeps the target's acquisition data, plate solution and lineage. It keeps no header card but its processing state, which is nonlinear with the operation `dark-structure-mask`.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
-    note: When the mask cannot be opened, the window warns "Mask output was not available."
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off.
+    note: When the mask cannot be opened, the task warns "Mask output was not available."
   - name: Reset
     kind: button
     default: ""
@@ -184,9 +181,9 @@ controls:
   - name: Apply
     kind: button
     default: ""
-    effect: Builds the mask of the whole image, or of each frame of the sequence, darkens through it, and then returns the window's values to their defaults.
-    enabled: From the moment the window opens, since the defaults darken. While the run works it is disabled, with every control of the window, **Preview** and **Preview Mode** included, and the preview's snapshot and area.
-    tradeoff: The run holds a copy of the target, a floating-point copy of an integer image, the working image the darkening writes, and the mask image when you asked for one. A progress window opens for a single image too, and its bar shows that the run works, not a percentage.
+    effect: Builds the mask of the whole image, or of each frame of the sequence, darkens through it, and then returns the task's values to their defaults.
+    enabled: From the moment the task opens, since the defaults darken. While the run works **Cancel** takes its place, and every control of the task is disabled, **Preview** and **Preview Mode** included, with the snapshot and the preview area.
+    tradeoff: The run holds a copy of the target, a floating-point copy of an integer image, the working image the darkening writes, and the mask image when you asked for one. On a single image the column's run row reads "applying", which shows that the run works, not a percentage. No progress window opens.
     scope: The whole image, never limited by a preview area, with the mask on the view blended afterwards.
     persistence: "The history step is **DarkStructureEnhance** and reads, for example, `Layers: 8, Scaling: 5x5 B3 Spline, Amount: 0.40 (midtones 0.70), Iterations: 1`. On a color image, a run on one channel or component adds ` in channel: ` and its name, as in `in channel: CIE L* (Lightness)`."
 ```
@@ -252,7 +249,7 @@ passes, \(W_0\) the channel itself, each pass gives
 
 ### Worked example
 
-The picture above shows the window at its defaults, with **Preview area** off, on the linear Carina
+The picture above shows the task at its defaults, with its preview area in the middle, on the linear Carina
 [master](../../reference/glossary.md#master) after Histogram Transformation with **Shadows** and **Midtones** at
 0.02, which leaves the background near 0.28. **Amount** at 0.40 gives \(m = 0.70\) by equation (3). One pass takes
 0.20 to 0.097, 0.50 to 0.30, 0.80 to 0.63 and the background's 0.28 to 0.14. By equation (4) a sample of 0.50 stays
@@ -341,5 +338,5 @@ No mask image opens
 - [Range Selection](../analysis/range-selection.md), for a mask chosen by brightness rather than by structure.
 - [Mask Drawing](../masking/mask-drawing.md) and [Masks](../../interface/masks.md), to draw and attach a mask that
   protects stars or background.
-- [Process Windows](../../interface/process-windows.md), for the preview, its toolbar, the progress window and what
-  every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the canvas's floating toolbar, the run in the column and what
+  every task shares.

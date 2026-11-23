@@ -14,8 +14,9 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window chooses its images itself and opens without an active image. Preview and OK wait for a
-    starless image and a stars image, and the profile controls for a profile with stars.
+    Always. The task chooses its images itself and opens without an active image, as a page of its own beside other
+    tasks. Preview and OK wait for a starless image and a stars image, and the profile controls for a profile with
+    stars.
   inputs: >-
     A starless image and a stars image of the same width, height and channels, one or three, and a star profile saved
     by Star Profiler v1 or v2, as an `.anspv1` or `.anspv2` file, made on the same image.
@@ -33,32 +34,26 @@ Profiled Starmask Recombination puts back on a [starless image](../../reference/
 stars of a star profile. It paints a [mask](../../reference/glossary.md#mask) from a profile Star Profiler saved, one
 area for each star, and adds the stars image to the starless one through it. The rest of the stars image stays out.
 Each area is a filled ellipse of the star's fit, softened, or one of six falloffs, and the stars can have their edges
-tightened first. The window chooses its images itself, and opens without an
+tightened first. The [task](../../reference/glossary.md#task) chooses its images itself, and opens without an
 [active image](../../reference/glossary.md#active-image).
 
-**OK** opens the result as a new image beside the starless image and closes the window. The two images and the
+**OK** opens the result as a new image beside the starless image and closes the task. The two images and the
 profile file stay as they were. The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/star-operations/profiled-starmask-recomb.webp
 alt: >-
-  The Profiled Starmask Recombination window. On the left, the Image Composition group names a starless image and a
-  stars image of the Carina nebula. The Stars Profile group shows a file path, a star count, the Stars Filter button,
-  Show Star Profiles ticked, Invert Selection, Scale Factor at 1.00 and Tighten Edges at 0.00 with their sliders, and
-  the Mask Generation group with Shape at Binary Areas, Soften Edges at 2.00, and two dimmed sliders. Preview is
-  ticked. On the right, the preview shows the nebula with its brighter stars, circled by the profile's areas. Reset
-  runs along the bottom on the left, OK and Close on the right.
+  The Profiled Starmask Recombination task. Its header names the process alone. The canvas at the left shows the
+  nebula with its brighter stars, circled by the profile's areas. The column at the right opens with the compact
+  readout of the preview, then the Preview toggle ticked, Preview area and Processed, and the sections of the process:
+  Image Composition names a starless image and a stars image of the Carina nebula; Stars Profile shows a file path, a
+  star count, the Stars Filter button, Show Star Profiles ticked, Invert Selection, Scale Factor at 1.00 and Tighten
+  Edges at 0.00 with their sliders; and Mask Generation holds Shape at Binary Areas, Soften Edges at 2.00, and two
+  dimmed sliders. Reset, Close and OK stand in its footer.
 caption: >-
   Profiled Starmask Recombination of the starless Carina image and its star image through a profile of the brighter
-  stars, with Binary Areas at their defaults. The preview shows what OK writes.
-pins:
-  - {n: 2, x: 3.5, y: 21.9}
-  - {n: 3, x: 3.5, y: 37.2}
-  - {n: 4, x: 31.1, y: 39.7}
-  - {n: 5, x: 3.5, y: 60.6}
-  - {n: 6, x: 3.5, y: 51.4}
-  - {n: 7, x: 13.5, y: 89.8}
-  - {n: 8, x: 75.0, y: 96.1}
+  stars, with Binary Areas at their defaults. The canvas shows what OK writes.
+owed: true
 ```
 
 ## Before you start
@@ -69,14 +64,16 @@ pins:
   crops, resizes or rotates it, and save it. Its positions are not checked against the images.
 - Keep floating-point images when the stars may add up above 1. A pair that includes an integer image is added as
   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), and the sum is held at 1.
-- Use still images. The window is made for one image, not a [sequence](../../reference/glossary.md#sequence).
-- Without a profile, or with one that holds no star, the window puts every star back. Check **Current Stars**
+- Use still images. The task is made for one image, not a [sequence](../../reference/glossary.md#sequence).
+- Without a profile, or with one that holds no star, the task puts every star back. Check **Current Stars**
   before OK.
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Star Processing > Profiled Starmask Recombination**. The image boxes read
-   `<--NO IMAGE-->`, the profile's controls are disabled and **Preview** is off.
+1. **Open the task.** Choose **Process > Star Processing > Profiled Starmask Recombination**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left says "Choose the images to see the result", and the column at the right holds its controls. The image boxes
+   read `<--NO IMAGE-->`, the profile's controls are disabled and **Preview** is off.
 2. **Choose the images.** Pick the starless image in **Starless Image** and the stars in **Stars Image**. **Preview**
    and **OK** enable.
 3. **Load the profile.** Choose **...** and pick the `.anspv1` or `.anspv2` file, or type its path in **Path**.
@@ -86,16 +83,16 @@ pins:
 5. **Shape the mask.** Leave **Shape** at **Binary Areas** and adjust **Scale Factor** and **Soften Edges**, or choose
    a falloff and adjust **% Pixel Increase** and **Pixel Increase**.
 6. **Tighten the stars, if their edges are wide.** Raise **Tighten Edges** in small steps.
-7. **Check the preview.** Tick **Preview**. **Show Star Profiles** draws the profile's areas over it. Zoom to 100 %
-   on the stars and hold ++space++ to see the starless image.
-8. **Choose OK.** The result opens beside the starless image as `<starless> - <stars> - MERGED`, and the window
-   closes.
+7. **Check the preview.** Tick **Preview** in the column's toggles row. **Show Star Profiles** draws the profile's
+   areas over the canvas. Zoom to 100 % on the stars and hold ++space++ to see the starless image.
+8. **Choose OK.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The result opens beside the
+   starless image as `<starless> - <stars> - MERGED`, and the task closes.
 
 ## Controls
 
-The preview, its toolbar and its progress window are those of every process window: see
-[Process Windows](../../interface/process-windows.md). The original the preview switches to is the starless image,
-and its display follows the starless image's view.
+The canvas, its floating toolbar and the run in the column are those of every task: see
+[Tasks](../../interface/tasks.md). The original the canvas switches to is the starless image, and its display
+follows the starless image's view.
 
 ```controls
 window: Profiled Starmask Recombination
@@ -104,11 +101,11 @@ controls:
     kind: combo
     default: "<--NO IMAGE-->"
     options: ["<--NO IMAGE-->", Every open image or sequence]
-    effect: Chooses the base the stars are added to. It becomes the window's target, gives the result its first name, its header and its record, and sets the preview's display.
+    effect: Chooses the base the stars are added to. It becomes the task's target, gives the result its first name, its header and its record, and sets the preview's display.
     range: The list holds every open view, whatever its size, channels, pixel type or state.
     tradeoff: A pair that is not aligned, or not at the same stage, gives doubled, shifted or missing structure.
     scope: The preview, a snapshot and OK. Its view is never changed.
-    persistence: Until the window closes. Closing the image returns the box to `<--NO IMAGE-->`.
+    persistence: Until the task closes. Closing the image returns the box to `<--NO IMAGE-->`.
   - name: Stars Image
     kind: combo
     default: "<--NO IMAGE-->"
@@ -117,7 +114,7 @@ controls:
     range: The run refuses an image whose width, height or channels differ from the starless image's.
     tradeoff: Whatever it holds besides stars is added too, where the mask lets it. A pixel type higher than the starless image's becomes the result's.
     scope: The preview, a snapshot and OK, cropped to a preview area as the starless image is.
-    persistence: Until the window closes. Its name is the second part of the result's.
+    persistence: Until the task closes. Its name is the second part of the result's.
   - name: Path
     kind: field
     default: ""
@@ -127,7 +124,7 @@ controls:
       content, not its name. A v1 star is a circle of its radius, and a v2 star an ellipse of its fit.
     tradeoff: A path typed by hand is read at each keystroke, and a file that cannot be read reports an error each time.
     scope: The star list and the mask. The file itself is never written.
-    persistence: Until the window closes. The history of the result does not record the path.
+    persistence: Until the task closes. The history of the result does not record the path.
     note: >-
       A file that cannot be read shows "Could NOT load the star profile file. Error message:" and the reason, under
       **Load Star Profile**. The list is then empty, and a run puts every star back.
@@ -149,7 +146,7 @@ controls:
   - name: Current Stars
     kind: readout
     default: "0"
-    effect: Shows how many stars the list holds. While a **Stars Filter** previews into the window's preview, it shows the filtered count.
+    effect: Shows how many stars the list holds. While a **Stars Filter** previews into the task's preview, it shows the filtered count.
     enabled: Dimmed until a profile with stars is loaded.
     tradeoff: At 0 no mask is painted and the whole stars image is added, even when the file was read.
   - name: Stars Filter
@@ -163,14 +160,14 @@ controls:
     effect: Draws each star of the list over the preview, at the size **Scale Factor** gives it. It changes nothing OK writes.
     enabled: While the list holds stars. It draws only while the preview is shown.
     tradeoff: A dense field of areas can hide what you want to look at.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Invert Selection
     kind: check
     default: "Off"
     effect: Off, the stars come back inside the areas and the starless image stays outside them. On, the mask is read the other way round, so everything but the listed stars comes back.
     enabled: While the list holds stars.
     tradeoff: The wrong way round, it brings back the unwanted stars and whatever else the stars image holds.
-    persistence: Until the window closes. **Reset** turns it off.
+    persistence: Until the task closes. **Reset** turns it off.
   - name: Scale Factor
     kind: spinbox
     default: "1.00"
@@ -182,7 +179,7 @@ controls:
     enabled: While the list holds stars.
     tradeoff: Large areas merge in a crowded field and bring back more of the stars image around them.
     scope: The mask, the drawing of **Show Star Profiles** and the neighbors **Include Neighbors** of the **Stars Filter** finds.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Tighten Edges
     kind: spinbox
     default: "0.00"
@@ -192,7 +189,7 @@ controls:
     enabled: While the list holds stars.
     tradeoff: Too high, it leaves dark rims, erases edges and fringes colors. The frame's borders can darken a little.
     scope: The whole stars image, every channel on its own, before the mask is applied.
-    persistence: Until the window closes. **Reset** returns it to 0.
+    persistence: Until the task closes. **Reset** returns it to 0.
   - name: Shape
     kind: combo
     default: Binary Areas
@@ -200,7 +197,7 @@ controls:
     effect: Chooses the area of each star. **Binary Areas** paints a filled ellipse of the star's fit, then softens it. Every other choice paints a round falloff from the center, by the formula of table (3).
     enabled: The group waits for a list with stars. **Binary Areas** enables **Soften Edges**, the falloffs **% Pixel Increase** and **Pixel Increase**.
     tradeoff: The falloffs are round, so they drop the shape and angle of a v2 star. Where areas overlap, the larger value counts.
-    persistence: Until the window closes. **Reset** returns it to **Binary Areas**.
+    persistence: Until the task closes. **Reset** returns it to **Binary Areas**.
     note: Quadratic uses a fourth power.
   - name: Soften Edges
     kind: spinbox
@@ -209,7 +206,7 @@ controls:
     effect: Blurs the ellipses of **Binary Areas** with a Gaussian of this standard deviation, in pixels. Higher gives a wider, softer transition. At 0 the edges stay hard.
     enabled: With **Binary Areas**.
     tradeoff: Wide softening also brings back the stars image's background around each star.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: "% Pixel Increase"
     kind: spinbox
     default: "0.50"
@@ -218,7 +215,7 @@ controls:
     range: A value below 0.01 counts as 0.01.
     enabled: With a falloff in **Shape**.
     tradeoff: Small values cut the stars short. Large ones merge their wings.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Pixel Increase
     kind: spinbox
     default: "0"
@@ -226,19 +223,19 @@ controls:
     effect: Adds this many pixels to the falloff's radius, after **% Pixel Increase**.
     enabled: With a falloff in **Shape**.
     tradeoff: It counts most on small stars, and large values add overlap and work.
-    persistence: Until the window closes. **Reset** returns it to 0.
+    persistence: Until the task closes. **Reset** returns it to 0.
   - name: Preview
     kind: check
     default: "Off"
-    effect: Shows the recombined image beside the controls, as in every process window. It opens off.
-    enabled: While both images are chosen. A profile is not needed.
+    effect: Shows the recombined image in the canvas, as in every task. It opens off.
+    enabled: While both images are chosen. A profile is not needed. It stands in the column's toggles row, and is disabled while OK runs.
     tradeoff: Each change paints the mask again and adds the images again over the whole frame. On a large image, set the mask with it off, then check.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Paints the mask from the list, adds the stars through it and opens the result beside the starless image as `<starless> - <stars> - MERGED`. The window then closes.
-    enabled: While both images are chosen. A profile is not needed, and the images are not checked until the run.
+    effect: Paints the mask from the list, adds the stars through it and opens the result beside the starless image as `<starless> - <stars> - MERGED`. The task then closes.
+    enabled: While both images are chosen. A profile is not needed, and the images are not checked until the run. While a run works **Cancel** stands in its place.
     tradeoff: The run holds several copies of the image at once, such as the mask, the tightened stars and the sum. Painting takes longer with more stars and larger areas, and its result does not depend on the order of the list.
     scope: The whole image, with the stars image, the list and every setting as they are when you press it. A change made afterwards reaches the next run only.
     persistence: >-
@@ -250,7 +247,7 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without a run, as in every process window.
+    effect: Closes the task without a run, as in every task. ++esc++ does the same.
     note: An image made by an earlier OK or a snapshot stays as it is.
   - name: Reset
     kind: button
@@ -311,7 +308,7 @@ controls:
   - name: Preview
     kind: check
     default: "On"
-    effect: While the window's **Preview** is on, draws the filtered list over the preview and uses it for the preview as you change the ranges. Off draws the whole list again.
+    effect: While the task's **Preview** is on, draws the filtered list over the preview and uses it for the preview as you change the ranges. Off draws the whole list again.
     tradeoff: A long list can make each change slow.
     scope: The drawing and the preview only. Nothing is kept until **OK**.
   - name: Include Neighbors
@@ -329,7 +326,7 @@ controls:
     default: ""
     effect: >-
       Asks "This change will discard the filtered stars from the list, if you want those stars back you'll need to
-      load the profile again, or run a new detection. Do you want to continue?" Yes replaces the window's star list
+      load the profile again, or run a new detection. Do you want to continue?" Yes replaces the task's star list
       with the filtered one and closes the dialog. No changes nothing.
     persistence: The profile file is not changed. **Reload stars profile file** brings the whole list back.
   - name: Reset
@@ -345,7 +342,7 @@ controls:
 
 ## How it works
 
-1. The profile is read in the background, and its stars become the window's list. A confirmed **Stars Filter**
+1. The profile is read in the background, and its stars become the task's list. A confirmed **Stars Filter**
    replaces the list in memory only.
 2. On each run, the mask is painted from the list over the whole stars image, one channel of 32-bit floating point,
    and cropped like the images to a [preview area](../../reference/glossary.md#preview-area). Without stars, no mask is
@@ -449,7 +446,7 @@ caption: >-
 ## When it goes wrong
 
 !!! warning "Without stars in the list, every star comes back"
-    No profile, a profile that could not be read, one that holds no star or a filter that kept none: the window
+    No profile, a profile that could not be read, one that holds no star or a filter that kept none: the task
     then adds the whole stars image, as Starmask Recombination does. Check **Current Stars** before OK.
 
 Every star comes back
@@ -457,7 +454,7 @@ Every star comes back
 :   **Fix.** Load a profile with stars, or **Reload stars profile file**, and check the count.
 
 "Could NOT load the star profile file. Error message:" with a reason
-:   **Cause.** The file in **Path** is not a profile the window can read.
+:   **Cause.** The file in **Path** is not a profile the task can read.
 :   **Fix.** Choose a `.anspv1` or `.anspv2` file saved by Star Profiler.
 
 The areas miss the stars
@@ -490,7 +487,7 @@ Bright cores are flat at the top
 - [Starnet++](starnet.md), to make the starless image and a stars image to add back.
 - [Starmask Recombination](starmask-recombination.md), to add the whole stars image, with a mask image of your own.
 - [Star Mask](star-mask.md), to paint the same kinds of star areas into a mask image without a profile.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.
 
 ## Credits
 

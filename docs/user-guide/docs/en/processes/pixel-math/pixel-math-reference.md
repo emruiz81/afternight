@@ -6,7 +6,7 @@ summary: >-
 ---
 # Pixel Math Reference
 
-This page holds what [Pixel Math](pixel-math.md) leaves out to stay readable beside its window: how an expression is
+This page holds what [Pixel Math](pixel-math.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task): how an expression is
 written, its operators in the order they bind, the images and symbols it reads, every function with its arguments
 and what it returns, the two ways an expression runs, the messages a refused expression gives, the `.anpm` settings
 file and what a run records. Names are case-sensitive everywhere, and each section can be read on its own.
@@ -363,8 +363,8 @@ The evaluator
 
 ## Messages
 
-Every refusal is shown under "Error running PixelMath", after "An error occurred when executing the PixelMath
-process:", and written to the log. A reason about an expression starts with its tab, `RGB/K`, `R`, `G`, `B` or `A`,
+Every refusal is shown in the message strip of the task's column, as "Error running PixelMath: An error occurred when
+executing the PixelMath process:" and the reason, and written to the log. A reason about an expression starts with its tab, `RGB/K`, `R`, `G`, `B` or `A`,
 and the part of the expression it is about: `RGB/K expression at 'NAME': nothing is bound to the name 'NAME' at byte
 <n>`. Below, the reasons follow the tab's part.
 
@@ -441,7 +441,7 @@ reason about a call's image, the name is the function's: `the image 'med' at byt
 `the expression names more than 16 images`
 :   The expression reads too many images.
 
-### The window's own refusals
+### The task's own refusals
 
 "The pixel math expression is empty"
 :   Every expression the result uses is blank.

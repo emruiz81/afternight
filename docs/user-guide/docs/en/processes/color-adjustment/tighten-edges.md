@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Tighten Edges window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Tighten Edges task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size on
     its view.
@@ -30,7 +31,7 @@ derived: false
 
 Tighten Edges measures how strongly the image changes around each sample and darkens the sample by that much. On a
 bright structure against a dark field, such as a star, the edge contracts and hardens. The measure is one fixed
-neighbourhood of three by three pixels, so the window has no radius and no scale. It is no
+neighbourhood of three by three pixels, so the [task](../../reference/glossary.md#task) has no radius and no scale. It is no
 [deconvolution](../../reference/glossary.md#deconvolution), no sharpening as in
 [Unsharp Mask](../sharpening/unsharp-mask.md) and no [morphology](../../reference/glossary.md#morphology) with a shape
 you choose.
@@ -43,17 +44,15 @@ was.
 ```figure
 image: ../../assets/images/processes/color-adjustment/tighten-edges.webp
 alt: >-
-  The Tighten Edges window. On the left, the Value box at 0.50 and the Amount box at 1.00 with their sliders, then
-  Target Image, Channel at RGB and the Preview box, ticked. On the right, a toolbar over the preview of a red nebula
-  with many stars. Reset, Close and Apply run along the bottom.
+  The Tighten Edges task. Its header names Tighten Edges and the master. The canvas at the left shows the preview of a
+  red nebula with many stars, the word PREVIEW in its corner, with a floating toolbar of zoom buttons, a channel box
+  and the display mode near its foot. The column at the right holds the preview's small histogram and statistics, the
+  toggles Preview, Preview area and Processed, Target Image and Channel at RGB, and the Value box at 0.50 and the
+  Amount box at 1.00 with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  Tighten Edges on a stretched master with Value at 0.50 and Amount at 1.00. The preview shows what Apply writes.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 2.0, y: 20.1}
-  - {n: 4, x: 2.0, y: 25.1}
-  - {n: 5, x: 33.0, y: 40.0}
-  - {n: 6, x: 90.6, y: 96.0}
+  Tighten Edges on a stretched master with Value at 0.50 and Amount at 1.00. The preview in the canvas shows what
+  Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -69,22 +68,24 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image active and choose **Process > Morphology > Tighten Edges**. **Apply** stays
-   disabled while **Value** is 0.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Morphology > Tighten Edges**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows the preview, and the column at the right
+   holds its controls. **Apply** stays disabled while **Value** is 0.
 2. **Choose the channel.** Leave **Channel** at **RGB**, or compare it with **CIE Y (Luminance)** or
    **CIE L* (Lightness)** when colored rims appear.
 3. **Set the strength.** Raise **Value** a little at a time. The preview follows, and the edges of the stars darken.
 4. **Blend the result.** Lower **Amount** to mix the original back in when the effect is too strong.
-5. **Check at 100 %.** Zoom the preview into small stars, both sides of a bright edge, the noise of the background and
+5. **Check at 100 %.** Zoom the canvas into small stars, both sides of a bright edge, the noise of the background and
    the four borders of the image. Press ++space++ to compare with the original.
-6. **Apply.** Choose **Apply**. The edges in the view are tighter, and the history lists **Tighten Edges** with the
-   value, the amount and, for a color image, the channel.
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The edges in the view are tighter,
+   and the history lists **Tighten Edges** with the value, the amount and, for a color image, the channel.
 
 ## Controls
 
-**Target Image**, **Channel**, **Preview**, the preview pane, **Close** and the progress window of a sequence work as
-in every process window: see [Process Windows](../../interface/process-windows.md). The entries below hold what is
-particular to this window, which has no histogram.
+**Target Image**, **Channel**, **Preview**, the canvas, the toggles row, **Close** and the run in the column work as in
+every task: see [Tasks](../../interface/tasks.md). The entries below hold what is particular to this task, which has
+no histogram.
 
 ```controls
 window: Tighten Edges
@@ -98,7 +99,7 @@ controls:
     enabled: At exactly 0, **Apply** is disabled. Disabled while Apply runs.
     tradeoff: Larger values darken and clip more edge samples, and strengthen the rims at the image's borders, ringing, noise and colored fringes. The work is the same at every value.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. Images and sequences.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -108,13 +109,13 @@ controls:
     enabled: It does not enable **Apply**. With **Value** above 0, Apply works at **Amount** 0 too, and records a step that changes nothing.
     tradeoff: It weakens the visible effect without changing the work. It cannot bring back what the filter clipped to black, only mix the original back in.
     scope: After the channel or component is put back, and before the mask on the view.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it.
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Channel
     kind: combo
     default: RGB
@@ -123,15 +124,15 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs, which takes the choice it finds when you press **Apply**.
     tradeoff: With **RGB** the channels' edges differ, which can leave colored rims. A lightness or luminance component avoids them, but the conversion back can change colors, cuts an integer image at the ends of its type and leaves a floating-point image outside 0 to 1. A hue component is treated as a line, not as a circle.
     scope: The preview and Apply, on images and sequences. The history step names the choice.
-    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the filtered image beside the controls, with **Amount** and the mask applied.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the filtered image in the canvas, with **Amount** and the mask applied.
+    enabled: Disabled while Apply runs, with the whole toggles row.
     tradeoff: Each change filters the image again. A color component adds its two conversions, and the Autostretch display its stretch.
-    scope: "The window only. The pane's toolbar offers **Display Mode**. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image, or the whole image when that is smaller. While you drag a slider, the preview filters the part of the image the pane shows, at full scale."
-    persistence: Until the window closes. **Reset** leaves it.
+    scope: "The canvas only. The canvas's toolbar offers **Display Mode**. **Preview area** is off when the task opens, and ticked it starts at 600 by 600 pixels in the middle of the image, or the whole image when that is smaller. While you drag a slider, the preview filters the part of the image the canvas shows, at full scale."
+    persistence: Until the task closes. **Reset** leaves it.
     note: The outermost pixels of a preview area are filtered against neighbours of 0, as the image's own border is, so they do not show what Apply writes there. A snapshot, named `<target> - Tighten Edges - SNAPSHOT`, keeps them as the preview shows them.
   - name: Reset
     kind: button
@@ -142,7 +143,7 @@ controls:
     kind: button
     default: ""
     effect: Filters the whole image, or every frame of the sequence, with the values it finds when you press it, and then returns **Value** and **Amount** to their defaults.
-    enabled: When **Value** is not 0, whatever **Amount** is. While the run works, **Value**, **Amount**, **Target Image**, **Channel**, **Reset** and **Close** are disabled. **Apply** itself still looks enabled, but a second press does nothing.
+    enabled: When **Value** is not 0, whatever **Amount** is. While the run works **Cancel** takes its place, and **Value**, **Amount**, **Target Image**, **Channel**, **Reset** and **Close** are disabled.
     tradeoff: One pass over each plane filtered, then the blend of **Amount**, the mask and the conversions of a component.
     scope: The whole image, never limited by a preview area.
     persistence: "The history step is **Tighten Edges** and reads, for example, `Adjust value to 0.5, amount 1 in channel: RGB`. For a grayscale image it ends after the amount. The image keeps its header cards and its processing state, and the step records it neither as linear nor as nonlinear."
@@ -191,7 +192,7 @@ toward black rather than being sharpened.
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28, with **Value** at
 0.50 and **Amount** at 1.00. At a sharp edge between that background and a star core at 1.00, equation (1) gives
 \(E = 0.36\) on both sides. Equation (2) takes 0.18 from each: the star's edge falls to 0.82 and the background beside
@@ -257,5 +258,4 @@ Dark halos and grainy background
   a star layer before it adds the layer back.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to check the range of the result.
-- [Process Windows](../../interface/process-windows.md), for the preview, its toolbar and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, its toolbar and what every task shares.

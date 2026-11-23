@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Morphological Transformation window is open on it yet, and no window
-    that needs the image for itself is open on it.
+    An image or a sequence view is active, no Morphological Transformation task is open on it yet, and no task that
+    needs the image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs
+    only while nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence, often a mask, and an optional mask of the image's size on its view.
   outputs: >-
@@ -43,27 +44,23 @@ was. No [mask](../../reference/glossary.md#mask) is made or attached.
 ```figure
 image: ../../assets/images/processes/masking/morphological-transformation.webp
 alt: >-
-  The Morphological Transformation window. On the left, the Morphological Filter group with Operator at Opening,
-  Iterations at 1, Amount at 1.00 with its slider and a grayed Selection box, then the Structuring Element group with
-  a seven by seven grid whose white cells form a disc, the Size box at 7 and seven small icon buttons, then Target
-  Image, Channel at RGB and the Preview box, ticked. On the right, a toolbar over the preview of a red nebula with
-  fewer stars than the original. Reset, Close and Apply run along the bottom.
+  The Morphological Transformation task. Its header names the process and the master. The canvas at the left shows
+  the preview of a red nebula with fewer stars than the original, the word PREVIEW in its corner, with a floating
+  toolbar of zoom buttons, a channel box and the display mode near its foot. The column at the right holds the
+  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
+  at RGB, the Morphological Filter section with Operator at Opening, Iterations at 1, Amount at 1.00 with its slider
+  and a grayed Selection box, and the Structuring Element section with a seven by seven grid whose white cells form a
+  disc, the Size box at 7 and seven small icon buttons. Reset, Close and Apply stand in its footer.
 caption: >-
   Morphological Transformation on the stretched Carina master with Opening and a circular element of size 7. The
-  preview shows what Apply writes: the small stars are gone and the clouds keep their shape.
-pins:
-  - {n: 2, x: 2.0, y: 20.5}
-  - {n: 3, x: 2.0, y: 56.0}
-  - {n: 4, x: 2.0, y: 25.0}
-  - {n: 5, x: 2.0, y: 29.5}
-  - {n: 6, x: 8.6, y: 85.4}
-  - {n: 8, x: 89.2, y: 96.0}
+  preview in the canvas shows what Apply writes: the small stars are gone and the clouds keep their shape.
+owed: true
 ```
 
 ## Before you start
 
 - Work on a duplicate. **Apply** replaces the image, and its history keeps the step before.
-- To change a mask, make the mask image itself the target. The window makes no mask and attaches none.
+- To change a mask, make the mask image itself the target. The [task](../../reference/glossary.md#task) makes no mask and attaches none.
 - Turn off a mask on the target's view when the whole image must change. That mask blends the original back in, and
   leaves gray values where it is not white.
 - Look at the grid itself, not only at **Size**. A larger size keeps the old cells in the middle and adds cells that
@@ -72,9 +69,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Morphology > Morphological Transformation**. The preview shows the image eroded by a filled square of
-   3 by 3 cells.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Morphology > Morphological Transformation**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image eroded by a filled square of 3 by 3 cells, and the column at the right holds its controls.
 2. **Choose the operator.** In **Operator**, choose what the element does: shrink, grow, open, close, or take the
    rank **Selection** sets.
 3. **Shape the element.** Choose **Size**, then a shape with one of the buttons beside the grid, or click cells to
@@ -83,16 +81,16 @@ pins:
 5. **Soften the result.** Lower **Amount** to mix the original back in when the full result is too abrupt.
 6. **Choose the channel.** Leave **Channel** at **RGB** to process each color channel on its own, or choose one
    component to process it alone.
-7. **Check at 100 %.** Zoom the preview to 100 % on edges, on structures near the size of the element and on the
+7. **Check at 100 %.** Zoom the canvas to 100 % on edges, on structures near the size of the element and on the
    borders of the image. Hold ++space++ to compare with the original.
-8. **Apply.** Choose **Apply**. The image in its view is the reshaped one, its history lists **Morphological
-   Transformation** with the operator, the iterations and the amount, and the controls return to their defaults.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the reshaped
+   one, its history lists **Morphological Transformation** with the operator, the iterations and the amount, and the
+   controls return to their defaults.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window of a sequence work as in every process window,
-and so does **Channel**: see
-[Process Windows](../../interface/process-windows.md). The window has no histogram.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task, and so does
+**Channel**: see [Tasks](../../interface/tasks.md). The task has no histogram.
 
 ```controls
 window: Morphological Transformation
@@ -106,7 +104,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: An opening and a closing run both operations, which doubles the work. **Morphological Selection** ranks every covered sample, which costs more than a minimum or a maximum.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Erosion (Minimum)**. The history step names it.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Erosion (Minimum)**. The history step names it.
   - name: Iterations
     kind: spinbox
     default: "1"
@@ -116,7 +114,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The work and the effect grow with the count. A larger element changes which neighbours count and can carry a shape or a direction, while more iterations repeat the same footprint.
     scope: The preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -126,7 +124,7 @@ controls:
     enabled: Disabled while Apply runs. It does not disable **Apply**.
     tradeoff: The whole operation runs at every **Amount**, 0 included, and the mix adds a pass. Below 1, a binary mask gains gray values.
     scope: After the channel or component is put back, and before the mask on the view.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Selection
     kind: spinbox
     default: "0.50"
@@ -135,7 +133,7 @@ controls:
     range: Between two ranks the value is interpolated in a straight line, so the result need not be one of the covered samples. At 0.5 over a filled square it is the median of that size, as Median Filter gives. The slider moves in steps of 0.001.
     enabled: Only with **Morphological Selection**. Disabled while Apply runs.
     tradeoff: The ranking grows with the number of cells that are on. A binary mask can gain values between its two levels.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5. The history step records it for **Morphological Selection** only.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.5. The history step records it for **Morphological Selection** only.
   - name: Size
     kind: combo
     default: 3 (9 elements)
@@ -144,7 +142,7 @@ controls:
     range: A larger size keeps the cells in the middle and adds cells that are off around them. A smaller size keeps the middle of the grid. For a larger shape, press a shape button or **Fill grid** afterwards.
     enabled: Disabled while Apply runs.
     tradeoff: A larger footprint reaches farther and costs more, in proportion to the cells that are on.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 3, with every cell on.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 3, with every cell on.
   - name: Clear grid
     kind: button
     default: ""
@@ -191,10 +189,10 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
     tradeoff: Apply replaces the image chosen here. Check it before you apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -203,19 +201,19 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB** the channels' edges move differently, which can color them. A hue is a circle, but its minimum and maximum are taken as numbers, so colors near the wrap can jump.
     scope: The preview and Apply, on images and sequences. The history step names it for a color image.
-    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the result beside the controls, with **Amount** and the mask applied.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the result in the canvas, with **Amount** and the mask applied.
+    enabled: Disabled while Apply runs, with the whole toggles row.
     tradeoff: Each change of a value or of the grid processes the image again. Turn it off while you edit the grid at length, or draw a **Preview area**, then check the whole image before Apply.
-    scope: "The window only. The pane's toolbar offers **Display Mode**, whose Autostretch can exaggerate faint changes. While you drag a slider, the preview processes the part of the image the pane shows, at full scale. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image."
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: "The canvas only. The canvas's toolbar offers **Display Mode**, whose Autostretch can exaggerate faint changes. While you drag a slider, the preview processes the part of the image the canvas shows, at full scale. **Preview area** is off when the task opens, and ticked it starts at 600 by 600 pixels in the middle of the image."
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without applying.
+    effect: Closes the task without applying.
     enabled: Disabled while Apply runs.
   - name: Reset
     kind: button
@@ -227,9 +225,9 @@ controls:
     kind: button
     default: ""
     effect: Processes the whole image, or every frame of the sequence, with the values, the element and the channel as they are when you press it, then returns the controls to their defaults.
-    enabled: While the element has at least one cell on, as it has when the window opens. While the run works, every control of the window but **Preview** is disabled.
+    enabled: While the element has at least one cell on, as it has when the task opens. While the run works **Cancel** takes its place, and every other control of the task, **Preview** included, is disabled.
     tradeoff: The work grows with the pixels, the channels, the cells that are on and the iterations. A 25 by 25 element at 20 iterations costs far more than the default, and a color component adds its conversions.
-    scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards. Each frame of a sequence keeps its own metadata, and **Cancel** stops the work inside the frame being processed. The progress window counts frames, not the work inside one, so try a short duplicate sequence first.
+    scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards. Each frame of a sequence keeps its own metadata, and **Cancel** stops the work inside the frame being processed. The run in the column counts frames under **Overall**, not the work inside one, so try a short duplicate sequence first.
     persistence: "The history step is **Morphological Transformation** and reads, for example, `Operator: Opening (Dilation + Erosion), Iterations: 1, Amount: 1.00 in channel: RGB`, with `, Selection: 0.50` after the amount for **Morphological Selection**. For a grayscale image it ends before ` in channel`. It does not record the size or the cells of the element. The image keeps its header cards and its processing state, and the step records it neither as linear nor as nonlinear."
 ```
 
@@ -299,7 +297,7 @@ and a mask on the view then blends \(Y\) with \(X\) in the same way, by its own 
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. **Operator** is at
 **Opening (Dilation + Erosion)**, **Size** at 7, the element made with **Circular structure**, **Iterations** at 1
 and **Amount** at 1.00. The disc has 37 cells and reaches 3 pixels from its center. A star narrower than the disc
@@ -337,7 +335,7 @@ eight new pixels of that block 0.5. A single black pixel in a white field is fil
 
 !!! warning "The history does not record the element"
     The history step names the operator, the iterations, the amount and the channel, not the size or the cells of
-    the element. Note the element, or keep a picture of the window, when you must repeat the step.
+    the element. Note the element, or keep a picture of the task, when you must repeat the step.
 
 Opening and Closing seem to run in the order opposite to their labels
 :   **Cause.** The parentheses of the labels name the steps in reverse order.
@@ -361,7 +359,7 @@ The result is gray instead of black and white
 
 Colored edges appear in an RGB image
 :   **Cause.** Each channel moved its edges on its own, or a component was converted back to RGB.
-:   **Fix.** Look at each channel with the preview's **View Channel**. Try a lightness or luminance component instead.
+:   **Fix.** Look at each channel with the canvas's **View Channel**. Try a lightness or luminance component instead.
 
 Structures along the borders change unexpectedly
 :   **Cause.** Part of the element lies outside the image there, and only the samples inside count.
@@ -380,8 +378,7 @@ Samples that held no number are still there
 - [Median Filter](../noise-reduction/median-filter.md), for the median of a whole square.
 - [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to attach the result to
   another image as its mask, and to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, **Channel** and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, **Channel** and what every task shares.
 
 ## Credits
 

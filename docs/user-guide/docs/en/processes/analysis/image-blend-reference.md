@@ -6,7 +6,7 @@ summary: >-
 ---
 # Image Blend Reference
 
-This page holds what [Image Blend](image-blend.md) leaves out to stay readable beside its window: the formula of each
+This page holds what [Image Blend](image-blend.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task): the formula of each
 of the 27 blend modes, what each filter does to the blend image, how a grayscale image meets a color one, what
 **Preserve lightness** keeps, and what the result's header and [history](../../reference/glossary.md#history) say.
 Each section can be read on its own.

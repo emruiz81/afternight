@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Range Selection window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Range Selection task is open on it yet, and no task that needs the image
+    for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or color image or sequence, of any pixel type. A mask on its view is not used.
   outputs: >-
@@ -35,28 +35,22 @@ two edges of the range into ramps, **Smoothness** blurs the mask, **Screening** 
 selected, and **Invert** swaps black and white. On a color image, **Lightness** makes one grayscale mask from the
 lightness of each pixel.
 
-**OK** opens the mask as a new image named `<target> - MASK` beside the target, and closes the window. The target
+**OK** opens the mask as a new image named `<target> - MASK` beside the target, and closes the [task](../../reference/glossary.md#task). The target
 stays as it was. The mask is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/analysis/range-selection.webp
 alt: >-
-  The Range Selection window. On the left, Lower limit at 0.450000 and Upper limit at 1.000000 with their sliders,
-  the Link Range Limits check box, Fuzziness at 0.00 and Smoothness at 4.00, the Screening, Lightness and Invert check
-  boxes with Lightness ticked, then Target Image and Preview. On the right, the preview shows a grayscale mask: a
-  black background with the bright clouds of the nebula in soft-edged white. Reset, OK and Cancel run along the
-  bottom.
+  The Range Selection task. Its header reads Range Selection on the stretched master. The canvas at the left shows a
+  grayscale mask: a black background with the bright clouds of the nebula in soft-edged white, the word PREVIEW in its
+  corner and the floating toolbar near its foot. The column at the right opens with the compact readout of the mask,
+  then the Preview, Preview area and Processed toggles, Target Image, Lower limit at 0.450000 and Upper limit at
+  1.000000 with their sliders, the Link Range Limits check box, Fuzziness at 0.00 and Smoothness at 4.00, and the
+  Screening, Lightness and Invert check boxes with Lightness ticked. Reset, Cancel and OK stand in the footer.
 caption: >-
   Range Selection on the stretched Carina master with Lower limit at 0.45 and Smoothness at 4, on the lightness. The
-  preview, in the Linear display mode, shows the mask OK opens.
-pins:
-  - {n: 2, x: 13.9, y: 44.5}
-  - {n: 3, x: 2.0, y: 20.1}
-  - {n: 4, x: 2.0, y: 29.9}
-  - {n: 5, x: 2.0, y: 37.2}
-  - {n: 6, x: 25.7, y: 44.5}
-  - {n: 7, x: 91.1, y: 19.9}
-  - {n: 8, x: 79.3, y: 96.0}
+  canvas, in the Linear display mode, shows the mask OK opens.
+owed: true
 ```
 
 ## Before you start
@@ -74,8 +68,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Mask Generation > Range Selection**. The preview is white wherever a sample lies between 0 and 1.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Mask Generation > Range Selection**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the mask, white wherever a sample lies between 0 and 1, the column at the right holds the controls.
 2. **Choose what is selected.** Leave **Lightness** ticked for one grayscale mask of a color image. Untick it to
    select each channel on its own.
 3. **Set the range.** Raise **Lower limit** until the background turns black, and lower **Upper limit** to leave out
@@ -85,15 +81,15 @@ pins:
 5. **Soften the edges.** Raise **Fuzziness** to turn the hard edges into ramps, then **Smoothness** to blur the mask.
 6. **Choose the kind of mask.** Tick **Screening** to keep the brightness of the samples selected, and **Invert** to
    protect the range instead of selecting it.
-7. **Check the whole mask.** Choose **Linear** in **Display Mode**, look at the edges at 100 %, and untick
-   **Preview area** if you used one.
-8. **Choose OK.** The mask opens beside the image as `<target> - MASK`, and the window closes.
+7. **Check the whole mask.** Choose **Linear** in **Display Mode** in the canvas's toolbar, look at the edges at
+   100 %, and untick **Preview area** if you used one.
+8. **Choose OK.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The mask opens beside the image as
+   `<target> - MASK`, and the task closes.
 
 ## Controls
 
-The preview's toolbar is the one every process window shares: see
-[Process Windows](../../interface/process-windows.md). For a mask of the lightness it shows **Grayscale** in **View
-Channel**. The window has no histogram.
+The canvas's toolbar is the one every task shares: see [Tasks](../../interface/tasks.md). For a mask of the lightness
+it shows **Grayscale** in **View Channel**. The task has no histogram.
 
 ```controls
 window: Range Selection
@@ -107,7 +103,7 @@ controls:
     enabled: Disabled while OK runs.
     tradeoff: Equal to **Upper limit**, only the samples of exactly that value are selected.
     scope: The preview, a snapshot and OK, on every channel or on the lightness.
-    persistence: Until the window closes. **Reset** returns it to 0, and a new window starts at 0.
+    persistence: Until the task closes. **Reset** returns it to 0, and a new task starts at 0.
     note: The slider beside the box moves the same value in 1,000 steps.
   - name: Upper limit
     kind: spinbox
@@ -117,7 +113,7 @@ controls:
     range: The limit itself is selected. Lowering it to **Lower limit** or below moves **Lower limit** down to it.
     enabled: Disabled while OK runs.
     scope: The preview, a snapshot and OK, on every channel or on the lightness.
-    persistence: Until the window closes. **Reset** returns it to 1, and a new window starts at 1.
+    persistence: Until the task closes. **Reset** returns it to 1, and a new task starts at 1.
   - name: Link Range Limits
     kind: check
     default: "Off"
@@ -125,7 +121,7 @@ controls:
     range: The width is the one the limits have when you tick it. A limit that would pass 0 or 1 stops the range there.
     enabled: Disabled while the limits are exactly 0 and 1, so move one of them first. Disabled while OK runs.
     scope: The two limits only. The mask does not depend on it.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Fuzziness
     kind: spinbox
     default: "0.00"
@@ -135,7 +131,7 @@ controls:
     enabled: Disabled while OK runs.
     tradeoff: Wider ramps narrow the fully white part of the range. With **Upper limit** at 1, a sample of exactly 1, such as a saturated star core, gets no weight.
     scope: Every channel or the lightness, before **Smoothness**.
-    persistence: Until the window closes. **Reset** returns it to 0.
+    persistence: Until the task closes. **Reset** returns it to 0.
   - name: Smoothness
     kind: spinbox
     default: "0.00"
@@ -145,8 +141,8 @@ controls:
     enabled: Disabled while OK runs.
     tradeoff: Its work grows with the value. Higher spreads the selection past its structures into their surroundings. In an integer mask the soft values are rounded to the codes of the type.
     scope: The whole mask, every channel, after **Fuzziness** and **Screening** and before **Invert**.
-    persistence: Until the window closes. **Reset** returns it to 0.
-    note: The slider moves the value in steps of 0.1. While you drag a slider over a preview reduced to the pane, the blur is reduced with it.
+    persistence: Until the task closes. **Reset** returns it to 0.
+    note: The slider moves the value in steps of 0.1. While you drag a slider over a preview reduced to the canvas, the blur is reduced with it.
   - name: Screening
     kind: check
     default: "Off"
@@ -154,7 +150,7 @@ controls:
     enabled: Disabled while OK runs.
     tradeoff: A dim region in the range makes a weak mask there. It multiplies the samples, and is not the Screen blend mode.
     scope: Every channel or the lightness, before **Smoothness** and **Invert**.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Lightness
     kind: check
     default: "On"
@@ -162,7 +158,7 @@ controls:
     enabled: A grayscale image is selected on its one channel either way. Disabled while OK runs.
     tradeoff: The lightness is computed into a plane of its own, in 32-bit floating point, or 64-bit for a 64-bit floating-point or 32-bit integer image, whatever the image's pixel type.
     scope: The preview, a snapshot and OK, and each frame of a sequence.
-    persistence: Until the window closes. **Reset** ticks it again.
+    persistence: Until the task closes. **Reset** ticks it again.
     note: The lightness runs from 0 to 1. The red, green and blue are read as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. A preview area on a color image shows the grayscale mask of the area over the image in gray.
   - name: Invert
     kind: check
@@ -171,27 +167,28 @@ controls:
     enabled: Disabled while OK runs.
     tradeoff: A sample that held no number is not selected, so after **Invert** it is white, or nearly so after **Smoothness**.
     scope: The whole mask, after **Smoothness**.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image the mask is made from and named after.
     enabled: Disabled while OK runs.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the mask beside the controls, without the target's mask.
-    tradeoff: While you drag a slider, the preview is computed on what the pane shows, the image reduced to the pane or the part shown at 100 % and closer with the blur's reach around it. When you let go, it is computed on the whole image, as OK computes it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: Over a reduced image the limits and ramps are close but not exact, so a thin structure can be selected more or less than at full scale. A lightness mask of a color image in **Autostretch** is computed on the whole image at every step, unless the pane shows the image reduced to half its size or less. Ticked, **Preview area** is 600 by 600 pixels in the middle of the image, or the image's size when that is smaller. A snapshot is the mask the preview shows, with the area, and is not recorded as nonlinear or as a range selection.
+    effect: Shows the mask in the canvas, without the target's mask.
+    enabled: It stands in the column's toggles row.
+    tradeoff: While you drag a slider, the preview is computed on what the canvas shows, the image reduced to the canvas or the part shown at 100 % and closer with the blur's reach around it. When you let go, it is computed on the whole image, as OK computes it.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: Over a reduced image the limits and ramps are close but not exact, so a thin structure can be selected more or less than at full scale. A lightness mask of a color image in **Autostretch** is computed on the whole image at every step, unless the canvas shows the image reduced to half its size or less. Ticked, **Preview area** is 600 by 600 pixels in the middle of the image, or the image's size when that is smaller. A snapshot is the mask the preview shows, with the area, and is not recorded as nonlinear or as a range selection.
   - name: OK
     kind: button
     default: ""
-    effect: Makes the mask of the whole image, or of every frame of a sequence, opens it beside the target as `<target> - MASK` and closes the window.
-    enabled: Disabled while it runs, with **Cancel**, **Reset** and every control of the window.
-    tradeoff: A single image shows no progress window. Closing the window or the target stops the run, which then makes nothing and shows no message. A sequence is written to a new temporary sequence, opened only when every frame is done.
+    effect: Makes the mask of the whole image, or of every frame of a sequence, opens it beside the target as `<target> - MASK` and closes the task.
+    enabled: While it runs, the footer's **Cancel** stops the run in its place, and **Reset**, the task's own **Cancel** and every control of the column are disabled.
+    tradeoff: The run shows in the column, "applying" on a single image and **Overall** and **Processing** on a sequence; no progress window opens. Closing the target stops the run, which then makes nothing and shows no message. A sequence is written to a new temporary sequence, opened only when every frame is done.
     scope: The whole image. A preview area does not limit it, and the mask on the target's view is not used.
     persistence: The new image's history starts with a **Range Selection** step without a description. The target and its history are not changed.
   - name: Reset
@@ -337,5 +334,4 @@ The image around a preview area is gray
 - [Morphological Transformation](../masking/morphological-transformation.md), to grow, shrink or soften the mask
   further.
 - [Pixel Math](../pixel-math/pixel-math.md), for a selection of your own or to combine this mask with another.
-- [Process Windows](../../interface/process-windows.md), for the preview, its toolbar and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, the canvas's toolbar and what every task shares.

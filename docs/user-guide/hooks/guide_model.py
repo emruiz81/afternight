@@ -12,9 +12,9 @@ its nav label, the category is its nav group, related pages are links in its tex
 `data/limits.yml`.
 
 The module also reads a page's body as what it says - its headings, lists, tables and prose, outside code and math -
-for the rules that hold a page to its template, its budgets and its vocabulary - and the inventory of the controls
-every process window opens with (`data/ui/`), which a test of the application writes and a page's `controls` blocks
-are held to.
+for the rules that hold a page to its template, its budgets and its vocabulary - and the inventories of the controls
+every process window opens with (`data/ui/`) and of the main window's own parts (`data/ui/shell/`), which tests of
+the application write and a page's `controls` blocks are held to.
 
 Tests: docs/user-guide/hooks/guide_model_test.py
 """
@@ -63,7 +63,7 @@ KEY_KINDS = {
     'external': _PROCESS,
     'glance': _PROCESS,
     'derived': _PROCESS,
-    'controls_ignore': _PROCESS,
+    'controls_ignore': _PROCESS | frozenset({'interface'}),
     'needs': _SPANNING,
     'hero': frozenset({'home'}),
     'notice': frozenset({'home'}),
@@ -677,6 +677,38 @@ def load_ui_inventory(guide_dir):
                                  (windows[window.action].path, path, window.action))
         windows[window.action] = window
     return windows
+
+
+# --- The inventory of the shell's own controls -------------------------------------------------------------------------
+# One file per part of the Observatory window under data/ui/shell/ - the rail, the top bar, the floating toolbar, the
+# readout and the rest - named by its id, `shell.<part>`, written as a process window's is (ShellUiInventory in
+# Test_ShellObservatory), and held to the interface pages whose `controls` blocks name the part.
+
+SHELL_INVENTORY = os.path.join(UI_INVENTORY, 'shell')
+
+
+def load_shell_inventory(guide_dir):
+    """The inventory of the shell's parts, by id, in the order of their files: the files of data/ui/shell/. Empty
+    when the guide has none. A part's `name` is its title, which a `controls` block names as its `window`."""
+    folder = os.path.join(guide_dir, SHELL_INVENTORY)
+    parts = {}
+    if not os.path.isdir(folder):
+        return parts
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith('.json'):
+            continue
+        path = os.path.join(folder, name)
+        try:
+            data = json.loads(read_text(path))
+        except (OSError, ValueError) as error:
+            raise GuideDataError('%s cannot be read: %s' % (path, error)) from error
+        part = _ui_window(path, data)
+        if not part.id.startswith('shell.'):
+            raise GuideDataError('%s: a part of the shell is named `shell.<part>`' % path)
+        if any(other.name == part.name for other in parts.values()):
+            raise GuideDataError('%s: two parts of the shell are called "%s"' % (path, part.name))
+        parts[part.id] = part
+    return parts
 
 
 class _NavLoader(yaml.SafeLoader):

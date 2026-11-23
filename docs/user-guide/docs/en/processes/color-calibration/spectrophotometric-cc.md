@@ -14,9 +14,9 @@ masks: post-blend
 external: A Gaia DR3 XP spectra catalog and camera response curves, downloaded from the settings or when a run needs them
 glance:
   enabled: >-
-    An RGB image or sequence view is active and no other process window is open on it: the window needs the image to
-    itself. Apply is enabled once the banner's checks pass: the catalog, the response data, a chosen response profile
-    and a linear image.
+    An RGB image or sequence view is active and no other task is open on it: the task needs the image to itself, and
+    opens as a page of its own, beside other tasks. Apply is enabled once the banner's checks pass: the catalog, the
+    response data, a chosen response profile and a linear image.
   inputs: >-
     One three-channel RGB image or sequence of any pixel type with a plate solution in its header, the spectra catalog
     and response data the settings point to, and an optional mask on its view.
@@ -39,28 +39,25 @@ against its green. A robust fit of the measured colors against the predicted one
 [white reference](../../reference/glossary.md#white-reference), gives the three channel gains.
 
 **Apply** replaces the image, keeps its size, [pixel type](../../reference/glossary.md#pixel-type) and plate solution,
-adds one step to its [history](../../reference/glossary.md#history) and records it as color calibrated. The window has
-no preview.
+adds one step to its [history](../../reference/glossary.md#history) and records it as color calibrated. The [task](../../reference/glossary.md#task) has
+no preview: its canvas shows the image itself.
 
 ```figure
 image: ../../assets/images/processes/color-calibration/spectrophotometric-cc.png
 alt: >-
-  The Spectrophotometric Color Calibration window. Under its title, a line saying it calibrates linear RGB images from
-  Gaia XP sampled spectra and response profiles, then a status line saying it is ready to run, with a long profile
-  name. In a scrolling panel, a green banner saying the prerequisites are ready, the Sensor box at Mono sensor: Sony
-  IMX492, the Red, Green and Blue filter boxes at the ZWO filter set, the White reference box at Average Spiral Galaxy
-  and a line that sums up the response. Below them, the folded Catalog and WCS Preflight and Photometry and Fit
-  sections. Target image names RGB, and Reset, Close and Apply run along the bottom.
+  The Spectrophotometric Color Calibration task. Its header reads Spectrophotometric Color Calibration on the master,
+  with Float as window and Close at its right. The canvas at the left shows the plate-solved master itself, red and
+  pink clouds of nebula in a dense field of stars. The column at the right opens with Target image naming the master,
+  then a line saying the process calibrates linear RGB images from Gaia XP sampled spectra and response profiles, a
+  status line saying it is ready to run with a long profile name, a green banner saying the prerequisites are ready,
+  the Sensor box at Mono sensor: Sony IMX492, the Red, Green and Blue filter boxes at the ZWO filter set, the White
+  reference box at Average Spiral Galaxy and a line that sums up the response. Below them, the folded Catalog and WCS
+  Preflight and Photometry and Fit sections. Reset, Close and Apply stand in its footer.
 caption: >-
   Spectrophotometric Color Calibration on the plate-solved Carina master after Assign Image State, with the Sony
-  IMX492 sensor and the ZWO filter set chosen: the banner and the status line say a run can start.
-pins:
-  - {n: 3, x: 2.5, y: 32.8}
-  - {n: 5, x: 2.5, y: 40.4}
-  - {n: 6, x: 2.5, y: 45.6}
-  - {n: 7, x: 2.5, y: 60.3}
-  - {n: 8, x: 2.5, y: 72.8}
-  - {n: 10, x: 2.5, y: 88.7}
+  IMX492 sensor and the ZWO filter set chosen: the banner and the status line say a run can start, and the canvas
+  shows the image in the Autostretch display with Linked channels on.
+owed: true
 ```
 
 ## Before you start
@@ -69,24 +66,26 @@ pins:
   color calibrated it, Photometric Color Calibration included. A raw color-filter mosaic has one channel:
   [debayer](../../reference/glossary.md#debayer) it first.
 - Remove gradients and crop the stacking borders first: the sky is measured over the whole image.
-- The image needs a plate solution in its header. The window checks it only when you press **Apply**.
+- The image needs a plate solution in its header. The task checks it only when you press **Apply**.
 - The run needs a catalog of Gaia spectra and the response data of cameras and filters, which step 1 installs. The
   Gaia pack that plate solving and Photometric Color Calibration read is not used here.
 - Know your camera's sensor and the filters it imaged through: the colors are only as right as the response you
   choose.
-- **Apply** replaces the image, and the window has no inverse. Its history keeps the step before; keep the linear
+- **Apply** replaces the image, and the task has no inverse. Its history keeps the step before; keep the linear
   [master](../../reference/glossary.md#master) file too.
 
 ## Steps
 
 1. **Install the calibration data once.** Choose **Edit > Settings...**, open **Catalogs & Data** and, under
    **SPCC Calibration Data**, press **Download Full Offline Catalog...**, which installs the response data with it.
-   Without it, the window's buttons and the first run download what the image needs.
+   Without it, the task's buttons and the first run download what the image needs.
 2. **Plate solve the image.** An image whose header carries a plate solution, as the example's master does, needs
-   nothing. Otherwise solve it with Plate Solving.
-3. **Open the window.** Make the linear RGB master the [active image](../../reference/glossary.md#active-image) and
-   choose **Process > Color Calibration > Spectrophotometric Color Calibration**. The banner and the status line under
-   the title name the first thing that keeps a run from starting, or say that it can start.
+   nothing. Otherwise solve it with **Plate Solve** on the [readout](../../reference/glossary.md#readout)'s Astrometry card.
+3. **Open the task.** Make the linear RGB master the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Color Calibration > Spectrophotometric Color Calibration**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image itself, the column at the right holds its controls. The banner and the status line name the
+   first thing that keeps a run from starting, or say that it can start.
 4. **Clear what the banner names.** Press the button it offers: **Download Response Profiles** for the response data,
    **Assign Image State** for an image whose state is unknown, or a catalog button. The banner is decided again after
    each.
@@ -99,9 +98,9 @@ pins:
    with their defaults. Change them when a run fails or **Diagnostics** gives guidance.
 9. **Check the target.** **Target image** names the image that **Apply** replaces. Disable the view's
    [mask](../../reference/glossary.md#mask) unless you mean to calibrate part of the image.
-10. **Apply.** Press **Apply**. A progress window names each stage, then a message gives the number of samples and the
-    three gains, as `SPCC completed. Samples: <count>. Gains R=<red> G=<green> B=<blue>`. Press **OK**, and the view
-    shows the calibrated image.
+10. **Apply.** Press **Apply** in the column's footer, or press ++ctrl+enter++. The run's row in the column says how far
+    it has come. Then the message strip gives the number of samples and the three gains, as
+    `SPCC completed. Samples: <count>. Gains R=<red> G=<green> B=<blue>`, and the canvas shows the calibrated image.
 11. **Read the diagnostics.** **Diagnostics** gives the quality score, the matches and their distances, the samples,
     the gains and the offsets. A guidance line means the fit had few stars.
 12. **Compare.** Look at the star colors and the background in the view's
@@ -111,10 +110,10 @@ pins:
 
 ## Controls
 
-The window has no preview, no histogram and no **Channel**, and its messages call the process
-[SPCC](../../reference/glossary.md#spcc). **Target image**, the mask, the progress window and the messages every window
-shares work as in [Process Windows](../../interface/process-windows.md). The boxes from **Sensor** to
-**White reference** appear once response data is installed.
+The task has no preview, no histogram and no **Channel**, and its messages call the process
+[SPCC](../../reference/glossary.md#spcc). **Target image**, the mask, the run and the messages every task shares work
+as in [Tasks](../../interface/tasks.md). The boxes from **Sensor** to **White reference** appear once response data is
+installed.
 
 ```controls
 window: Spectrophotometric Color Calibration
@@ -139,7 +138,7 @@ controls:
     kind: readout
     default: ""
     effect: Shows how far a download of response data or catalog chunks has come.
-    enabled: Shown only while the window downloads. A run shows a progress window of its own.
+    enabled: Shown only while the task downloads. A run shows in the column's run row instead.
   - name: Readiness banner
     object: spccProcessReadinessBanner
     kind: readout
@@ -151,9 +150,9 @@ controls:
     range: >-
       Ready, it reads "SPCC prerequisites are ready." with the profile and white reference it resolved, or "SPCC can
       start; needed catalog chunks will download first."
-    enabled: Hidden while the view shows the image this window has just calibrated.
+    enabled: Hidden while the view shows the image this task has just calibrated.
     tradeoff: >-
-      It is decided away from the window each time the target, its state, the settings, **Match radius (arcsec)**,
+      It is decided away from the task each time the target, its state, the settings, **Match radius (arcsec)**,
       **Choose magnitude limit automatically** or a choice of response changes, and after **Reset** and a run. Only the
       latest decision is shown, and **Apply** waits for it. Each decision reads the catalog's list of files, without
       checking them, and builds every profile of the response data, so a large set of response data makes it slower.
@@ -254,7 +253,7 @@ controls:
     enabled: Shown once response data is installed. A run needs one.
     tradeoff: Another legitimate reference gives another balance, warmer or cooler. Neither is an error.
     scope: Apply, the gains. The history records it.
-    persistence: Saved with the choice of the sensor. **Reset** clears a choice made in this window.
+    persistence: Saved with the choice of the sensor. **Reset** clears a choice made in this task.
   - name: Response details
     object: spccProcessResponseProfileDetailsLabel
     kind: readout
@@ -263,7 +262,7 @@ controls:
       Sums up what a run would use, as `Response: Mono sensor: Sony IMX492 / RGB filters: <set> | White reference:
       Average Spiral Galaxy | Selection: manual`.
     range: >-
-      `Selection` reads `manual` for a choice made in this window, `saved mapping` for one saved earlier and
+      `Selection` reads `manual` for a choice made in this task, `saved mapping` for one saved earlier and
       `image metadata` for a profile that the header's camera and filter named.
     enabled: Shown once a profile is selected.
   - name: Open Catalogs Data...
@@ -275,7 +274,7 @@ controls:
     enabled: >-
       Shown when the catalog needs you: none installed and none the run can download, a catalog whose rights review is
       not approved, or one that does not cover the field and cannot download what it lacks.
-    tradeoff: What you change there holds for every later window.
+    tradeoff: What you change there holds for every later task.
   - name: Download Offline Catalog
     kind: button
     default: ""
@@ -304,7 +303,7 @@ controls:
       response profiles downloaded. Choose the sensor and filter response data."
     enabled: Shown when no response data, or only part of it, is installed and an approved download exists.
     tradeoff: It needs the network once. A failed or cancelled download installs nothing and keeps what was there.
-    persistence: The data's folder is kept in the settings for every later window. The choices made in this window are cleared.
+    persistence: The data's folder is kept in the settings for every later task. The choices made in this task are cleared.
   - name: Assign Image State
     kind: button
     default: ""
@@ -329,9 +328,9 @@ controls:
     enabled: While no run or download works. On disables **Magnitude cap**, which still caps the search.
     tradeoff: A deeper read brings more stars to match and more work, and in a crowded field more wrong neighbours.
     scope: Apply, the catalog stars that are read.
-    persistence: Until the window closes. **Reset** turns it on, and Apply keeps it.
+    persistence: Until the task closes. **Reset** turns it on, and Apply keeps it.
     note: >-
-      It is the first control of **Catalog and WCS Preflight**, a section that is folded when the window opens: click
+      It is the first control of **Catalog and WCS Preflight**, a section that is folded when the task opens: click
       its title to show its seven controls. A change decides the banner again.
   - name: Magnitude cap
     kind: spinbox
@@ -344,7 +343,7 @@ controls:
     enabled: With **Choose magnitude limit automatically** off, while no run or download works.
     tradeoff: Fainter stars help a sparse field, cost reading, matching and measuring time, and add faint, noisy stars.
     scope: Apply. It also sets the depth of the region that **Download Needed Region** saves.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Match radius (arcsec)
     kind: spinbox
     default: "5.0"
@@ -358,7 +357,7 @@ controls:
     enabled: While no run or download works. A change decides the banner again, since a wider circle can need other catalog chunks.
     tradeoff: Too small loses true pairs. Too large pairs stars with the wrong neighbour in a crowded field.
     scope: Apply, the match.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Max detected stars
     kind: spinbox
     default: "4096"
@@ -367,7 +366,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: More helps a dense or wide field and costs detection and matching time and memory. Fewer can starve the fit.
     scope: Apply, the stars of the green channel.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Detected star SNR
     kind: spinbox
     default: "5.0"
@@ -377,7 +376,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Too high can leave fewer than the 20 matches the quality rule needs, or fewer stars than **Minimum samples**.
     scope: Apply, the stars that go on to the match.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Max residual (px)
     kind: spinbox
     default: "3.0"
@@ -389,7 +388,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Tight refuses a weak plate solution. Loose lets apertures land on the wrong stars.
     scope: Apply, the quality rule of the match.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Max residual (arcsec)
     kind: spinbox
     default: "3.0"
@@ -398,7 +397,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Weigh it with the image's pixel scale and **Max residual (px)**. Loosening it lets wrong pairs through.
     scope: Apply, the quality rule of the match.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Minimum samples
     kind: spinbox
     default: "35"
@@ -411,9 +410,9 @@ controls:
     enabled: While no run or download works.
     tradeoff: Lower lets an unstable fit through. Higher needs a wider or deeper field.
     scope: Apply, the fit.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
     note: >-
-      It is the first control of **Photometry and Fit**, a section that is folded when the window opens: click its
+      It is the first control of **Photometry and Fit**, a section that is folded when the task opens: click its
       title to show its seven controls.
   - name: FWHM aperture scale
     kind: spinbox
@@ -428,7 +427,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Too small misses the light of the wings. Too large adds sky and neighbours, and a ring that reaches the image's edge leaves the star out.
     scope: Apply, the measurement of each star in all three channels.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Annulus sigma clip
     kind: spinbox
     default: "3.0"
@@ -440,7 +439,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Lower leaves out more and can leave too few. Higher lets faint stars in the ring raise the sky.
     scope: Apply, the sky of each star, in each channel.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Outlier policy
     kind: combo
     default: AfterNight iterative
@@ -452,7 +451,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: The iterative fit follows the stars it keeps. Single-pass is simpler and still needs **Minimum samples** stars left.
     scope: Apply, the red and blue fits.
-    persistence: Until the window closes. **Reset** returns it to **AfterNight iterative**.
+    persistence: Until the task closes. **Reset** returns it to **AfterNight iterative**.
   - name: Fit outlier sigma
     kind: spinbox
     default: "3.0"
@@ -463,7 +462,7 @@ controls:
     enabled: While no run or download works.
     tradeoff: Either way a fit can fail for too few stars kept or a gain too uncertain.
     scope: Apply, the red and blue fits.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Fit iterations
     kind: spinbox
     default: "4"
@@ -472,7 +471,7 @@ controls:
     enabled: While no run or download works. It stays enabled for **Single-pass**, which makes one round whatever it says.
     tradeoff: More rounds can settle the outliers and cost fitting time. The rounds stop early when nothing changes.
     scope: Apply, the red and blue fits.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Apply background neutralization
     kind: check
     default: "On"
@@ -482,7 +481,7 @@ controls:
     enabled: While no run or download works. There is no rectangle to measure the sky in.
     tradeoff: A clean sky loses its cast. Nebula, a galaxy or a gradient across the frame gives wrong offsets and a new cast.
     scope: Apply, all three channels, before the mask is blended. The history records on or off.
-    persistence: Until the window closes. **Reset** turns it on, and Apply keeps it.
+    persistence: Until the task closes. **Reset** turns it on, and Apply keeps it.
   - name: Diagnostics
     object: spccDiagnosticsText
     kind: readout
@@ -499,7 +498,7 @@ controls:
       the field, and what the hand-off found.
     enabled: Emptied when you press **Apply**, and filled when the run ends.
     tradeoff: The score is a rough guide, not a measure of color accuracy. No report file is written, so copy what you want to keep.
-    persistence: Until the next run or the window closes.
+    persistence: Until the next run or the task closes.
   - name: Target image
     kind: combo
     default: The active image
@@ -508,13 +507,13 @@ controls:
     enabled: Disabled while a run or a download works.
     tradeoff: Another image needs its own plate solution, catalog coverage and perhaps another response.
     persistence: >-
-      Until the window closes. Another target clears the last result. When the target becomes an image that is not RGB,
-      the window closes.
+      Until the task closes. Another target clears the last result. When the target becomes an image that is not RGB,
+      the task closes.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. While a run or a download works it reads **Cancel**, and pressing it stops the work as it closes the window.
-    enabled: Always, also during a run.
+    effect: Closes the task, as ++esc++ does. While a download works it reads **Cancel**, and pressing it stops the download as it closes the task.
+    enabled: Disabled during a run, when **Cancel** stands in the place of **Apply** and stops the run instead.
     persistence: >-
       A stopped run writes nothing, adds no history step and shows no message. Catalog chunks a download had already
       checked can stay on disk for the next run.
@@ -523,7 +522,7 @@ controls:
     default: ""
     effect: >-
       Returns every control of the two sections to its default, clears the response and white reference chosen in this
-      window and decides the banner again.
+      task and decides the banner again.
     range: >-
       It leaves **Target image** as it is and changes no image. A choice saved for the camera stays in the settings and
       can select itself again at once.
@@ -538,12 +537,13 @@ controls:
     enabled: >-
       When the latest banner decision allows a run, the target is RGB and nothing works. The plate solution is not part
       of the banner: an image without one is refused only when you press Apply, with "SPCC requires a plate-solved
-      image." in a message titled **Spectrophotometric Color Calibration**. A calibrated image keeps it disabled.
+      image." in the column's message strip, after **Spectrophotometric Color Calibration**. A calibrated image keeps it
+      disabled.
     tradeoff: >-
       Every run first reads each file of the installed catalog to check it against its checksum, about 47 GB for the
       whole catalog, and then reads only the chunks of the field. It holds a floating-point working copy of the image
-      beside the result, and the history keeps a copy of the step. A run shows a progress window with **Cancel**. Try
-      new settings on a cropped copy first, since Crop keeps the plate solution.
+      beside the result, and the history keeps a copy of the step. A run shows its progress in the column, with
+      **Cancel** in the footer. Try new settings on a cropped copy first, since Crop keeps the plate solution.
     scope: The whole image, all three channels, with the mask blended afterwards. On a sequence, every frame.
     persistence: >-
       The history records **Spectrophotometric Color Calibration** as `Response profile: <id>, White reference: <id>,
@@ -597,7 +597,7 @@ controls:
     kind: readout
     default: ""
     effect: >-
-      A profile and a white reference are chosen: in this window, by a choice saved for the image's camera and filter,
+      A profile and a white reference are chosen: in this task, by a choice saved for the image's camera and filter,
       or by the one profile whose alias names exactly that camera and filter. A saved choice wins over an alias.
     range: >-
       Otherwise the banner ends with "No exact SPCC response profile alias matches this camera/filter metadata.", "SPCC
@@ -626,7 +626,7 @@ controls:
   - name: Not yet color calibrated
     kind: readout
     default: ""
-    effect: The image records no color calibration, from this window, Photometric Color Calibration or anything else.
+    effect: The image records no color calibration, from this task, Photometric Color Calibration or anything else.
     range: Otherwise the banner reads "SPCC input image is already color calibrated. Choose a linear RGB image to run SPCC again." and offers no button.
 ```
 
@@ -649,9 +649,9 @@ controls:
       `AfterNight user` in `ANASBY`, the time in UTC in `ANASUTC`, and a warning text in `ANASWARN`. The lineage gains
       an entry.
     tradeoff: >-
-      An image another edit changed before the step lands is refused, and a message titled **Assign Linear Image
-      State** reads "The image was not marked linear: it changed after it was attested, or it was closed. Attest it
-      again."
+      An image another edit changed before the step lands is refused, and the column's message strip reads, after
+      **Assign Linear Image State**, "The image was not marked linear: it changed after it was attested, or it was
+      closed. Attest it again."
   - name: "No"
     kind: button
     default: ""
@@ -659,18 +659,19 @@ controls:
 ```
 
 ```controls
-window: Calibration progress
+window: The run in the column
 controls:
-  - name: Stage
+  - name: Run
     kind: readout
     default: ""
     effect: >-
-      Reads "Preparing execution..." while the catalog is checked and read, then the stage at work, one eighth of the
-      bar each: "detecting stars in the green channel", "selecting preflight sources", "re-matching the sources against
-      the catalog", "predicting the matched stars' catalog colours", "measuring the matched stars", "fitting the channel
-      gains", "measuring the sky and writing the calibrated frame" and "assembling the calibration report".
-    enabled: For every run, on a single image too. Its title names the process and the image.
-    note: Its **Cancel** stops the run at the next stage or inside one, and the window stays open with "SPCC cancelled." in its status line.
+      Reads "applying" in the column's run row, with a bar that advances one eighth at each stage of the run: detecting
+      stars in the green channel, selecting preflight sources, re-matching the sources against the catalog, predicting
+      the matched stars' catalog colours, measuring the matched stars, fitting the channel gains, measuring the sky and
+      writing the calibrated frame, and assembling the calibration report. Over a sequence it shows **Overall** and
+      **Processing**.
+    enabled: For every run, on a single image too. No progress window opens.
+    note: "**Cancel**, in the place of **Apply**, stops the run at the next stage or inside one, and the task stays open with \"SPCC cancelled.\" in its status line."
 ```
 
 ```controls
@@ -680,16 +681,17 @@ controls:
     kind: readout
     default: ""
     effect: >-
-      In a message titled **Spectrophotometric Color Calibration**, reads "SPCC completed. Samples: <count>. Gains
-      R=<red> G=<green> B=<blue>", the accepted samples and the gains to three decimals. You press **OK** to go on.
-    enabled: After a run that the view shows, unless the window was closed during it.
+      In the column's message strip, after **Spectrophotometric Color Calibration**, reads "SPCC completed. Samples:
+      <count>. Gains R=<red> G=<green> B=<blue>", the accepted samples and the gains to three decimals. No message box
+      opens.
+    enabled: After a run that the view shows, unless the task was closed during it.
   - name: Not applied
     kind: readout
     default: ""
     effect: >-
       A warning with the same title reads "SPCC completed, but the target image was closed or changed before the result
       could be applied." Nothing was written.
-    enabled: After a run whose result the view could not take, unless the window was closed during it.
+    enabled: After a run whose result the view could not take, unless the task was closed during it.
   - name: Refused before the run
     kind: readout
     default: ""
@@ -708,7 +710,7 @@ controls:
 
 ## How it works
 
-1. The window decides away from itself, after every change, whether a run can start: the catalog, the response data,
+1. The task decides away from itself, after every change, whether a run can start: the catalog, the response data,
    the profile the image's camera and filter resolve to, and the image's state. It shows only the latest decision.
 2. **Apply** downloads the catalog chunks the field lacks when the banner says so. The run then checks every file of
    the installed catalog against its checksum, reads the plate solution from the image's
@@ -760,7 +762,7 @@ fitted profile:
 
 For red and then for blue, each star gives a point: the catalog's ratio \(x = S_c / S_G\) and the image's ratio
 \(y = A_c / A_G\). A star counts when its three measured and three predicted ratios to green are finite and above
-zero. The window fits the line
+zero. The task fits the line
 
 \[ y = \alpha_c + \beta_c\,x \tag{4} \]
 
@@ -816,7 +818,7 @@ and **Assign Image State** shows under it, since nothing records the image as li
 
 1. Press **Assign Image State** and answer **Yes**.
 2. In **Sensor**, choose **Mono sensor: Sony IMX492**, the sensor of that camera. No profile names the ASI294MM, so
-   the choice is yours, and the window saves it for this camera.
+   the choice is yours, and the task saves it for this camera.
 3. In the three filter boxes, choose the ZWO set, which reads **Red filter: Zwo New Lrgb Filters Optimized For CMOS
    Camera** in the first and the same name after **Green filter:** and **Blue filter:** in the others.
 4. Leave **White reference** at **Average Spiral Galaxy** and the two sections at their defaults, and press **Apply**.
@@ -824,8 +826,8 @@ and **Assign Image State** shows under it, since nothing records the image as li
 The field is 132.2 by 99.2 arcminutes, so equation (1) reads the Gaia stars within 82.7 arcminutes of its center. They
 stay at the catalog's epoch, since the header has no exposure start. Equation (6) puts the sky of red, green and blue,
 at 0.0271, 0.0273 and 0.0272, at \(P = 0.0272\) in every channel, whatever the gains. With a gain of 0.90, for
-instance, a red sample of 0.100 becomes \(0.0272 + 0.90 \times (0.100 - 0.0271) = 0.0928\). The message and the status
-line give the gains the fit found and the number of samples.
+instance, a red sample of 0.100 becomes \(0.0272 + 0.90 \times (0.100 - 0.0271) = 0.0928\). The message strip and the
+status line give the gains the fit found and the number of samples.
 
 ```figure
 images:
@@ -857,12 +859,12 @@ caption: >-
     is calibrated without a warning, and its colors come out wrong.
 
 !!! danger "The response must be your camera's"
-    The window cannot tell a wrong sensor or filter set from the right one. Choose your camera's sensor and the filters
+    The task cannot tell a wrong sensor or filter set from the right one. Choose your camera's sensor and the filters
     you imaged through: a wrong curve moves every gain.
 
 !!! warning "Use one of the two catalog calibrations"
     An image that [Photometric Color Calibration](photometric-cc.md) calibrated is refused here, and so is an image
-    this window calibrated. To try again, undo the earlier calibration in the image's history.
+    this task calibrated. To try again, undo the earlier calibration in the image's history.
 
 !!! warning "A floating-point result is not clipped"
     The gains and offsets can leave samples below 0 or above 1 in a floating-point image. Check the range in
@@ -889,18 +891,18 @@ caption: >-
 
 **Apply** stays disabled
 :   **Cause.** The banner is being decided again after a change, it names something missing, or the image is the one
-    this window just calibrated.
+    this task just calibrated.
 :   **Fix.** Wait for the banner, clear what it names, or undo the calibration to run again.
 
 "SPCC requires a plate-solved image."
-:   **Cause.** The header holds no plate solution the window can read. The banner does not check it.
-:   **Fix.** Solve the image with Plate Solving, then press **Apply** again.
+:   **Cause.** The header holds no plate solution the task can read. The banner does not check it.
+:   **Fix.** Solve the image with **Plate Solve** on the readout's Astrometry card, then press **Apply** again.
 
 "Error executing the process" naming "the world-coordinate quality gate refused:" and a reason
 :   **Cause.** The matched stars are fewer than 20, cover fewer than three quadrants, or lie farther from their Gaia
     stars than **Max residual (px)** or **Max residual (arcsec)** allow: `TooFewMatchedStars`, `PoorSkyCoverage`,
     `RmsResidualExceeded` and `MaximumResidualExceeded`. `UnsupportedDistortion` and `IncompleteProjection` name a
-    plate solution the window cannot project.
+    plate solution the task cannot use to place the catalog stars.
 :   **Fix.** Solve the image again and check the solution. Loosen the residual limits only for a solution you know is
     coarse.
 
@@ -941,8 +943,7 @@ The background takes a cast, or the nebula's color shifts
 - [Auto Gradient Removal](../background-extraction/auto-gradient-removal.md) and
   [Background Extraction](../background-extraction/background-extraction.md), to remove gradients first.
 - [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that comes after.
-- [Process Windows](../../interface/process-windows.md), for **Target image**, masks, the progress window and the
-  messages every process window shares.
+- [Tasks](../../interface/tasks.md), for **Target image**, masks, the run and the messages every task shares.
 
 ## Credits
 
@@ -964,7 +965,7 @@ The background takes a cast, or the nebula's color shifts
   [Gaia Data Release 3: External calibration of BP/RP low-resolution spectroscopic data](https://doi.org/10.1051/0004-6361/202243880),
   Astronomy & Astrophysics 674, A3 (2023), which describe how the spectra were made and calibrated.
 - The [Siril SPCC Database](https://gitlab.com/free-astro/siril-spcc-database), by the Siril SPCC Database
-  contributors of the Free-Astro/Siril project, under the GNU General Public License version 3: the sensor, filter and
+  contributors of the Free-Astro/Siril [project](../../reference/glossary.md#project), under the GNU General Public License version 3: the sensor, filter and
   low-pass filter curves and the white-reference spectra of the AfterNight SPCC Response Baseline 2026a are derived
   from it, converted to AfterNight's format and distributed under the same licence.
 - H. Akima,

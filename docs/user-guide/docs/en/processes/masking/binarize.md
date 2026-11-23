@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Binarize window is open on it yet, and no window that needs the image
-    for itself is open on it.
+    An image or a sequence view is active, no Binarize task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     One grayscale, RGB or single-plane mosaic image or sequence of any pixel type, and an optional mask of the image's
     size on its view.
@@ -41,18 +42,16 @@ image. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/masking/binarize.webp
 alt: >-
-  The Binarize window. On the left, the RGB/K box at 0.500000 with its slider, the Green and Blue boxes grayed out at
-  the same value, Selection at Joint RGB/K channels, then Target Image and the Preview box, ticked. On the right, a
-  toolbar over the preview of the nebula cut to pure colors, white and red clouds and white stars on a black
-  background. Reset, Close and Apply run along the bottom.
+  The Binarize task. Its header names Binarize and the master. The canvas at the left shows the preview of the nebula
+  cut to pure colors, white and red clouds and white stars on a black background, the word PREVIEW in its corner, with
+  a floating toolbar of zoom buttons, a channel box and the display mode near its foot. The column at the right holds
+  the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, the
+  RGB/K box at 0.500000 with its slider, the Green and Blue boxes grayed out at the same value, and Selection at Joint
+  RGB/K channels. Reset, Close and Apply stand in its footer.
 caption: >-
   Binarize on the stretched Carina master with RGB/K at 0.50 in the joint mode. Each channel is cut on its own, so the
   red nebula stays pure red and only what is bright in all three channels turns white.
-pins:
-  - {n: 2, x: 2.0, y: 35.1}
-  - {n: 3, x: 2.0, y: 20.1}
-  - {n: 4, x: 2.0, y: 25.1}
-  - {n: 6, x: 90.0, y: 96.0}
+owed: true
 ```
 
 ## Before you start
@@ -63,30 +62,31 @@ pins:
   a duplicate first.
 - Turn off the mask on the view for a result that is black and white everywhere. A mask blends the original back
   wherever it is not white.
-- Choose the cutoff from the image's own values. The window estimates no background, no noise and no best threshold.
+- Choose the cutoff from the image's own values. The [task](../../reference/glossary.md#task) estimates no background, no noise and no best threshold.
 - A color-filter mosaic is cut as one plane, as it is stored. [Debayer](../../reference/glossary.md#debayer) it, or
   extract the channel you mean, first.
 
 ## Steps
 
-1. **Open the window.** Make the duplicate the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Intensity Transformations > Binarize**. The preview shows the image already cut at the default
-   threshold.
+1. **Open the task.** Make the duplicate the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Intensity Transformations > Binarize**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image already cut at the default threshold, and the column at the right holds its controls.
 2. **Choose the channels.** Leave **Selection** at **Joint RGB/K channels** to cut every channel at one value, or
    choose **Individual RGB/K channels** to give red, green and blue their own. The first box is then labelled
    **Red**.
 3. **Set the threshold.** Raise **RGB/K** until only what you want stays white, or lower it to keep more. The
    preview follows.
 4. **Set green and blue.** In the individual mode, set **Green** and **Blue** the same way.
-5. **Check at 100 %.** Set the preview's **Display Mode** to **Linear**, zoom to 100 % and look at both sides of the
-   boundary. Hold ++space++ over the preview to compare with the original.
-6. **Apply.** Choose **Apply**. The image holds only two values, its history lists **Binarize** with the thresholds,
-   and the controls return to their defaults. The window stays open.
+5. **Check at 100 %.** Set the canvas's **Display Mode** to **Linear**, zoom to 100 % and look at both sides of the
+   boundary. Hold ++space++ over the canvas to compare with the original.
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image holds only two values, its
+   history lists **Binarize** with the thresholds, and the controls return to their defaults. The task stays open.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window of a sequence work as in every process window:
-see [Process Windows](../../interface/process-windows.md). The window has no histogram and no **Channel**.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). The task has no histogram and no **Channel**.
 
 ```controls
 window: Binarize
@@ -97,10 +97,10 @@ controls:
     widget: {min: 0, max: 1, step: 0.05, decimals: 6}
     effect: Sets the threshold of every channel in the joint mode, or of red in the individual mode. A sample at or above it becomes white, every other sample black. Higher leaves fewer samples white.
     range: A fraction of full scale. At 0 every sample from black to white becomes white, and at 1 only the largest value does. The slider moves in 1,000 steps of 0.001. In an integer image the threshold is first turned into a code of the pixel type, as equation (1) says.
-    enabled: It reads **Red** in the individual mode. In the joint mode, each change copies the value into **Green** and **Blue**. It stays enabled while Apply runs, which keeps the value it took when you pressed it.
+    enabled: It reads **Red** in the individual mode. In the joint mode, each change copies the value into **Green** and **Blue**. Disabled while Apply runs, which keeps the value it took when you pressed it.
     tradeoff: The boundary is hard. No soft edge, smoothing or removal of single pixels follows.
     scope: The preview and Apply, on every channel or on red, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.5.
   - name: Green
     kind: spinbox
     default: "0.500000"
@@ -110,7 +110,7 @@ controls:
     enabled: Only for an RGB image with **Selection** at **Individual RGB/K channels**. In the joint mode it is disabled and shows the value of **RGB/K**.
     tradeoff: Thresholds that differ between the channels give colored edges and speckles.
     scope: The preview and Apply, on green only.
-    persistence: Until the window closes. Choosing the joint mode overwrites it with **RGB/K**. **Reset** and a finished Apply return it to 0.5.
+    persistence: Until the task closes. Choosing the joint mode overwrites it with **RGB/K**. **Reset** and a finished Apply return it to 0.5.
   - name: Blue
     kind: spinbox
     default: "0.500000"
@@ -120,49 +120,49 @@ controls:
     enabled: Only for an RGB image with **Selection** at **Individual RGB/K channels**. In the joint mode it is disabled and shows the value of **RGB/K**.
     tradeoff: Thresholds that differ between the channels give colored edges and speckles.
     scope: The preview and Apply, on blue only.
-    persistence: Until the window closes. Choosing the joint mode overwrites it with **RGB/K**. **Reset** and a finished Apply return it to 0.5.
+    persistence: Until the task closes. Choosing the joint mode overwrites it with **RGB/K**. **Reset** and a finished Apply return it to 0.5.
   - name: Selection
     kind: combo
     default: Joint RGB/K channels
     options: [Joint RGB/K channels, Individual RGB/K channels]
     effect: "**Joint RGB/K channels** cuts every channel at **RGB/K**. **Individual RGB/K channels** cuts red, green and blue at their own thresholds, and an alpha channel at 0, so every ordinary alpha sample becomes the largest value."
-    enabled: For an RGB image, with or without alpha. Any other image keeps the joint mode, and the box is disabled. It stays enabled while Apply runs.
+    enabled: For an RGB image, with or without alpha. Any other image keeps the joint mode, and the box is disabled. Disabled while Apply runs.
     tradeoff: Neither mode computes a luminance or asks all three channels to pass. Each channel is cut on its own.
     scope: The preview and Apply. A change runs a new preview.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to the joint mode.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to the joint mode.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. **Selection** follows its channels.
     enabled: Disabled while Apply runs.
     tradeoff: Apply destroys the gray levels of the image chosen here. Check it before you apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the binary image beside the controls, with the mask blended in.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the binary image in the canvas, with the mask blended in.
+    enabled: Disabled while Apply runs, with the whole toggles row.
     tradeoff: Each change cuts the whole image again on a copy of it. A **Preview area** cuts only its part, and shows exactly what Apply writes there, because no sample depends on its neighbours.
-    scope: "The window only. The pane's toolbar offers **Display Mode**: judge the result in **Linear**, since an Autostretch display can hide the gray a mask left. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image."
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: "The canvas only. The canvas's toolbar offers **Display Mode**: judge the result in **Linear**, since an Autostretch display can hide the gray a mask left. **Preview area** is off when the task opens, and ticked it starts at 600 by 600 pixels in the middle of the image."
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: A snapshot, named `<target> - Binarize - SNAPSHOT`, holds what the preview shows. It keeps the target's metadata and is not recorded as nonlinear, so it is not what Apply writes there.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without applying.
-    enabled: It stays enabled while Apply runs.
+    effect: Closes the task without applying.
+    enabled: Disabled while Apply runs.
   - name: Reset
     kind: button
     default: ""
     effect: Returns the three thresholds to 0.5 and **Selection** to the joint mode, and runs a preview.
     range: It leaves **Target Image**, **Preview** and the preview's toolbar as they are.
-    enabled: It stays enabled while Apply runs, and the run keeps the values it took.
+    enabled: Disabled while Apply runs, which keeps the values it took.
   - name: Apply
     kind: button
     default: ""
-    effect: Cuts the whole image, or every frame of the sequence, with the thresholds and **Selection** as they are when you press it, then returns them to their defaults. The window stays open.
-    enabled: From the moment the window opens, at any value. While the run works, **Target Image**, **Preview area** and **Take snapshot** are disabled. The thresholds, **Selection**, **Preview**, **Reset**, **Close** and **Apply** stay enabled, and a second press does nothing until the run ends.
+    effect: Cuts the whole image, or every frame of the sequence, with the thresholds and **Selection** as they are when you press it, then returns them to their defaults. The task stays open.
+    enabled: From the moment the task opens, at any value. While the run works **Cancel** takes its place, and the thresholds, **Selection**, **Target Image**, the toggles, **Take snapshot**, **Reset** and **Close** are disabled.
     tradeoff: One pass over each channel on the threads the run is given, with no floating-point working copy. The result is copied once more when its header is restated, and the history keeps a copy of the image before. A mask adds a blend, and a sequence the decoding, encoding and disk space of a second copy.
     scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards.
     persistence: "The history step is **Binarize** and reads `K: 0.5` for a grayscale or mosaic image, `R: 0.5, G: 0.5, B: 0.5` for RGB in the joint mode, and `R: 0.4, G: 0.5, B: 0.6` for those thresholds in the individual mode. Undoing it restores the image. The rest of its metadata stays attached, and what it still means after the cut is for you to judge."
@@ -223,7 +223,7 @@ Inverting the mask swaps the two weights. A gray mask therefore leaves values be
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28, with **Selection** at
 **Joint RGB/K channels** and **RGB/K** at 0.50. Equation (2) sends the background to black. Each channel is cut on
 its own: a red nebula pixel of (0.70, 0.40, 0.35) becomes (1, 0, 0), pure red, while the core and the stars, above
@@ -285,7 +285,7 @@ Pixels that held no number turned black
 :   **Cause.** A sample that is not a number is never selected.
 :   **Fix.** Repair or replace those pixels before **Binarize** when they should be white.
 
-The history shows other values than the window
+The history shows other values than the task
 :   **Cause.** Apply took the values when you pressed it, and a finished Apply returned the controls to their
     defaults.
 :   **Fix.** Read the history step: it holds the values the run used.
@@ -298,4 +298,4 @@ The history shows other values than the window
 - [Morphological Transformation](morphological-transformation.md), to grow, shrink, open or close a binary mask.
 - [Masks](../../interface/masks.md), to attach the result to another image as its mask.
 - [Image Statistics](../../interface/image-statistics.md), to check that each channel holds only its two values.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.

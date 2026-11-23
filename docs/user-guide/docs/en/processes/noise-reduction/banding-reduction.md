@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Banding Reduction window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Banding Reduction task is open on it yet, and no task that needs the
+    image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while
+    nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, and an optional mask of the image's size on its view.
   outputs: >-
@@ -40,22 +41,17 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/noise-reduction/banding-reduction.webp
 alt: >-
-  The Banding Reduction window. On the left, the Amount box with its slider, the ticked Protect From Highlights box,
-  the Sigma box with its slider, the Vertical Banding box, Target Image, Channel at RGB and, at the bottom, the Preview
-  check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch over
-  the preview of a star field crossed by thin horizontal stripes, with the word PREVIEW in its corner and a large
-  framed area in its middle, where the stripes are gone. Reset, Close and Apply run along the bottom.
+  The Banding Reduction task. Its header names Banding Reduction and the image. The canvas at the left shows the
+  preview of a star field crossed by thin horizontal stripes, the word PREVIEW in its corner and a large framed area in
+  its middle where the stripes are gone, with a floating toolbar of zoom buttons, a channel box and the display mode at
+  Autostretch near its foot. The column at the right holds the preview's small histogram and statistics, the toggles
+  Preview, Preview area and Processed, Target Image and Channel at RGB, the Amount box with its slider, the ticked
+  Protect From Highlights box, the Sigma box with its slider and the Vertical Banding box. Reset, Close and Apply stand
+  in its footer.
 caption: >-
   Banding Reduction on a corner of the linear master with bands added, Protect From Highlights ticked and Sigma at
-  1.00. The framed area shows what Apply writes there, in the Autostretch display mode.
-pins:
-  - {n: 1, x: 46.5, y: 54.6}
-  - {n: 2, x: 16.0, y: 28.4}
-  - {n: 3, x: 20.0, y: 19.9}
-  - {n: 4, x: 34.2, y: 24.2}
-  - {n: 5, x: 34.2, y: 15.7}
-  - {n: 6, x: 35.2, y: 36.9}
-  - {n: 8, x: 88.8, y: 96.0}
+  1.00. The framed area of the canvas shows what Apply writes there, in the Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -75,10 +71,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image with the bands the
+1. **Open the task.** Make the image with the bands the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Filters > Banding Reduction
-   Filter**. The preview shows the corrected image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+   Filter**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens
+   as a page: the canvas at the left shows the corrected image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, and the column at the right
+   holds its controls.
 2. **Choose the direction.** Leave **Vertical Banding** unticked for bands that run across the image, along its rows.
    Tick it for bands that run down its columns.
 3. **Protect the measurement.** Tick **Protect From Highlights** whenever a nebula, a galaxy or bright stars cross
@@ -88,15 +86,15 @@ pins:
 5. **Set the amount.** Leave **Amount** at 1 to bring every line to the brightest. Lower it to correct part of the way.
 6. **Choose the channel.** Leave **Channel** at **RGB** to correct each channel by its own lines. Choose
    **CIE L* (Lightness)** when the bands have no color.
-7. **Look at the whole frame.** Untick **Preview area**, zoom out and hold ++space++ to compare with the original.
-   Check the edges, the bright objects and any broad change of level.
-8. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the corrected image, and its history
-   lists **Banding Reduction** with the values.
+7. **Look at the whole frame.** Untick **Preview area** in the column's toggles row, zoom the canvas out and hold
+   ++space++ over it to compare with the original. Check the edges, the bright objects and any broad change of level.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column follows the run, the view
+   shows the corrected image, and its history lists **Banding Reduction** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Banding Reduction
@@ -110,7 +108,7 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: At 0 nothing is added, but every line is still measured. In an integer image a high value can push bright samples to the top of the type, where they are cut.
     scope: The preview and Apply, on each channel **Channel** selects, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Protect From Highlights
     kind: check
     default: "Off"
@@ -119,7 +117,7 @@ controls:
     enabled: Disabled while Apply runs. Ticking it enables **Sigma**.
     tradeoff: It changes only the measurement. Every sample of a line, a bright one included, gets the line's correction, whatever its tooltip says about keeping the filter from bright areas. A line whose every sample lies above the point is left as it was.
     scope: The preview and Apply, on each channel **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it. The history shows it only through the `Inv Sigma` value it adds.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it. The history shows it only through the `Inv Sigma` value it adds.
   - name: Sigma
     kind: spinbox
     default: "1.00"
@@ -129,7 +127,7 @@ controls:
     enabled: While **Protect From Highlights** is ticked, and not while Apply runs.
     tradeoff: Its tooltip calls it a standard deviation for the detection, but it divides, so a higher value leaves out more samples, not fewer. Set high, the lines are measured on the darker half of the noise alone, and more lines through bright areas lose every sample and are left uncorrected.
     scope: The preview and Apply, on each channel **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default and disable it. While **Protect From Highlights** is ticked, the history records it as `Inv Sigma`, also at 0.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default and disable it. While **Protect From Highlights** is ticked, the history records it as `Inv Sigma`, also at 0.
   - name: Vertical Banding
     kind: check
     default: "Off"
@@ -137,13 +135,13 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A real change of level from line to line, such as a gradient, vignetting or a nebula, is flattened with the bands.
     scope: The preview and Apply, on each channel **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -151,19 +149,19 @@ controls:
     effect: Chooses what is corrected. **RGB** measures and corrects each of the three channels on its own, against its own median and its own brightest line. **Red**, **Green** or **Blue** corrects that channel and keeps the other two. Every other choice corrects one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, a channel banded more than another is lifted more, which can shift the color balance. A single component corrects that one plane, at the cost of two conversions and a working copy.
-    scope: The preview and Apply, before the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the corrected image beside the controls, with the mask blended in.
+    effect: Shows the corrected image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 700 by 700 pixels in the middle of the image, labelled "Preview:
-      Banding Reduction", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
-    tradeoff: The area is measured as an image of its own, so its median, its spread and its lines' medians are the area's, and the preview can differ from Apply. Every change measures it again. **Apply**, or closing the window, stops a preview on its way at the next group of lines.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+      The canvas opens with a **Preview area** of 700 by 700 pixels in the middle of the image, labelled "Preview:
+      Banding Reduction", or the whole image when it is smaller. **Preview area** is in the column's toggles row, and
+      **Take snapshot** on the canvas's floating toolbar.
+    tradeoff: The area is measured as an image of its own, so its median, its spread and its lines' medians are the area's, and the preview can differ from Apply. Every change measures it again. **Apply**, or closing the task, stops a preview on its way at the next group of lines.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -173,8 +171,8 @@ controls:
     kind: button
     default: ""
     effect: Corrects the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns the four values to their defaults.
-    enabled: From the moment the window opens, at any values.
-    tradeoff: A single image shows a progress window too. Its bar stays at the start, because the filter reports no share done within a frame, and its **Cancel** stops the run at the next group of lines. The lines are measured in groups, in parallel on the threads the run is granted, with a working plane of one channel, one buffer for each line of a group and one value for each line, beside the second copy every run needs.
+    enabled: From the moment the task opens, at any values.
+    tradeoff: The column shows the run of a single image too. Its bar stays at the start, because the filter reports no share done within a frame, and **Cancel**, in Apply's place meanwhile, stops the run at the next group of lines. The lines are measured in groups, in parallel on the threads the run is granted, with a working plane of one channel, one buffer for each line of a group and one value for each line, beside the second copy every run needs.
     persistence: "The history step is **Banding Reduction** and reads, for example, `Amount 1, Inv Sigma 1, Vertical Banding: false in channel: RGB`. Without **Protect From Highlights** the `Inv Sigma` part is missing, and for a grayscale image it ends after the `Vertical Banding` value. The mask is not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
@@ -218,7 +216,7 @@ is ever lowered.
   64-bit floating-point image is worked in single precision.
 - One constant goes to each line. A level that changes along a line is not corrected, and a smooth change across the
   lines is flattened with the bands.
-- **Cancel**, or closing the window, stops the run at its next group of lines. A stopped run writes nothing.
+- **Cancel** stops the run at its next group of lines. A stopped run writes nothing.
 
 ### Worked example
 
@@ -226,7 +224,7 @@ The linear [master](../../reference/glossary.md#master) has no bands of its own:
 differ by about 0.00003, no more than the noise of a median. The pair is therefore made on a crop of 1,100 by 820
 pixels from the top right corner of the master, a star field with little nebula, starting at x 5800 and y 200.
 [Pixel Math](../pixel-math/pixel-math.md) then adds bands to the crop: `$T + 0.001*sin(y()*y())` moves every row by
-its own amount between -0.001 and 0.001, `y()` counting the crop's own rows from 0. The window has **Protect From
+its own amount between -0.001 and 0.001, `y()` counting the crop's own rows from 0. The task has **Protect From
 Highlights** ticked and **Sigma** at 1.00.
 
 The banded crop's green channel has its median at 0.0283 and \(1.4826\,d\) at 0.0017, so by equation (1) the point is
@@ -316,8 +314,7 @@ Samples that are not numbers are still there after Apply
 - [Pixel Math](../pixel-math/pixel-math.md), which added the bands of the worked example.
 - [Masks](../../interface/masks.md), to keep bright areas from the correction.
 - [Image History](../../interface/image-history.md), to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

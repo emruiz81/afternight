@@ -1,0 +1,54 @@
+{
+  "group": "Stretching",
+  "captures": [
+    {
+      "picture": "assets/images/processes/stretching/histogram-transformation.webp",
+      "page": "processes/stretching/histogram-transformation.md",
+      "data": ["linear"],
+      "shows": "The Histogram Transformation task on a linear master with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Page", "processes\\stretching\\histogram-transformation.md", "-Set", "shadowsValue=0.02;midtonesValue=0.02"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/curves-transformation.webp",
+      "page": "processes/stretching/curves-transformation.md",
+      "data": ["linear"],
+      "shows": "The Curves Transformation task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with one point dragged from input 0.28 to output 0.14, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\stretching\\curves-transformation.md", "-Set", "curvesEditorScrollArea@28,69>28,82"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/gh-transformation.webp",
+      "page": "processes/stretching/gh-transformation.md",
+      "data": ["linear"],
+      "shows": "The Generalized Hyperbolic Transformation task on a linear master with Symmetry point at 0.025, Stretch factor at 2.5 and Local intensity at 5, the preview on",
+      "options": ["-Page", "processes\\stretching\\gh-transformation.md", "-Set", "symmetryPointValue=0.025;stretchFactorValue=2.5;localIntensityValue=5"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/arcsinh-stretch.webp",
+      "page": "processes/stretching/arcsinh-stretch.md",
+      "data": ["linear"],
+      "shows": "The ArcSinh Stretch task on a linear master with Stretch Factor at 200 and Black Point at 0.02, the preview on",
+      "options": ["-Page", "processes\\stretching\\arcsinh-stretch.md", "-Set", "stretchFactor=200;blackPoint=0.02"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/statistical-stretch.webp",
+      "page": "processes/stretching/statistical-stretch.md",
+      "data": ["linear"],
+      "shows": "The Statistical Stretch task on a linear master with Target Median at 0.15, every other control at its starting value, the preview on",
+      "options": ["-Page", "processes\\stretching\\statistical-stretch.md", "-Set", "targetMedianValue=0.15"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/gamma-correction.webp",
+      "page": "processes/stretching/gamma-correction.md",
+      "data": ["linear"],
+      "shows": "The Gamma Correction task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Gamma at 0.50, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\stretching\\gamma-correction.md", "-Set", "gammaValue=0.5"]
+    },
+    {
+      "picture": "assets/images/processes/stretching/exposure-correction.webp",
+      "page": "processes/stretching/exposure-correction.md",
+      "data": ["linear"],
+      "shows": "The Exposure task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Exposure at 1.50, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\stretching\\exposure-correction.md", "-Set", "exposureValue=1.5"]
+    }
+  ]
+}

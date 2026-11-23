@@ -14,8 +14,8 @@ masks: post-blend
 external: The G'MIC library bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no Local Contrast Enhancement window is open on it yet, and no window that
-    needs the image for itself is open on it.
+    An image or a sequence view is active, no Local Contrast Enhancement task is open on it yet, and no task that
+    needs the image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, and an optional mask on its view.
   outputs: >-
@@ -39,23 +39,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/sharpening/local-contrast-enhancement.webp
 alt: >-
-  The Local Contrast Enhancement window. On the left, a histogram with three colored peaks and the lines Clipping Low
-  and Clipping High in its corner, a toolbar, then the Spatial Radius, Weight, Darkness Level, Lightness Level and
-  Amount boxes with their sliders, Target Image, Channel at RGB and Preview. On the right, the preview toolbar with
-  Preview area unticked, over the whole stretched nebula with its dark lanes. Reset, Close and Apply run along the
-  bottom.
+  The Local Contrast Enhancement task. Its header names the process and the stretched master. The canvas at the left
+  shows the whole enhanced nebula with its dark lanes. The column at the right opens with the compact readout of the
+  preview, then the Preview toggle ticked and Preview area unticked, Target Image and Channel at RGB, a histogram
+  with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar, and the Spatial
+  Radius, Weight, Darkness Level, Lightness Level and Amount boxes with their sliders. Reset, Close and Apply stand in
+  its footer.
 caption: >-
-  Local Contrast Enhancement on a stretched master with its default values and the preview area off: the preview shows
-  what Apply writes over the whole image.
-pins:
-  - {n: 2, x: 2.0, y: 84.6}
-  - {n: 3, x: 73.4, y: 17.6}
-  - {n: 4, x: 2.0, y: 50.7}
-  - {n: 5, x: 2.0, y: 55.2}
-  - {n: 6, x: 2.0, y: 59.7}
-  - {n: 7, x: 47.5, y: 50.0}
-  - {n: 8, x: 2.0, y: 68.6}
-  - {n: 9, x: 91.0, y: 96.5}
+  Local Contrast Enhancement on a stretched master with its default values and the preview area off: the canvas
+  shows what Apply writes over the whole image.
+owed: true
 ```
 
 ## Before you start
@@ -75,9 +68,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Details > Local Contrast
-   Enhancement**. The preview shows a framed area in the middle of the image already enhanced, and **Apply** is
-   enabled at once.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Details > Local Contrast
+   Enhancement**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task)
+   opens as a page: the canvas at the left shows a framed area in the middle of the image already enhanced, the
+   column at the right holds its controls, and **Apply** is enabled at once.
 2. **Choose what to enhance.** Leave **Channel** at **RGB** to enhance every channel. Choose **CIE L* (Lightness)**
    to enhance the lightness alone when colored rims appear.
 3. **Choose what the preview covers.** Keep **Preview area** ticked while you try values, and untick it to see the
@@ -86,16 +80,16 @@ pins:
 5. **Set the strength.** Raise **Weight** until the structures separate, and lower it when halos or grain appear.
 6. **Balance the two sides.** Lower **Lightness Level** or **Darkness Level** only when one side goes too far: bright
    rims and clipped stars, or dark rings and black lanes.
-7. **Check the preview at 100 %.** Zoom into the background, a bright star and an edge, and press ++space++ over the
-   preview to compare with the original.
+7. **Check the preview at 100 %.** Zoom the canvas into the background, a bright star and an edge, and hold
+   ++space++ over it to compare with the original.
 8. **Soften the result.** Lower **Amount** last, to fade the whole effect.
-9. **Apply.** Choose **Apply**. The image in its view is the enhanced one, its history lists **Local Contrast
+9. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the enhanced one, its history lists **Local Contrast
    Enhancement** with the five values, and the controls return to their defaults.
 
 ## Controls
 
-The histogram above the controls, its toolbar and the preview pane are the same in every window: see
-[Process Windows](../../interface/process-windows.md). A histogram cannot show a halo: judge halos on the preview.
+The histogram, its toolbar and the canvas are the same in every task: see [Tasks](../../interface/tasks.md). A
+histogram cannot show a halo: judge halos on the preview.
 
 ```controls
 window: Local Contrast Enhancement
@@ -108,7 +102,7 @@ controls:
     range: The slider moves it in tenths of a pixel.
     tradeoff: A wide radius spreads the bright and dark halos further around stars and bright edges, and makes the blur longer to compute.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Weight
     kind: spinbox
     default: "0.50"
@@ -117,7 +111,7 @@ controls:
     range: The slider moves it in hundredths. The box's arrows step by a whole 1, so type a value or use the slider.
     tradeoff: High values bring halos and clip the brightest and darkest samples. The background's grain grows by the same factor as the structure. The filter runs in full at 0 too.
     scope: The preview and Apply, on what **Channel** selects, before the two levels, **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Darkness Level
     kind: spinbox
     default: "1.00"
@@ -127,7 +121,7 @@ controls:
     enabled: It changes nothing while **Weight** is 0.
     tradeoff: High values clip shadows to black. It does not change the time a run takes.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Lightness Level
     kind: spinbox
     default: "1.00"
@@ -137,7 +131,7 @@ controls:
     enabled: It changes nothing while **Weight** is 0.
     tradeoff: High values clip highlights to white and make bright rims around edges. It does not change the time a run takes.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -146,13 +140,13 @@ controls:
     range: The slider moves it in thousandths.
     tradeoff: It fades everything the filter did, halos and grain included, and saves no time, because the filter runs in full at any value. It cannot bring back what the filter clipped.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -161,14 +155,15 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**.
     tradeoff: With **RGB** the three channels are enhanced apart, which can leave colored rims around stars and edges. **CIE L* (Lightness)** keeps a* and b* as they were. A component costs two conversions of the image.
     scope: The preview and Apply, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the result beside the controls, with **Amount** and the mask applied. When the window opens it shows a framed preview area of 600 by 600 pixels in the middle of the image.
+    effect: Shows the result in the canvas, with **Amount** and the mask applied. When the task opens it shows a framed preview area of 600 by 600 pixels in the middle of the image.
+    enabled: It stands in the column's toggles row, beside **Preview area**, which is ticked when the task opens. Both are disabled while Apply runs.
     tradeoff: Every change runs the whole G'MIC command again. Each run opens a G'MIC session, reads the filter's definitions and computes the blur. The preview area keeps that short.
-    scope: The window only. A preview area is enhanced as an image of its own, so near its edges the blur sees nothing of the image around it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. A preview area is enhanced as an image of its own, so near its edges the blur sees nothing of the image around it.
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: In a build without G'MIC it is off and disabled, with the tooltip "This build of AfterNight carries no G'MIC library, so this process cannot run."
   - name: Reset
     kind: button
@@ -179,8 +174,8 @@ controls:
     kind: button
     default: ""
     effect: Enhances the image, or every frame of the sequence, with the values as they are when you press it, then returns them to their defaults.
-    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: The image goes to G'MIC as a 32-bit floating-point working copy, beside the second copy every run needs. A single image shows a progress window with a busy bar, because the command reports no share done, and its **Cancel** stops the run.
+    enabled: From the moment the task opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows. **Cancel** takes its place while a run works.
+    tradeoff: The image goes to G'MIC as a 32-bit floating-point working copy, beside the second copy every run needs. On a single image the column's run row reads "applying" with no share, because the command reports none, and **Cancel** stops the run. No progress window opens.
     persistence: >-
       The history step is **Local Contrast Enhancement** and reads, for example, `Spatial Radius: 80.00, Weight: 0.50,
       Darkness Level: 1.00, Lightness Level: 1.00, Amount: 1.00 in channel: RGB`. For a grayscale image it ends after
@@ -231,7 +226,7 @@ back what it lost. **Weight** at 0, or both levels at 0, gives \(y = x\), and **
   value, a tie to the even one.
 - Beyond the frame the blur repeats the image's edge pixels, so a sample near the edge is compared with a blur of what
   lies inside. A [preview area](../../reference/glossary.md#preview-area) is treated as a frame of its own.
-- **Cancel**, or closing the window, asks G'MIC to stop. It stops at its next check, which a wide blur can delay. A
+- **Cancel** in the column's footer asks G'MIC to stop. It stops at its next check, which a wide blur can delay. A
   stopped run writes nothing.
 - When G'MIC itself fails, on memory for example, the run reports the library's reason and writes nothing. Try again
   on a smaller image or with fewer images open.
@@ -239,7 +234,7 @@ back what it lost. **Weight** at 0, or both levels at 0, gives \(y = x\), and **
 ### Worked example
 
 The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
-Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The window keeps its
+Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The task keeps its
 defaults: **Spatial Radius** at 80, **Weight** at 0.50, both levels and **Amount** at 1.00, **Channel** at **RGB**.
 **Preview area** is unticked.
 
@@ -263,7 +258,7 @@ images:
       darker surroundings, and the grain of the background stronger.
     label: After
 caption: >-
-  The middle of the stretched Carina Nebula master at 100 %, before and after Apply with the window's defaults. Both
+  The middle of the stretched Carina Nebula master at 100 %, before and after Apply with the task's defaults. Both
   are shown in the Linear display mode, without a display stretch.
 ```
 
@@ -327,8 +322,7 @@ Preview and Apply are disabled, and the tooltip names G'MIC
 - [Wavelet Denoise](../noise-reduction/wavelet-denoise.md), to reduce the noise before.
 - [Masks](../../interface/masks.md), to protect the background or the stars.
 - [Image History](../../interface/image-history.md), to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram and what every task shares.
 
 ## Credits
 

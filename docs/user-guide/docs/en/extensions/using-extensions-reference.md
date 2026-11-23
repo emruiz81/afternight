@@ -1,14 +1,16 @@
 ---
 kind: reference
 summary: >-
-  What Using Extensions leaves out: where AfterNight finds packages, what each state means, the two hosts, how a
-  session and an environment are run, what an extension receives and returns, what it costs, and every message.
+  What Using Extensions leaves out: where AfterNight finds packages, what each state means, the two hosts, who draws a
+  process, how a session and an environment run, what an extension receives, adds and may ask, and every message.
 ---
 # Using Extensions Reference
 
-This page holds what [Using Extensions](using-extensions.md) leaves out to stay readable beside the Extensions window.
-Each section can be read on its own. Installing, updating and the trust of a package are on
-[Extension Marketplace](extension-marketplace.md) and its reference.
+This page holds what [Using Extensions](using-extensions.md) and [Extensions in the Window](extension-tasks.md) leave
+out to stay readable beside the Extensions window and an extension's [task](../reference/glossary.md#task). Each
+section can be read on its own.
+Installing, updating and the trust of a package are on [Extension Marketplace](extension-marketplace.md) and its
+reference.
 
 ## Where AfterNight finds packages
 
@@ -30,8 +32,10 @@ AfterNight's data folder is `%LOCALAPPDATA%\AfterNight` on Windows and `~/.local
 - **A package AfterNight cannot read** is left out too, with no card and no process. So is one that declares a package
   format, protocol or SDK version other than 1, the versions both hosts and the SDK speak. Installing such a package
   fails with "Only package/protocol/sdk version 1 manifests are supported".
-- **Each process a package declares** joins the **Process** menu, at the end of the category it names. A category the
-  menu does not have leaves the process out, with a line in the [log file](../reference/glossary.md#log-file).
+- **Each process a package declares** joins the **Process** menu, at the end of the category it names, its
+  extension's menu under **Extensions** and the [command palette](../reference/glossary.md#command-palette), each
+  tagged **extension**. A category the menu does
+  not have leaves the process out of the menus, with a line in the [log file](../reference/glossary.md#log-file).
 - **At start,** AfterNight fills the menus from the packages that were ready when it last ran, then looks at every
   package in the background and updates the menus. A process that is still loading is greyed, with
   "This extension action is still loading and cannot be launched yet." Adding or removing a package folder in the
@@ -75,18 +79,43 @@ A package's `extension.json` names its `sdk_backend`, which chooses the
 
 | Host Mode | `sdk_backend` | Runs in | What the package can use |
 | --- | --- | --- | --- |
-| **Full hosted** | `runtime` | `AfterNightExtensionHost` | AfterNight's image engine directly, and AfterNight's own controls for its window. A package of this kind must be GPL-compatible when it is distributed. |
-| **Lite hosted** | `protocol` | `AfterNightExtensionHostLite` | Only the services AfterNight offers for its images and views. It draws its own window and loads neither the engine nor AfterNight's controls. |
+| **Full hosted** | `runtime` | `AfterNightExtensionHost` | AfterNight's image engine directly. AfterNight draws its controls as a task, or its host draws a window of its own with AfterNight's controls. A package of this kind must be GPL-compatible when it is distributed. |
+| **Lite hosted** | `protocol` | `AfterNightExtensionHostLite` | Only the services AfterNight offers for its images and views. AfterNight draws its controls as a task when it describes them; otherwise it draws a window of its own toolkit, or none. It loads neither the engine nor AfterNight's controls. |
 | **Lite hosted + RPC** | `rpc` | None | Nothing: the engine service it needs is not part of this AfterNight, so such a package is always **Incompatible**. Do not choose a release whose only kind is this one. |
 
 A Full hosted package reaches the engine through a runtime module installed beside its host. The Lite host never
 loads it. Either kind declares whether its processes work on one image, the active image when they open, or run a
-workflow over files of their own.
+workflow over files of their own. The **Browse** tab's details say the same in other words: **How It Runs** reads
+"With engine access" for a Full hosted package and "Without engine access" for the others.
+
+## Who draws a process
+
+Each process of a package opens in one of three ways, which the **Browse** tab's details give as **Where It Opens**
+once the package is installed:
+
+| Its interface | Where It Opens | In the main window |
+| --- | --- | --- |
+| A panel | "In the main window" | A task AfterNight draws from the parameters the extension describes, while the extension's code runs in its host: the canvas, the column and its footer, as for any task. |
+| A window | "In a window of its own" | The host's process window, or one the extension builds with a toolkit of its own. Its task in the [rail](../reference/glossary.md#rail) brings it forward, and ends its session when closed. |
+| None | "Nowhere, it has no interface" | Nothing is drawn: the extension does its work in its session, and its task in the rail shows its progress. |
+
+- **Who decides.** The package's manifest states it. Where it does not, a Full hosted process is a panel when
+  AfterNight read its parameters as it found the package, and a Lite hosted one when its parameters also state how its
+  window looks; any other shows a window of its own.
+- **Only a process of one image** is drawn as a panel. A process that runs a workflow over files of its own shows its
+  window, or none.
+- **Where the details differ,** each process is named with where it opens.
+- **A first start.** The task of a Full hosted panel, or of a Lite hosted one whose manifest states it, opens at once,
+  before an environment still to prepare is ready, and its starting row says what the preparation does. Any other
+  process shows the **Preparing** window.
+- **The preview's rate.** A Full host's window of its own keeps the rate of **Updates per second while dragging** it
+  opened with. A task AfterNight draws reads the rate as every task does.
 
 ## A session, from launch to close
 
-One host per window
-:   Each launch starts a host of its own, with a session of its own. Reading a Lite hosted package's settings at a
+One host per task
+:   Each launch starts a host of its own, with a session of its own, and the session is a task of the main window: a
+    page AfterNight draws, or an item in the rail for a window of its own. Reading a Lite hosted package's settings at a
     launch, or when AfterNight looks at the packages, can start a short host of its own too.
 
 Its connection
@@ -98,8 +127,15 @@ Its connection
 Its start
 :   The host has 5 seconds to connect. It is checked before it starts Python and imports the extension, so the first
     start from a newly prepared environment, which can take far longer than later ones, does not fail the launch.
-    The session is usable once the import ends, and a Full hosted window once it has its first state. A start that
-    fails reports the host's reason, and one that has not ended within 60 seconds is reported **Unresponsive**.
+    The session is usable once the import ends, a task AfterNight draws once its host has told it the extension's
+    parameters, and a Full hosted window once it has its first state. A start that fails reports the host's reason,
+    and one that has not ended within 60 seconds is reported **Unresponsive**.
+
+Its window
+:   An item in the rail for a window of its own asks the host to bring that window in front. A host is asked only
+    once its runtime is ready, and only when it says in its greeting that it can; an extension with no window is never
+    asked. A run in the window is told to AfterNight as it goes, for the ring around the item, and holds no lock on
+    the image.
 
 Its heartbeat
 :   Once the session runs, AfterNight asks the host for a heartbeat every 5 seconds. Three unanswered in a row mark
@@ -113,7 +149,10 @@ Its cancel
 
 Its end
 :   A crash, a lost connection, a forced stop, an unanswered heartbeat, a failed launch and an unexpected exit are
-    kept for the card's **Last Launch** and **Last Crash / Termination**. When AfterNight closes, it stops every host.
+    kept for the card's **Last Launch** and **Last Crash / Termination**. A task AfterNight draws whose host ended so
+    stays, with **Restart** and **Close**, and an item in the rail for a window of its own stays, marked failed, until
+    it is closed. A host of a task AfterNight draws that goes when neither you nor the extension closed it has failed,
+    since it has no window you could close. When AfterNight closes, it stops every host.
 
 ## Environments
 
@@ -251,11 +290,92 @@ What stays after a session
     ready packages and its recent launches - is kept apart from your images, and opening or refreshing the Extensions
     window changes no image.
 
+## Processes an extension adds
+
+An extension that keeps a catalogue of its own can state, while it runs, processes it adds beside its package's. It
+states its whole list each time, so an empty list takes every one of them away.
+
+The list AfterNight takes
+:   At most 512 processes. Each has a name of at most 80 characters, and may have a group of at most 40 and a
+    summary of at most 200, in plain text. It may name a category AfterNight has, and the package's process that runs
+    it. It may not take the identifier of one of its package's own processes. A list that breaks any of these is refused
+    whole, with the reason, which the extension is told and the log file keeps, and the list kept before stays.
+
+Kept by AfterNight
+:   AfterNight keeps the list in its settings database, apart from the extension's own settings, so the menus hold
+    the processes at the next start without starting the extension. An update of the package, or a package that cannot
+    be read, keeps the list. Uninstalling the package forgets it.
+
+How one runs
+:   In the host, the environment and with the capabilities of the package's process it names, under its own name: its
+    task, its item in the rail and the recent processes name it. It is available exactly when its package is.
+
+Where it is listed
+:   As [Extensions in the Window](extension-tasks.md) says. Its summary is its tooltip in the menus, and the palette
+    finds it by its name, its extension, its group and its summary. One the extension takes away leaves the menus at
+    once, and the recent and favourite processes the next time they are read.
+
+## What an extension may do to its view
+
+An extension's session reads the image it is bound to and hands back results. Four more requests reach its view, and
+each is refused whole, with its reason told to the extension, when any part of it breaks a rule below. A request
+names no view: it acts on the one the session is bound to.
+
+Shapes
+:   Lines, and closed outlines filled or not, given in the image's pixels, each in a colour of its own and with a
+    label of at most 120 characters when it has one. A session keeps at most 4,096 shapes, holding at most 262,144
+    points together. A label is drawn beside its shape in the size of the view's other labels. The shapes follow the
+    view's zoom and scroll, take no click, and under Night are drawn red as every colour is. In a task AfterNight draws
+    they lie on the canvas, and otherwise on the target's view.
+    They are in no saved image, no [project](../reference/glossary.md#project) and no annotated picture.
+
+The selection area
+:   The target view's one rectangle, the one Crop and a preview's part use. The extension sets it to a rectangle,
+    which is cut to the image when larger and moved inside it when it lies across an edge, or lets your next drag
+    draw it. You move and size it as always, and the extension is told the rectangle once you let go, never at each
+    move. While another process holds the area, such as Crop, the request is refused. An extension whose own preview
+    runs over a part moves that part instead.
+
+How the view is shown
+:   A zoom from 1 % to 6,400 %, a point to centre, fit to window, and **Linear** or **Autostretch**, all checked before
+    any is done. A zoom with no centre keeps the middle of the view where it is. In a task AfterNight draws, this acts
+    on the canvas.
+
+Undo and Redo
+:   The target's own Undo or Redo, as its buttons do. Refused with nothing to undo or redo, while a run holds the
+    image, and while the extension's own result is still on its way to the view. No request clears a history.
+
+What goes with the session
+:   When the session ends, when its host dies and when the view closes, the shapes go and an area the extension turned
+    on is turned off. An area it did not turn on is left.
+
+## The look an extension is given
+
+A Full host starts in AfterNight's look and is told every choice in force - the theme, its contrast, the accent, the
+surface tint and its strength, the preset, the density and Night - with the colours, surfaces, sizes, spacing,
+corners and type they give. Each change is told again, so its window follows at once. A Lite host keeps the same and
+answers it to an extension that draws its own window.
+
 ## For package authors
 
+Who draws a process
+:   `"interface"` in a process's `capabilities` is `"panel"`, `"window"` or `"none"`, as [Who draws a
+    process](#who-draws-a-process) describes. A Lite hosted extension states how its window looks with
+    `afternight.ui_protocol.process_window_meta()`; `hide_process_window()` puts its task away and
+    `close_process_window()` ends its session.
+
+Processes it adds
+:   `afternight.contribute_processes(entries)` sends the whole list, and `current_session().contributed_process` says
+    which entry a session was started for.
+
+Requests of the view
+:   `afternight.ui_protocol` carries them on either host: `overlay_add`, `overlay_remove` and `overlay_clear` for the
+    shapes, `set_selection`, `set_display`, `undo` and `redo`.
+
 What a preview runs over while you drag
-:   A Full hosted process states it in the `capabilities` of its `extension.json`. `"preview_scaling": "full_only"`,
-    the default, hands `execute_preview` the whole image every time. `"decimated"` is for a preview that changes every
+:   A process states it in the `capabilities` of its `extension.json`, for a task AfterNight draws and for a Full
+    host's window alike. `"preview_scaling": "full_only"`, the default, hands `execute_preview` the whole image every
+    time. `"decimated"` is for a preview that changes every
     pixel by a rule that depends neither on where the pixel lies nor on the image's size: it hands it the image
     reduced to what the preview view shows. `"native_region"`, with `"preview_region_margin"` from 0 to 4096 pixels, is
     for a preview whose answer at a pixel reads nothing farther than that margin: it hands it the part of the image the
@@ -336,7 +456,17 @@ A process of an extension is greyed, or missing from the **Process** menu
 :   **Cause.** Its package is **Incompatible** or **Unavailable**, the process is still loading, it does not fit the
     active image, it names a category the menu does not have, or its package is for developers only.
 :   **Fix.** Read its tooltip and the card, make an image it fits active, or install a release that suits this
-    AfterNight.
+    AfterNight. A process of a category the menu does not have is still in the command palette.
+
+A process an extension added is gone from the menus
+:   **Cause.** The extension took it away from its list, its new list was refused, or its package was uninstalled.
+:   **Fix.** Enable it again in the extension, and read the reason in the Session Console when the list was refused.
+
+An extension's shapes, selection area or zoom do not appear
+:   **Cause.** AfterNight refused the request, for the reason the extension was told: a limit above, a view it is
+    not bound to, or a selection area another process holds.
+:   **Fix.** Read the extension's own message or the Session Console, close the task that holds the area, and try
+    again.
 
 **Settings** is missing from the card
 :   **Cause.** The environment is not ready, or the package declares no settings, or reading them failed.

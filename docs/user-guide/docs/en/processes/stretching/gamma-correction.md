@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Gamma Correction window is open on it yet, and no window that needs
-    the image for itself is open on it.
+    An image or a sequence view is active, no Gamma Correction task is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size on
     its view.
@@ -29,7 +29,7 @@ derived: false
 ---
 # Gamma Correction
 
-This window applies a gamma correction: it raises every sample to a power. **Gamma** above 1 brightens the
+This [task](../../reference/glossary.md#task) applies a gamma correction: it raises every sample to a power. **Gamma** above 1 brightens the
 [midtones](../../reference/glossary.md#midtones) and below 1 darkens them, while black and white stay where they are.
 **Channel** applies the power to the whole image, to one channel, or to one component of a
 [color model](../../reference/glossary.md#color-model).
@@ -41,19 +41,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/gamma-correction.webp
 alt: >-
-  The Gamma Correction window. On the left, a histogram with one peak close to its left edge and the lines Clipping
-  Low and Clipping High in its corner. Under it a toolbar, the Gamma box at 0.50 with its slider, Target Image,
-  Channel at RGB and Preview. On the right, the preview shows a red nebula on a nearly black background. Reset,
-  Close and Apply run along the bottom.
+  The Gamma Correction task. Its header names the process and the stretched master. The canvas at the left shows the
+  preview, a red nebula on a nearly black background. The column at the right opens with the compact readout of the
+  preview, then the Preview, Preview area and Processed toggles, Target Image and Channel at RGB, a histogram with one
+  peak close to its left edge and the lines Clipping Low and Clipping High in its corner, its toolbar, and the Gamma
+  box at 0.50 with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
   Gamma Correction on a stretched master with Gamma at 0.50. The histogram is counted from the darkened preview, and
-  the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 8.5, y: 84.3}
-  - {n: 3, x: 2.0, y: 54.0}
-  - {n: 4, x: 2.0, y: 19.0}
-  - {n: 5, x: 73.0, y: 26.0}
-  - {n: 6, x: 90.9, y: 96.0}
+  the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -72,9 +68,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Adjustments > Gamma
-   Correction**. **Target Image** names it, the preview shows it unchanged, and **Apply** stays disabled until
-   **Gamma** leaves 1.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Adjustments > Gamma
+   Correction**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task
+   opens as a page: the canvas at the left shows the image unchanged, the column at the right holds its controls.
+   **Apply** stays disabled until **Gamma** leaves 1.
 2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose
    [**HSL Lightness**](../../reference/glossary.md#hsl), **CIE Y (Luminance)** or
    [**HSV Value**](../../reference/glossary.md#hsv) to change the tone through one component instead.
@@ -82,17 +79,17 @@ pins:
    preview follows, and the peak of the histogram moves left or right.
 4. **Read the histogram.** Check where the peak of the background has landed. With **RGB**, **Clipping Low** and
    **Clipping High** read about what they read before: the curve keeps black and white where they are.
-5. **Check the preview at 100 %.** Zoom the preview into the background, the smooth gradients and the bright colored
-   stars, and press ++space++ over it to compare with the original. Look for bands between tones, for colors that
+5. **Check the preview at 100 %.** Zoom the canvas into the background, the smooth gradients and the bright colored
+   stars, and hold ++space++ over it to compare with the original. Look for bands between tones, for colors that
    changed and, with a mask, for its edges.
-6. **Apply.** Choose **Apply**. The image in its view is the adjusted one, its history lists **Gamma Correction**
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the adjusted one, its history lists **Gamma Correction**
    with the value and the channel, and **Gamma** and **Channel** return to their defaults.
 
 ## Controls
 
 The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
-resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md).
+resolution** - changes only how the histogram is drawn, and is the same in every task that has one: see
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: The histogram
@@ -102,9 +99,9 @@ controls:
     default: ""
     effect: Shows how the samples are spread between 0 and 1. With **Preview** on it is counted from the preview, which is the adjusted image with the mask blended in. With **Preview** off, or with **Gamma** at 1, it is counted from the image as it is.
     range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**. The lines are the red, green and blue of the result, also when **Channel** names a color component.
-    enabled: Shown while the toolbar's **Show histogram** button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
-    tradeoff: It is counted again with every preview, which adds to the work of each change. While you drag **Gamma** it still stands for the whole image, not for the part the preview pane shows.
-    scope: The window only. It never changes a sample.
+    enabled: Shown while the toolbar's **Show histogram** button is on. Its lines follow the channel the canvas displays, and it shows the original while the canvas does.
+    tradeoff: It is counted again with every preview, which adds to the work of each change. While you drag **Gamma** it still stands for the whole image, not for the part the canvas shows.
+    scope: The task only. It never changes a sample.
     persistence: Counted again when the target, the preview or **Plot resolution** changes.
     note: Holding the left button shows the coordinates under the pointer. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer. **Reset** leaves the zoom as it is.
   - name: Clipping Low
@@ -112,9 +109,9 @@ controls:
     default: ""
     effect: Gives the share of the samples the histogram counts that are at or below 0.
     range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
-    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the window opens.
+    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the task opens.
     tradeoff: The power keeps 0 at 0, so with **RGB** or a single channel the reading hardly moves. A strong darkening rounds the lowest values of an integer image to 0, and floating-point samples below 0 leave the count when they become not-a-number. With a color component it also counts what the conversion back to RGB put at or below 0.
-    scope: The window only.
+    scope: The task only.
   - name: Clipping High
     kind: readout
     default: ""
@@ -122,7 +119,7 @@ controls:
     range: Counted as **Clipping Low** is.
     enabled: Shown while the toolbar's **Show clipping info** button is on.
     tradeoff: The power keeps 1 at 1 and leaves a sample above 1 above 1, so with **RGB** or a single channel the reading hardly moves. A strong brightening rounds the highest values of an integer image to white. With a color component it also counts what the conversion back to RGB put at or above 1.
-    scope: The window only.
+    scope: The task only.
 ```
 
 ```controls
@@ -137,15 +134,15 @@ controls:
     enabled: Disabled while Apply runs. At exactly 1, **Apply** is disabled.
     tradeoff: A value far from 1 presses most tones against white or against black, and the steps between the tones that remain show as bands.
     scope: The preview and Apply, on what **Channel** selects, for images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
-    note: While you drag the slider, the preview is computed on what the preview pane shows, which is the image reduced to the pane's size or the part in view at 100 % and closer. When you stop, it is computed on the whole image.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    note: While you drag the slider, the preview is computed on what the canvas shows, which is the image reduced to the canvas's size or the part in view at 100 % and closer. When you stop, it is computed on the whole image.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
     tradeoff: Apply replaces the image chosen here, so check it before you Apply. A sequence is written again in a temporary place and replaced only when every frame is done.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: Choosing another target keeps **Gamma** and returns **Channel** to its first choice.
   - name: Channel
     kind: combo
@@ -156,49 +153,49 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale** instead, and the power is applied to its one channel. Disabled while Apply runs.
     tradeoff: The same power on each channel changes the ratios between them, so **RGB** changes saturation, and a single color shifts the color balance. **RGB** and **Grayscale** cost the least, and a single color needs a temporary channel. A component costs two conversions of the whole image and a working copy of it, in 32-bit floating point, or 64-bit for a 64-bit image. A color the conversion back puts outside the range is not brought back. A floating-point image keeps it outside 0 to 1, and an integer image cuts it at the ends of its type.
     scope: The preview and Apply, for images and sequences. A mask is blended afterwards. It does not choose the lines of the histogram.
-    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**.
+    persistence: Until the task closes. **Reset**, a finished Apply and a new target return it to **RGB**.
     note: Hue is treated as a line from 0 to 1 and not as a circle. A power on a signed component moves neutral colors too, because the middle of its range means no color. The image's red, green and blue are converted as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. The component of an integer image is not rounded before the power, the image is rounded once on the way back, and the conversion back is the exact inverse of the conversion there.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the adjusted image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the adjusted image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: Each change computes the image again and counts the histogram again, which takes time and memory. On a large image, turn it off or use a **Preview area** while you adjust, and check the whole image before Apply.
-    scope: The window only. On a sequence it shows the frame the view displays. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: The preview runs the operation Apply runs, so it shows what Apply writes. With the preview pane in Autostretch, the stretch is the target's and does not move while you adjust. A snapshot of the preview is a new image in the target's pixel type, named after the target, as in `M42 - Gamma Correction - SNAPSHOT`. It takes the mask and the preview area as they are, leaves the target alone, and is not recorded as nonlinear.
+    scope: The task only. On a sequence it shows the frame the view displays. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: The preview runs the operation Apply runs, so it shows what Apply writes. With the canvas in Autostretch, the stretch is the target's and does not move while you adjust. A snapshot of the preview is a new image in the target's pixel type, named after the target, as in `M42 - Gamma Correction - SNAPSHOT`. It takes the mask and the preview area as they are, leaves the target alone, and is not recorded as nonlinear.
   - name: Reset
     kind: button
     default: ""
     effect: Returns **Gamma** to 1 and, for an RGB image, **Channel** to **RGB**.
     range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
     enabled: Disabled while Apply runs.
-    scope: The window only. The image is not touched, and Apply is disabled afterwards.
+    scope: The task only. The image is not touched, and Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Applies the power to the image, or to every frame of the sequence, with **Gamma** and **Channel** as they are when you press it, and then returns both to their defaults.
-    enabled: When **Gamma** is not 1, so it is disabled when the window opens. While a run works it is disabled too, as **Gamma**, **Target Image**, **Channel**, **Reset** and **Close** are.
+    enabled: When **Gamma** is not 1, so it is disabled when the task opens. While a run works **Cancel** takes its place, and **Gamma**, **Target Image**, **Channel**, **Reset** and **Close** are disabled.
     tradeoff: One pass over the samples on the threads the run is given, and a second copy of the image in memory. Signed and 32-bit integer images add a floating-point working copy, a color component adds its conversions, and a mask adds one more pass.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards. While another process works on the target, Apply shows "Another process is executing for this image, please cancel that job first before running this process" and does nothing.
     persistence: "The image and its history keep the result. The history step is **Gamma Correction** and reads, for example, `Adjust gamma to 0.5 in channel: RGB`. For a grayscale image it ends after the value. It does not record the mask or the toolbar's choices, and undoing the step restores the image before."
-    note: Closing the window instead discards the values. The window has no presets, and nothing of it is saved between sessions.
+    note: Closing the task instead discards the values. The task has no presets, and nothing of it is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and then the frame being processed, as in `Executing process in sequence. Frame 3/120`, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being processed, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: Every frame is decoded, processed and written again in a temporary place, which takes time and the disk space of a second copy until the run ends.
     scope: Every frame, processed as an image of it would be, with the gamma, the channel and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view, which can turn mosaic frames into RGB.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The request is noticed before each frame and inside the work on one.
     note: The sequence is replaced, and its one history step recorded, only when every frame has succeeded. A frame that fails ends the run as Cancel does. After either, Apply again and let it finish.
 ```
@@ -248,8 +245,7 @@ weakens them.
   stays within a small error of the exact power.
 - An integer result is rounded to the nearest value, a tie to the even one.
 - A run that is stopped writes nothing, and the image and its history stay as they were. A run stops when its
-  target closes, or with **Cancel** for a sequence. A single image has no progress window and cannot be cancelled
-  once Apply starts.
+  target closes, or with **Cancel** in the column's footer.
 
 ### Worked example
 
@@ -294,7 +290,7 @@ become 0, 0.0625, 0.25, 0.5625 and 1. The preview shows the numbers Apply writes
 
 !!! danger "Negative samples become not-a-number"
     In a floating-point image, a sample below 0 has no power and is written as not-a-number, at every value of
-    **Gamma**. A linear master often holds some after background correction. Use this window after the stretch,
+    **Gamma**. A linear master often holds some after background correction. Use this task after the stretch,
     and check the lowest value of the image first when in doubt.
 
 Apply is disabled
@@ -340,5 +336,4 @@ Apply reports "An error occurred when running the process:" and names the memory
 - [Curves Transformation](curves-transformation.md), to shape tone and color point by point.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to check the range of the samples.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.

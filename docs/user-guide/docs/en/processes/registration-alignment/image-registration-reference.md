@@ -6,10 +6,10 @@ summary: >-
 ---
 # Image Registration Reference
 
-This page holds what [Image Registration](image-registration.md) leaves out to stay readable beside its window. It
+This page holds what [Image Registration](image-registration.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task). It
 follows a run in order, from the detection of the stars to the files **Align** writes. Then come the chromatic
 aberration correction, the comet run, [plate solutions](../../reference/glossary.md#plate-solution) and the catalog,
-what the window keeps, how to adjust the settings, the messages, and more symptoms with their fixes. The equations go
+what the task keeps, how to adjust the settings, the messages, and more symptoms with their fixes. The equations go
 on from the process page's numbering.
 
 ## The stars of a frame
@@ -31,7 +31,7 @@ on from the process page's numbering.
 - A detection setting the detector cannot take runs at the nearest value it takes: a radius above 32 at 32, a
   roundness threshold of 0 or below at 0.01, a Moffat exponent of 0 or below at 0.05. The
   [log file](../../reference/glossary.md#log-file) says "Star detection settings the detector refuses run at the
-  nearest value it takes", with the values. The window shows nothing of it.
+  nearest value it takes", with the values. The task shows nothing of it.
 
 ## How the stars are matched
 
@@ -93,7 +93,7 @@ over.
   stars matched. The log file then says the frame "matched N star pairs, fewer than the T a polynomial of order n
   needs, and is registered with the linear transform", or that the polynomial "could not be fitted to them".
 - A transform's inverse is the inverse of its whole matrix, and its scales are the lengths its axes are mapped to.
-  The window shows neither.
+  The task shows neither.
 
 ## The reference Auto chooses
 
@@ -110,9 +110,9 @@ point's scatter and 8 times the arcsecond **RMS**.
 - When the frames name two filters or more, each frame's figures are compared with those of its own filter, and a
   frame without a filter name is not a candidate.
 - **Register** chooses from the figures its own detection measured, before any frame is matched, in one pass.
-  Choosing **Auto** in the window chooses at once from the figures the table holds. **Best** in **Registration
+  Choosing **Auto** in the task chooses at once from the figures the table holds. **Best** in **Registration
   Settings** chooses the same way, and detects the frames that have no figures yet.
-- When no frame can be chosen, **Register** keeps the reference the window had, and the log file says "auto-reference
+- When no frame can be chosen, **Register** keeps the reference the task had, and the log file says "auto-reference
   selection failed".
 - A reference that is not among the listed frames is replaced by the first frame of the list. A reference that
   cannot be read holds no stars, and **Register** stops with "The reference frame holds too few stars to match".
@@ -131,10 +131,10 @@ The database holds, for these frames:
 - for a comet run, the run, its transforms, its output plane, its files and whether they are ready.
 
 The records are filed under a key. When every frame has the size and the object of the others, the key is the one
-Image Integration gives that [registration group](../../reference/glossary.md#registration-group), so either window
-reuses what the other recorded. Otherwise the key is the window's own, made from the frames' paths.
+Image Integration gives that [registration group](../../reference/glossary.md#registration-group), so either task
+reuses what the other recorded. Otherwise the key is the task's own, made from the frames' paths.
 
-**When a registration is current.** The table and **Align** use a record only while it answers the window as it is:
+**When a registration is current.** The table and **Align** use a record only while it answers the task as it is:
 
 | Changes the record | Does not change it |
 | --- | --- |
@@ -228,13 +228,13 @@ fails is logged as a warning, and the frame goes on uncorrected.
   resampled with **Interpolation**.
 - When every file is written, the run is made the one Image Stacking's comet stacking reads.
 - **Comet only** is the one output offered. **Refine**, **Auto Track** and **Find Moving Object** have no work in this
-  window, so the comet is marked by hand.
+  task, so the comet is marked by hand.
 - The line under **Track Comet...** reads, for example, "Comet tracking: 3 observation(s), 3 enabled." and "Tracking:
   search radius 32 px, minimum SNR 3, 8 bootstrap frames; linear track, outliers beyond 3 sigma rejected."
 - A value stored more finely than its control shows, in a settings file edited by hand, is kept while the control
   shows the value it runs as.
 
-The progress window reads "Fitting comet track...", "Materializing comet-aligned outputs...", "Materializing
+The run at the head of the page reads "Fitting comet track...", "Materializing comet-aligned outputs...", "Materializing
 comet-aligned image 3 of 35" and "Comet registration complete".
 
 ## Plate solutions and the catalog
@@ -242,11 +242,11 @@ comet-aligned image 3 of 35" and "Comet registration complete".
 A frame's [plate solution](../../reference/glossary.md#plate-solution) comes from the first of these that has one:
 
 1. the frame's own header;
-2. **Solve...** in the frame list's menu, kept for that frame until the window closes;
+2. **Solve...** in the frame list's menu, kept for that frame until the task closes;
 3. **Auto-solve unsolved frames**, for an included frame, one frame at a time, before any star is detected.
 
 A solve that fails is logged, and the run goes on. Only the solver you set up may use the network: nothing else of
-the window does. A solution never places a frame and is never written to a file. It serves the catalog and the
+the task does. A solution never places a frame and is never written to a file. It serves the catalog and the
 arcsecond **RMS** only.
 
 With **Enrich with Gaia catalog** on and a [Gaia](../../reference/glossary.md#gaia) catalog ready, each registered
@@ -256,14 +256,14 @@ January 1 at 12:00. The frame gains its zero point in the Gaia G band and the ze
 magnitude, its count of catalog-matched stars, and its **RMS** in arcseconds by equation (4). When the catalog matches
 nothing, the log file says "the Gaia catalog matched nothing", and the frame keeps its pixel **RMS**.
 
-## What the window keeps
+## What the task keeps
 
-Kept for the next window
-:   The frames and their order, the output directory, the reference file, every setting of the window and of its
+Kept for the next task
+:   The frames and their order, the output directory, the reference file, every setting of the task and of its
     two settings dialogs, the comet's observations and options, and the three quality thresholds, which are applied
     again when it opens.
 
-Kept until the window closes
+Kept until the task closes
 :   Exclusions you made by hand or in the **Blink Comparator**, and the solutions found with **Solve...**.
 
 Not kept
@@ -271,7 +271,7 @@ Not kept
     Thresholds** is open.
 
 In the output directory
-:   The registration itself. A new window reads the frames' headers again, then reads the record back when it still
+:   The registration itself. A new task reads the frames' headers again, then reads the record back when it still
     answers the frames and settings.
 
 ## Adjusting the settings
@@ -336,8 +336,8 @@ The **Registration** card is disabled
 :   **Fix.** Check the detection settings, then register once and use **Best** again.
 
 **Apply to All Groups** changes nothing
-:   **Cause.** It belongs to Image Integration's groups, and this window has none.
-:   **Fix.** Choose **OK** to give the values to this window.
+:   **Cause.** It belongs to Image Integration's groups, and this task has none.
+:   **Fix.** Choose **OK** to give the values to this task.
 
 The aligned frames still show color fringes
 :   **Cause.** The chromatic aberration correction does not reach the aligned files.

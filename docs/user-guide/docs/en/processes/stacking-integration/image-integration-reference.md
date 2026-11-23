@@ -7,10 +7,10 @@ summary: >-
 ---
 # Image Integration Reference
 
-This page holds what [Image Integration](image-integration.md) leaves out to stay readable beside its window. Its
+This page holds what [Image Integration](image-integration.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task). Its
 sections follow a run: the stages, the frames and their groups, the matching of
 [masters](../../reference/glossary.md#master), the calibration, the registration, the stack and the
-[drizzle](../../reference/glossary.md#drizzle), then the files a run writes, how a later run reuses them, what happens when a run stops, what the window keeps and what a run
+[drizzle](../../reference/glossary.md#drizzle), then the files a run writes, how a later run reuses them, what happens when a run stops, what the task keeps and what a run
 costs. The messages a reader may meet come last, with places to start for each kind of setting. Each section can be
 read on its own.
 
@@ -88,20 +88,20 @@ Sky solution
     registration may use.
 
 A file in a format the engine does not read is refused with "Unsupported file format". A file whose header cannot be
-read is still added, with "Metadata read failed:" and the reason: its type comes from its folder or its tab, its size
+read is still added, with "Metadata read failed:" and the reason: its type comes from its folder or its frame source, its size
 is unknown and its file time stands for its capture time. The formats are [FITS](../../reference/glossary.md#fits),
 TIFF, PNG, JPEG, camera RAW and [XISF](../../reference/glossary.md#xisf).
 
 ## Groups
 
-| Frames | Always split by | The tab offers | On when the window opens |
+| Frames | Always split by | The page offers | On when the task opens |
 | --- | --- | --- | --- |
 | Bias | Resolution | **ISO / Gain**, **Offset**, **Custom Tag** | **Offset** |
 | Darks | Resolution | **ISO / Gain**, **Offset**, **Exposure** with **Tol (s)**, **Temperature** with **Tol (C)**, **Custom Tag** | **Offset**, **Exposure** at 3.0 s |
 | Flats | Resolution | **Filter**, **Object**, **Session**, **ISO / Gain**, **Offset**, **Custom Tag** | **Filter**, **Session**, **Offset** |
 | Lights | Resolution | **Filter**, **Object**, **Session**, **ISO / Gain**, **Offset**, **Exposure** with **Tol (s)**, **Custom Tag** | **Filter**, **Object**, **Session**, **Offset** |
 
-Two more kinds of group are formed from the included lights, whatever their tab says:
+Two more kinds of group are formed from the included lights, whatever their page says:
 
 Registration group
 :   The lights of one resolution and one object, whatever their filter, channels or binning. They share one reference
@@ -110,7 +110,7 @@ Registration group
 
 Integration group
 :   The lights of one resolution, filter and object, split further by **Group by Session**, **Group by Custom Tag**
-    and **Group by Exposure** on the **Stacking** tab. Each gives one master.
+    and **Group by Exposure** on the **Stacking** page. Each gives one master.
 
 A group's label joins what its frames share with ` | `: the resolution, `ISO 11` and `Offset 30` while those are
 grouped, an exposure as `180s`, or `~180s` with a tolerance, a temperature as `Temp ~-10C`, then the filter, the
@@ -130,7 +130,7 @@ matches:
 
 | Master | An exact match needs | Several exact matches | Fallback, when no exact match exists |
 | --- | --- | --- | --- |
-| Bias | The resolution, and the gain, offset and tag while the bias tab groups by them | The first in the order of the groups' keys, marked as needing a check | None |
+| Bias | The resolution, and the gain, offset and tag while the **Bias** page groups by them | The first in the order of the groups' keys, marked as needing a check | None |
 | Dark | The resolution, the gain, offset and tag as grouped, and the exposure while the darks are grouped by it, each rounded to the dark tolerance | The nearest temperature: a dark more than 0.25 °C nearer replaces the one found, and nearer by less is a tie, settled by key | With **Allow dark exposure fallback**: the nearest exposure within **Exposure tolerance** of the light's, then the nearest temperature, then the key |
 | Flat | The resolution, and the gain, offset, filter, object, session and tag as the flats are grouped | The first by key, marked as needing a check | With **Allow flat session fallback**: the nearest night within **Max session gap**, both dates written as `yyyy-MM-dd`; a tie takes the newer with **Prefer newer flats**, the older otherwise |
 
@@ -225,7 +225,7 @@ another. A light none of them registers is left to its sky solution.
   is solved, its world coordinates, moved onto the canvas, are written into every aligned light.
 - A change of **Interpolation**, or between **Standard** and **Intersection**, aligns the lights again without
   registering them. Only a change to or from **Mosaic** registers them again, as does a changed detection setting.
-- A transform model stored in a project is read by its mode. **Auto** is stored as a
+- A transform model stored in a [project](../../reference/glossary.md#project) is read by its mode. **Auto** is stored as a
   [homography](../../reference/glossary.md#homography) that a polynomial may refine. An order stored beside a linear
   mode is dropped, and **Polynomial** and **Auto** fit in two passes.
 - A light only a solve could place is solved by the internal solver against an installed
@@ -234,7 +234,7 @@ another. A light none of them registers is left to its sky solution.
 - With **Enrich with Gaia catalog** on and a catalog installed, every solved light gets its catalog figures, and so do
   the matched sources Spectrophotometric Color Calibration reads.
 - `registration_metrics.db` keeps each light's stars, figures and transform by group and settings version. Positions
-  are stored with the first pixel's center at (0.5, 0.5). The **Registration** tab shows the latest settings version
+  are stored with the first pixel's center at (0.5, 0.5). The **Registration** page shows the latest settings version
   that has records. A database in a format this version does not read is never changed: a run refuses it, and so does
   **Clear Registration...**.
 - With no reference chosen and **Auto-select** off, the group's first light is the reference, which the log names
@@ -493,23 +493,23 @@ fails the master group that applies it, or only the lights that name it.
 | 300 to 306 | Processing | The stack, the registration, the calibration, the normalization, the drizzle, memory, an internal fault | The group or stage fails; finished groups stay |
 | 400 to 401 | Stopping | Cancelled, timed out | The run stops and keeps the finished groups |
 
-## What the window keeps
+## What the task keeps
 
 | What | Where | How long |
 | --- | --- | --- |
-| The project: frames, overrides, every setting, the output directory | `image_integration_sessions.db` in AfterNight's local data | Saved every five seconds while it changes, and on **Close**; restored by the next window |
+| The project: frames, overrides, every setting, the output directory | `image_integration_sessions.db` in AfterNight's local data, or the jobs database of the project a run joined it to | Saved every five seconds while it changes, and when the task closes; restored by the next task |
 | A preset | `presets\<name>.json` in AfterNight's local data | Until deleted |
 | An exported project | The JSON file you name | Until you delete it; it holds paths, not images |
-| The recent projects, each tab's display, columns and **Coverage** | The settings file, `settings\AfterNight.ini` in AfterNight's local data | Across sessions |
-| The changes **Undo** can take back, the quality filters, the chart's choices, **Reprocess existing**, **Open integrated files**, **CPU Threads** and the tab shown | The window | Until it closes |
+| The recent projects, each frame source's display, columns and **Coverage** | The settings file, `settings\AfterNight.ini` in AfterNight's local data | Across sessions |
+| The changes **Undo** can take back, the quality filters, the chart's choices, **Reprocess existing**, **Open integrated files**, **CPU Threads** and the page shown | The task | Until it closes |
 | The session notes, the records of reuse and the runs | The output directory | Until you remove them |
 
 - The project database uses write-ahead logging, and a failed save waits from 1 to 16 seconds before it tries again.
   A failed save says "Autosave failed:" and the reason.
 - A project, preset or session stores each choice by a fixed key, so renaming a label changes no saved setting.
 - A session database in a format this version does not read is set aside beside itself, with the format in its name,
-  and the window says so under **Saved Sessions**. New sessions are saved from then on.
-- A session holding a value no dialog writes, or of another session format, is refused: the window opens empty, says
+  and the task says so under **Saved Sessions**. New sessions are saved from then on.
+- A session holding a value no dialog writes, or of another session format, is refused: the task opens empty, says
   so, and saves nothing over it. A database that cannot be opened is left as it is, with the same effect.
 - A preset holds `presetSchema` 3 and its settings. A preset this version cannot read says "is not a document this
   version can read", and one of another format is refused with "It was not changed."
@@ -518,7 +518,7 @@ fails the master group that applies it, or only the lights that name it.
 
 The cost grows with the pixels of every input, the number of groups, the stars detected, the canvas's size, the
 normalization grid, the rejection method, the maps, the drizzle's scale, and a second stack after the spatial
-analysis. The window's **Disk space** estimate is a guide: check the real free space before a long run.
+analysis. The task's **Disk space** estimate is a guide: check the real free space before a long run.
 
 - The import reads the headers in parallel, with **Pause**, **Cancel** and the time left.
 - The stages run in their order, each parallel where it can, capped by **CPU Threads**.
@@ -589,7 +589,7 @@ A cancelled run left new masters
 
 The report is missing after a run
 :   No group finished, the run only registered, the archive could not be written, or the run stopped before the
-    report. Read the progress window's log, and check that the output directory can be written.
+    report. Read the log in the run's view, and check that the output directory can be written.
 
 **Report** on a run's row says the report cannot be written again
 :   The run was made by an earlier version, which kept no report as data. The report that run wrote opens as it

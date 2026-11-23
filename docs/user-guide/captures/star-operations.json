@@ -1,0 +1,54 @@
+{
+  "group": "Star Operations",
+  "captures": [
+    {
+      "picture": "assets/images/processes/star-operations/starnet.webp",
+      "page": "processes/star-operations/starnet.md",
+      "data": ["linear"],
+      "shows": "The Starnet++ task at its defaults on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, StarNet2 ready to use; the canvas shows the target as its view does",
+      "options": ["-Storage", "{starnet}", "-ReuseStorage", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\star-operations\\starnet.md"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/star-reduction.webp",
+      "page": "processes/star-operations/star-reduction.md",
+      "data": ["linear"],
+      "shows": "The Star Reduction task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, against the starless image Starnet++ made of it, with Star Method, Strong and Iterations at 2, its preview area in the middle of the canvas",
+      "options": ["-Storage", "{starnet}", "-ReuseStorage", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Star Processing > Starnet++|generateStarMask=Off", "-Page", "processes\\star-operations\\star-reduction.md", "-Set", "targetImageSelector=RGB;starlessImageSelector=RGB - starless;iterations=2"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/starmask-recombination.webp",
+      "page": "processes/star-operations/starmask-recombination.md",
+      "data": ["linear"],
+      "shows": "The Starmask Recombination task with the starless image and the star mask Starnet++ made of the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, without a mask, the preview on",
+      "options": ["-Storage", "{starnet}", "-ReuseStorage", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Star Processing > Starnet++|generateStarMask=On", "-Page", "processes\\star-operations\\starmask-recombination.md", "-Set", "starlessImage=RGB - starless;starmaskImage=RGB - star mask"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/profiled-starmask-recomb.webp",
+      "page": "processes/star-operations/profiled-starmask-recomb.md",
+      "data": ["linear"],
+      "shows": "The Profiled Starmask Recombination task with the starless image and the star mask Starnet++ made of the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, through a Star Profiler v2 profile of 2,187 stars detected at Threshold 3.00, Binary Areas at their defaults, the preview on",
+      "options": ["-Storage", "{starnet}", "-ReuseStorage", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Star Processing > Star Profiler v2|thresholdValue=3.0;detectStarsButton^OK;saveProfileButton?{work}\\carina.anspv2||Process > Star Processing > Starnet++|generateStarMask=On", "-Page", "processes\\star-operations\\profiled-starmask-recomb.md", "-Set", "starlessImage=RGB - starless;starmaskImage=RGB - star mask;openStarsProfileButton?{work}\\carina.anspv2;preview=On"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/starnet-star-mask.webp",
+      "page": "processes/star-operations/starnet-star-mask.md",
+      "data": ["linear"],
+      "shows": "The Starnet++ Star Mask task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Lightness, Binary Mask and Smoothness at 2, StarNet2 ready to use; the canvas shows the target as its view does",
+      "options": ["-Storage", "{starnet}", "-ReuseStorage", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\star-operations\\starnet-star-mask.md", "-Set", "lightness=On;binaryMask=On;smoothnessValue=2"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/star-mask.webp",
+      "page": "processes/star-operations/star-mask.md",
+      "data": ["linear"],
+      "shows": "The Star Mask task on the linear master with Percent Increase at 1.00 and the preview area off, the canvas showing the whole mask in the Linear display mode",
+      "options": ["-Page", "processes\\star-operations\\star-mask.md", "-Set", "percentIncreaseValue=1;pagePreviewArea=Off"]
+    },
+    {
+      "picture": "assets/images/processes/star-operations/dark-structure-enhance.webp",
+      "page": "processes/star-operations/dark-structure-enhance.md",
+      "data": ["linear"],
+      "shows": "The Dark Structure Enhance task at its defaults on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, its preview area in the middle of the canvas",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\star-operations\\dark-structure-enhance.md"]
+    }
+  ]
+}

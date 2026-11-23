@@ -1,0 +1,146 @@
+{
+  "group": "Interface",
+  "captures": [
+    {
+      "picture": "assets/images/interface/overview.webp",
+      "page": "interface/overview.md",
+      "data": ["linear"],
+      "shows": "The main window with one image open in its workspace, shown with Autostretch, and the readout beside it",
+      "options": ["-Display", "Autostretch", "-MainWindow", "overview"]
+    },
+    {
+      "picture": "assets/images/interface/home-first-start.webp",
+      "page": "interface/home.md",
+      "data": [],
+      "shows": "Home at the first start of a new profile, with its welcome",
+      "options": ["-MainWindow", "home-first-start"]
+    },
+    {
+      "picture": "assets/images/interface/home.webp",
+      "page": "interface/home.md",
+      "data": ["linear", "flat"],
+      "shows": "Home with two recent images, after they were opened and closed",
+      "options": ["-View", "File > Close All;@Home", "-MainWindow", "home"]
+    },
+    {
+      "picture": "assets/images/interface/rail-and-places.webp",
+      "page": "interface/rail-and-places.md",
+      "data": ["linear"],
+      "shows": "The main window with a workspace, the Integration place and a Histogram Transformation task in the rail",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\stretching\\histogram-transformation.md", "-Set", "shadowsValue=0.02;midtonesValue=0.02;%shot=rail-and-places@window"]
+    },
+    {
+      "picture": "assets/images/interface/top-bar-and-menus.webp",
+      "page": "interface/top-bar-and-menus.md",
+      "data": ["linear"],
+      "shows": "The main window with the menu bar shown and the View menu's Density submenu open",
+      "options": ["-Display", "Autostretch", "-MenuShot", "top-bar-and-menus=View > Density > Compact"]
+    },
+    {
+      "picture": "assets/images/interface/command-palette.webp",
+      "page": "interface/command-palette.md",
+      "data": ["linear"],
+      "shows": "The command palette open over the main window with stretch typed in its field",
+      "options": ["-View", "@Search or run a command;%type=stretch;%shot=command-palette"]
+    },
+    {
+      "picture": "assets/images/interface/tasks.webp",
+      "page": "interface/tasks.md",
+      "data": ["linear"],
+      "shows": "The main window showing the Histogram Transformation task with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Page", "processes\\stretching\\histogram-transformation.md", "-Set", "shadowsValue=0.02;midtonesValue=0.02;%shot=tasks@window"]
+    },
+    {
+      "picture": "assets/images/interface/tasks-floating.webp",
+      "page": "interface/tasks.md",
+      "data": ["linear"],
+      "shows": "The Gamma Correction task floated in a window of its own, with Gamma at 0.50",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "tasks-floating=Process > Adjustments > Gamma Correction", "-Float", "-Set", "gammaValue=0.5"]
+    },
+    {
+      "picture": "assets/images/interface/workspaces.webp",
+      "page": "interface/workspaces.md",
+      "data": ["linear", "flat"],
+      "shows": "A workspace holding two images split side by side, with the layout icons in the top bar",
+      "options": ["-View", "@Split All Images;%display=Autostretch", "-MainWindow", "workspaces"]
+    },
+    {
+      "picture": "assets/images/interface/docking-panels.webp",
+      "page": "interface/docking-panels.md",
+      "data": ["linear", "flat"],
+      "shows": "A workspace holding two images grouped as tabs of one dock area",
+      "options": ["-View", "@Group All Images;%display=Autostretch", "-MainWindow", "docking-panels", "-MainCrop", "observatoryCentre"]
+    },
+    {
+      "picture": "assets/images/interface/image-viewer.webp",
+      "page": "interface/image-viewer.md",
+      "data": ["linear"],
+      "shows": "An image view with its floating toolbar and history strip, fitted to its workspace, in the Autostretch display mode",
+      "options": ["-Display", "Autostretch", "-MainWindow", "image-viewer", "-MainCrop", "observatoryCentre"]
+    },
+    {
+      "picture": "assets/images/interface/image-viewer-autostretch-settings.webp",
+      "page": "interface/image-viewer.md",
+      "data": ["linear"],
+      "shows": "The Autostretch Settings dialog of a view, at its defaults",
+      "options": ["-Display", "Autostretch", "-Capture", "image-viewer-autostretch-settings=@Autostretch Settings"]
+    },
+    {
+      "picture": "assets/images/interface/readout.webp",
+      "page": "interface/readout.md",
+      "data": ["linear"],
+      "shows": "The readout column of a linear master with its Histogram, Statistics, Astrometry and Image cards",
+      "options": ["-Display", "Autostretch", "-MainWindow", "readout", "-MainCrop", "observatoryRightColumn"]
+    },
+    {
+      "picture": "assets/images/interface/image-history.webp",
+      "page": "interface/image-history.md",
+      "data": ["linear"],
+      "shows": "An image view whose history strip holds a Histogram Transformation and a Gamma Correction step",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Adjustments > Gamma Correction|gammaValue=0.8", "-MainWindow", "image-history", "-MainCrop", "observatoryCentre"]
+    },
+    {
+      "picture": "assets/images/interface/projects.webp",
+      "page": "interface/projects.md",
+      "data": ["linear", "work"],
+      "note": "work is an empty folder whose path names nothing personal, such as D:\\Projects: the picture shows it",
+      "shows": "Project Home of a new project, Carina Nebula, holding the image it was made with",
+      "options": ["-Display", "Autostretch", "-Prepare", "File > New Project...|newProjectName=Carina Nebula;QLineEdit={work};newProjectObject=NGC 3372;newProjectCreate", "-View", "@Home", "-MainWindow", "projects"]
+    },
+    {
+      "picture": "assets/images/interface/projects-new.webp",
+      "page": "interface/projects.md",
+      "data": ["linear", "work"],
+      "shows": "The New Project dialog filled in for a project named Carina Nebula, with the open image added to it",
+      "options": ["-Capture", "projects-new=File > New Project...", "-Set", "newProjectName=Carina Nebula;QLineEdit={work};newProjectObject=NGC 3372"]
+    },
+    {
+      "picture": "assets/images/interface/integration-hub.webp",
+      "page": "interface/integration-hub.md",
+      "data": [],
+      "shows": "The Integration place of a new profile, with its ways to integrate and no run yet",
+      "options": ["-View", "@Integration", "-MainWindow", "integration-hub"]
+    },
+    {
+      "picture": "assets/images/interface/settings-dialog.webp",
+      "page": "interface/settings-dialog.md",
+      "data": [],
+      "shows": "The Settings dialog on its General page, at the defaults of a new profile",
+      "options": ["-Capture", "settings-dialog=Edit > Settings..."]
+    },
+    {
+      "picture": "assets/images/interface/log-viewer.webp",
+      "page": "interface/log-viewer.md",
+      "data": ["linear"],
+      "shows": "The main window with the Session Console drawer open under an image, its session cleared",
+      "options": ["-Display", "Autostretch", "-View", "View > Session Console;@Clear Session", "-MainWindow", "log-viewer"]
+    },
+    {
+      "picture": "assets/images/interface/appearance.webp",
+      "page": "interface/appearance.md",
+      "data": [],
+      "shows": "The Interface page of the Settings dialog, at the defaults of a new profile",
+      "options": ["-Capture", "appearance=Edit > Settings...", "-Set", "%keys=Tab,Down,Down"]
+    }
+  ]
+}

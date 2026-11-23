@@ -16,8 +16,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Gaussian Blur window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Gaussian Blur task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence with finite samples, and an optional mask of the image's size on its view.
   outputs: >-
@@ -43,17 +44,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/gaussian-blur.webp
 alt: >-
-  The Gaussian Blur window. On the left, the Sigma box at 2.00 with its slider, and lower down Target Image, Channel at
-  RGB and the Preview check box. On the right, a toolbar of zoom buttons, a channel box, a display mode box and a
-  settings button over the preview of a red nebula, softened, with the word PREVIEW in its corner. Reset, Close and
-  Apply run along the bottom.
+  The Gaussian Blur task. Its header names Gaussian Blur and the master. The canvas at the left shows the preview of a
+  red nebula, softened, with the word PREVIEW in its corner and a floating toolbar of zoom buttons, a channel box, the
+  display mode and a settings button near its foot. The column at the right holds the preview's small histogram and
+  statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, and the Sigma box at
+  2.00 with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
-  Gaussian Blur on the stretched master with Sigma at 2.00. The preview shows what Apply writes.
-pins:
-  - {n: 2, x: 2.0, y: 85.4}
-  - {n: 3, x: 2.0, y: 15.8}
-  - {n: 4, x: 46.9, y: 23.2}
-  - {n: 5, x: 89.0, y: 96.0}
+  Gaussian Blur on the stretched master with Sigma at 2.00. The preview in the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -65,28 +63,30 @@ pins:
 - [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first, unless you
   mean to blur the mosaic itself. A raw mosaic is blurred as one grayscale plane, which mixes the colors of its filter.
   The frames of a sequence are read with the automatic debayer setting of its view.
-- A mask on the view blends the result with the original afterwards, and the window has no **Amount**. When you blur
+- A mask on the view blends the result with the original afterwards, and the [task](../../reference/glossary.md#task) has no **Amount**. When you blur
   a mask image, check that its own view carries no mask you did not mean.
 - On a sequence, every frame gets the same **Sigma**, **Channel** and mask.
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Filters > Gaussian Blur**, or the same command under **Process > Details**. **Apply** stays disabled
-   while **Sigma** is 0.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Filters > Gaussian Blur** or **Process > Details > Gaussian Blur**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the preview, and the column at the right holds its controls. **Apply** stays disabled while **Sigma**
+   is 0.
 2. **Choose the channel.** Leave **Channel** at **RGB** to blur the three channels alike. Choose
    **CIE L* (Lightness)** to blur the brightness and keep the color components as they were.
 3. **Set Sigma.** Raise **Sigma** to the scale you want to soften, near 1 for the finest structure. The preview
    follows while you drag, and shows the exact blur when you let go.
-4. **Check at 100 %.** Zoom the preview to 100 % and hold ++space++ to compare the background, the star cores, the
-   narrow structures and the edges of the frame with the original.
-5. **Apply.** Choose **Apply**. The view shows the blurred image, and its history lists **Gaussian Blur** with the
-   sigma.
+4. **Check at 100 %.** Zoom the canvas to 100 % and hold ++space++ over it to compare the background, the star cores,
+   the narrow structures and the edges of the frame with the original.
+5. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The view shows the blurred image, and
+   its history lists **Gaussian Blur** with the sigma.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Gaussian Blur
@@ -100,14 +100,14 @@ controls:
     enabled: Disabled while Apply runs. At 0, **Apply** is disabled, and every value above 0 blurs.
     tradeoff: The kernel reaches four times **Sigma** on each side, so the cost of Apply grows with it. Above 32, the blur runs as one wide kernel, or as several exact passes on an image too small for it, which costs more. At 40, one kernel of radius 160 runs on a frame at least 322 pixels wide and high, and two passes of 28.28 on a smaller one. At 100, one kernel of radius 400 needs a frame of 802 pixels each way.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended, for images and sequences.
-    persistence: Until the window closes. Each run takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
-    note: While you drag the slider, the preview blurs the image reduced to the pane's size by **Sigma** divided by the reduction, or the part shown at 100 % and closer, with the blur's reach around it. Over a reduction of 4, a **Sigma** of 2 blurs by 0.5, with 5 taps, so a **Sigma** below about half the reduction shows little change until you let go. Above 32 in the dragged preview, three box passes stand in for the Gaussian, within one per cent of it, at a cost that does not grow with **Sigma**. When you let go, the preview is the exact blur of the whole image, as Apply writes it.
+    persistence: Until the task closes. Each run takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    note: While you drag the slider, the preview blurs the image reduced to the canvas's size by **Sigma** divided by the reduction, or the part shown at 100 % and closer, with the blur's reach around it. Over a reduction of 4, a **Sigma** of 2 blurs by 0.5, with 5 taps, so a **Sigma** below about half the reduction shows little change until you let go. Above 32 in the dragged preview, three box passes stand in for the Gaussian, within one per cent of it, at a cost that does not grow with **Sigma**. When you let go, the preview is the exact blur of the whole image, as Apply writes it.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -115,16 +115,16 @@ controls:
     effect: Chooses what is blurred. **RGB** blurs each of the three channels on its own, with the same kernel. **Red**, **Green** or **Blue** blurs that channel and keeps the other two. Every other choice blurs one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, color fringes around stars widen with the blur. A component costs two conversions and a working copy, and the conversion back can change colors.
-    scope: The preview and Apply, before the mask is blended. Process Windows describes each component.
-    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask is blended. Tasks describes each component.
+    persistence: Until the task closes. **Reset**, a finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the blurred image beside the controls, with the mask blended in.
-    range: The pane opens without a **Preview area**. At the window's default size, **Preview area** and **Take snapshot** are in the menu at the end of the pane's toolbar.
+    effect: Shows the blurred image in the canvas, with the mask blended in.
+    range: The canvas opens without a **Preview area**, which is in the column's toggles row. **Take snapshot** is on the canvas's floating toolbar.
     tradeoff: Each settled preview blurs the whole image again, as Apply does. A **Preview area** shortens it, and does not limit Apply.
-    scope: "The window only. On a sequence it shows the frame the view displays. Look at the blur at **Zoom 100%**: a fitted view resamples the image and hides how much stars and fine structure widened. **View Channel** shows the blur of each channel. **Display Mode** and **Autostretch Settings** change only how the preview is shown, and a strong display stretch can show leftover noise or hide broad gradients."
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: "The canvas only. On a sequence it shows the frame the view displays. Look at the blur at **Zoom 100%**: a fitted view resamples the image and hides how much stars and fine structure widened. **View Channel** shows the blur of each channel. **Display Mode** and **Autostretch Settings** change only how the preview is shown, and a strong display stretch can show leftover noise or hide broad gradients."
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: A snapshot runs the exact blur that Apply runs and opens as `<target> - Gaussian Blur - SNAPSHOT`, without the display stretch.
   - name: Reset
     kind: button
@@ -135,8 +135,8 @@ controls:
     kind: button
     default: ""
     effect: Blurs the whole image, or every frame of the sequence, with **Sigma** and **Channel** as they are when you press it, and then returns them to their defaults.
-    enabled: When **Sigma** is above 0, so it is disabled when the window opens. While a run works it is disabled, with **Sigma**, **Target Image**, **Channel**, **Reset** and **Close**.
-    tradeoff: A single image shows no progress window, and its run cannot be cancelled once it starts. On a sequence, **Cancel** is noticed between two rows, and the progress window also reports each pass of a blur made of several. An integer image and a blur of several passes each take a working copy, and a color component, a mask and a sequence add work and memory.
+    enabled: When **Sigma** is above 0, so it is disabled when the task opens. While a run works, **Cancel** takes its place, and **Sigma**, **Target Image**, **Channel**, **Reset** and **Close** are disabled.
+    tradeoff: The column shows the run of a single image too. On a sequence, **Cancel** is noticed between two rows, and the run's row also reports each pass of a blur made of several. An integer image and a blur of several passes each take a working copy, and a color component, a mask and a sequence add work and memory.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
     persistence: "The history step is **Gaussian Blur** and reads, for example, `Adjust sigma to 2 in channel: RGB`. For a grayscale image it ends after the value. The header cards, the other metadata and the recorded processing state are kept."
 ```
@@ -234,7 +234,7 @@ caption: >-
 
 A small **Sigma** changes little while you drag
 :   **Cause.** The dragged preview blurs the reduced image by **Sigma** divided by the reduction.
-:   **Fix.** Let go of the slider, zoom the preview to 100 %, or take a snapshot.
+:   **Fix.** Let go of the slider, zoom the canvas to 100 %, or take a snapshot.
 
 The preview changes when you let go of the slider
 :   **Cause.** The dragged preview blurs the reduced image or the part shown, and the settled one blurs the whole
@@ -272,8 +272,7 @@ Apply is slow at a large **Sigma**
   subtract a Gaussian blur to bring detail out.
 - [Masks](../../interface/masks.md), to blur one part of the image, or to blur a mask itself.
 - [Image History](../../interface/image-history.md), to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

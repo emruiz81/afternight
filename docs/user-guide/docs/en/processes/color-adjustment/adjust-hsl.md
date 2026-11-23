@@ -15,11 +15,12 @@ external: none
 glance:
   enabled: >-
     A color image or sequence view is active: red, green and blue, with or without alpha. The action is disabled for
-    a grayscale image. A second window of this process on the image, or one beside a window that needs the image for
-    itself, is refused with a warning.
+    a grayscale image. A second task of this process on the image, or one beside a task that needs the image to
+    itself, is refused with a warning. The task opens as a page of its own, beside other tasks, and Apply runs only
+    while nothing else is working on the target.
   inputs: >-
     One RGB image or sequence, of any pixel type, and an optional mask on its view. The whole image is adjusted: the
-    window has no Channel box.
+    task has no Channel box.
   outputs: >-
     The same view, replaced, with one history step. Its size, its channels and its pixel type are kept. No file,
     preset or report is written.
@@ -30,10 +31,10 @@ derived: false
 ---
 # Adjust HSL
 
-This window changes the colors of an RGB image in the [HSL](../../reference/glossary.md#hsl) model of its stored
+This [task](../../reference/glossary.md#task) changes the colors of an RGB image in the [HSL](../../reference/glossary.md#hsl) model of its stored
 values. **Hue** turns every color around the color wheel, **Saturation** makes the colors stronger or weaker, and
 **Lightness** moves every pixel toward white or black. A gray pixel has no hue and no saturation, so only
-**Lightness** changes it. The window opens under the title **Adjust Hue/Saturation/Lightness**.
+**Lightness** changes it. The task opens under the title **Adjust Hue/Saturation/Lightness**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the adjusted one, keeps its size
 and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -42,29 +43,26 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-hsl.webp
 alt: >-
-  The Adjust Hue/Saturation/Lightness window. On the left, a histogram with three colored peaks about a quarter of
-  the way across and the lines Clipping Low and Clipping High in its corner. Under it a toolbar, then the Hue,
-  Lightness and Saturation boxes with their sliders, Saturation at 25 and the other two at 0, Target Image and
-  Preview. On the right, the preview shows a red nebula in strong colors on a dark gray background. Reset, Close and
-  Apply run along the bottom.
+  The Adjust Hue/Saturation/Lightness task. Its header names the process and the master. The canvas at the left shows
+  the preview of a red nebula in strong colors on a dark gray background, the word PREVIEW in its corner, with a
+  floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds the preview's small
+  histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, a toolbar over a histogram
+  with three colored peaks about a quarter of the way across and the lines Clipping Low and Clipping High in its
+  corner, and the Hue, Lightness and Saturation boxes with their sliders, Saturation at 25 and the other two at 0.
+  Reset, Close and Apply stand in its footer.
 caption: >-
   Adjust HSL on a stretched master with Saturation at 25. The histogram is counted from the adjusted preview, and the
-  preview shows what Apply writes.
-pins:
-  - {n: 2, x: 6.6, y: 54.0}
-  - {n: 3, x: 44.7, y: 64.1}
-  - {n: 5, x: 33.0, y: 20.0}
-  - {n: 6, x: 44.8, y: 18.2}
-  - {n: 7, x: 91.0, y: 96.0}
+  preview in the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
 
-- Finish color calibration and the main [stretch](../../reference/glossary.md#stretch) first. This window calibrates
+- Finish color calibration and the main [stretch](../../reference/glossary.md#stretch) first. This task calibrates
   nothing, and after **Apply** the image is recorded as nonlinear.
 - **Apply** replaces the image or sequence. Duplicate it first, or use its history, which keeps the step before.
 - Use an image of red, green and blue with samples between 0 and 1. Every adjusted pixel is cut to that range, so
-  floating-point values above 1 or below 0 do not survive. An image with an alpha channel opens the window but is
+  floating-point values above 1 or below 0 do not survive. An image with an alpha channel opens the task but is
   refused.
 - The hue, saturation and lightness are those of the values as they are stored. No sRGB curve is decoded and no color
   profile is read.
@@ -74,9 +72,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched RGB image the [active image](../../reference/glossary.md#active-image) and
-   choose **Process > Adjustments > Hue/Saturation/Lightness**. The preview shows the image unchanged, and **Apply**
-   stays disabled while the three values are 0.
+1. **Open the task.** Make the stretched RGB image the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Adjustments > Hue/Saturation/Lightness**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image unchanged, and the column at the right holds its controls. **Apply** stays disabled while the
+   three values are 0.
 2. **Turn the hue, if you must.** Move **Hue** only to correct colors that lean the wrong way, or to remap them on
    purpose. Every color turns by the same angle, and gray areas do not change.
 3. **Set the saturation.** Raise **Saturation** a few steps at a time until the colors are as strong as you want
@@ -86,16 +86,17 @@ pins:
    histogram move right or left together.
 5. **Read the histogram.** Check **Clipping Low** and **Clipping High** in its corner. A share that grows means
    channels of the strongest colors were cut at 0 or 1.
-6. **Check the preview at 100 %.** Zoom the preview into the background, the colored stars and the brightest nebula,
+6. **Check the preview at 100 %.** Zoom the canvas into the background, the colored stars and the brightest nebula,
    and press ++space++ over it to compare with the original. Look for color noise in the background, for stars cut
    to a flat color and, with a mask, for its edges.
-7. **Apply.** Choose **Apply**. The image in its view is the adjusted one, its history lists
-   **Adjust Hue/Saturation/Lightness** with the three values, and the three values return to 0.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the adjusted
+   one, its history lists **Adjust Hue/Saturation/Lightness** with the three values, and the three values return to
+   0.
 
 ## Controls
 
-The histogram with its toolbar, the preview pane and the progress window of a sequence are the same in every process
-window: see [Process Windows](../../interface/process-windows.md).
+The histogram with its toolbar, the canvas, the toggles row and the run in the column are the same in every task: see
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: Adjust Hue/Saturation/Lightness
@@ -109,7 +110,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A large turn moves every color, of the stars and of the nebula alike, to an unrelated hue. It does not remove a cast from a tinted background, which keeps its saturation.
     scope: The preview, snapshots and Apply, on every pixel of images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Lightness
     kind: spinbox
     default: "0"
@@ -119,7 +120,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: HSL lightness is the mean of a pixel's largest and smallest channel, not a perceived lightness, so pixels of equal lightness can look very different across hues. What reaches 0 or 1 loses its detail for good. It is no stretch and no change of exposure.
     scope: The preview, snapshots and Apply, on every pixel of images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Saturation
     kind: spinbox
     default: "0"
@@ -129,7 +130,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The positive side is four times steeper than a percentage, and 5 already multiplies by 1.2. A strong value cuts the most colorful pixels at full saturation, and raises color noise and colored halos with the colors.
     scope: The preview, snapshots and Apply, on every pixel of images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Target Image
     kind: combo
     default: The active image
@@ -137,35 +138,35 @@ controls:
     effect: Chooses the image Apply replaces, with the mask on its view. The histogram and the preview follow it.
     range: It lists color images and sequences only.
     tradeoff: Apply replaces the image chosen here, so check it before you Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: When the target becomes a grayscale image, the window closes without a message.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: When the target becomes a grayscale image, the task closes without a message.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the adjusted image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    effect: Shows the adjusted image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
     tradeoff: Each change adjusts the image again and counts the histogram again, on a copy of the image or of the **Preview area**. An integer image adds a floating-point working copy. With the three values at 0 nothing is computed, and the preview shows the image itself.
-    scope: The window only. On a sequence it shows the frame the view displays. Inside a **Preview area** the result is what Apply makes of that part of the image.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: The pane shows the samples as they are, without a display stretch, so compare it with the view in its Linear display mode. While you drag a slider, the preview is computed on the image reduced to the pane's size, or on the part in view at 100 % and closer, and on the whole image when you let go. A snapshot is a new image named as `M42 - Adjust Hue/Saturation/Lightness - SNAPSHOT`. It keeps the target's metadata and is not recorded as nonlinear.
+    scope: The canvas only. On a sequence it shows the frame the view displays. Inside a **Preview area** the result is what Apply makes of that part of the image.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: The canvas shows the samples as they are, without a display stretch, so compare it with the view in its Linear display mode. While you drag a slider, the preview is computed on the image reduced to the canvas's size, or on the part in view at 100 % and closer, and on the whole image when you let go. A snapshot is a new image named as `M42 - Adjust Hue/Saturation/Lightness - SNAPSHOT`. It keeps the target's metadata and is not recorded as nonlinear.
   - name: Reset
     kind: button
     default: ""
     effect: Returns **Hue**, **Lightness** and **Saturation** to 0.
     range: It leaves the target and **Preview** as they are.
     enabled: Disabled while Apply runs.
-    scope: The window only. The image is not touched, and Apply is disabled afterwards.
+    scope: The task only. The image is not touched, and Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Adjusts the image, or every frame of the sequence, with the three values as they are when you press it, and then returns them to 0.
-    enabled: When any of the three values is not 0, so it is disabled when the window opens. While a run works it is disabled too, as the three values, **Reset** and **Close** are.
+    enabled: When any of the three values is not 0, so it is disabled when the task opens. While a run works **Cancel** takes its place, and the three values, **Reset** and **Close** are disabled.
     tradeoff: One pass over the pixels on the threads the run is given, and a second copy of the image in memory. An integer image adds a floating-point working copy, and a mask adds one more pass. A sequence is decoded, adjusted and written again in a temporary place.
     scope: The whole image or sequence, every pixel, with the mask and its inversion blended afterwards. Every frame of a sequence must be RGB.
     persistence: >-
       The image and its history keep the result. The history step is **Adjust Hue/Saturation/Lightness** and reads,
       for example, `Adjust hue to 30 saturation to 40 and lightness to -10`. It does not record the mask, or whether
       the automatic debayer of a sequence made its frames RGB. Undoing the step restores the image before.
-    note: Closing the window instead discards the values. The window has no presets, and nothing of it is saved between sessions.
+    note: Closing the task instead discards the values. The task has no presets, and nothing of it is saved between sessions.
 ```
 
 ## How it works
@@ -258,8 +259,8 @@ to 0.75 and gives (1, 0.5, 0.5).
     Every Apply marks the result nonlinear, with or without a mask, and a later step treats it so. Finish the steps
     that need linear data first, or undo the step in the image's history.
 
-The menu item is disabled, or the window closed by itself
-:   **Cause.** The image is grayscale, or the target became grayscale while the window was open.
+The menu item is disabled, or the task closed by itself
+:   **Cause.** The image is grayscale, or the target became grayscale while the task was open.
 :   **Fix.** Use an RGB image. Convert or debayer a grayscale one only when it is meant to become RGB.
 
 Apply is disabled
@@ -271,7 +272,7 @@ A small Saturation looks far too strong
 :   **Fix.** Use smaller positive values. 5 already multiplies by 1.2.
 
 Gray areas do not change with Hue or Saturation
-:   **Cause.** A gray pixel has no hue and no saturation for the window to turn or scale.
+:   **Cause.** A gray pixel has no hue and no saturation for the task to turn or scale.
 :   **Fix.** Leave them as they are: only **Lightness** moves a gray pixel.
 
 The preview or Apply reports "the HSL adjustment needs an image of red, green and blue"
@@ -300,8 +301,7 @@ A few pixels are unchanged after Apply
   [Exposure Correction](../stretching/exposure-correction.md), for tone, which HSL lightness does not replace.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to check the range of the samples.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram and what every task shares.
 
 ## Credits
 

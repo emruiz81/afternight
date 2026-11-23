@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    A still image view is active and no other process window is open on it. Auto Gradient Removal needs the image to
-    itself, so no other window opens on it while it is open. A sequence is refused.
+    A still image view is active and no other task is open on it. Auto Gradient Removal needs the image to itself, so
+    no other task opens on it while it is open. A sequence is refused. The task opens as a page of its own, beside
+    other tasks.
   inputs: >-
     One grayscale or RGB still image, with or without alpha, of any pixel type, and an optional mask on its view. No
     sample and no reference image.
@@ -41,22 +42,16 @@ their own.
 ```figure
 image: ../../assets/images/processes/background-extraction/auto-gradient-removal.webp
 alt: >-
-  The Auto Gradient Removal window. On the left, the Background model group with Scale at 5.0, Smoothness at 1.00,
-  Downsample at 4, the unticked Simplified polynomial model box and a grayed Polynomial degree slider. Under it, the
-  Structure protection group with Protect bright structures ticked, Threshold at 0.050 and Amount at 0.50, the
-  Correction group with Mode at Subtraction, Preview display at Gradient model and a grayed Preview button, and the
-  Outputs group with two unticked boxes. Then the ticked Enable preview box and Target image. On the right, the
-  preview shows a smooth blurred surface, reddish at the left and blue-green at the right. Reset, Close and Apply run
-  along the bottom.
+  The Auto Gradient Removal task. Its header reads Auto Gradient Removal on the linear master. The canvas at the left
+  shows a smooth blurred surface, reddish at the left and blue-green at the right, with the floating toolbar near its
+  foot. The column at the right opens with the compact readout of the preview and the ticked Enable preview toggle,
+  then Target image and the Background model section with Scale at 5.0, Smoothness at 1.00, Downsample at 4, the
+  unticked Simplified polynomial model box and a grayed Polynomial degree slider. The Structure protection,
+  Correction and Outputs sections follow in the body, which scrolls, and Reset, Close and Apply stand in the footer.
 caption: >-
   Auto Gradient Removal on the linear Carina master at its defaults, with the preview computed and Preview display at
-  Gradient model: the background the estimate found.
-pins:
-  - {n: 1, x: 36.6, y: 90.6}
-  - {n: 2, x: 16.0, y: 66.3}
-  - {n: 3, x: 2.6, y: 62.6}
-  - {n: 5, x: 2.6, y: 18.2}
-  - {n: 6, x: 91.5, y: 92.7}
+  Gradient model: the background the estimate found, in the canvas.
+owed: true
 ```
 
 ## Before you start
@@ -66,7 +61,7 @@ pins:
 - Keep the image linear: remove the gradient before color calibration and the
   [stretch](../../reference/glossary.md#stretch). The result is not recorded as nonlinear.
 - **Apply** replaces the image. Its history keeps the step before.
-- The window works on a still image and needs it to itself. Close the other process windows open on it first.
+- The [task](../../reference/glossary.md#task) works on a still image and needs it to itself. Close the other tasks open on it first.
 - A [mask](../../reference/glossary.md#mask) on the view keeps no pixel out of the estimate. It blends every preview
   display and the result with the original, so turn it off while you judge the model, and on again before **Apply**.
 - On an image with broad real signal, plan to look at **Gradient model** and **Protection mask**. The protection
@@ -74,11 +69,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Background Modelization > Auto
-   Gradient Removal**. The preview shows the image as it is, and **Apply** is already enabled.
-2. **Preview.** Choose **Preview**. When the estimate is done, the preview shows the corrected image, and the button
-   stays disabled until a setting changes.
+   Gradient Removal**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The
+   task opens as a page: the canvas at the left shows the image as it is, the column at the right holds the controls,
+   and **Apply** is already enabled.
+2. **Preview.** Choose **Preview**. When the estimate is done, the canvas shows the corrected image.
 3. **Check the model.** Set **Preview display** to **Gradient model**. It shows at once: a smooth surface with the
    broad glow, without stars or the outline of the nebula.
 4. **Check the protection.** Set **Preview display** to **Protection mask**. White marks what was kept out of the
@@ -86,13 +82,13 @@ pins:
 5. **Adjust one group at a time.** Raise **Scale** if the model holds the nebula, lower it if a gradient remains. Lower
    **Threshold** to protect more. Choose **Preview** again after each change.
 6. **Apply.** Tick **Create gradient model image** or **Create protection mask image** to keep them, then choose
-   **Apply**. The view shows the corrected image, its history lists **Auto Gradient Removal**, and the controls return
-   to their defaults.
+   **Apply** in the column's footer. The image shows corrected, its history lists **Auto Gradient Removal**, and the
+   controls return to their defaults.
 
 ## Controls
 
-The window has no histogram and no **Channel**: every channel is estimated and corrected on its own. What every
-process window shares is on [Process Windows](../../interface/process-windows.md).
+The task has no histogram and no **Channel**: every channel is estimated and corrected on its own. What every task
+shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Auto Gradient Removal
@@ -109,7 +105,7 @@ controls:
     enabled: With **Simplified polynomial model** on too, where it still sets the protection and the final smoothing.
     tradeoff: Too low lets the model take in real detail of the nebula. Too high can miss a compact gradient. Its cost does not grow with it, because each box pass is a running sum, kept in double precision.
     scope: Every channel, on its own, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Smoothness
     kind: spinbox
     default: "1.00"
@@ -117,7 +113,7 @@ controls:
     effect: Smooths the finished model with three more box passes, of a radius this many times the model's. Higher removes more texture from the model. At 0 the model is not smoothed.
     tradeoff: Higher can miss a faster change of the background.
     scope: Both models, after the fit, in every channel.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Downsample
     kind: combo
     default: "4"
@@ -132,7 +128,7 @@ controls:
       Compare at 4 or 8 first, and go to 2 or 1 only when the model misses a change it should follow. The cost grows
       with the working pixels, the channels, the rounds, the protection and the polynomial's terms.
     scope: The estimate, in every channel.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Simplified polynomial model
     kind: check
     default: "Off"
@@ -141,7 +137,7 @@ controls:
     tradeoff: A polynomial suits a smooth plane or curve across the frame, and cannot follow a local glow. At a high degree it can follow real structure, or be poorly determined.
     scope: Every channel, in the preview and Apply.
     persistence: >-
-      Until the window closes. **Reset** and a finished Apply turn it off. The history records `Model: Simplified
+      Until the task closes. **Reset** and a finished Apply turn it off. The history records `Model: Simplified
       polynomial, Degree: 2`, or `Model: Multiscale`.
   - name: Polynomial degree
     kind: spinbox
@@ -151,7 +147,7 @@ controls:
     range: Degree d has (d + 1)(d + 2)/2 terms, 28 at 6. A term the kept pixels do not determine is dropped and set to zero.
     enabled: With **Simplified polynomial model** on.
     tradeoff: More terms can follow the nebula, or bend where few pixels are kept.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Protect bright structures
     kind: check
     default: "On"
@@ -160,7 +156,7 @@ controls:
     tradeoff: It keeps a bright extended object out of the model. Too much protection leaves too little background, and a fit left with none is refused.
     scope: The estimate only, in each channel on its own.
     persistence: >-
-      Until the window closes. **Reset** and a finished Apply turn it on. The history records `Structure protection:
+      Until the task closes. **Reset** and a finished Apply turn it on. The history records `Structure protection:
       enabled (threshold: 0.050, amount: 0.50)`, or `Structure protection: disabled`.
   - name: Threshold
     kind: spinbox
@@ -170,7 +166,7 @@ controls:
     enabled: With **Protect bright structures** on.
     tradeoff: Too low keeps ordinary background out of the fit. Too high lets bright nebula or a halo into the model. A linear master's nebula often stands only a few hundredths above its background, so check **Protection mask**. A stretched image is accepted, and the threshold is not adapted to it.
     scope: The protection, in each channel.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     kind: spinbox
     default: "0.50"
@@ -179,7 +175,7 @@ controls:
     enabled: With **Protect bright structures** on.
     tradeoff: Too little leaves bright outskirts in the fit. Too much leaves too little background.
     scope: The protection, in each channel.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Mode
     kind: combo
     default: Subtraction
@@ -189,7 +185,7 @@ controls:
       multiplies by its median, for a dimming such as a vignette.
     tradeoff: "**Division** raises the noise where the model is low, and divides by 0.000001 where it is lower still. Both hold the result between 0 and 1."
     scope: The corrected image, every channel, in the preview and Apply. Each channel has its own model, so the background's color balance changes too, and is worth a check afterwards.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Subtraction**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Subtraction**.
   - name: Preview display
     kind: combo
     default: Corrected image
@@ -205,21 +201,21 @@ controls:
       The preview, and **Take snapshot**, which keeps the display shown. In the Autostretch display the corrected
       image is stretched by the target's statistics, so it compares with the original under one stretch, and the
       model and the protection mask by their own, which shows their broad pattern rather than a flat gray.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Corrected image**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Corrected image**.
   - name: Preview
     kind: button
     default: ""
     effect: Runs the estimate and the correction over the whole image once, makes the corrected image, the model and, with protection, the protection mask, and shows the one **Preview display** names.
     enabled: With **Enable preview** on and no run working, while no preview stands for the settings. A change of a setting or of the target enables it again.
     tradeoff: It is the whole estimate of Apply. There is no preview area. For a cheap trial, work on a cropped copy, which cannot stand for the model of the whole frame.
-    persistence: After a setting changes, the pane keeps the last result until you press **Preview** again, and a switch of **Preview display** before that shows the image as it is. **Reset**, another target and turning **Enable preview** off return the pane to the image as it is.
+    persistence: After a setting changes, the canvas keeps the last result until you press **Preview** again, and a switch of **Preview display** before that shows the image as it is. **Reset**, another target and turning **Enable preview** off return the canvas to the image as it is.
   - name: Create gradient model image
     kind: check
     default: "Off"
     effect: On, Apply also opens the model as a new image beside the target, named `<target> - AGR Gradient`.
     tradeoff: It is a full-size image of the target's channels and pixel type, drawn from the estimate the correction used.
     scope: Apply only. The image is not blended through the mask, and its values are held between 0 and 1.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off.
     note: >-
       Its history starts with `AutoGradientRemoval: gradient model created from '<target>'`. It keeps the target's
       acquisition record, plate solution and lineage and none of its header cards, and its processing state cards
@@ -231,23 +227,24 @@ controls:
     enabled: With **Protect bright structures** on. Turning the protection off clears it.
     tradeoff: It is a full-size image of the target's channels and pixel type. A color image gets one channel of protection for each of its channels, each found on its own.
     scope: Apply only, not blended through the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off.
     note: >-
       Its history starts with `AutoGradientRemoval: protection mask created from '<target>'`, and its processing
       state cards name `auto-gradient-removal-protection-mask`. It keeps what the gradient model image keeps.
   - name: Enable preview
     kind: check
     default: "On"
-    effect: Shows the preview pane. Off closes it, drops the computed preview and disables **Preview display** and **Preview**. Apply still works.
+    effect: Shows the preview in the canvas. Off stops it, drops the computed preview and disables **Preview display** and **Preview**. Apply still works.
+    enabled: It stands in the column's toggles row. The task has no **Preview area**.
     tradeoff: Off, it frees the images a computed preview holds.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Target image
     kind: combo
     default: The active image
-    options: [The active image, Every other open still image the window can work on]
+    options: [The active image, Every other open still image the task can work on]
     effect: Chooses the image Apply corrects. A sequence is not offered. Choosing another returns the preview to that image as it is.
     tradeoff: A larger image takes more time and memory.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Reset
     kind: button
     default: ""
@@ -258,7 +255,8 @@ controls:
     effect: Estimates the background of the whole image once, corrects the image and replaces it, and opens the outputs asked for. The controls then return to their defaults.
     enabled: Whenever no run works, at the defaults too.
     tradeoff: >-
-      A progress window with **Cancel** follows the run, round by round. The run works on a full-size copy of the
+      The run shows in the column, with how far it has come, and **Cancel** takes the place of **Apply** in the
+      footer; no progress window opens. The run works on a full-size copy of the
       image, and the estimate on a few planes of the working size, one channel at a time. Only an output asked for adds
       a full-size image.
     scope: The whole image, every channel, with the mask blended afterwards.
@@ -328,8 +326,7 @@ radius \(\max(1, \operatorname{round}(r\,k))\). With \(L\) the median of the wor
 ### Boundaries
 
 - A pixel that holds no number takes no part in the estimate and is left as it was. A block without a usable pixel
-  takes the channel's mean. Floating-point samples outside 0 to 1 take part as they are, and the result is held
-  between 0 and 1.
+  takes the channel's mean. Floating-point samples outside 0 to 1 take part as they are.
 - A polynomial the kept pixels determine no surface for is refused with "the accepted samples determine no
   background surface at all", and a protection that leaves no working pixel with "structure protection leaves no
   working sample to fit". Nothing is written.
@@ -368,7 +365,7 @@ caption: >-
 | --- | --- | --- |
 | A linear master with a gradient and a nebula smaller than the frame | The defaults | **Scale** up if the model holds the nebula, down if a gradient remains, then **Smoothness**. |
 | A halo or extended nebula shows in the model | **Protection mask** in **Preview display** | Lower **Threshold** first, then raise **Amount** to grow what it found. |
-| A smooth plane or curve across the frame | **Simplified polynomial model**, **Polynomial degree** at 1 or 2 | Raise the degree only when the model shows that a lower one cannot follow the background. |
+| A smooth plane or curve across the frame | **Simplified polynomial model**, **Polynomial degree** at 1 or 2 | Raise the degree only when a lower one cannot follow the background. |
 | Darker corners the flats did not correct | **Division** | Compare with **Subtraction** at the same settings, and keep the one whose model matches the pattern. |
 
 ## When it goes wrong
@@ -430,14 +427,13 @@ Clipped shadows or highlights, or noisy dark areas
   background is flat.
 - [Image Statistics](../../interface/image-statistics.md), to compare the background's levels before and after.
 - [Masks](../../interface/masks.md), for the mask the result is blended through.
-- [Process Windows](../../interface/process-windows.md), for the preview pane, Apply and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the canvas, Apply and what every task shares.
 
 ## Credits
 
 - The automatic estimate is a derived work of
   [AutoGradientRemoval 1.0.0](https://gitlab.com/free-astro/siril-scripts/-/blob/ca21c1425b14eeaff2f94e315e683240e28b86ce/processing/AutoGradientRemoval.py),
-  a script of the Siril project, Copyright (C) 2026 Cyril Richard, which its file declares GPL-3.0-or-later, and is
+  a script of Siril, Copyright (C) 2026 Cyril Richard, which its file declares GPL-3.0-or-later, and is
   distributed under that licence. The reduction, the two models, the robust interval, the protection and the
   bilinear return to full size are the script's. The handling of invalid pixels, the correction fused into the
   write, the threshold in the image's own units and the protection kept across rounds are AfterNight's.

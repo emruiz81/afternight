@@ -13,11 +13,13 @@ sequences: true
 masks: post-blend
 external: none
 glance:
-  enabled: An RGB image or sequence view is active. SCNR does not need the image to itself.
+  enabled: >-
+    An RGB image or sequence view is active. The task opens as a page of its own, beside other tasks, and SCNR does not
+    need the image to itself.
   inputs: One RGB image or sequence of any pixel type, and an optional mask on its view.
   outputs: >-
     The same view, replaced, with one history step, and recorded as nonlinear. Its size, pixel type and header are
-    kept. The window stays open. No file, preset or report is written.
+    kept. The task stays open. No file, preset or report is written.
   state: >-
     A color-calibrated RGB image with a green cast or green noise left, after every step that needs linear data.
 derived: false
@@ -29,21 +31,23 @@ under a ceiling taken from its red and blue. Two others scale green by a factor 
 **Amount** asks. **Preserve Lightness** keeps each pixel's lightness while it takes the suppressed color.
 
 **Apply** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), adds one step to
-its [history](../../reference/glossary.md#history) and leaves the window open. The size, the
+its [history](../../reference/glossary.md#history) and leaves the [task](../../reference/glossary.md#task) open. The size, the
 [pixel type](../../reference/glossary.md#pixel-type) and the header are kept, and the result is recorded as a
-[nonlinear image](../../reference/glossary.md#nonlinear-image). The window has no preview.
+[nonlinear image](../../reference/glossary.md#nonlinear-image). The task has no preview: its canvas shows the image
+itself.
 
 ```figure
 image: ../../assets/images/processes/color-calibration/scnr.webp
 alt: >-
-  The SCNR window. Protection Type reads Average Neutral. Amount reads 1.00 with its slider at the right end, both
-  dimmed. Target Image names the master, Preserve Lightness is ticked, and Close and Apply sit at the bottom.
+  The SCNR task. Its header reads SCNR Filter on the stretched master, with Float as window and Close at its right. The
+  canvas at the left shows the image itself, a pink nebula with dark dust lanes among many stars, and its floating
+  toolbar near its foot. The column at the right, headed SCNR, holds Target Image naming the master, Protection Type
+  at Average Neutral, Amount at 1.00 with its slider at the right end, both dimmed, and Preserve Lightness ticked.
+  Close and Apply stand in its footer.
 caption: >-
-  SCNR on the stretched Carina master with its defaults, Average Neutral and Preserve Lightness, ready to apply.
-pins:
-  - {n: 2, x: 3.0, y: 39.1}
-  - {n: 3, x: 3.0, y: 50.4}
-  - {n: 4, x: 42.0, y: 71.9}
+  SCNR on the stretched Carina master with its defaults, Average Neutral and Preserve Lightness, ready to apply: the
+  canvas shows the image as it is.
+owed: true
 ```
 
 ## Before you start
@@ -63,22 +67,24 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the RGB image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Color Calibration > SCNR Filter**.
+1. **Open the task.** Make the RGB image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Calibration > SCNR Filter**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at
+   the left shows the image itself, the column at the right holds its controls.
 2. **Choose how much green goes.** Leave **Protection Type** at **Average Neutral** to hold green at the mean of red
    and blue. Choose **Maximum Neutral** to touch only green that rises above both.
 3. **Or grade it.** Choose **Maximum Mask** or **Additive Mask**, and set **Amount** below 1 to remove part of the
    green.
 4. **Keep the lightness.** Leave **Preserve Lightness** ticked so that each pixel keeps its brightness. Untick it to
    change green alone.
-5. **Apply.** Choose **Apply**. The view shows the image with its green held down, the history lists **SCNR** with the
-   method, and the window stays open.
+5. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The canvas shows the image with its
+   green held down, the history lists **SCNR** with the method, and the task stays open.
 6. **Compare.** Look at green star cores, green areas of the nebula and the dark background at 100 %. The green that
    stood above the method's ceiling is gone.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md).
+What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: SCNR
@@ -91,7 +97,7 @@ controls:
     enabled: A mask method enables **Amount**, and a neutral method disables it.
     tradeoff: The neutral methods are full-strength ceilings. The mask methods reduce green everywhere, also where it is not the strongest channel. **Additive Mask** keeps at least as much green as **Maximum Mask** at the same pixel and Amount.
     scope: Apply, on green, and on all three channels with **Preserve Lightness**.
-    persistence: Until the window closes. A finished Apply keeps it. The history records it.
+    persistence: Until the task closes. A finished Apply keeps it. The history records it.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -101,14 +107,14 @@ controls:
     enabled: With **Maximum Mask** or **Additive Mask**. The neutral methods do not read it, and it keeps its value while they are chosen.
     tradeoff: High values can take the color out of real green structure, most in the dark areas.
     scope: Apply, on green.
-    persistence: Until the window closes. The history does not record it.
+    persistence: Until the task closes. The history does not record it.
   - name: Target Image
     kind: combo
     default: The active image
     options: [The active image, Every other open RGB image or sequence]
-    effect: Chooses the image or sequence Apply changes. The other controls keep their values.
+    effect: Chooses the image or sequence Apply changes, which the canvas and the task header then show. The other controls keep their values.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Preserve Lightness
     kind: check
     default: "On"
@@ -116,22 +122,21 @@ controls:
     range: The lightness is CIE L*, with sRGB primaries and a D65 white. The image is read as linear RGB when it is described so, and as sRGB-encoded otherwise.
     tradeoff: It costs three color conversions a pixel. A rebuilt color outside 0 to 1 is held there, and then its lightness is not kept exactly.
     scope: Apply, on all three channels while it is on.
-    persistence: Until the window closes. The history records it.
+    persistence: Until the task closes. The history records it.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without applying.
-    enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run goes on, on a sequence until the progress window's **Cancel** stops it.
+    effect: Closes the task without applying, as ++esc++ does.
+    enabled: Disabled while a run works. The task cannot be closed until the run has ended.
   - name: Apply
     kind: button
     default: ""
-    effect: Suppresses green over the whole image, or every frame of the sequence, with the values as they are when you press it. The window stays open for another run.
-    enabled: At once. While the run works, Apply and **Close** are disabled. The other controls stay editable, and a change does not reach the run.
-    tradeoff: The run holds two floating-point working copies of the image beside the result. A single image shows no progress window, and its run cannot be stopped once it starts. A sequence needs the disk space of a second copy.
+    effect: Suppresses green over the whole image, or every frame of the sequence, with the values as they are when you press it. The task stays open for another run.
+    enabled: At once. While the run works, the controls and **Close** are disabled, and the run's row in the column says how far it has come.
+    tradeoff: The run holds two floating-point working copies of the image beside the result. A single image's run cannot be stopped once it starts, though **Cancel** stands in the place of Apply. A sequence needs the disk space of a second copy.
     scope: Every pixel, through the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
     persistence: "The image and its history keep the result, as the step **SCNR** with the text `Protection Method Average Neutral preserve lightness true`, or `false` with **Preserve Lightness** off. Amount and the mask are not recorded."
-    note: "A failed run leaves the image and its history as they were, shows \"Error running SCNR\" with \"An error occurred when executing the SCNR process:\" and the reason, and writes them to the log. While another run holds a sequence, the busy message comes under the title SCNR and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
+    note: "A failed run leaves the image and its history as they were, shows \"Error running SCNR: An error occurred when executing the SCNR process:\" and the reason in the column's message strip, and writes them to the log. While another run holds a sequence, the busy message comes under the title SCNR and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
 ```
 
 ```controls
@@ -140,13 +145,13 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, under the title **SCNR** and the text `Executing SCNR to sequence <name>`."
+    effect: "Shows the share of the frames done, in a progress window over the main window under the title **SCNR** and the text `Executing SCNR to sequence <name>`. The column's run row shows the same share."
     enabled: Only while Apply works on a sequence. A single image has no progress window.
     tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
+    effect: The progress window's **Cancel** stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
 ```
 
 ## How it works
@@ -290,7 +295,7 @@ The history does not tell how strong the step was
 - [Histogram Transformation](../stretching/histogram-transformation.md), the stretch the worked example starts from.
 - [Color Saturation](../color-adjustment/color-saturation.md), for changes of color that are not about green.
 - [Masks](../../interface/masks.md), to limit SCNR to part of the image.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

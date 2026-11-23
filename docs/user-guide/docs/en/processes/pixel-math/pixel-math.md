@@ -14,8 +14,9 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Pixel Math window is open on it yet, and no window that needs the image
-    to itself is open on it.
+    An image or a sequence view is active, no Pixel Math task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     The target image or sequence, of any pixel type, every open image by its view's name, the active image, the mask
     on the target's view, numbers and the symbols you declare.
@@ -42,33 +43,24 @@ expression computes, never clamped to 0 to 1. It is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/pixel-math/pixel-math.webp
 alt: >-
-  The PixelMath window. Under the title, a row of tabs: RGB/K, then G, B and A grayed, then Symbols and Summary. In
-  the RGB/K tab, a large editor holds one line, mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1)), with the function names,
-  the target symbol and the numbers in their own colors. Beside it, a narrow column of three lists: Functions,
-  Operators, and Symbols with a Type column. Under the tabs, Use a single RGB/K expression is ticked, with Import
-  and Export at the right. A Settings group holds Single threaded, Process in 64 bits ticked and grayed, Code
-  optimization ticked, Rescale result unticked with two grayed bounds, a box reading Create new image, New Image Id
-  reading STRETCHED, and Width 0, Height 0, Color space and Color format at As target. Target Image names the
-  master, and Apply and Close run along the bottom.
+  The PixelMath task. Its header names PixelMath and the master. The canvas at the left shows the master itself, with
+  no preview, and a floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds
+  Target Image naming the master, then a row of tabs: RGB/K, then G, B and A grayed, then Symbols and Summary. In the
+  RGB/K tab, an editor holds one line, mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1)), with the function names, the
+  target symbol and the numbers in their own colors. Under the tabs, Use a single RGB/K expression is ticked, with
+  Import and Export at the right, then the section of the Functions, Operators and Symbols lists, and the Settings
+  section, where the output box reads Create new image and New Image Id reads STRETCHED, in a body that scrolls. Close
+  and Apply stand in its footer.
 caption: >-
   Pixel Math on the linear Carina master with the curve of the worked example in RGB/K and Create new image chosen,
-  before Apply.
-pins:
-  - {n: 2, x: 5.5, y: 20.0}
-  - {n: 3, x: 89.0, y: 60.0}
-  - {n: 4, x: 18.5, y: 67.4}
-  - {n: 5, x: 53.8, y: 10.6}
-  - {n: 6, x: 66.2, y: 10.6}
-  - {n: 7, x: 19.0, y: 83.5}
-  - {n: 8, x: 13.5, y: 75.5}
-  - {n: 9, x: 94.3, y: 70.0}
-  - {n: 10, x: 95.4, y: 93.5}
+  before Apply. The canvas shows the target, since the task has no preview.
+owed: true
 ```
 
 ## Before you start
 
-- The window has no preview: **Apply** works on the whole image, or every frame of a sequence. Try an expression
-  with **Create new image**, and replace the target once the new image is right.
+- The [task](../../reference/glossary.md#task) has no preview, and its canvas shows the target: **Apply** works on the whole image, or every frame of a
+  sequence. Try an expression with **Create new image**, and replace the target once the new image is right.
 - Open every image the expression reads. An image of another width or height is resampled to the result's size, not
   registered, aligned or matched: register it to the target first.
 - The expression reads an image by the name of its view. A name it can read starts with an ASCII letter or `_`, goes
@@ -86,9 +78,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the target the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Pixel Math > Pixel Math**. The title reads `PixelMath <name>`, **RGB/K** is empty, and the
-   **Symbols** list beside it names `$T`, `$A`, `$M` and every open image.
+1. **Open the task.** Make the target the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Pixel Math > Pixel Math**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The task opens as a page: the canvas at the left shows the target, and the column at the right holds
+   the expressions. The task header reads `PixelMath on <name>`, **RGB/K** is empty, and the **Symbols** list under
+   the expressions names `$T`, `$A`, `$M` and every open image.
 2. **Write the expression.** Type it in **RGB/K**, or double-click a row of the **Functions**, **Operators** or
    **Symbols** list to insert it at the cursor. The editor colors every name it knows.
 3. **Read other images.** Write an open image's name as the **Symbols** list spells it, `$A` for the active image or
@@ -106,16 +100,16 @@ pins:
    bound** and **Upper bound**. Leave it off to keep the values the expression computes.
 9. **Keep the expression.** Choose **Export** to save the expressions, the symbols and the settings in an `.anpm`
    file, which **Import** reads back. The history keeps no expression.
-10. **Apply.** Choose **Apply**. A new view opens beside the target, or the view shows the result and its history
-    lists **PixelMath**. The window keeps your values for another run.
+10. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. A new view opens beside the target,
+    or the view shows the result and its history lists **PixelMath**. The task keeps your values for another run.
 11. **Check the values.** Open Image Statistics on the result. Its minimum and maximum show whether the expression
     wrote values below 0 or above 1, which are kept.
 
 ## Controls
 
-Pixel Math has no preview, no histogram, no **Channel** box and no **Reset**, and nothing checks an expression before
-**Apply** runs it. What it shares with the other windows, such as
-**Target Image** and the progress window of a sequence, is on [Process Windows](../../interface/process-windows.md).
+Pixel Math has no preview, no toggles, no histogram, no **Channel** box and no **Reset**, and nothing checks an
+expression before **Apply** runs it. What it shares with the other tasks, such as **Target Image** and the run in the
+column, is on [Tasks](../../interface/tasks.md).
 
 ### The expression tabs
 
@@ -137,7 +131,7 @@ controls:
     scope: >-
       Apply, on every frame of a sequence. A blank expression keeps the target's samples in the channels it would
       write.
-    persistence: Until the window closes. Apply keeps it. Export saves it as `expression0`.
+    persistence: Until the task closes. Apply keeps it. Export saves it as `expression0`.
     note: >-
       A mistake in the writing is reported with the tab's name before any image is read, as "RGB/K expression at
       '(': a parenthesis at byte 0 has no partner". The mistakes of every tab are reported together, the first of
@@ -148,30 +142,30 @@ controls:
     effect: Holds the green channel's expression.
     enabled: >-
       While **Use a single RGB/K expression** is unticked and the result has three or four channels. Disabled when
-      the window opens.
+      the task opens.
     scope: The green channel alone. A blank expression keeps the target's green.
-    persistence: Until the window closes. Export saves it as `expression1`.
+    persistence: Until the task closes. Export saves it as `expression1`.
   - name: B
     kind: field
     default: ""
     effect: Holds the blue channel's expression.
     enabled: As **G**.
     scope: The blue channel alone. A blank expression keeps the target's blue.
-    persistence: Until the window closes. Export saves it as `expression2`.
+    persistence: Until the task closes. Export saves it as `expression2`.
   - name: A
     kind: field
     default: ""
     effect: Holds the expression of the alpha channel, the fourth channel of the result.
     enabled: >-
       Only while the result has four channels: a new image whose **Color space** is RGBA, or a four-channel target.
-      Over a grayscale or RGB target it is disabled from the moment the window opens.
+      Over a grayscale or RGB target it is disabled from the moment the task opens.
     tradeoff: >-
       An alpha channel the target did not have starts at 0, which is transparent. Write `1` here for an opaque
       image.
     scope: >-
       The alpha channel alone, whether **Use a single RGB/K expression** is ticked or not. Leave the color tabs blank
       to change the alpha channel alone.
-    persistence: Until the window closes. Export saves it as `expression3`.
+    persistence: Until the task closes. Export saves it as `expression3`.
   - name: Local Symbols (Comma separated list)
     kind: field
     default: ""
@@ -183,7 +177,7 @@ controls:
       number, declares 0. A name declared twice takes the later value.
     tradeoff: An expression that assigns a variable always goes through the evaluator, never as a fused pass.
     scope: Every expression of the run. A symbol hides an open image of the same name.
-    persistence: Until the window closes. Export saves it as `local_symbols`.
+    persistence: Until the task closes. Export saves it as `local_symbols`.
     note: >-
       A function's name, such as `x`, `c` or `e`, is refused when Apply runs: "the local symbol 'x' cannot be
       declared: a constant was declared with an empty name or one the language owns".
@@ -196,7 +190,7 @@ controls:
     range: The same entries as **Local Symbols**.
     tradeoff: A constant costs nothing per sample.
     scope: Every expression of the run. A symbol hides an open image of the same name.
-    persistence: Until the window closes. Export saves it as `global_symbols`.
+    persistence: Until the task closes. Export saves it as `global_symbols`.
     note: >-
       An expression that assigns a constant is refused, as "the assignment at byte 0 writes to 'k', which is not a
       declared variable". A name also declared under **Local Symbols** is refused: "the global symbol 'k' cannot be
@@ -208,7 +202,7 @@ controls:
       Shows the expressions and the two symbol lists as one script, each under a comment that names it: RGB/K, or
       Red, Green and Blue, then Alpha, then Symbols.
     enabled: Read-only. Written again each time you open the tab, and after an Import.
-    scope: The window only. Blank expressions are left out. The run reads the tabs, not this text.
+    scope: The task only. Blank expressions are left out. The run reads the tabs, not this text.
   - name: Use a single RGB/K expression
     kind: check
     default: "On"
@@ -223,30 +217,30 @@ controls:
       at a time.
     scope: Apply. The alpha channel takes the **A** expression either way.
     persistence: >-
-      Until the window closes. Export saves it as `single_expr`. An imported choice opens the **G** and **B** tabs
+      Until the task closes. Export saves it as `single_expr`. An imported choice opens the **G** and **B** tabs
       only where the result has three channels or more.
   - name: Import
     kind: button
     default: ""
     effect: >-
       Reads an `.anpm` file and replaces every expression, both symbol lists and the settings with what it holds. The
-      window then shows the first tab.
+      task then shows the first tab.
     range: >-
       Version 1 of the format. The file chooser opens in the folder last used for a Pixel Math file, and lists
       `.anpm` files.
-    enabled: Always, while a run works too.
+    enabled: Always, except while a run works.
     tradeoff: >-
       When an expression tab holds text, it first asks "This will override all the current content. Do you want to
       continue?" under "Import pixel math script", and **No** changes nothing.
     note: >-
       A file that cannot be read, of another version or without its settings is reported under "Error importing
-      pixel math script", and the window stays as it was. **Process in 64 bits** stays ticked whatever the file says.
+      pixel math script", and the task stays as it was. **Process in 64 bits** stays ticked whatever the file says.
   - name: Export
     kind: button
     default: ""
     effect: Saves every expression, both symbol lists and the settings in an `.anpm` file, version 1 of an XML format.
     range: The file chooser opens in the folder last used for a Pixel Math file.
-    enabled: Always.
+    enabled: Always, except while a run works.
     tradeoff: It saves the text as it is, without checking the expression, and no image.
     note: A file that cannot be written is reported under "Error exporting pixel math script".
 ```
@@ -260,7 +254,7 @@ controls:
     kind: check
     default: "Off"
     effect: Changes nothing a run does. Every run computes the same image at any number of threads.
-    persistence: Until the window closes. Export saves it as `single_threaded`, and a file without it reads Off.
+    persistence: Until the task closes. Export saves it as `single_threaded`, and a file without it reads Off.
   - name: Process in 64 bits
     kind: check
     default: "On"
@@ -275,7 +269,7 @@ controls:
     kind: check
     default: "On"
     effect: Changes nothing. Every expression is compiled once, and a chain always runs as a fused pass.
-    persistence: Until the window closes. Export saves it as `optimize`, and a file without it reads On.
+    persistence: Until the task closes. Export saves it as `optimize`, and a file without it reads On.
   - name: Rescale result
     kind: check
     default: "Off"
@@ -290,7 +284,7 @@ controls:
       One more pass over the result. A few extreme samples, such as star cores above 1, take the ends and press
       everything else into a narrow band of low contrast.
     scope: The whole result, after every expression and before it is written in its pixel type.
-    persistence: Until the window closes. Export saves it as `rescale`, and a file without it reads Off.
+    persistence: Until the task closes. Export saves it as `rescale`, and a file without it reads Off.
   - name: Lower bound
     kind: spinbox
     default: "0.00000000"
@@ -298,7 +292,7 @@ controls:
     effect: The value the smallest result becomes.
     enabled: While **Rescale result** is ticked.
     tradeoff: Above **Upper bound**, it turns the result's tones round.
-    persistence: Until the window closes. Export saves it as `rescale_low`.
+    persistence: Until the task closes. Export saves it as `rescale_low`.
   - name: Upper bound
     kind: spinbox
     default: "1.00000000"
@@ -306,7 +300,7 @@ controls:
     effect: The value the largest result becomes.
     enabled: While **Rescale result** is ticked.
     tradeoff: Lower, it compresses the range of the result. Below **Lower bound**, it turns the tones round.
-    persistence: Until the window closes. Export saves it as `rescale_high`.
+    persistence: Until the task closes. Export saves it as `rescale_high`.
   - name: Output mode
     object: outputModeSelector
     kind: combo
@@ -320,7 +314,7 @@ controls:
     tradeoff: >-
       Replacing changes the target, and its history keeps the step before. A new image is safer while you try an
       expression.
-    persistence: Until the window closes. Export saves it as `output_mode`.
+    persistence: Until the task closes. Export saves it as `output_mode`.
   - name: New Image Id
     kind: field
     default: PIXEL_MATH_IMAGE
@@ -329,7 +323,7 @@ controls:
       Spaces around the name are dropped. Blank names it `PIXEL_MATH_IMAGE`, or `PIXEL_MATH_SEQUENCE` for a
       sequence.
     enabled: With **Create new image**.
-    persistence: Until the window closes. Export saves it as `new_image_id`.
+    persistence: Until the task closes. Export saves it as `new_image_id`.
     note: >-
       The new image's history begins with "Image created from PixelMath script", and a new sequence's with "Sequence
       created from PixelMath script".
@@ -344,7 +338,7 @@ controls:
       A larger result costs more for every sample. An enlarged image holds interpolated samples, which look sharper
       and hold no more detail.
     scope: The new image. A replaced target keeps its size.
-    persistence: Until the window closes. Export saves it as `width`.
+    persistence: Until the task closes. Export saves it as `width`.
   - name: Height
     kind: spinbox
     default: "0"
@@ -354,7 +348,7 @@ controls:
     enabled: With **Create new image**.
     tradeoff: As **Width**.
     scope: The new image. A replaced target keeps its size.
-    persistence: Until the window closes. Export saves it as `height`.
+    persistence: Until the task closes. Export saves it as `height`.
   - name: Color space
     kind: combo
     default: As target
@@ -370,7 +364,7 @@ controls:
       The conversion is no color calibration. Only `$T` is converted: another image whose channels are neither one
       nor the result's is refused unless the expression names one of its channels.
     scope: The new image. A replaced target keeps its channels.
-    persistence: Until the window closes. Export saves it as `color_space`.
+    persistence: Until the task closes. Export saves it as `color_space`.
   - name: Color format
     kind: combo
     default: As target
@@ -385,7 +379,7 @@ controls:
       quantities, such as a floating-point FITS file, can only be written in floating point. 64 bits float makes the
       whole run work in double precision.
     scope: The new image. A replaced target keeps its pixel type.
-    persistence: Until the window closes. Export saves it as `color_format`.
+    persistence: Until the task closes. Export saves it as `color_format`.
     note: >-
       An integer type for a target of physical quantities is refused with "a new image of UInt16 samples cannot hold
       what the target's samples mean", or UInt8 or UInt32.
@@ -399,59 +393,60 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: >-
       Chooses the image or sequence the expressions call `$T` and Apply writes. The name of its view reads it too,
       and the mask on its view is what `$M` reads. As target, and a **Width** or **Height** of 0, take its values.
-    enabled: Also while a run works. A change reaches the next Apply, not the run on its way.
+    enabled: Disabled while a run works, as every control of the column is.
     persistence: >-
-      Until the window closes. Choosing another target keeps the expressions, and offers the tabs its channels
+      Until the task closes. Choosing another target keeps the expressions, and offers the tabs its channels
       allow.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. Its expressions and settings are discarded, so export them first to keep them.
-    enabled: Disabled while a run works.
-    note: >-
-      Closing the window another way while a run works hides it, and it closes when the run ends. The run is not
-      stopped, on a sequence either.
+    effect: Closes the task. Its expressions and settings are discarded, so export them first to keep them.
+    enabled: Disabled while a run works, as every other way to close the task is.
   - name: Apply
     kind: button
     default: ""
     effect: >-
-      Reads the window, the image of every open view, the active image and the target's mask, draws a new random
+      Reads the task, the image of every open view, the active image and the target's mask, draws a new random
       seed, and runs the expressions over the whole target or every frame of its sequence.
     enabled: >-
-      When the window opens, and again when a run ends. While a run works it is disabled with **Close**, and the other
-      controls stay editable. A change made then does not reach the run on its way.
+      When the task opens, and again when a run ends. While a run works **Cancel** takes its place, and **Close** and
+      the other controls are disabled.
     tradeoff: >-
-      The run holds working copies of the target, the result and every image the expressions read. A single image
-      shows no progress window, and its run cannot be stopped once it starts.
+      The run holds working copies of the target, the result and every image the expressions read. The column shows
+      the run of a single image too, but that run cannot be stopped once it starts: the **Cancel** in Apply's place
+      does not reach it.
     scope: >-
       The whole target, never through the mask on its view. On a sequence, every frame, whatever frames its player
       selects, debayered first when its view debayers them. Other images are read as their views showed them when
       you pressed Apply.
     persistence: >-
       With **Replace target image**, the target's history gets one step named **PixelMath**, which records no
-      expression and undoes the run. With **Create new image**, a new view opens beside the target. The window keeps
+      expression and undoes the run. With **Create new image**, a new view opens beside the target. The task keeps
       its values for the next run.
     note: >-
-      A refusal is shown under "Error running PixelMath", after "An error occurred when executing the PixelMath
-      process:", and in the log. A refused or stopped run writes nothing and leaves no sequence behind.
+      A refusal is shown in the column's message strip, as "Error running PixelMath: An error occurred when executing
+      the PixelMath process:" and the reason, and in the log. A refused or stopped run writes nothing and leaves no sequence behind.
 ```
 
 ### The lists and the editor
 
+The three lists stand under the expressions, in a section of the column titled "Functions, operators and symbols":
+**Functions** and **Operators** side by side, **Symbols** under them. One set of lists serves the tab that is shown.
+
 ```controls
-window: The lists beside each expression
+window: The lists under the expressions
 controls:
   - name: Functions
     kind: action
     default: ""
     effect: >-
       Lists every function name of the language once, in alphabetical order. A double-click inserts the name and
-      `() ` at the cursor of the tab's editor.
-    range: The tooltip of a row describes the function and its arguments.
+      `() ` at the cursor of the editor of the tab shown.
+    range: The tooltip of a row describes the function and its arguments. Six rows show before the list scrolls.
     tradeoff: It inserts no arguments and checks none.
   - name: Operators
     kind: action
@@ -497,9 +492,9 @@ controls:
     kind: readout
     default: ""
     effect: >-
-      Shows the share of the frames done, from 0 to 100 percent, under the title **PixelMath** and the text
-      `Executing PixelMath to sequence <name>`.
-    enabled: Only while Apply works on a sequence. A single image has no progress window.
+      Shows the share of the frames done, from 0 to 100 percent, in a progress window over the main window, under the
+      title **PixelMath** and the text `Executing PixelMath to sequence <name>`. The column shows the run as well.
+    enabled: Only while Apply works on a sequence. The run of a single image shows in the column alone.
     tradeoff: >-
       The result is written to a temporary sequence, which needs the disk space of a second copy until the run ends.
     note: Each frame draws its random numbers from a seed of its own, so two frames draw different numbers.
@@ -507,12 +502,12 @@ controls:
     kind: button
     default: ""
     effect: Stops the run. Nothing is published, the temporary sequence is removed, and the sequence stays as it was.
-    note: Closing the Pixel Math window does not stop the run.
+    note: The **Cancel** in Apply's place in the column does not stop the run, and this one does.
 ```
 
 ## How it works
 
-1. **Apply** reads the window and takes the image of every view as it is. Every expression is parsed first, so a
+1. **Apply** reads the task and takes the image of every view as it is. Every expression is parsed first, so a
    mistake in any tab, or a `$M` without a mask, stops the run before an image is read.
 2. Only the images the expressions name are read. Each is resampled to the result's size with Lanczos-4 when its size
    differs, and read as fractions of full scale in one working copy. `$T` is converted to the result's channels.
@@ -616,7 +611,7 @@ Other expressions to type:
 
 - `($T + SRC) / 2` averages the target with an open image `SRC`. Where the target reads 0.2, 0.4 and 0.6 and a
   grayscale `SRC` reads 0.8, the result is 0.5, 0.6 and 0.7: the gray image is read for every channel.
-- `$T * (1 - $M) + SRC * $M` blends `SRC` into the target where the mask is white, as a process window does with its
+- `$T * (1 - $M) + SRC * $M` blends `SRC` into the target where the mask is white, as a task does with its
   own result.
 - With `a = 0.25` under **Local Symbols**, `k = 2` under **Global Symbols** and `a = a + $T; a * k` in **RGB/K**, a
   target sample of 0.6 becomes 1.7: every sample starts with `a` at 0.25.
@@ -641,7 +636,7 @@ Other expressions to type:
     Swapped, the blend changes what the mask protects.
 
 !!! warning "The history keeps no expression"
-    The step reads **PixelMath** and nothing else. Export the window's settings before you close it, to run the same
+    The step reads **PixelMath** and nothing else. Export the task's settings before you close it, to run the same
     expression again.
 
 !!! warning "Images are resampled, never aligned"
@@ -712,5 +707,4 @@ The result is the target unchanged
   without an expression.
 - [Masks](../../interface/masks.md), to attach the mask that `$M` reads.
 - [Image Statistics](../../interface/image-statistics.md), to read the extremes of a result.
-- [Process Windows](../../interface/process-windows.md), for **Target Image**, the progress window of a sequence and
-  what every process window shares.
+- [Tasks](../../interface/tasks.md), for **Target Image**, the run in the column and what every task shares.

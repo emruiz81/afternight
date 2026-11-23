@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Median Filter window is open on it yet, and no window that needs the image
-    for itself is open on it.
+    An image or a sequence view is active, no Median Filter task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, and an optional mask of the image's size on its view. In
     a floating-point image, samples that are not finite numbers are left as they are.
@@ -42,20 +43,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/median-filter.webp
 alt: >-
-  The Median Filter window. On the left, the Kernel Size box at 3x3, the Iterations and Modulation boxes with their
-  sliders, and lower down Target Image, Channel at RGB and the Preview check box. On the right, a toolbar of zoom
-  buttons, a channel box and a display mode box reading Autostretch over the preview of a red nebula, with the word
-  PREVIEW in its corner and a small framed area in its middle. Reset, Close and Apply run along the bottom.
+  The Median Filter task. Its header names Median Filter and the master. The canvas at the left shows the preview of a
+  red nebula, the word PREVIEW in its corner and a framed area in its middle, with a floating toolbar of zoom buttons,
+  a channel box and the display mode at Autostretch near its foot. The column at the right holds the preview's small
+  histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, the
+  Kernel Size box at 3x3, and the Iterations and Modulation boxes with their sliders. Reset, Close and Apply stand in
+  its footer.
 caption: >-
   Median Filter on the linear master with its defaults, Kernel Size at 3x3, Iterations at 1 and Modulation at 1.00.
-  The framed area shows what Apply writes there, over the original, in the Autostretch display mode.
-pins:
-  - {n: 2, x: 34.8, y: 85.4}
-  - {n: 3, x: 71.2, y: 54.8}
-  - {n: 4, x: 19.5, y: 15.6}
-  - {n: 5, x: 5.0, y: 30.0}
-  - {n: 6, x: 34.8, y: 20.6}
-  - {n: 8, x: 89.2, y: 96.0}
+  The framed area of the canvas shows what Apply writes there, over the original, in the Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -75,27 +72,29 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Filters > Median Filter**. The preview shows the filtered image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Filters > Median Filter**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows the filtered image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, and the column at the right
+   holds its controls.
 2. **Choose the channel.** Leave **Channel** at **RGB** to filter the three channels, each on its own. Choose
    **CIE L* (Lightness)** to filter the brightness and leave the colors as they are.
-3. **Place the area.** Move the frame over a few hot pixels, small stars and smooth background, and zoom the preview
+3. **Place the area.** Move the frame over a few hot pixels, small stars and smooth background, and zoom the canvas
    to 100 %.
 4. **Start with the smallest window.** Keep **Kernel Size** at **3x3**, which removes specks up to two pixels across.
    Choose a larger window only for wider defects.
 5. **Set the strength.** Lower **Modulation** when small stars and fine structure fade with the defects.
 6. **Repeat only when needed.** Raise **Iterations** one pass at a time, and check each result. Every pass works on
    the one before it.
-7. **Check at 100 %.** Hold ++space++ over the preview to compare with the original, and look at the faint stars.
-   Then untick **Preview area** and look at the whole image and its edges.
-8. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the filtered image, and its history
-   lists **Median Filter** with the values.
+7. **Check at 100 %.** Hold ++space++ over the canvas to compare with the original, and look at the faint stars.
+   Then untick **Preview area** in the column's toggles row and look at the whole image and its edges.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column follows the run, the view
+   shows the filtered image, and its history lists **Median Filter** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Median Filter
@@ -109,7 +108,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The window holds from 9 to 225 samples, and the work of ranking them grows with them. Larger windows erase more stars and thin lines, and round off the corners of structure.
     scope: The preview and Apply, on what **Channel** selects, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is.
   - name: Iterations
     kind: spinbox
     default: "1"
@@ -119,7 +118,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The time grows in proportion to it. More than one pass takes one more working plane the size of a channel, two for a floating-point image.
     scope: The preview and Apply, on what **Channel** selects, with **Modulation** applied in every pass, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Modulation
     kind: spinbox
     default: "1.00"
@@ -129,13 +128,13 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: It lowers the change, not the work, since every window is ranked at any value. With several passes the mix is made again in each, so two passes at 0.25 are not one at 0.5.
     scope: The preview and Apply, inside every pass, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -143,19 +142,19 @@ controls:
     effect: Chooses what is filtered. **RGB** takes the median of each of the three channels on its own, so the three values written at one pixel can come from different neighbours. **Red**, **Green** or **Blue** filters that channel and keeps the other two. Every other choice filters one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, small colored structures can change hue. A component costs two conversions and a working copy, and the conversion back can change colors.
-    scope: The preview and Apply, before the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the filtered image beside the controls, with the mask blended in.
+    effect: Shows the filtered image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview: Median
-      Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and **Take
-      snapshot** are in the menu at the end of the pane's toolbar.
-    tradeoff: Every change filters the area, or the whole image, again, with every pass. The area is filtered as an image of its own, with its own edges. While you drag a slider with no area drawn, the preview filters the part of the image the pane shows, at full scale, exactly as Apply writes it there.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+      The canvas opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview:
+      Median Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles row, and
+      **Take snapshot** on the canvas's floating toolbar.
+    tradeoff: Every change filters the area, or the whole image, again, with every pass. The area is filtered as an image of its own, with its own edges. While you drag a slider with no area drawn, the preview filters the part of the image the canvas shows, at full scale, exactly as Apply writes it there.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -165,8 +164,8 @@ controls:
     kind: button
     default: ""
     effect: Filters the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns **Iterations** and **Modulation** to their defaults. **Kernel Size** stays as it is.
-    enabled: From the moment the window opens, at any values, a **Modulation** of 0 included.
-    tradeoff: A single image shows a progress window too, and its **Cancel** is noticed between groups of rows. The filter works on single-precision planes, with one window buffer for each group of rows, on the threads the run is granted, beside the second copy every run needs.
+    enabled: From the moment the task opens, at any values, a **Modulation** of 0 included.
+    tradeoff: The column shows the run of a single image too, and **Cancel**, in Apply's place meanwhile, is noticed between groups of rows. The filter works on single-precision planes, with one window buffer for each group of rows, on the threads the run is granted, beside the second copy every run needs.
     persistence: "The history step is **Median Filter** and reads, for example, `Kernel size 3x3 iterations 1 modulation 1 in channel: RGB`. For a grayscale image it ends after the modulation. The mask is not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
@@ -212,12 +211,12 @@ stays at \(m\), what is left of its distance from the median is
 - Every pixel type keeps its type and is ranked in single precision. A 32-bit integer or a 64-bit floating-point image
   is rounded to it on the way in, so nearly equal samples can come back at the nearest value single precision holds.
 - At a **Modulation** of 0 every window is still ranked, and the image comes back as it was.
-- **Cancel**, or closing the window, stops the run between groups of rows, and nothing is written.
+- **Cancel** stops the run between groups of rows, and nothing is written.
 
 ### Worked example
 
 The image is the linear [master](../../reference/glossary.md#master). Its channels have their median near 0.028, and
-their grain from one pixel to the next is about 0.0003 in red, 0.001 in green and 0.0007 in blue. The window keeps its
+their grain from one pixel to the next is about 0.0003 in red, 0.001 in green and 0.0007 in blue. The task keeps its
 defaults: **Kernel Size** at **3x3**, **Iterations** at 1 and **Modulation** at 1.00.
 
 A hot pixel of 0.5 among background samples near 0.028 is the largest of its nine, and by equation (1) it is replaced
@@ -306,8 +305,7 @@ The preview area differs from the result of Apply
   the median leaves blotchy.
 - [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to protect the stars and to
   undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

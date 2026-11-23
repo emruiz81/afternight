@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no CLAHE window is open on it yet, and no window that needs the image for
-    itself is open on it.
+    An image or a sequence view is active, no CLAHE task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: One grayscale or RGB image or sequence, and an optional mask on its view.
   outputs: >-
     The same view, replaced, with one history step, its processing state recorded as nonlinear. Its size, channels and
@@ -30,7 +30,7 @@ derived: false
 CLAHE is contrast-limited adaptive histogram equalization. It cuts the image into a square grid of tiles, clips the
 histogram of each tile so that no tone range is stretched too far, equalizes it, and maps every pixel through the
 mappings of the tiles around it, mixed by distance. On a color image it equalizes the lightness alone. AfterNight's
-own engine computes it, and the window opens from **Process > Intensity Transformations > CLA Histogram
+own engine computes it, and the [task](../../reference/glossary.md#task) opens from **Process > Intensity Transformations > CLA Histogram
 Equalization**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the equalized one, keeps its
@@ -40,20 +40,15 @@ size and [pixel type](../../reference/glossary.md#pixel-type), adds one step to 
 ```figure
 image: ../../assets/images/processes/sharpening/clahe.webp
 alt: >-
-  The CLAHE window. On the left, a histogram with three colored peaks and the lines Clipping Low and Clipping High in
-  its corner, a toolbar, then the Grid Size, Contrast Limit and Amount boxes with their sliders, Target Image, Channel
-  at RGB and Preview. On the right, the preview toolbar with Preview area unticked, over the whole equalized nebula.
-  Reset, Close and Apply run along the bottom.
+  The CLA Histogram Equalization task. Its header names the process and the stretched master, and the column's
+  header reads CLAHE. The canvas at the left shows the whole equalized nebula. The column at the right opens with the
+  compact readout of the preview, then the Preview toggle ticked and Preview area unticked, Target Image and Channel
+  at RGB, a histogram with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar,
+  and the Grid Size, Contrast Limit and Amount boxes with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  CLAHE on a stretched master with Grid Size at 8 and Contrast Limit at 1.50: the preview shows what Apply writes over
+  CLAHE on a stretched master with Grid Size at 8 and Contrast Limit at 1.50: the canvas shows what Apply writes over
   the whole image.
-pins:
-  - {n: 2, x: 2.0, y: 82.8}
-  - {n: 3, x: 2.0, y: 61.1}
-  - {n: 4, x: 2.0, y: 56.6}
-  - {n: 5, x: 47.5, y: 50.0}
-  - {n: 6, x: 2.0, y: 65.5}
-  - {n: 7, x: 91.0, y: 96.1}
+owed: true
 ```
 
 ## Before you start
@@ -69,23 +64,24 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Intensity Transformations >
-   CLA Histogram Equalization**. The window is titled **CLAHE**, its preview shows the whole image already
-   equalized, and **Apply** is enabled at once.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Intensity Transformations >
+   CLA Histogram Equalization**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The task opens as a page: the canvas at the left shows the whole image already equalized, the column at
+   the right, headed **CLAHE**, holds its controls, and **Apply** is enabled at once.
 2. **Choose what to equalize.** Leave **Channel** at **RGB** to equalize the lightness and keep the colors.
-3. **Set the limit.** At 100 % in the preview, lower **Contrast Limit** until the grain of the background and the
+3. **Set the limit.** At 100 % in the canvas, lower **Contrast Limit** until the grain of the background and the
    rims of the stars calm down.
 4. **Set the tiles.** Raise **Grid Size** for smaller tiles and a more local result, or lower it for larger tiles.
 5. **Check the preview.** Look for grain, mottling the size of a tile, seams between tiles, halos and clipping, at
-   100 % and over the whole image. Press ++space++ over the preview to compare with the original.
+   100 % and over the whole image. Hold ++space++ over the canvas to compare with the original.
 6. **Soften the result.** Lower **Amount** last, to fade the whole effect.
-7. **Apply.** Choose **Apply**. The image in its view is the equalized one, its history lists **CLAHE** with the
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the equalized one, its history lists **CLAHE** with the
    three values, and the controls return to their defaults.
 
 ## Controls
 
-The histogram above the controls, its toolbar and the preview pane are the same in every window: see
-[Process Windows](../../interface/process-windows.md). The histogram cannot show seams or halos, and its grid, its
+The histogram, its toolbar and the canvas are the same in every task: see [Tasks](../../interface/tasks.md). The
+histogram cannot show seams or halos, and its grid, its
 clipping lines and **Plot resolution** have nothing to do with the tiles, the clip limit or the levels of the
 equalization.
 
@@ -100,7 +96,7 @@ controls:
     range: It counts tiles, not pixels. The tiles are as equal as whole pixels allow, and the image is not padded. A grid with more tiles than the image has pixels along a side is refused with "a CLAHE grid cannot have more tiles than the image has pixels on an axis".
     tradeoff: Many small tiles show mottling and seams the size of a tile, and their histograms are sparse. Few large tiles give broad halos and miss small structure. Each tile holds a table of 8 bytes a level. With 65,536 levels, 8 needs about 34 MB, 32 about 537 MB, 64 about 2.1 GB and 256 about 34 GB, refused by the memory limit. The tables are built again for each channel, not kept for all.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. A preview area is divided into its own grid.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Contrast Limit
     kind: spinbox
     default: "2.00"
@@ -109,7 +105,7 @@ controls:
     range: The slider moves it in tenths. The cap is a whole count of at least 1, so on small tiles with 65,536 levels several values give the same cap, and the limit acts lower than it reads.
     tradeoff: Higher values enlarge grain, halos and clipping. Lower values restrain the equalization, but the counts cut off are spread over every level and still change the mapping. It does not change the time a run takes.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -118,13 +114,13 @@ controls:
     range: The slider moves it in thousandths.
     tradeoff: It fades everything the equalization did, seams and grain included, and saves no time, because the equalization runs in full at any value.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -133,15 +129,16 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**, and its one channel is equalized over its pixel type's full range.
     tradeoff: Equalizing L* keeps the colors far better than three channels equalized apart, but the way back to RGB can push saturated colors out of range. A hue, saturation or chroma component equalizes color itself and rarely suits a photograph, and a hue jumps where its ends meet.
     scope: The preview and Apply, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
     note: With **RGB**, the red, green and blue are read as linear when the image is described as linear RGB, and as sRGB-encoded otherwise, in a 32-bit floating-point working copy, and converted back the same way.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the result beside the controls, with **Amount** and the mask applied. When the window opens it shows the whole image, with **Preview area** off. Ticked, the area frames 600 by 600 pixels in the middle of the image.
+    effect: Shows the result in the canvas, with **Amount** and the mask applied. When the task opens it shows the whole image, with **Preview area** off. Ticked, the area frames 600 by 600 pixels in the middle of the image.
+    enabled: It stands in the column's toggles row, beside **Preview area**, and is disabled while Apply runs.
     tradeoff: Every change equalizes the whole image again, with its color conversions and tile tables.
-    scope: The window only. A preview area is equalized as an image of its own, cut into its own grid, so its tiles are smaller than those of Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. A preview area is equalized as an image of its own, cut into its own grid, so its tiles are smaller than those of Apply.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -151,7 +148,7 @@ controls:
     kind: button
     default: ""
     effect: Equalizes the image, or every frame of the sequence, with the values as they are when you press it, then returns them to their defaults.
-    enabled: From the moment the window opens, at any values.
+    enabled: From the moment the task opens, at any values. **Cancel** takes its place while a run works.
     tradeoff: A color image needs its 32-bit working copy and four working planes, beside the second copy every run needs and the tile tables. The tables are built, and the rows mapped, on the threads the run is given.
     persistence: >-
       The history step is **CLAHE** and reads, for example, `Grid Size: 8, Contrast Limit: 1.50, Amount: 1.00 in
@@ -214,8 +211,8 @@ sample written is
   is cut to it. A sample that is not a number counts in the lowest level of its tile.
 - Every pixel type is equalized in 32-bit precision, so a 64-bit floating-point or 32-bit integer image loses
   precision.
-- A single image shows no progress window and cannot be cancelled once Apply starts. On a sequence, **Cancel** also
-  stops the frame being equalized.
+- **Cancel** in the column's footer stops a run, on a single image or inside the frame of a sequence being
+  equalized.
 
 ### Worked example
 
@@ -267,7 +264,7 @@ levels.
 
 !!! warning "A preview area does not show what Apply writes"
     A [preview area](../../reference/glossary.md#preview-area) is cut into its own grid, so its tiles are much smaller
-    than those of the whole image. Leave **Preview area** off, as the window opens, to judge the result.
+    than those of the whole image. Leave **Preview area** off, as the task opens, to judge the result.
 
 !!! warning "The image is recorded as nonlinear"
     Apply records the result as nonlinear, and a later process that needs a
@@ -313,8 +310,7 @@ A high Grid Size is refused for memory
 - [Wavelet Denoise](../noise-reduction/wavelet-denoise.md), to reduce the noise before.
 - [Masks](../../interface/masks.md), to protect the background, the stars or saturated colors.
 - [Image History](../../interface/image-history.md), to compare with the step before or undo it.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram and what every task shares.
 
 ## Credits
 

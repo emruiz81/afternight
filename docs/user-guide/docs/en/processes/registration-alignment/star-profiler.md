@@ -16,8 +16,8 @@ masks: none
 external: An installed Gaia catalog, optional, for the catalog matches of v2
 glance:
   enabled: >-
-    An image or a sequence view is active and no other process window is open on it. Each window needs the image to
-    itself while it is open.
+    An image or a sequence view is active and no other task is open on it. Each task needs the image to itself while
+    it is open, and opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image of any pixel type, or the frame a sequence view shows. A mask on the view is not used.
     For sky positions, v2 needs a plate solution in the image's header, and for catalog matches an installed Gaia
@@ -43,31 +43,26 @@ fit measured: position, widths, shape and brightness. The list is drawn over the
 sort, filter and delete stars, then save it as a profile file or paint it into a
 [mask](../../reference/glossary.md#mask).
 
-Two windows share the work. **Star Profiler v2** offers the detector's own controls, places each star on the sky
+Two [tasks](../../reference/glossary.md#task) share the work. **Star Profiler v2** offers the detector's own controls, places each star on the sky
 through the image's [plate solution](../../reference/glossary.md#plate-solution) and writes `.anspv2` profiles.
-**Star Profiler v1** asks four simpler questions and writes `.anspv1` profiles. Neither window changes the image or
+**Star Profiler v1** asks four simpler questions and writes `.anspv1` profiles. Neither task changes the image or
 adds a step to its [history](../../reference/glossary.md#history).
 
 ```figure
 owed: true
 image: ../../assets/images/processes/registration-alignment/star-profiler.webp
 alt: >-
-  The StarProfiler window. At the top, the Detected Stars group: a table of narrow columns headed x, y, Mag, FWHMx,
-  FWHMy, Ra, Dec and on, filled with rows of figures, then the Load Profile, Save Profile, Stars Filter and Create Mask buttons, a
-  button with a cross and Clear, and a line that reads Detected Stars 2187 beside the Center Selected Star check box
-  and a zoom box. Below, the Star Detection group: Radius at 5, Threshold at 3.00, the unticked Amplitude Range group,
-  Roundness Threshold at 0.50, the unticked Roundness Range group, Convergence at 1, Relax PSF Checks, Profile Type at
-  Gaussian with a dimmed Minimum Beta, then Detect Stars, Use Lightness and Reset. Close sits at the bottom right.
+  The Star Profiler v2 task. Its header names the process and the stretched Carina master, and the canvas at the left
+  shows the image with a yellow or magenta ellipse around each detected star. The wide column at the right holds the
+  Detected Stars group: a table of narrow columns headed x, y, Mag, FWHMx, FWHMy, Ra, Dec and on, filled with rows of
+  figures, then two rows of buttons from Load Profile to Clear, and a line that reads Detected Stars 2187 beside the
+  Center Selected Star check box and a zoom box. Below, the Star Detection group: Radius at 5, Threshold at 3.00, the
+  unticked Amplitude Range group, Roundness Threshold at 0.50, the unticked Roundness Range group, Convergence at 1,
+  Relax PSF Checks, Profile Type at Gaussian with a dimmed Minimum Beta, then Detect Stars, Use Lightness and Reset.
+  Close stands in the footer.
 caption: >-
   Star Profiler v2 after a detection on the stretched Carina master with Threshold at 3.00: the table lists 2,187
   stars, brightest first.
-pins:
-  - {n: 2, x: 3.4, y: 52.1}
-  - {n: 3, x: 3.4, y: 68.1}
-  - {n: 4, x: 3.4, y: 89.5}
-  - {n: 5, x: 3.4, y: 24.0}
-  - {n: 6, x: 71.0, y: 34.8}
-  - {n: 8, x: 53.5, y: 34.8}
 ```
 
 ## Before you start
@@ -81,33 +76,35 @@ pins:
   file does not convert it. Profiled Starmask Recombination reads both.
 - For sky positions, plate solve the image before you open v2. For catalog matches, install a
   [Gaia](../../reference/glossary.md#gaia) catalog on the **Catalogs & Data** page of **Edit > Settings...**.
-- The window needs the image to itself: close the other process windows on it first
-  ([Windows that differ](../../interface/process-windows-reference.md#windows-that-differ)).
+- The task needs the image to itself: close the other tasks on it first
+  ([Tasks that differ](../../interface/tasks-reference.md#tasks-that-differ)).
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Star Processing > Star Profiler v2**. The table is empty and **Detected Stars:** reads 0.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Star Processing > Star Profiler v2**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas shows
+   the image, and in the column at the right the table is empty and **Detected Stars:** reads 0.
 2. **Size the search.** Raise **Radius** for large stars, or lower it for a crowded field. Raise **Threshold** to keep
    only the clear stars, or lower it to find fainter ones.
 3. **Leave out what is not a star.** Raise **Roundness Threshold** to refuse elongated fits. Tick **Amplitude Range**
    only to keep a band of brightness.
-4. **Detect.** Choose **Detect Stars**. A progress window shows while the run works, then a message gives the count:
-   choose **OK**. The table lists the stars, and an ellipse marks each one on the view.
-5. **Inspect.** Click a row, or a star on the view, and a red cross marks it. Click a column's header to sort by it.
-   Tick **Center Selected Star** to center the view on each star you select.
+4. **Detect.** Choose **Detect Stars**. The column shows the run while it works, then a message gives the count:
+   choose **OK**. The table lists the stars, and an ellipse marks each one in the canvas.
+5. **Inspect.** Click a row, or a star in the canvas, and a red cross marks it. Click a column's header to sort by it.
+   Tick **Center Selected Star** to center the canvas on each star you select.
 6. **Keep the stars you want.** Select a wrong star and choose **Remove selected star**, or choose **Stars Filter**,
    narrow its ranges and confirm with **OK**. **Detected Stars:** shows the new count.
 7. **Save the profile.** Choose **Save Profile**, name the file in the file dialog and save it. A message says
    "Star profile saved successfully!".
 8. **Make a mask, if you need one.** Choose **Create Mask**, set the areas and choose **OK**. The mask opens beside
    the image as `<image> - STARMASK`.
-9. **Close.** Choose **Close** and answer **Yes**. The window closes, and the ellipses leave the view.
+9. **Close.** Choose **Close** and answer **Yes**. The task closes, and the ellipses leave the image.
 
 ## Controls
 
-The window has no preview, no **Target Image** and no **Apply**: it reads the image it opened on and never changes it.
-Its header and **Close** work as in every [process window](../../interface/process-windows.md).
+The task has no preview, no **Target Image** and no **Apply**: its canvas shows the image it opened on, which it reads
+and never changes. Its header and **Close** work as in every [task](../../interface/tasks.md).
 
 ### Star Profiler v2
 
@@ -127,11 +124,11 @@ controls:
     kind: button
     default: ""
     effect: Opens a file dialog, **Load star profile...**, that shows `.anspv2` files, and reads the file you choose in the background. Its stars replace the list and the drawing, and a message says "Star profile loaded successfully!" with the count.
-    range: "The window reads profiles of Star Profiler v2 only, as the file's content says, whatever its name. A v1 file, or one that cannot be read, is refused with \"Could NOT load the star profile file. Error message:\" and the reason, and changes nothing. A file of more than 64 MB or one million stars is refused."
-    enabled: Always, also while a detection works.
+    range: "The task reads profiles of Star Profiler v2 only, as the file's content says, whatever its name. A v1 file, or one that cannot be read, is refused with \"Could NOT load the star profile file. Error message:\" and the reason, and changes nothing. A file of more than 64 MB or one million stars is refused."
+    enabled: Always, but for the time a detection works, when the column's controls wait.
     scope: The list and the drawing. The settings the file records do not reach the controls.
     persistence: The dialog opens in the folder last used for v2 profiles, also in a later session. A loaded star keeps every figure, sky position and catalog match the file holds.
-    note: A file the window accepts stops a detection on its way. One it refuses leaves the detection running, and its stars show as usual. A detection asked for after the file stops the read.
+    note: A detection asked for while a file is read stops the read.
   - name: Save Profile
     kind: button
     default: ""
@@ -144,13 +141,13 @@ controls:
   - name: Stars Filter
     kind: button
     default: ""
-    effect: Opens the **Stars Filter** dialog beside the window, to keep a part of the list. The dialog is not modal.
+    effect: Opens the **Stars Filter** dialog beside the task, to keep a part of the list. The dialog is not modal.
     enabled: While the list holds stars.
-    persistence: A filter confirmed with **OK** replaces the list in the window, not in a file. Save the profile to keep it.
+    persistence: A filter confirmed with **OK** replaces the list in the task, not in a file. Save the profile to keep it.
   - name: Create Mask
     kind: button
     default: ""
-    effect: Opens **Profiled Mask Generation** beside the window, over the list as it is, filtered or sorted. The dialog is not modal. Its **OK** paints the mask in the background and opens it beside the image.
+    effect: Opens **Profiled Mask Generation** beside the task, over the list as it is, filtered or sorted. The dialog is not modal. Its **OK** paints the mask in the background and opens it beside the image.
     enabled: While the list holds stars.
     scope: A new image. The image and its history are not changed.
     persistence: The mask is not saved to a file.
@@ -174,11 +171,11 @@ controls:
   - name: Center Selected Star
     kind: check
     default: "Off"
-    effect: Ticked, each star you select is brought to the middle of the view, at the zoom of the box beside it.
-    range: The box beside it, `x2.00` when the window opens, sets the zoom from 1 to 20, where 2 shows the image at 200 %. Changing it centers the selected star again.
+    effect: Ticked, each star you select is brought to the middle of the canvas, at the zoom of the box beside it.
+    range: The box beside it, `x2.00` when the task opens, sets the zoom from 1 to 20, where 2 shows the image at 200 %. Changing it centers the selected star again.
     enabled: While the list holds stars. The zoom box only while this is ticked.
     scope: The view only.
-    persistence: Until the window closes. **Reset** leaves both.
+    persistence: Until the task closes. **Reset** leaves both.
   - name: Radius
     kind: spinbox
     default: "5"
@@ -186,7 +183,7 @@ controls:
     effect: Sets half the width, in pixels, of the box a candidate must be the brightest point of. At 5 the box is 11 pixels across. Higher asks a candidate to dominate a wider box. Lower separates compact stars in a crowded field.
     range: The image must be more than 4 × **Radius** + 8 pixels wide and tall. The search skips a border of **Radius** pixels.
     tradeoff: Higher costs more work and merges crowded stars. Lower admits more candidates.
-    persistence: Until the window closes. **Reset** returns it. A profile records it as `radius`, and a loaded profile does not set it.
+    persistence: Until the task closes. **Reset** returns it. A profile records it as `radius`, and a loaded profile does not set it.
   - name: Threshold
     kind: spinbox
     default: "1.00"
@@ -195,22 +192,22 @@ controls:
     range: The slider moves in steps of 0.001.
     tradeoff: A low value turns noise into candidates, and every candidate is fitted, which costs time. A high value misses faint stars.
     scope: The plane the stars are searched in.
-    persistence: Until the window closes. **Reset** returns it. A profile records it as `sigma`.
+    persistence: Until the task closes. **Reset** returns it. A profile records it as `sigma`.
   - name: Amplitude Range
     kind: check
     default: "Off"
     effect: Ticked, keeps only the stars whose fitted height above the sky, **A** in the table, lies between **Minumum** and **Maximum**, in fractions of full scale. Unticked, no height is refused.
     enabled: Its two boxes are disabled while it is unticked.
     tradeoff: A narrow window removes real stars. On a linear image the brightest stars fit above 1, above any **Maximum**.
-    persistence: Until the window closes. **Reset** unticks it. A profile records the bounds as `min_A` and `max_A`, both 0 while it is unticked.
+    persistence: Until the task closes. **Reset** unticks it. A profile records the bounds as `min_A` and `max_A`, both 0 while it is unticked.
   - name: Minumum
     kind: spinbox
     default: "0.00"
     widget: {min: 0, max: 0.99, step: 0.05, decimals: 2}
     effect: Sets the smallest height a star may have. Higher leaves out the fainter stars, and the noise fitted as stars.
-    range: The window spells the label so.
+    range: The task spells the label so.
     enabled: With **Amplitude Range** ticked.
-    persistence: Until the window closes. **Reset** returns it.
+    persistence: Until the task closes. **Reset** returns it.
   - name: Maximum
     object: thresholdMaximumValue
     kind: spinbox
@@ -219,21 +216,21 @@ controls:
     effect: Sets the largest height a star may have. Lower leaves out the brighter stars, which an alignment may need.
     range: Below **Minumum**, the detection is refused with "the amplitude window's upper bound is at or above its lower bound".
     enabled: With **Amplitude Range** ticked.
-    persistence: Until the window closes. **Reset** returns it.
+    persistence: Until the task closes. **Reset** returns it.
   - name: Roundness Threshold
     kind: spinbox
     default: "0.50"
     widget: {min: 0.01, max: 0.95, step: 0.05, decimals: 2}
     effect: Sets the smallest ratio of a star's short width to its long one, **r** in the table. Higher keeps only rounder stars. Lower admits elongated stars, trails and pairs of stars.
     tradeoff: A high value can leave too few stars on trailed or distorted data.
-    persistence: Until the window closes. **Reset** returns it. A profile records it as `roundness`.
+    persistence: Until the task closes. **Reset** returns it. A profile records it as `roundness`.
   - name: Roundness Range
     kind: check
     default: "Off"
     effect: Ticked, sets an upper limit on the same ratio with its **Maximum**. Unticked, the limit is 1, a perfectly round star.
     enabled: Its box is disabled while it is unticked.
     tradeoff: It refuses the roundest stars, which is rarely wanted, and a narrow band can empty the list.
-    persistence: Until the window closes. **Reset** unticks it. A profile records the limit as `max_r`, 1 while it is unticked.
+    persistence: Until the task closes. **Reset** unticks it. A profile records the limit as `max_r`, 1 while it is unticked.
   - name: Maximum
     object: roundnessThresholdMaximumValue
     kind: spinbox
@@ -242,21 +239,21 @@ controls:
     effect: Sets the largest ratio a star may have. Lower refuses the roundest fits.
     range: Below **Roundness Threshold**, the detection is refused with "the largest roundness lies within the unit interval and at or above the smallest".
     enabled: With **Roundness Range** ticked.
-    persistence: Until the window closes. **Reset** returns it.
+    persistence: Until the task closes. **Reset** returns it.
   - name: Convergence
     kind: spinbox
     default: "1"
     widget: {min: 1, max: 3, step: 1}
     effect: Multiplies how many iterations each fit may take to settle. A fit that does not settle is refused.
     tradeoff: Higher can rescue difficult fits, at the cost of time.
-    persistence: Until the window closes. **Reset** returns it. A profile records it as `convergence`.
+    persistence: Until the task closes. **Reset** returns it. A profile records it as `convergence`.
   - name: Relax PSF Checks
     kind: check
     default: "Off"
     effect: Skips four checks, the scan's tests of a candidate's symmetry and local contrast, and the fit's tests of its width against the scan's estimate and of its residual.
     range: The amplitude, roundness and beta limits and the tests of a finite position, width and magnitude still apply.
     tradeoff: It finds more of the difficult stars, and more pairs of stars and poor fits, and more candidates reach the fit, which costs time.
-    persistence: Until the window closes. **Reset** unticks it. A profile records it as `relax_checks`.
+    persistence: Until the task closes. **Reset** unticks it. A profile records it as `relax_checks`.
   - name: Profile Type
     kind: combo
     default: Gaussian
@@ -264,7 +261,7 @@ controls:
     effect: Chooses the profile each candidate is fitted with, by equation (2). **Gaussian** has wings that fall fast. **Moffat** has wings that fall as a power, whose exponent beta is fitted with the rest.
     enabled: "**Moffat** enables **Minimum Beta**."
     tradeoff: "**Moffat** has one more parameter and costs more time."
-    persistence: Until the window closes. **Reset** returns it to **Gaussian**. A profile records it as `gaussian` or `moffat_bfree`.
+    persistence: Until the task closes. **Reset** returns it to **Gaussian**. A profile records it as `gaussian` or `moffat_bfree`.
   - name: Minimum Beta
     kind: spinbox
     default: "1.50"
@@ -272,13 +269,13 @@ controls:
     effect: Sets the smallest Moffat exponent a star may have. A lower beta means broader wings, so higher refuses the stars with the broadest wings.
     enabled: With **Profile Type** at **Moffat**.
     tradeoff: Too high refuses real stars with wide wings.
-    persistence: Until the window closes. **Reset** returns it. A profile records it as `min_beta`.
+    persistence: Until the task closes. **Reset** returns it. A profile records it as `min_beta`.
   - name: Detect Stars
     kind: button
     default: ""
     effect: Finds the stars of the image with the controls as they are when you press it, and replaces the list. On a plate-solved image it then places each star on the sky and matches it against an installed Gaia catalog.
-    enabled: Disabled while a detection works. The other controls stay enabled, and a change reaches the next detection.
-    tradeoff: The run works in the background behind a progress window, and the application stays responsive. Its time grows with the image's area and the number of candidates. A larger **Radius**, a lower **Threshold**, **Moffat**, a higher **Convergence**, **Relax PSF Checks** and a dense field cost more. A catalog match reads only the part of the catalog inside the field.
+    enabled: Disabled while a detection works, with every control of the column, and **Cancel** stands in the footer meanwhile.
+    tradeoff: The run works in the background while the column shows it, and the application stays responsive. Its time grows with the image's area and the number of candidates. A larger **Radius**, a lower **Threshold**, **Moffat**, a higher **Convergence**, **Relax PSF Checks** and a dense field cost more. A catalog match reads only the part of the catalog inside the field.
     scope: The image the view shows, or the frame a sequence view shows. It is read and never changed, and the mask on its view is not used.
     persistence: The list stays until a detection, a load, **Clear** or **Close** replaces it.
     range: Look for missed stars, hot pixels, saturated cores and elongated fits, change one control at a time and detect again.
@@ -289,7 +286,7 @@ controls:
     effect: Ticked, finds the stars of an RGB image in its CIE lightness, L*. Unticked, in its green channel. A grayscale image is searched in its one channel either way.
     tradeoff: L* draws on the three channels and is less tied to one of them. Green often has the best signal of a one-shot color camera.
     scope: Only the plane the stars are searched in.
-    persistence: Until the window closes. **Reset** leaves it, and a profile does not record it.
+    persistence: Until the task closes. **Reset** leaves it, and a profile does not record it.
     note: Searched in the green channel, a star fitted 1 pixel wide or less on either axis is refused.
   - name: Reset
     kind: button
@@ -299,9 +296,9 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. While the list holds stars it first asks "All non saved data will be lost. Do you want to exit this process?", and **No** keeps the window open.
-    range: It asks whether or not the list was saved. A detection on its way stops.
-    persistence: The list, the drawing and an open **Stars Filter** close with the window. Saved profiles and masks stay.
+    effect: Closes the task. While the list holds stars it first asks "All non saved data will be lost. Do you want to exit this process?", and **No** keeps the task open. ++esc++ does the same.
+    range: It asks whether or not the list was saved. It waits while a detection works.
+    persistence: The list, the drawing and an open **Stars Filter** close with the task. Saved profiles and masks stay.
 ```
 
 ```controls
@@ -310,9 +307,9 @@ controls:
   - name: Ellipses
     kind: readout
     default: ""
-    effect: Draws each star of the list over the image's view, as an ellipse of the star's shape, four of its long widths across, turned to its angle and centered on its position.
+    effect: Draws each star of the list over the image in the canvas, as an ellipse of the star's shape, four of its long widths across, turned to its angle and centered on its position.
     range: Magenta for a saturated fit, whose height above the sky exceeds the range from the sky to full scale, or to the brightest sample when that is lower. Yellow for the others.
-    enabled: From a detection or a load until the window closes. A **Stars Filter** preview draws only the stars it keeps.
+    enabled: From a detection or a load until the task closes. A **Stars Filter** preview draws only the stars it keeps.
     tradeoff: In a dense field the ellipses crowd each other.
     scope: The view's drawing only. Nothing is written into the image.
   - name: Click on a star
@@ -327,17 +324,17 @@ controls:
 ```
 
 ```controls
-window: Detection progress
+window: The run in the column
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Shows "Detecting stars..." with a moving bar, without a share done, while the detection works.
-    range: Its title names the window and the image, as `StarProfiler <RGB>`.
+    effect: Shows "detecting stars" with a moving bar, without a share done, in the column's run row while the detection works.
+    range: No progress window opens. The task header and its item in the rail show the run too.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the detection. The list stays as it was, and no message shows.
+    effect: Stands in the footer while the detection works, and stops it. The list stays as it was, and no message shows.
 ```
 
 ### Star Profiler v1
@@ -355,13 +352,13 @@ controls:
   - name: Load Profile
     kind: button
     default: ""
-    effect: Reads a `.anspv1` file through **Load star profile...**, as the v2 window reads its own.
+    effect: Reads a `.anspv1` file through **Load star profile...**, as the v2 task reads its own.
     range: A v2 file is refused. A v1 star is read back round, at its position, with its **intensity** and its mean width. Its **quality** reads 1, its angle 0 and its four axes the same.
     persistence: The dialog opens in the folder last used for v1 profiles.
   - name: Save Profile
     kind: button
     default: ""
-    effect: Writes the list as a `.anspv1` file through **Save star profile...**, as the v2 window writes its own.
+    effect: Writes the list as a `.anspv1` file through **Save star profile...**, as the v2 task writes its own.
     range: The file is a JSON document of schema 1, engine `v1`. It holds each star's columns as the table shows them, except **radius** and **meanRadius**, which it holds at four times the table's figures. It adds the four detection controls, the frame's median width, quality, sky and noise, and whether you changed the list by hand.
     tradeoff: A star read back and saved again is written round, without its own quality, axes and angle.
   - name: Stars Filter
@@ -395,7 +392,7 @@ controls:
     effect: Sets the smallest fitted height above the sky, **intensity** in the table, a star may have, in fractions of full scale. Higher keeps only brighter stars.
     tradeoff: Low values keep faint stars and the fits of noise. High values miss faint stars.
     scope: The search itself stands five noise deviations above the sky, as v2 does at a **Threshold** of 1 and a **Radius** of 5, and fits a Gaussian.
-    persistence: Until the window closes. **Reset** returns it. A profile records it, and a loaded profile does not set it.
+    persistence: Until the task closes. **Reset** returns it. A profile records it, and a loaded profile does not set it.
   - name: Roundness Tolerance
     kind: spinbox
     default: "2.00"
@@ -403,27 +400,27 @@ controls:
     effect: Sets the largest difference, in pixels, between a star's two fitted standard deviations, by equation (4). Lower keeps only rounder stars.
     range: At 0 no star is kept.
     tradeoff: High values admit elongated stars and objects that are not stars. Very low values refuse real stars.
-    persistence: Until the window closes. **Reset** returns it. A profile records it, and a loaded profile does not set it.
+    persistence: Until the task closes. **Reset** returns it. A profile records it, and a loaded profile does not set it.
   - name: Min Size
     kind: spinbox
     default: "2"
     widget: {min: 0, max: 99, step: 1}
     effect: Sets the smallest mean full width, in pixels, a star may have. Higher leaves out small stars and hot pixels.
-    range: Above **Max Size**, no star is kept. The window does not hold the two in order.
+    range: Above **Max Size**, no star is kept. The task does not hold the two in order.
     tradeoff: High values leave out small and faint stars.
-    persistence: Until the window closes. **Reset** returns it. A profile records it.
+    persistence: Until the task closes. **Reset** returns it. A profile records it.
   - name: Max Size
     kind: spinbox
     default: "25"
     widget: {min: 0, max: 99, step: 1}
     effect: Sets the largest mean full width, in pixels, a star may have. Lower leaves out large stars.
     tradeoff: High values keep large, saturated stars and broad structure taken for stars.
-    persistence: Until the window closes. **Reset** returns it. A profile records it.
+    persistence: Until the task closes. **Reset** returns it. A profile records it.
   - name: Detect Stars
     kind: button
     default: ""
-    effect: Finds the stars as the v2 window does, then keeps those equation (4) allows, and replaces the list.
-    note: It places no star on the sky. Its progress window, its messages and what it reads are those of Star Profiler v2.
+    effect: Finds the stars as the v2 task does, then keeps those equation (4) allows, and replaces the list.
+    note: It places no star on the sky. Its run, its messages and what it reads are those of Star Profiler v2.
   - name: Reset
     kind: button
     default: ""
@@ -431,7 +428,7 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window, after the same question as in Star Profiler v2.
+    effect: Closes the task, after the same question as in Star Profiler v2.
 ```
 
 ### Stars Filter
@@ -478,7 +475,7 @@ controls:
   - name: OK
     kind: button
     default: ""
-    effect: Asks "This change will discard the filtered stars from the list, if you want those stars back you'll need to load the profile again, or run a new detection. Do you want to continue?" **Yes** replaces the window's list with the filtered one and closes the dialog.
+    effect: Asks "This change will discard the filtered stars from the list, if you want those stars back you'll need to load the profile again, or run a new detection. Do you want to continue?" **Yes** replaces the task's list with the filtered one and closes the dialog.
     persistence: The list is marked as changed by hand. Save the profile to keep it.
   - name: Reset
     kind: button
@@ -538,7 +535,7 @@ controls:
     kind: button
     default: ""
     effect: Closes the dialog and paints the list in the background into a new grayscale image of the image's size, 32-bit floating point between 0 and 1, whatever the image's pixel type. It opens beside the image as `<image> - STARMASK`.
-    persistence: "The mask opens when it is painted, also after the window has closed. Its history starts with `Star Profiler: Starmask image created from '<image>'`, and it is not saved to a file. A failure shows its reason under \"Profiled Mask Generation\"."
+    persistence: "The mask opens when it is painted, also after the task has closed. Its history starts with `Star Profiler: Starmask image created from '<image>'`, and it is not saved to a file. A failure shows its reason under \"Profiled Mask Generation\"."
   - name: Reset
     kind: button
     default: ""
@@ -564,7 +561,7 @@ controls:
    Gaia catalog, it matches the stars one to one with the catalog's stars of the field, within 5 arcseconds and down
    to G magnitude 16. The catalog's stars are first carried to the Julian epoch of the exposure's start, when the
    image records one. The matched stars fit a G zero point.
-5. The stars become the window's list and are drawn over the view. A saved profile holds them in the list's order,
+5. The stars become the task's list and are drawn over the image. A saved profile holds them in the list's order,
    at the positions the table shows.
 
 ### Model
@@ -604,7 +601,7 @@ drawn magenta, and its residual is not held against it.
 - At most 200,000 candidates are taken from a frame, and every one of them is fitted.
 - A pixel the image marks as invalid, or a sample that holds no number, takes the value of the sky, so it stops
   nothing and becomes no star.
-- **Cancel**, **Clear** and **Close** stop a detection, which then shows nothing.
+- **Cancel** stops a detection, which then shows nothing.
 
 ### Worked example
 
@@ -648,7 +645,7 @@ caption: >-
 
 | Situation | Start | Then adjust |
 | --- | --- | --- |
-| A first detection | Either window at its defaults | In v2, **Radius** for the crowding of the field, then **Threshold** down in small steps. In v1, the size window, then **Detection Threshold** down. |
+| A first detection | Either task at its defaults | In v2, **Radius** for the crowding of the field, then **Threshold** down in small steps. In v1, the size window, then **Detection Threshold** down. |
 | Trails, pairs or poor fits in the list | **Relax PSF Checks** off | **Roundness Threshold** up first. Tick **Relax PSF Checks** only for stars you know it refuses. |
 | Stars with broad wings fit with a large **RMSE** | **Gaussian** | **Moffat** on the same stars, then **Minimum Beta** last. |
 | A list for a mask or a recombination | A broad detection you trust | Inspect the table, preview a **Stars Filter**, then save. |
@@ -661,7 +658,7 @@ caption: >-
     again.
 
 !!! warning "Close loses what you did not save"
-    Deletions, filters and a detection live only in the window. Save the profile before you close: the question
+    Deletions, filters and a detection live only in the task. Save the profile before you close: the question
     **Close** asks does not know whether you did.
 
 "Could NOT detect any star"
@@ -690,9 +687,9 @@ The saved v2 profile holds no catalog matches
 :   **Fix.** Install the catalog, plate solve the image and detect again.
 
 "Could NOT load the star profile file. Error message:" with a reason
-:   **Cause.** The file belongs to the other window, which "The file holds a profile of the second star profiler, and
-    this one reads the first's." says, or it is no profile the window can read.
-:   **Fix.** Open the file in the window of its version, or use a profile as the window saved it.
+:   **Cause.** The file belongs to the other task, which "The file holds a profile of the second star profiler, and
+    this one reads the first's." says, or it is no profile the task can read.
+:   **Fix.** Open the file in the task of its version, or use a profile as the task saved it.
 
 The mask covers only the cores
 :   **Cause.** **% Pixel Increase** multiplies the star's width, and 0.50 halves it.
@@ -706,7 +703,7 @@ The mask covers only the cores
 - [Plate Solving](plate-solving.md), to give the image the plate solution v2 places its stars with.
 - [Image Registration](image-registration.md), to align images rather than measure their stars.
 - [Settings](../../interface/settings-dialog.md), to install the Gaia catalog on the **Catalogs & Data** page.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

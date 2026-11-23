@@ -16,8 +16,9 @@ external: >-
   Final Master If Needed, and a Gaia catalog for Enrich with Gaia catalog
 glance:
   enabled: >-
-    Always, from the menu or from the Image Integration card of the Dashboard. The window opens without an image and
-    restores its last project. Execute Integration needs a light frame and an output directory it can write to.
+    Always, from the menu or from New integration in the Integration hub, whose Open on a job's row opens that job.
+    The task opens as a page of its own that it fills whole, without an image, and restores its last project. Execute
+    Integration needs a light frame and an output directory it can write to.
   inputs: >-
     Still image files in a format AfterNight reads: light frames, and any bias, dark and flat frames or masters made
     beforehand. No open image, mask, sequence or video is used.
@@ -38,23 +39,23 @@ controls_ignore:
   - {label: (No recent projects), reason: "A disabled line of Open Recent while it lists no project; the Import Project... entry describes Open Recent."}
   - {label: Save Preset..., reason: "The same action in the menu of Presets under the stages, which the Presets entry names; the Project block describes it."}
   - {label: No presets saved, reason: "A disabled line of Load Preset... and Delete Preset... while no preset exists; the Save Preset... entry describes both."}
-  - {label: Add Files..., reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Add Folder, reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: This Folder Only..., reason: "The same item on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Recursive..., reason: "The same item on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Remove Selected, object: actionRemoveSelected, reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Remove All, reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Darks, object: frameTreeSearch, reason: "The search box of the Darks tab, the same as the Bias tab's."}
-  - {label: Flats, object: frameTreeSearch, reason: "The search box of the Flats tab, the same as the Bias tab's."}
-  - {label: Lights, object: frameTreeSearch, reason: "The search box of the Lights tab, the same as the Bias tab's."}
-  - {label: Display, reason: "The same choice on the Darks, Flats and Lights tabs, which the Bias block describes."}
-  - {label: Filter, object: chkFilter, reason: "Hidden on the Bias and Darks tabs, whose frames are not grouped by filter."}
-  - {label: Object, object: chkObject, reason: "Hidden on the Bias and Darks tabs, whose frames are not grouped by object."}
-  - {label: Session, object: chkSession, reason: "Hidden on the Bias and Darks tabs, whose frames are not grouped by session."}
-  - {label: Exposure, object: chkExposure, reason: "Hidden on the Bias and Flats tabs, whose frames are not grouped by exposure."}
-  - {label: Tol (s), object: spinExpTolerance, reason: "Hidden with Exposure on the Bias and Flats tabs."}
-  - {label: Temperature, object: chkTemperature, reason: "Hidden on every tab but Darks."}
-  - {label: Tol (C), object: spinTempTolerance, reason: "Hidden with Temperature on every tab but Darks."}
+  - {label: Add Files..., reason: "The same button on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Add Folder, reason: "The same button on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: This Folder Only..., reason: "The same item on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Recursive..., reason: "The same item on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Remove Selected, object: actionRemoveSelected, reason: "The same button on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Remove All, reason: "The same button on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Darks, object: frameTreeSearch, reason: "The search box of the Darks page, the same as the Bias page's."}
+  - {label: Flats, object: frameTreeSearch, reason: "The search box of the Flats page, the same as the Bias page's."}
+  - {label: Lights, object: frameTreeSearch, reason: "The search box of the Lights page, the same as the Bias page's."}
+  - {label: Display, reason: "The same choice on the Darks, Flats and Lights pages, which the Bias block describes."}
+  - {label: Filter, object: chkFilter, reason: "Hidden on the Bias and Darks pages, whose frames are not grouped by filter."}
+  - {label: Object, object: chkObject, reason: "Hidden on the Bias and Darks pages, whose frames are not grouped by object."}
+  - {label: Session, object: chkSession, reason: "Hidden on the Bias and Darks pages, whose frames are not grouped by session."}
+  - {label: Exposure, object: chkExposure, reason: "Hidden on the Bias and Flats pages, whose frames are not grouped by exposure."}
+  - {label: Tol (s), object: spinExpTolerance, reason: "Hidden with Exposure on the Bias and Flats pages."}
+  - {label: Temperature, object: chkTemperature, reason: "Hidden on every page but Darks."}
+  - {label: Tol (C), object: spinTempTolerance, reason: "Hidden with Temperature on every page but Darks."}
   - {label: Enable minimum composite score filter, object: chkMinScore, reason: "The check box without text before Score ≥, which switches that filter on; the Score ≥ entry says so."}
   - {label: Score ≥, object: chkMinStars, reason: "The check box without text before Stars ≥, which the inventory names after the label before it; the Stars ≥ entry says so."}
   - {label: Stars ≥, object: chkMinSnr, reason: "The check box without text before SNR ≥, which the inventory names after the label before it; the SNR ≥ entry says so."}
@@ -67,35 +68,32 @@ controls_ignore:
 Image Integration turns the frames of one night, or of many, into stacked
 [masters](../../reference/glossary.md#master). You add [light frames](../../reference/glossary.md#light-frame) and
 any [bias frames](../../reference/glossary.md#bias-frame), [dark frames](../../reference/glossary.md#dark-frame) and
-[flat frames](../../reference/glossary.md#flat-frame), and the window sorts them into groups by what their headers
+[flat frames](../../reference/glossary.md#flat-frame), and the [task](../../reference/glossary.md#task) sorts them into groups by what their headers
 say. It matches calibration masters to each group of lights, and lets you choose the registration and the stacking of
 each group.
 
 **Execute Integration** stacks the bias, dark and flat masters, calibrates and registers the lights, and stacks each
 [integration group](../../reference/glossary.md#integration-group) into one linear 32-bit floating-point
 [FITS](../../reference/glossary.md#fits) master. Everything is written into the output directory and your frames are
-never changed. The window keeps the project for next time, and a later run reuses whatever still matches.
+never changed. The task keeps the [project](../../reference/glossary.md#project) for next time, and a later run reuses whatever still matches.
 
 ```figure
 image: ../../assets/images/processes/stacking-integration/image-integration-stacking.png
 alt: >-
-  The Image Integration window on its Stacking tab. Above it, the menus Frames, Project, Edit, Run, Navigate and Help,
-  the tabs Frame Sources and Workflow, and the tabs Calibration, Registration, Stacking and Summary. The Integration
-  Groups table has two rows, one for the object NGC253 and one for the object Target, with their frame counts, total
-  time, Average, Winsorized Sigma Clipping, Global Normalization and the name of each output file. Under it, the
-  Frame Quality panel shows the head of its table for the first group, with the columns Frame, Score, Stars, FWHM,
-  SNR, Eccentricity and Weight, then the Execution Options. The Output Directory field, Reset and Close run along the
-  bottom.
+  The Image Integration task, a page that fills the centre of the main window. Its header names the job over its
+  count of frames and groups, with the disk space it needs over a bar, the Undo and Redo buttons, the button of its
+  menus and Execute Integration at the right. At the left of the page, the stage list headed Run sheet: Bias, Darks,
+  Flats and Lights, each with its count of frames, then Calibration, Registration, Stacking and Summary, each with a
+  mark and a line of state, and Stacking selected. At its foot, the Output Directory field and the Import, Export,
+  Recent, Presets and Reset Settings buttons. Beside it, the Stacking page: the Integration Groups table has two rows,
+  one for the object NGC253 and one for the object Target, with their frame counts, total time, Average, Winsorized
+  Sigma Clipping, Global Normalization and the name of each output file. Under it, the Frame Quality panel shows the
+  head of its table for the first group, with the columns Frame, Score, Stars, FWHM, SNR, Eccentricity and Weight,
+  then the Execution Options.
 caption: >-
-  The Stacking tab after a run on the NGC 253 set with every setting at its default, the window opened again: one
+  The Stacking stage after a run on the NGC 253 set with every setting at its default, the run's view closed: one
   integration group for each object name the lights carry, and the measured lights of the first group below.
-pins:
-  - {n: 2, x: 30.0, y: 12.7}
-  - {n: 5, x: 5.0, y: 85.8}
-  - {n: 6, x: 12.0, y: 19.0}
-  - {n: 7, x: 24.0, y: 19.0}
-  - {n: 8, x: 35.5, y: 19.0}
-  - {n: 9, x: 47.5, y: 19.0}
+owed: true
 ```
 
 ## Before you start
@@ -118,11 +116,14 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Preprocess > Image Integration**, or the **Image Integration** card of the
-   Dashboard. No image needs to be open, and the window shows the project you left.
-2. **Add the frames.** On each tab of **Frame Sources**, choose **Add Folder** or **Add Files...** for frames of that
-   type. **Frames > Add Files... > Auto-sort by file type...** sorts mixed files by their headers instead. A progress
-   window reads the headers, and the files appear in the list.
+1. **Open the task.** Choose **New integration** under **Image Integration** in the
+   [Integration hub](../../interface/integration-hub.md), or **Process > Preprocess > Image Integration**. No image
+   needs to be open. The task opens as a page that fills the centre and shows the project you left: the stage list at
+   the left, the page of the stage selected beside it.
+2. **Add the frames.** Select **Bias**, **Darks**, **Flats** and **Lights** in turn in the stage list, and on each
+   page choose **Add Folder** or **Add Files...** for frames of that type. **Frames > Add Files... > Auto-sort by file
+   type...**, under the header's menu button, sorts mixed files by their headers instead. A band over the stages
+   follows the headers being read, and the files appear in the list.
 3. **Check the groups.** Choose **Hierarchical** under the list. Each group node names what its frames share, and
    **Group By** under the preview chooses what splits them.
 4. **Correct the headers' mistakes.** Right-click frames or a group to change their type, to mark a master or, under
@@ -130,7 +131,7 @@ pins:
    formed again.
 5. **Choose the output directory.** Type a path in **Output Directory**, or choose **...** beside it. The Summary
    stops reporting the output directory.
-6. **Check the calibration.** On **Workflow > Calibration**, read the **Bias**, **Dark** and **Flat** cells of each
+6. **Check the calibration.** On the **Calibration** stage, read the **Bias**, **Dark** and **Flat** cells of each
    light group. A green check is an exact match, and **Calibration Settings...** sets cosmetic correction and the
    dark's scale.
 7. **Choose the registration.** On **Registration**, select a group and choose **Registration Settings**. To see
@@ -140,23 +141,31 @@ pins:
    Settings...**. Each row names the master it will write.
 9. **Read the Summary.** On **Summary**, the card reads **Ready to Execute**, **Ready with Warnings** or **Cannot
    Execute**. **Go to** beside an issue opens the place to fix it.
-10. **Execute.** Choose **Execute Integration** or press ++ctrl+num-enter++, with the keypad's Enter. Read the **Execution Plan**, then choose
-    **Run**.
-11. **Follow the run.** The progress window names each stage and file, and **Cancel** stops at the next safe point.
-    A box titled **Complete** reads "Workflow completed successfully." at the end.
+10. **Execute.** Choose **Execute Integration** in the task header or on **Summary**, or press ++ctrl+enter++. Read
+    the **Execution Plan**, then choose **Run**.
+11. **Follow the run.** The run's view takes the place of the stage's page and names each stage and file, and
+    **Cancel** stops at the next safe point. It reads "Workflow Completed Successfully" at the end.
 12. **Look at the masters.** With **Open integrated files** on, each master opens in its own view, nearly black until
     you choose [Autostretch](../../reference/glossary.md#autostretch). **Open Report** shows the run's
-    [report](integration-report.md).
+    [report](integration-report.md), and **Close** puts the run's view away.
 
 ## Controls
 
-The window has no preview of a result, no **Apply** and no histogram, and it works on files, never on an open image.
-Its menus act on the whole project. **Frame Sources** holds the frames by type, and **Workflow** the settings of the
-run, a tab for each stage. The preview beside each frame list is the image viewer: see
+The task has no preview of a result, no **Apply** and no histogram, and it works on files, never on an open image.
+Its header names the job, with its frames, its groups and the disk it needs, and holds **Undo**, **Redo**, the button
+of its menus, which act on the whole project, and **Execute Integration**, which reads "Show progress" and the share
+done while a run is on its way. The stage list at the left, under **Run sheet**, has a row for each page: the frame
+sources **Bias**, **Darks**, **Flats** and **Lights**, then **Calibration**, **Registration**, **Stacking**, which
+stands for the normalization and the [drizzle](../../reference/glossary.md#drizzle) too, and **Summary**. Each row has a mark and a line of its state, and
+selecting it shows its page. The preview beside each frame list is the image viewer: see
 [Image Viewer](../../interface/image-viewer.md). Settings that belong to a group are chosen with the group selected,
 and the dialogs say which group they edit.
 
-### The menu bar
+The job is listed under **Integration jobs** in the [Integration hub](../../interface/integration-hub.md). A run with
+no project open is given one in its output folder while **Create a project for every integration job** is on in the
+**Projects** page of the settings; with a project open, the run and its masters join it.
+
+### The menus
 
 ```controls
 window: Add Files...
@@ -184,7 +193,7 @@ controls:
     default: ""
     effect: >-
       Adds the files you pick, each with the type its header states. A file whose header states none takes the type
-      a folder on its path names, and else the type of the tab shown.
+      a folder on its path names, and else the type of the frame source shown.
     range: >-
       The header's `IMAGETYP` card decides first, then INDI's `FRAME` card, or an XISF image's type. A value holding
       `OFFSET` names a bias. Folders named `bias`, `biases`, `offset`, `offsets`, `dark`, `darks`, `flat`, `flats`,
@@ -205,12 +214,12 @@ controls:
   - name: Remove All Frames...
     kind: action
     default: ""
-    effect: Removes every frame of the four tabs from the project, after the question "Are you sure you want to remove all frames?". The files stay on disk.
+    effect: Removes every frame of the four frame sources from the project, after the question "Are you sure you want to remove all frames?". The files stay on disk.
     note: ++ctrl+shift+delete++ does the same. It can be undone.
   - name: Go to Group...
     kind: action
     default: ""
-    effect: Asks for "group name or filter text" and selects the first group of the tab shown whose name holds it.
+    effect: Asks for "group name or filter text" and selects the first group of the frame source shown whose name holds it.
     note: ++ctrl+g++ does the same. With no match it says "No group matching" and the text.
 ```
 
@@ -262,7 +271,7 @@ controls:
     kind: action
     default: ""
     effect: Takes back the last change to the project, and names it.
-    range: Up to 100 changes, kept until the window closes. Files a run wrote are not taken back.
+    range: Up to 100 changes, kept until the task closes. Files a run wrote are not taken back.
     note: The **Keyboard Shortcuts** list names ++ctrl+z++ for it.
   - name: Redo
     kind: action
@@ -277,9 +286,9 @@ controls:
   - name: Execute Integration
     kind: action
     default: ""
-    effect: Prepares the run and shows its **Execution Plan**, as the Summary's button does.
+    effect: Prepares the run and shows its **Execution Plan**, as the Summary's button and the task header's do.
     enabled: When nothing in the project blocks a run.
-    note: ++ctrl+num-enter++, with the keypad's Enter, does the same; Ctrl with the main Enter key does nothing.
+    note: ++ctrl+enter++, with either Enter key, does the same.
 ```
 
 ```controls
@@ -288,35 +297,35 @@ controls:
   - name: Bias
     kind: action
     default: ""
-    effect: Shows the **Bias** tab. ++ctrl+1++ does the same.
+    effect: Selects **Bias** in the stage list. ++ctrl+1++ does the same.
   - name: Darks
     kind: action
     default: ""
-    effect: Shows the **Darks** tab. ++ctrl+2++ does the same.
+    effect: Selects **Darks** in the stage list. ++ctrl+2++ does the same.
   - name: Flats
     kind: action
     default: ""
-    effect: Shows the **Flats** tab. ++ctrl+3++ does the same.
+    effect: Selects **Flats** in the stage list. ++ctrl+3++ does the same.
   - name: Lights
     kind: action
     default: ""
-    effect: Shows the **Lights** tab. ++ctrl+4++ does the same.
+    effect: Selects **Lights** in the stage list. ++ctrl+4++ does the same.
   - name: Calibration
     kind: action
     default: ""
-    effect: Shows the **Calibration** tab. ++ctrl+5++ does the same.
+    effect: Selects **Calibration** in the stage list. ++ctrl+5++ does the same.
   - name: Registration
     kind: action
     default: ""
-    effect: Shows the **Registration** tab. ++ctrl+6++ does the same.
+    effect: Selects **Registration** in the stage list. ++ctrl+6++ does the same.
   - name: Stacking
     kind: action
     default: ""
-    effect: Shows the **Stacking** tab. ++ctrl+7++ does the same.
+    effect: Selects **Stacking** in the stage list. ++ctrl+7++ does the same.
   - name: Summary
     kind: action
     default: ""
-    effect: Shows the **Summary** tab. ++ctrl+8++ does the same.
+    effect: Selects **Summary** in the stage list. ++ctrl+8++ does the same.
 ```
 
 ```controls
@@ -325,14 +334,14 @@ controls:
   - name: Keyboard Shortcuts
     kind: action
     default: ""
-    effect: Lists the window's keys.
+    effect: Lists the task's keys.
     note: >-
       ++shift+f1++ opens it. Besides the keys of the menus, it lists ++f5++ to refresh the view, ++ctrl+f++ for the search
       box, ++ctrl+a++ to select every frame, ++esc++ to clear the selection, and ++home++ and ++end++ for the first
       and last frame.
 ```
 
-### The window
+### The foot of the stage list
 
 ```controls
 window: Image Integration
@@ -377,10 +386,11 @@ controls:
     note: It also clears **Undo** and shows **Bias**. **Project > Reset Settings...** does the same.
 ```
 
-### Frame Sources
+### The frame sources
 
-The four tabs share their toolbar, their search box and **Display**, which the **Bias** block describes. A red badge
-on a tab counts the issues found there, and its tooltip lists them.
+The four pages of the frame sources share their toolbar, their search box and **Display**, which the **Bias** block
+describes. The line of a row of the stage list counts the issues found on its page, as `2 issues`, and its tooltip
+lists them.
 
 ```controls
 window: Bias
@@ -388,7 +398,7 @@ controls:
   - name: Add Files...
     kind: toolbutton
     default: ""
-    effect: Adds the files you pick as frames of this tab's type, whatever their headers say.
+    effect: Adds the files you pick as frames of this page's type, whatever their headers say.
     range: >-
       A file already in the project is not added twice. A bias, dark or flat frame whose name, or one of its three
       nearest folders, holds the word "master" is marked as a master, with the source **Auto Detected**.
@@ -396,7 +406,7 @@ controls:
   - name: Add Folder
     kind: toolbutton
     default: ""
-    effect: Adds every supported file of the folder you pick, as frames of this tab's type. The arrow beside it offers the two items below.
+    effect: Adds every supported file of the folder you pick, as frames of this page's type. The arrow beside it offers the two items below.
     note: A folder without one supported file says "No supported image files found in the selected directory."
   - name: This Folder Only...
     kind: action
@@ -410,11 +420,11 @@ controls:
   - name: Remove Selected
     kind: toolbutton
     default: ""
-    effect: Removes the selected frames of this tab from the project, as **Frames > Remove Selected** does.
+    effect: Removes the selected frames of this page from the project, as **Frames > Remove Selected** does.
   - name: Remove All
     kind: toolbutton
     default: ""
-    effect: Removes every frame of this tab, after a question. The files stay on disk, and **Edit > Undo** brings them back.
+    effect: Removes every frame of this page, after a question. The files stay on disk, and **Edit > Undo** brings them back.
   - name: Bias
     object: frameTreeSearch
     kind: field
@@ -432,13 +442,13 @@ controls:
     effect: >-
       **Flat** lists every file. **Hierarchical** lists the groups, each with its frames under it, and the frames can
       be dragged from one group to another.
-    persistence: Each tab keeps its own choice in the settings file, for the next window too.
+    persistence: Each frame source keeps its own choice in the settings file, for the next task too.
   - name: ISO / Gain
     kind: check
     default: "Off"
     effect: Splits the groups by the camera's ISO or gain.
     tradeoff: Safer matching, and more groups with fewer frames each.
-    scope: This tab's groups. Each tab has a **Group By** box of its own under the preview, and resolution always splits the groups.
+    scope: This page's groups. Each frame source has a **Group By** box of its own under the preview, and resolution always splits the groups.
   - name: Offset
     kind: check
     default: "On"
@@ -450,7 +460,7 @@ controls:
     effect: Splits the groups by the tag you give frames with **Metadata Overrides > Set Custom Tag...**, for a difference no header records, such as another optical train.
     persistence: >-
       The grouping is part of the project and of a preset. A change makes the groups again after a moment, and the
-      tab may say "Grouping changed for" the type and "per-group settings were reset.", so check the groups' settings
+      page may say "Grouping changed for" the type and "per-group settings were reset.", so check the groups' settings
       and assignments.
 ```
 
@@ -534,7 +544,7 @@ controls:
     default: "Off"
     effect: Shows only the lights that seem to lack a calibration match.
     scope: The list only.
-    persistence: Kept in the settings file, for the next window too.
+    persistence: Kept in the settings file, for the next task too.
   - name: Filter
     kind: check
     default: "On"
@@ -659,21 +669,21 @@ controls:
     default: "Off"
     effect: Shows the selected light calibrated with the masters matched to it and its group's calibration settings. The file is not changed.
     enabled: >-
-      On the **Lights** tab, with a light selected whose group is not **Pre-Calibrated**, when at least one bias, dark
+      On the **Lights** page, with a light selected whose group is not **Pre-Calibrated**, when at least one bias, dark
       or flat master is matched to it and every one it uses exists on disk. CCD mode also needs a bias beside the
       dark. Otherwise its tooltip says why, as "Missing calibration masters" with what to build.
     tradeoff: The preview can be partial, with the masters that exist. It shows what calibration does, not the run's exact result.
-    persistence: Off in every new window.
+    persistence: Off in every new task.
     note: Its tooltip names the masters used. With a dark, the bias is left out, as in the run.
 ```
 
 ```controls
-window: Importing files...
+window: The import band
 controls:
   - name: Import Progress
     kind: readout
     default: ""
-    effect: Shows the file being read, the files done, the time left and "Issues detected" with the last ones.
+    effect: Shows, in a band over the stages, the file being read, the files done, the time left and "Issues detected" with the last ones. The stages, the foot and the menus wait meanwhile, and the rest of AfterNight stays usable.
   - name: Pause
     kind: button
     default: ""
@@ -681,7 +691,7 @@ controls:
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the import. Nothing of it is added.
+    effect: Stops the import. Nothing of it is added. ++esc++ does the same.
     note: >-
       At the end, **Import Issues** lists the files that could not be read, and a note says what was added, as
       "Imported: 35 Lights". A second import while one runs says "Another import is already running."
@@ -1024,7 +1034,7 @@ controls:
     default: ""
     effect: Registers the selected group alone, after an **Execution Plan**, with the masters it needs. Its lights' figures then fill the table.
     enabled: With a group selected and an output directory set, when the group has work to do. The tooltip says why it is enabled or not.
-    note: '**Reprocess existing** on the **Stacking** tab counts here too.'
+    note: '**Reprocess existing** on the **Stacking** page counts here too.'
   - name: Clear Registration...
     kind: button
     default: ""
@@ -1667,7 +1677,7 @@ controls:
     default: "Off"
     effect: Computes everything again instead of reusing earlier work, and replaces the outputs.
     tradeoff: The whole run's time and disk. The replaced outputs go to the run's archive.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Open integrated files
     kind: check
     default: "On"
@@ -1712,7 +1722,7 @@ controls:
     effect: Caps the threads each step of a run uses.
     range: Up to the threads the computer offers.
     tradeoff: Fewer leave more of the computer to other work, and the run takes longer.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Run Integration (All Groups)
     kind: button
     default: ""
@@ -2105,8 +2115,8 @@ controls:
     default: ""
     effect: Lists the errors, then the warnings, each with its group. Its tooltip gives the details, the severity and a suggestion.
     note: >-
-      **Go to** beside an issue, or a click on it, opens what to fix: the output directory, a frame tab or a workflow
-      tab, with the group selected.
+      **Go to** beside an issue, or a click on it, opens what to fix: the output directory, or the page of a frame
+      source or of a stage of the workflow, with the group selected.
   - name: Integration Summary
     kind: readout
     default: ""
@@ -2129,7 +2139,7 @@ controls:
       A run offers **Open All**, **Report**, **Save As...**, **Log**, **Re-run** and **Delete**, and a master **Open**
       and **Compare**. **Save As...** writes the report as one file that opens on its own, and is offered for a run
       that keeps its report as data.
-      **Re-run** runs the archived settings in the window's output directory without a plan, and opens nothing.
+      **Re-run** runs the archived settings in the task's output directory without a plan, and opens nothing.
       **Delete** removes the run's folder for good, after a question.
     note: >-
       **Report** writes the report again from the record the run kept, then opens it. For a run made by an earlier
@@ -2169,16 +2179,17 @@ controls:
 ```
 
 ```controls
-window: Image Integration - Processing
+window: The run's view
 controls:
   - name: Stage timeline
     kind: readout
     default: ""
-    effect: Shows **Bias**, **Dark**, **Flat**, **Calibration**, **Registration**, **Alignment**, **Normalization**, **Drizzle** and **Stacking**, each pending, running, done, skipped or failed.
+    effect: Lists at the view's left the stages the run goes through, of **Bias**, **Dark**, **Flat**, **Calibration**, **Registration**, **Alignment**, **Normalization**, **Drizzle** and **Stacking**. Each is to come, at work with how far it has come, its group and the step it is at, done with the time it took, or stopped or failed.
+    note: The view takes the place of the stage's page, and no row of the stage list is selected while it shows. A row selected meanwhile shows its page, held to be looked at, and **Show progress** in the task header brings the view back. The stage list's rows follow the run too.
   - name: Progress
     kind: readout
     default: Initializing...
-    effect: Shows the group, the operation and the step, a bar that never goes back within a stage, the **Current File** and the elapsed time.
+    effect: Shows what the run does, a bar of the whole run that never goes back within a stage, the **Current File**, the time taken and, once it can tell, the time left.
   - name: Process Output
     kind: readout
     default: ""
@@ -2186,27 +2197,29 @@ controls:
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop at its next safe point, and reads **Cancelling...** meanwhile. Closing the window asks the same.
+    effect: Asks the run to stop at its next safe point, and reads **Cancelling...** meanwhile. The task cannot be closed while the run works.
     tradeoff: Groups finished by then keep their masters.
   - name: Open Report
     kind: button
     default: ""
     effect: Opens `workflow_report.html` in your browser.
-    enabled: At the end, when a report was written. **Close** appears then.
+    enabled: At the end, when a report was written. **Close**, which puts the view away, appears then.
     note: >-
-      At the end a box reads "Workflow completed successfully.", "Workflow was cancelled.", "Workflow failed:" with
-      the reason, or, under **Completed with Errors**, the frames and groups that failed.
+      No box ends the run: the view reads "Workflow Completed Successfully", "Workflow Completed with Warnings",
+      "Workflow Cancelled" or "Workflow Failed", and its stages say where it stopped. A run that ends while another
+      place is shown says "Image Integration finished", or failed or stopped, at the foot of the centre, with
+      **Show**, and the job's row in the Integration hub says the same.
 ```
 
 ## How it works
 
 1. The headers of the added files give each frame a type, a size, a filter, an object, an exposure, a temperature,
-   a gain and a session, the UTC date of its exposure. Each tab groups its frames by the criteria of **Group By**,
+   a gain and a session, the UTC date of its exposure. Each frame source groups its frames by the criteria of **Group By**,
    and your overrides take the headers' place.
 2. Each group of lights is matched to a bias, dark and flat group, by your choice or by the policy, and the run
    stacks a master for every calibration group a light or a flat uses.
 3. Each light is calibrated as it is read, and registered on its group's reference. Unless its group uses
-   [drizzle](../../reference/glossary.md#drizzle) or lets its registered images be discarded, it is written aligned,
+   drizzle or lets its registered images be discarded, it is written aligned,
    in 32-bit floating point, under `registered_lights`.
 4. The lights of each integration group are brought to the reference's level, weighed, cleared of rejected samples
    and combined into the master, which is written with its maps and its sky solution.
@@ -2258,12 +2271,12 @@ rejection and the weighting choose \(A_p\) and \(w_i\). Nothing clamps the maste
 The NGC 253 set comes from a QHY183C color camera: 35 lights of 180 s, 20 darks of 180 s, 40 flats and 30 bias
 frames, all 5544 × 3684 FITS files with the pattern RGGB, in the folders `lights`, `darks`, `flats` and `biases`.
 
-On the **Bias** tab choose **Add Folder** and pick `biases`, then do the same on **Darks**, **Flats** and **Lights**
+On the **Bias** page choose **Add Folder** and pick `biases`, then do the same on **Darks**, **Flats** and **Lights**
 with their folders. Choose a new, empty folder in **Output Directory**, leave every setting at its default, and
 choose **Execute Integration** on **Summary**, then **Run** under the plan.
 
-The tabs show one bias group, one dark group of 180 s and one flat group: flats are not split by exposure, so the
-flats of 4.35 s and of 0.39 s of the same night make one master. The Lights tab shows two groups. The capture program
+The pages show one bias group, one dark group of 180 s and one flat group: flats are not split by exposure, so the
+flats of 4.35 s and of 0.39 s of the same night make one master. The Lights page shows two groups. The capture program
 wrote `NGC253` as the object of the first 18 lights and `Target` in the other 17. Each light group takes the master
 dark and the master flat, and its **Bias** cell shows `-`. The flat group finds no dark of its exposures, so its
 **Dark** cell shows a warning sign and the bias master calibrates the flats.
@@ -2274,7 +2287,7 @@ The registration and the stack split by object too, so the run writes `master_bi
 `EXPTIME` 3240, the 18 exposures added. By equation (3), with little rejected, its noise is close to
 \(1/\sqrt{18} = 0.24\) of one light's. Each registered light is a color image of 245 MB, 8.6 GB for the 35.
 
-To stack all 35 lights in one master, choose **Hierarchical** on the **Lights** tab, right-click the **Target**
+To stack all 35 lights in one master, choose **Hierarchical** on the **Lights** page, right-click the **Target**
 group and choose **Metadata Overrides > Set Object...**, type `NGC253`, then execute again. The plan reuses the
 calibration masters, registers the one group of 35 and writes `stacked_5544x3684_NGC253.fit` again.
 
@@ -2365,11 +2378,11 @@ An **Execution Error** box that reads "Unknown", a setting and "in group", and t
 :   **Cause.** The group has fewer than two lights with a registered file.
 :   **Fix.** Include more lights, or register the group again with **Run Registration**.
 
-"The last Image Integration session could not be restored", and the window opens empty
-:   **Cause.** The saved project holds a value no dialog writes. It is kept as it is, and the window saves nothing
+"The last Image Integration session could not be restored", and the task opens empty
+:   **Cause.** The saved project holds a value no dialog writes. It is kept as it is, and the task saves nothing
     over it.
 :   **Fix.** Import an exported project, or add the frames again, and export the project before you close the
-    window.
+    task.
 
 ## Related
 

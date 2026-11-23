@@ -8,7 +8,7 @@ summary: >-
 # Generalized Hyperbolic Transformation Reference
 
 This page holds what [Generalized Hyperbolic Transformation](gh-transformation.md) leaves out to stay readable
-beside its window. It gives the curve again with its slopes, the inverse that **Invert** applies, the curve **STF
+beside its [task](../../reference/glossary.md#task). It gives the curve again with its slopes, the inverse that **Invert** applies, the curve **STF
 Transformation** derives, the factor of **Colour**, a table of checkpoints, what too little and too much of each
 value look like, and the text the [history](../../reference/glossary.md#history) records. Each section can be read on its own, and the equations are
 numbered through the page.
@@ -26,7 +26,7 @@ numbered through the page.
 | \(y\) | A sample of the result, from 0 to 1 | The curve |
 | \(t\) | The distance of a sample from the symmetry point | \(S - x\) below it, \(x - S\) above it |
 
-The window keeps \(L \le S \le H\).
+The task keeps \(L \le S \le H\).
 
 ## The curve and its slopes
 
@@ -89,7 +89,7 @@ changes nothing.
 
 ## The inverse that Invert applies
 
-With **Invert** on, a sample \(y\) becomes the \(x\) for which \(F(x) = y\). The window offers it for the three
+With **Invert** on, a sample \(y\) becomes the \(x\) for which \(F(x) = y\). The task offers it for the three
 types of the section above. The curve of equation (5) has four pieces, which meet at the results of the three
 points:
 

@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    A color image, with or without an alpha channel, or a sequence that shows one is active, no Color Saturation window
-    is open on it yet, and no window that needs the image for itself is open on it.
+    A color image, with or without an alpha channel, or a sequence that shows one is active, no Color Saturation task
+    is open on it yet, and no task that needs the image to itself is open on it. The task opens as a page of its own,
+    beside other tasks, and Apply runs only while nothing else is working on the target.
   inputs: >-
     One RGB image, or a sequence of RGB frames, without an alpha channel, and an optional mask of the image's size on
     its view.
@@ -42,24 +43,22 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/color-saturation.webp
 alt: >-
-  The Color Saturation window. On the left, a histogram with one broad peak near its left third and the lines
-  Clipping Low and Clipping High in its corner. Under it a toolbar, Hue at Global, Amount at 0.50 and Background factor at
-  1.00 with their sliders, Target Image and Preview checked. On the right, the preview shows a red nebula in strong
-  colors on a gray background. Reset, Close and Apply run along the bottom.
+  The Color Saturation task. Its header names Color Saturation and the master. The canvas at the left shows the
+  preview of a red nebula in strong colors on a gray background, the word PREVIEW in its corner, with a floating
+  toolbar of zoom buttons and a channel box near its foot. The column at the right holds the preview's small
+  histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, a toolbar over a histogram
+  with one broad peak near its left third and the lines Clipping Low and Clipping High in its corner, then Hue at
+  Global, and Amount at 0.50 and Background factor at 1.00 with their sliders. Reset, Close and Apply stand in its
+  footer.
 caption: >-
   Color Saturation on a stretched master with Hue at Global, Amount at 0.50 and Background factor at 1.00. The
-  preview shows the stronger colors Apply writes, and the sky below the cutoff as it was.
-pins:
-  - {n: 2, x: 2.0, y: 53.8}
-  - {n: 3, x: 2.0, y: 58.9}
-  - {n: 4, x: 2.0, y: 63.9}
-  - {n: 5, x: 73.0, y: 26.0}
-  - {n: 6, x: 91.0, y: 96.0}
+  preview in the canvas shows the stronger colors Apply writes, and the sky below the cutoff as it was.
+owed: true
 ```
 
 ## Before you start
 
-- Calibrate the colors and stretch the image first. The window reads the stored red, green and blue as they are, with
+- Calibrate the colors and stretch the image first. The [task](../../reference/glossary.md#task) reads the stored red, green and blue as they are, with
   no color profile or transfer curve, so it calibrates nothing.
 - The image is RGB without an alpha channel. A color image with alpha is offered but refused when the preview or
   Apply runs.
@@ -70,26 +69,29 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched RGB image the active one and choose **Process > Intensity
-   Transformations > Color Saturation**. **Target Image** names it, the preview shows it unchanged, and **Apply** is
-   already enabled.
+1. **Open the task.** Make the stretched RGB image the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Intensity Transformations > Color Saturation**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image unchanged, and the column at the right holds its controls. **Target Image** names the image,
+   and **Apply** is already enabled.
 2. **Choose the hues.** Leave **Hue** at **Global** to change every color. Choose a range only to change one family
    of colors and leave the others alone.
 3. **Set the amount.** Raise **Amount** in small steps to strengthen the colors, or lower it below 0 to mute them. The
    preview follows: the colors of the brighter parts change, and the dark sky stays as it was.
 4. **Protect the background.** Leave **Background factor** where it is to leave the sky alone. Raise it if the sky
    gains color, or lower it if a faint colored structure does not change.
-5. **Check the preview at 100 %.** Zoom the preview into the background, the faint colored structure, the borders
+5. **Check the preview at 100 %.** Zoom the canvas into the background, the faint colored structure, the borders
    between colors and the brightest stars. Press ++space++ over it to compare with the original, and look for colored
    noise, halos and hard color edges.
-6. **Apply.** Choose **Apply**. The image in its view is the adjusted one, its history lists **Color Saturation**
-   with the amount, the factor and the hue range, and the controls return to their defaults.
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the adjusted
+   one, its history lists **Color Saturation** with the amount, the factor and the hue range, and the controls return
+   to their defaults.
 
 ## Controls
 
-The histogram and its toolbar, the preview pane, **Close** and the progress window of a sequence work as in every
-process window: see [Process Windows](../../interface/process-windows.md). This window has no **Channel**: it changes
-the three channels together. Its preview pane has no **Display Mode**.
+The histogram and its toolbar, the canvas, the toggles row, **Close** and the run in the column work as in every task:
+see [Tasks](../../interface/tasks.md). This task has no **Channel**: it changes the three channels together. Its canvas
+has no **Display Mode**.
 
 ```controls
 window: Color Saturation
@@ -103,7 +105,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The edges are hard, with no feathering, so a smooth change of color can show a step where it crosses one. A hue between two ranges, such as 20.5 degrees, is in neither. **Cyan** lies inside **Yellow-Green / Green-Cyan**. The names label the ranges and are not calibrated bands of the spectrum.
     scope: The preview and Apply, on the pixels above the cutoff, all three channels together, for images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Global**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Global**.
   - name: Amount
     kind: spinbox
     default: "0.00"
@@ -113,7 +115,7 @@ controls:
     enabled: Disabled while Apply runs. **Apply** is enabled at 0 too.
     tradeoff: A positive value strengthens colored noise and color halos as much as the signal, and colors that are already strong reach the limit and flatten. A negative value mutes the chosen colors.
     scope: The preview and Apply, on the pixels above the cutoff whose hue is chosen. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Background factor
     kind: spinbox
     default: "1.00"
@@ -123,7 +125,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: It is a hard gate on lightness, with no soft edge, so a faint colored structure below the cutoff is not changed at all. Its tooltip speaks of low-saturation areas, but the gate reads lightness alone. A dim, strongly colored pixel is protected, and a bright, pale one is not. A value above 0 measures the median and the deviation of the green channel, which adds to the work of a preview and of Apply.
     scope: The preview and Apply. The median and the deviation are those of the whole image, also for a preview area, a snapshot of one and the previews while you drag, so the area shows what Apply writes there. On a sequence each frame gets the cutoff of its own green channel.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 1.
     note: The deviation is that of the whole population of green samples. A green sample that is not a number is left out of both measurements, and so is a pixel the image marks as invalid.
   - name: Target Image
     kind: combo
@@ -131,15 +133,15 @@ controls:
     options: [The active image, Every other open color image or sequence]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The cutoff, the histogram and the preview follow it.
     range: It lists the open color images and sequences, with or without an alpha channel.
-    persistence: Until the window closes. **Reset** leaves it. An edit that turns the target into a grayscale image closes the window.
+    persistence: Until the task closes. **Reset** leaves it. An edit that turns the target into a grayscale image closes the task.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the adjusted image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the adjusted image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: Disabled while Apply runs, with the whole toggles row.
     tradeoff: With **Background factor** above 0, each preview of the whole image measures the green channel again. The previews of a preview area and of a drag reuse one measurement of the image.
-    scope: The window only. The preview runs the computation Apply runs, so it shows the values Apply writes. While you drag a slider it is computed on what the pane shows, the image reduced to the pane's size or the part in view at 100 % and closer, and on the whole image when you stop. The pane shows the samples as they are, in the **Linear** mode, whatever the target's view shows.
-    persistence: Until the window closes. **Reset** leaves it.
+    scope: The canvas only. The preview runs the computation Apply runs, so it shows the values Apply writes. While you drag a slider it is computed on what the canvas shows, the image reduced to the canvas's size or the part in view at 100 % and closer, and on the whole image when you stop. The canvas shows the samples as they are, in the **Linear** mode, whatever the target's view shows.
+    persistence: Until the task closes. **Reset** leaves it.
     note: A snapshot of the preview is an RGB image of the target's pixel type, named `<target> - Color Saturation - SNAPSHOT`, and is not recorded as nonlinear.
   - name: Reset
     kind: button
@@ -150,7 +152,7 @@ controls:
     kind: button
     default: ""
     effect: Changes the saturation of the image, or of every frame of the sequence, with the three values as they are when you press it, and then returns them to their defaults.
-    enabled: From the moment the window opens, at an **Amount** of 0 too. While a run works it is disabled, with **Hue**, **Amount**, **Background factor**, **Target Image**, **Reset** and **Close**, with **Preview** on or off.
+    enabled: From the moment the task opens, at an **Amount** of 0 too. While a run works **Cancel** takes its place, and **Hue**, **Amount**, **Background factor**, **Target Image**, the toggles, **Reset** and **Close** are disabled, with **Preview** on or off.
     tradeoff: Every pixel above the cutoff is converted to HSL and back. An integer image is worked in a floating-point copy, and a positive factor measures the green channel first.
     scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards.
     persistence: "The history step is **Color Saturation** and reads, for example, `Double coeff 0.5, background factor 1, hue min 0, hue max 360`. It records the hue range in degrees and not its name, the mask or the cutoff it computed. Undoing the step restores the image before."
@@ -207,12 +209,11 @@ whose saturation is 0, does not change.
   held at 1 when its hue is chosen, and its channels are held between 0 and 1. An integer result is rounded to the
   nearest value, a tie to the even one.
 - A run that is stopped writes nothing, and the image and its history stay as they were. A run stops when its target
-  closes, or with **Cancel** for a sequence.
-- A single image has no progress window and cannot be cancelled once Apply starts.
+  closes, or with **Cancel**, in Apply's place while the run works.
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. With **Hue** at
 **Global**, **Amount** at 0.50 and **Background factor** at 1.00, equation (2) puts the cutoff one standard deviation
 of the green channel above its median of about 0.28. Most of the sky lies below it and keeps its colors. A red pixel
@@ -254,8 +255,8 @@ red. With a cutoff of 0.5 or more it is not changed at all, whatever **Hue** and
 
 !!! warning "Apply changes the image at an Amount of 0"
     **Apply** is enabled at the defaults. At an **Amount** of 0 it still rebuilds the pixels above the cutoff, holds
-    floating-point values outside 0 to 1, adds a history step and records the image as nonlinear. Close the window
-    to leave the image as it is.
+    floating-point values outside 0 to 1, adds a history step and records the image as nonlinear. Close the task to
+    leave the image as it is.
 
 "the colour saturation needs an image of red, green and blue"
 :   **Cause.** The target has an alpha channel, or a frame of the sequence is not RGB.
@@ -288,8 +289,8 @@ Apply changed more of the image than the preview showed
 :   **Fix.** Untick **Preview area** to see the whole result before you Apply.
 
 The preview looks darker than the image's view
-:   **Cause.** The view is in [Autostretch](../../reference/glossary.md#autostretch), and the preview pane shows the
-    samples as they are.
+:   **Cause.** The view is in [Autostretch](../../reference/glossary.md#autostretch), and the canvas shows the samples
+    as they are.
 :   **Fix.** Switch the view to **Linear** to compare, or judge the result in the view after Apply.
 
 ## Related
@@ -303,8 +304,7 @@ The preview looks darker than the image's view
   change you want.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to check the result.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.
 
 ## Credits
 

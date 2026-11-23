@@ -14,8 +14,9 @@ masks: post-blend
 external: The G'MIC library, bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no Patch PCA Denoise window is open on it yet, and no window that needs the
-    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+    An image or a sequence view is active, no Patch PCA Denoise task is open on it yet, and no task that needs the
+    image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while
+    nothing else is working on the target. Preview and Apply also need a build that carries G'MIC.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an optional
     mask of the image's size on its view.
@@ -41,21 +42,17 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/patch-pca-denoise.webp
 alt: >-
-  The Patch PCA Denoise window. On the left, the Strength box at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
-  Sampling at 7, each with its slider, and lower down Target Image, Channel at RGB and the Preview check box. On the
-  right, a toolbar of zoom buttons, a channel box, the display mode box at Autostretch, a settings button, a switch and
-  a menu button over the whole nebula, with the word PREVIEW in its corner and a small framed area labelled Preview:
-  Patch PCA Denoise Filter in its middle. Reset, Close and Apply run along the bottom.
+  The Patch PCA Denoise task. Its header names Patch PCA Denoise and the master. The canvas at the left shows the
+  whole nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Patch PCA Denoise Filter in
+  its middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings
+  button near its foot. The column at the right holds the preview's small histogram and statistics, the toggles
+  Preview, Preview area and Processed, Target Image and Channel at RGB, and the Strength box at 4.00, Patch Size at 5,
+  Lookup Size at 7 and Spatial Sampling at 7, each with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
   Patch PCA Denoise on the linear Carina master with Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
-  Sampling at 7, the preview shown in the Autostretch display mode: the framed preview area is denoised, over the
-  original.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 64.5, y: 55.5}
-  - {n: 4, x: 2.0, y: 20.1}
-  - {n: 5, x: 2.0, y: 24.5}
-  - {n: 6, x: 2.0, y: 33.5}
+  Sampling at 7, the preview shown in the Autostretch display mode: the framed preview area of the canvas is denoised,
+  over the original.
+owed: true
 ```
 
 ## Before you start
@@ -75,10 +72,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear master the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Noise Reduction > Patch PCA Denoise Filter**. The preview shows a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, denoised once its run ends,
-   and **Apply** is enabled at once.
+1. **Open the task.** Make the linear master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Noise Reduction > Patch PCA Denoise Filter**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the
+   left shows a framed [preview area](../../reference/glossary.md#preview-area) in the middle of the image, denoised
+   once its run ends, and the column at the right holds its controls.
 2. **Choose what to denoise.** Leave **Channel** at **RGB**, or choose **CIE L* (Lightness)** when colors shift around
    weak detail.
 3. **Place the preview area.** Move it over background, faint stars and an edge, and keep it small.
@@ -87,15 +85,15 @@ pins:
 5. **Choose the patches.** Change **Patch Size** or **Lookup Size** one at a time. Smaller values run much faster.
 6. **Keep the sampling dense enough.** Keep **Spatial Sampling** at or below **Patch Size** plus **Lookup Size**
    minus 1.
-7. **Check at 100 %.** Zoom the preview to 100 %, hold ++space++ to compare, and look at each channel with
+7. **Check at 100 %.** Zoom the canvas to 100 %, hold ++space++ to compare, and look at each channel with
    **View Channel**.
-8. **Apply.** Choose **Apply**. A progress window with a busy bar follows the run, the view shows the denoised image,
-   and its history lists **Patch PCA Denoise** with the four values.
+8. **Apply.** Choose **Apply**, or press ++ctrl+enter++. The column follows the run, the view shows the denoised
+   image, and its history lists **Patch PCA Denoise** with the four values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Patch PCA Denoise
@@ -105,11 +103,11 @@ controls:
     default: "4.00"
     widget: {min: 0, max: 16, step: 0.01, decimals: 2}
     effect: Sets the cutoff as a multiple of the noise the command measures. In each local model, the components weaker than **Strength** times the noise are dropped. Higher drops more and smooths more. At 0 every component is kept.
-    range: The slider moves it in 1,000 steps of 0.016. G'MIC's own default for the command is 1.8, and the window always sends its own value.
+    range: The slider moves it in 1,000 steps of 0.016. G'MIC's own default for the command is 1.8, and the task always sends its own value.
     enabled: Disabled while Apply runs.
     tradeoff: The cutoff is hard, so a high value removes faint stars, thin filaments and texture of low contrast at once, and leaves flat or blotchy areas. It costs no more time.
     scope: The preview and Apply, on what **Channel** selects, before the mask. The noise is measured once for the whole image or preview area, over all its channels, and is shown nowhere. Real edges and small, sharp stars can raise it.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 4.00.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 4.00.
   - name: Patch Size
     kind: spinbox
     default: "7"
@@ -119,7 +117,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A patch of side N is a vector of N² samples, so its model is a matrix of N⁴ values whose eigenvectors cost about N⁶ operations. From 7 to 14 the matrix grows 16 times and that work about 64 times. Large patches also mix unrelated detail.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 7.
   - name: Lookup Size
     kind: spinbox
     default: "11"
@@ -129,23 +127,23 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The work grows with the square of the value, and so does the number of rebuilt patches added into the image. A large window mixes unrelated structure into one model.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 11.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 11.
   - name: Spatial Sampling
     kind: spinbox
     default: "7"
     widget: {min: 1, max: 16, step: 1}
     effect: Sets the step, in pixels along both axes, between the reference positions. A model is built only where both coordinates are multiples of it. Higher skips more positions and runs faster. Lower makes the estimates denser.
-    range: G'MIC's own default is 5, and the window always sends its own value. Nothing holds it at or below **Patch Size** plus **Lookup Size** minus 1.
+    range: G'MIC's own default is 5, and the task always sends its own value. Nothing holds it at or below **Patch Size** plus **Lookup Size** minus 1.
     enabled: Disabled while Apply runs.
     tradeoff: The number of positions falls with the square of the value, so from 7 to 1 it grows about 49 times. Above **Patch Size** plus **Lookup Size** minus 1, pixels between positions are rebuilt by no patch and come out black, and a sparse grid can leave uneven texture. The right and bottom edges can be left uncovered sooner.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 7.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -153,22 +151,22 @@ controls:
     effect: Chooses what is denoised. **RGB** hands the command the three channels, and each is modelled on its own, with one noise level for all three. **Red**, **Green** or **Blue** denoises that channel and keeps the other two. Every other choice denoises one component and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB** there is no joint color model, and each channel can keep a different number of components around weak detail, which can shift its color. A component costs two conversions and a working copy, and colors the conversion back puts out of range are cut in an integer image and kept in a floating-point one.
-    scope: The preview and Apply, before the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the denoised image beside the controls, with the mask blended in.
+    effect: Shows the denoised image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 350 by 350 pixels in the middle of the image, labelled "Preview: Patch
-      PCA Denoise Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 350 by 350 pixels in the middle of the image, labelled "Preview:
+      Patch PCA Denoise Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles
+      row, and **Take snapshot** on the canvas's floating toolbar.
     enabled: >-
       In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
       G'MIC library, so this process cannot run."
     tradeoff: Every change runs the whole command again, on one processor thread, so without the area each change on a large image can take a very long time. An Autostretch display can exaggerate leftover noise.
-    scope: The window only. The area is denoised as an image of its own, with its own noise level, and near its edges the command repeats the area's edge pixels. Judge at **Zoom 100%**, since a fitted view hides black gaps, grid texture and lost stars. The pane offers **Display Mode**.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The canvas only. The area is denoised as an image of its own, with its own noise level, and near its edges the command repeats the area's edge pixels. Judge at **Zoom 100%**, since a fitted view hides black gaps, grid texture and lost stars. The canvas's toolbar offers **Display Mode**.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -179,8 +177,8 @@ controls:
     kind: button
     default: ""
     effect: Denoises the whole image, or every frame of the sequence, with the four values and **Channel** as they are when you press it, then returns the four values to their defaults.
-    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: A single image shows a progress window too, with a busy bar, because the command reports no share done, and **Cancel**. A sequence's frames run one after another. A tightly packed floating-point image goes to G'MIC as it is, any other as a single-precision working copy, and the command adds an image the rebuilt patches are added into and an image of their weights. A component, a mask and a sequence add work and memory.
+    enabled: From the moment the task opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: The column shows the run of a single image too, with no share done, because the command reports none, and **Cancel** in Apply's place. A sequence's frames run one after another. A tightly packed floating-point image goes to G'MIC as it is, any other as a single-precision working copy, and the command adds an image the rebuilt patches are added into and an image of their weights. A component, a mask and a sequence add work and memory.
     persistence: >-
       The history step is **Patch PCA Denoise** and reads, for example, `Strength: 4.00, Patch Size: 5, Lookup Size: 7,
       Spatial Sampling: 7 in channel: RGB`. For a grayscale image it ends after the sampling. The header and the
@@ -189,8 +187,7 @@ controls:
 
 ## How it works
 
-1. The samples **Channel** selects are checked, and an image that holds a sample that is not a finite number is
-   refused. The others go to G'MIC in one session for the run, as single-precision
+1. The samples **Channel** selects go to G'MIC in one session for the run, as single-precision
    [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), with the command `denoise_patchpca`
    and the four values.
 2. The command measures one noise level for the whole image from its second differences, over every channel at once.
@@ -246,7 +243,7 @@ the first term for building and using the model, the second for its eigenvectors
   averaging, the hold and the rounding still change some samples.
 - Beyond the edge, a patch repeats the edge pixel, and what a rebuilt patch puts outside the image is dropped. A patch
   or a window larger than the image is accepted and rests on repeated edge pixels.
-- The command runs on one processor thread. **Cancel**, or closing the window, is noticed at G'MIC's next check,
+- The command runs on one processor thread. **Cancel** is noticed at G'MIC's next check,
   which the matrix work of a large patch delays, and on a sequence between frames. A stopped run writes nothing.
 - The Windows and Linux builds can differ slightly: the command weighs its patches with each system's mathematics
   library, and a last-bit difference can change how many components a patch keeps. Each build repeats its own result.
@@ -348,7 +345,7 @@ The applied image differs from the preview
   [Autostretch](../../reference/glossary.md#autostretch) display.
 - [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to protect a region and to
   undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.
 
 ## Credits
 
@@ -363,5 +360,5 @@ The applied image differs from the preview
   the eigen decomposition the command uses.
 - [G'MIC `pca`](https://gmic.eu/reference/pca.html), for the projection on eigenvectors and the rebuilding from them.
   The command does its own local projection with a hard cutoff, and does not call `pca`.
-- [G'MIC on GitHub](https://github.com/GreycLab/gmic), for the project, its authors and the publication it asks to be
+- [G'MIC on GitHub](https://github.com/GreycLab/gmic), for G'MIC, its authors and the publication it asks to be
   cited.

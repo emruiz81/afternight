@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window chooses its images itself and opens without an active image. OK waits for an image in its
-    first box.
+    Always. The task chooses its images itself and opens without an active image, as a page of its own beside other
+    tasks. OK waits for an image in its first box.
   inputs: >-
     Up to three open grayscale images of one width and height, or three grayscale sequences. The first is required.
   outputs: >-
@@ -32,37 +32,34 @@ Channel Composition makes one color image from up to three open grayscale images
 green and blue channels as they are. In the seven other choices of **Color Space** they are the three components of
 another [color model](../../reference/glossary.md#color-model), such as [CIE Lab](../../reference/glossary.md#cie-lab)
 or [YCbCr](../../reference/glossary.md#ycbcr), and are converted to red, green and blue. **Linear Match** can first
-bring the second and third to the first one's levels. The window chooses its images itself and needs no
+bring the second and third to the first one's levels. The [task](../../reference/glossary.md#task) chooses its images itself and needs no
 [active image](../../reference/glossary.md#active-image).
 
 **OK** opens the result as a new image beside the first component, or as a new
-[sequence](../../reference/glossary.md#sequence) when the components are sequences, and closes the window. The
+[sequence](../../reference/glossary.md#sequence) when the components are sequences, and closes the task. The
 components stay as they were.
 
 ```figure
 image: ../../assets/images/processes/color-composition/channel-composition.webp
 alt: >-
-  The Channel Composition window. Under its header, Color Space reads RGB, and the Red, Green and Blue boxes name the
-  red, green and blue masters of the Carina Nebula. Linear Match is ticked below them, and OK and Close run along the
-  bottom.
+  The Channel Composition task. Its header names the process alone. The canvas at the left shows the composed color
+  preview of the Carina Nebula, its clouds and stars, with the word PREVIEW in its corner and the floating toolbar near
+  its foot. The column at the right opens with the compact readout of the preview, then the Preview, Preview area and
+  Processed toggles, Color Space at RGB, the Red, Green and Blue boxes each naming one channel of the master, and
+  Linear Match ticked. Close and OK stand in its footer.
 caption: >-
-  Channel Composition with the Carina Nebula's red, green and blue masters assigned in RGB and Linear Match ticked.
-pins:
-  - {n: 3, x: 26.1, y: 35.3}
-  - {n: 4, x: 20.4, y: 46.4}
-  - {n: 5, x: 28.6, y: 75.7}
-  - {n: 6, x: 54.1, y: 91.9}
+  Channel Composition in RGB with the red, green and blue channels of the Carina master in its three boxes and Linear
+  Match ticked: the canvas shows the color image OK makes.
+owed: true
 ```
 
 ## Before you start
 
-- Register the components to one reference and crop them alike. The window compares their width and height only.
-  It neither compares stars or world coordinates nor aligns or resamples an image: each pixel is combined with the
-  pixels at the same place.
+- Register the components to one reference and crop them alike. The task compares their width and height only:
+  each pixel is combined with the pixels at the same place, and nothing is aligned or resampled.
 - Every component is a grayscale image, or every one a grayscale sequence. A color image is not offered.
-- Put first the component whose grid the result should carry. Its world coordinates, its
-  [plate solution](../../reference/glossary.md#plate-solution) and its pointing become the result's, and a sequence's
-  container, frame count and frame rate come from it.
+- Put first the component whose grid, [plate solution](../../reference/glossary.md#plate-solution) and pointing the
+  result should carry. A sequence's container, frame count and frame rate come from it too.
 - Fill all three boxes. A box left empty is a plane of zeros, which is black only in **RGB**.
 - For any color model but RGB, use the three components of one image as **Image > Extract Channel** stores them,
   each a value from 0 to 1 by AfterNight's
@@ -74,24 +71,25 @@ pins:
 
 1. **Open the components.** Open the registered grayscale [masters](../../reference/glossary.md#master), or the
    three sequences.
-2. **Open the window.** Choose **Process > Color Spaces > Channel Composition**. The three image boxes read
-   `<--NO IMAGE-->` and **OK** is dimmed.
+2. **Open the task.** Choose **Process > Color Spaces > Channel Composition**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left names the component still to choose, the column at the right holds the controls, and **OK** is dimmed.
 3. **Choose the color space.** Leave **Color Space** at **RGB** for red, green and blue masters. Another choice
    renames the three boxes after its components, such as **L**, **a** and **b**.
 4. **Assign the components.** Choose the red master in **Red**, the green one in **Green** and the blue one in
-   **Blue**. **OK** enables as soon as the first box names an image.
+   **Blue**. Once the first box names an image, **OK** enables and the canvas shows the composed preview.
 5. **Match the levels, or not.** Tick **Linear Match** to give the green and blue masters the red one's background
    level and spread. Leave it off for matched masters and for every color model but RGB.
-6. **Choose OK.** The new image opens as a tab beside the first component, named after the color space, and the
-   window closes. Sequences show a progress window first.
+6. **Choose OK** in the column's footer. The new image opens beside the first component, named after the color
+   space, and the task closes.
 7. **Check the result.** Show it in the view's [Autostretch](../../reference/glossary.md#autostretch) with **Linked
    channels** on in its Autostretch Settings, which shows the three channels alike. Its
    [history](../../reference/glossary.md#history) starts with the names of the three components.
 
 ## Controls
 
-The window has no histogram and no Channel box, and reads no [mask](../../reference/glossary.md#mask). Its preview
-shows the composed image once the first box names an image. Its controls are read when you press **OK**.
+The task has no histogram, no **Target Image** and no **Channel** box, and reads no
+[mask](../../reference/glossary.md#mask). Its controls are read when you press **OK**.
 
 ```controls
 window: Channel Composition
@@ -102,20 +100,21 @@ controls:
     options: [RGB, CIE XYZ, CIE L*a*b*, CIE L*c*h*, HSL, HSV, HSI, YCbCr]
     effect: Chooses what the three images are. **RGB** takes them as red, green and blue. Every other choice takes them as the three components of that color model and converts them to red, green and blue.
     range: "The three boxes are renamed after the components: X, Y and Z for **CIE XYZ**, L, a and b for **CIE L*a*b***, L, c and h for **CIE L*c*h***, H, S and L for **HSL**, H, S and V for **HSV**, H, S and I for **HSI**, and Y, Cb and Cr for **YCbCr**."
-    enabled: Always, also while a run works. The run keeps the choice it started with.
+    enabled: Disabled while a run works.
     tradeoff: Every choice but **RGB** converts each pixel and holds each channel between 0 and 1, so a color outside the range is clipped. CIE components and HSI cost more than the others. A hue or a chroma cannot stand in for a level of light.
     scope: The whole of each image, or each frame of the sequences.
-    persistence: Until the window closes. Each new window opens at **RGB**.
+    persistence: Until the task closes. Each new task opens at **RGB**.
   - name: Red
     kind: combo
     default: "<--NO IMAGE-->"
     options: ["<--NO IMAGE-->"]
-    effect: Chooses the first component, red in **RGB**. It is required. Its image gives the result its size and its place in the workspace, and leads its header.
+    effect: Chooses the first component, red in **RGB**. It is required. Its image gives the result its size and its place in the workspace, and leads its header. The preview in the canvas is composed over it.
     range: After `<--NO IMAGE-->` the list holds every open grayscale image and sequence. The box's label follows **Color Space**, as **X**, **L**, **H** or **Y**. The tooltip of each item gives its file, size, channels, pixel type and memory.
-    enabled: The list follows the views as they open, close, change or are renamed. A view that closes or stops being grayscale leaves every list, and a box that named it returns to `<--NO IMAGE-->`.
-    tradeoff: A wrong first image changes the whole result. Its world coordinates and plate solution are kept whether or not the other components share its grid.
+    enabled: The list follows the views as they open, close, change or are renamed. A view that closes or stops being grayscale leaves every list, and a box that named it returns to `<--NO IMAGE-->`. Disabled while a run works.
+    tradeoff: A wrong first image changes the whole result. Its world coordinates and plate solution are kept whether or not the other components share its grid. The task compares neither stars nor world coordinates.
     scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on it is the reference, and is not changed.
-    persistence: Until the window closes or its view goes.
+    persistence: Until the task closes or its view goes.
+    note: "Until it names an image the canvas reads \"Choose the images to see the result\" over \"Still to choose: Red component\", with the box's label of the color space chosen. The task header names the process alone, whatever the boxes name."
   - name: Green
     kind: combo
     default: "<--NO IMAGE-->"
@@ -125,7 +124,7 @@ controls:
     enabled: Optional. It must be an image when the first is an image and a sequence when the first is a sequence, of the first one's width and height.
     tradeoff: Zero is not neutral for every component. An a* or a Cb of 0 is the far end of its axis, and gives a strong cast.
     scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on, a matched copy of it.
-    persistence: Until the window closes or its view goes.
+    persistence: Until the task closes or its view goes.
   - name: Blue
     kind: combo
     default: "<--NO IMAGE-->"
@@ -135,30 +134,31 @@ controls:
     enabled: Optional, under the same conditions as **Green**.
     tradeoff: A zero is black where the component is a lightness, a value or an intensity, and a strong cast where it is b* or Cr.
     scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on, a matched copy of it.
-    persistence: Until the window closes or its view goes.
+    persistence: Until the task closes or its view goes.
   - name: Linear Match
     kind: check
     default: "Off"
     effect: Scales and shifts the second and third components, before they are composed, so that their median and their median absolute deviation equal the first one's, by equation (4).
     range: The two numbers are measured only where both planes hold a sample from 0.0000001 to 0.875 of full scale, so zeros and the brightest stars take no part. The match then applies to every sample.
-    enabled: Always, also while a run works. The run keeps the state it started with.
+    enabled: Disabled while a run works.
     tradeoff: It gives the channels one background level and one spread, which is not a color calibration. It knows nothing of hue, neutral chroma, filters or exposure, so it spoils the components of every model but RGB. A floating-point result can leave 0 to 1. A pair without a sample inside the limits fails the run.
     scope: Working copies of the second and third components, for this run. The images in their views are not changed.
-    persistence: Until the window closes. Each new window opens with it off.
+    persistence: Until the task closes. Each new task opens with it off.
     note: Its scale is always positive, so a component that runs against the first is scaled, never turned over. It costs a pass over each plane, the statistics of each pair and a copy of each matched component.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the composed image beside the controls, as **OK** makes it, once the first box names an image. A change of a box, of **Color Space** or of **Linear Match** shows it again.
-    enabled: Disabled until the first box names an image.
+    effect: Shows the composed image in the canvas, as **OK** makes it, once the first box names an image. A change of a box, of **Color Space** or of **Linear Match** shows it again.
+    enabled: It stands in the column's toggles row. Disabled until the first box names an image, and while a run works.
     tradeoff: The preview composes the whole of the three images at each change, as **OK** does, and holds a color result as large as an image, three times a grayscale one.
-    scope: "The window only. **Preview area** shows what **OK** makes of that area of the three images. Three sequences show the composition of the frames their views show."
-    persistence: Until the window closes.
+    scope: "The task only. **Preview area**, beside it in the toggles row, shows what **OK** makes of that area of the three images. Three sequences show the composition of the frames their views show."
+    persistence: Until the task closes.
+    note: The canvas opens in the display mode of the first component's view, and **Display Mode** in its floating toolbar changes it.
   - name: OK
     kind: button
     default: ""
-    effect: Composes the three components as the window stands and opens the result beside the first component, as a new image or a new sequence of three channels, without alpha. The window then closes. A failure shows "Error running Channel Composition" with the reason, and the window stays open.
-    enabled: While the first box names an image and no run works. During a run **OK** and **Close** are disabled and the other controls are not, and a change made then reaches the next run only.
+    effect: Composes the three components as the task stands and opens the result beside the first component, as a new image or a new sequence of three channels, without alpha. The task then closes. A failure shows "Error running Channel Composition" with the reason in the column's message strip, and the task stays open.
+    enabled: While the first box names an image and no run works. During a run **Cancel** takes its place in the footer, and **Close** and the other controls are disabled.
     tradeoff: A full image of three channels in memory, a working copy of each component, and for sequences a second copy on disk. The work is spread over the processor's threads.
     scope: The whole of each image, whatever the preview's area. No mask plays a part.
     persistence: "The new image is unsaved and named after the color space: `RGB`, `CIE XYZ`, `CIE L*a*b`, `CIE L*c*h`, `HSL`, `HSV`, `HSI` or `YCbCr`, with `_1`, `_2` and so on added when the name is taken. A new sequence is named after its temporary file. The history starts with a step that reads `ChannelComposition: created from image channels R:'<red>' G:'<green> B:'<blue>'`, with `-` for an empty box and the model's component names, such as L, a and b, in place of R, G and B. It does not say whether Linear Match was on, nor give its scale and offset."
@@ -166,19 +166,19 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the share of the frames written, from 0 to 100 percent, in a window titled **Channel Composition** that reads "Executing Channel Composition".
+    effect: Show, in the column's run row, the share of the frames written, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
     range: The share is counted against the longest of the sequences, so it stops short of 100 when a later component has more frames than the first.
-    enabled: Only when the components are sequences. A still image has no progress window.
+    enabled: Only when the components are sequences. Over still images the row reads "applying". No progress window opens.
     tradeoff: The new sequence is written to a temporary file, which needs the disk space of a second copy.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, inside the work on a frame as well as between frames. Nothing opens, the unfinished sequence leaves no file, and the composition window stays open.
+    effect: Stands in the footer in place of **OK** during a run, and stops it, inside the work on a frame as well as between frames. Nothing opens, the unfinished sequence leaves no file, and the task stays open.
 ```
 
 ## How it works
@@ -235,8 +235,7 @@ With **Linear Match** on, take \(r\) for the first plane and \(x\) for a later o
   the first one's frame rate, or one frame a second when it states none.
 - In **RGB** a floating-point result keeps samples below 0 and above 1, and an integer one is held at the ends of its
   type. A match that cannot be measured fails the run rather than leave a black channel.
-- Closing the window during a run, by ++esc++ or its title bar, stops the run, and nothing opens. A still image
-  shows no progress window.
+- **Cancel** in the footer stops a run, and nothing opens. The task does not close while its run works.
 
 ### Worked example
 
@@ -320,14 +319,13 @@ The new sequence is shorter, ends black in one channel, or comes back at 8 bits
 - [Image Registration](../registration-alignment/image-registration.md), to bring the components onto one grid
   first.
 - [Linear Match](../color-calibration/linear-match.md), which matches one image to another as images: use it or this
-  window's **Linear Match**, not both.
+  task's **Linear Match**, not both.
 - [Background Neutralization](../color-calibration/background-neutralization.md) and
   [Photometric Color Calibration](../color-calibration/photometric-cc.md), to calibrate the color of the result.
 - [LRGB Combination](lrgb-combination.md), to give a stretched color image the lightness of a luminance master.
 - [Non-Interactive Processes](../utility/non-interactive-processes.md), whose **Extract Channel** commands make the
-  components this window composes back.
-- [Process Windows](../../interface/process-windows.md), for the progress window and what every process window
-  shares.
+  components this task composes back.
+- [Tasks](../../interface/tasks.md), for the canvas, the column and the run that every task shares.
 
 ## Credits
 

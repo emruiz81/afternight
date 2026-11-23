@@ -1,0 +1,96 @@
+{
+  "group": "Information windows",
+  "captures": [
+    {
+      "picture": "assets/images/interface/image-histogram.webp",
+      "page": "interface/image-histogram.md",
+      "data": ["linear"],
+      "shows": "Histogram Analysis of the linear master after Histogram Transformation with Shadows and Midtones at 0.02, opened from the readout's Histogram card, at its defaults",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "image-histogram=@Open the Histogram window..."]
+    },
+    {
+      "picture": "assets/images/interface/image-statistics.webp",
+      "page": "interface/image-statistics.md",
+      "data": ["linear"],
+      "shows": "Image Statistics of the linear master, opened from the readout's Statistics card, at its defaults",
+      "options": ["-Capture", "image-statistics=@Open Image Statistics..."]
+    },
+    {
+      "picture": "assets/images/interface/image-summary.webp",
+      "page": "interface/image-summary.md",
+      "data": ["cfa"],
+      "shows": "The summary of a duplicate of a raw NGC 253 light frame, opened from the readout's Image card: a duplicate has never been a file, so the report names no folder",
+      "options": ["-OpenAnswer", "No", "-View", "Image > Actions > Duplicate", "-Capture", "image-summary=@Summary..."]
+    },
+    {
+      "picture": "assets/images/interface/fits-header-viewer.webp",
+      "page": "interface/fits-header-viewer.md",
+      "data": ["cfa"],
+      "shows": "The FITS header of a raw NGC 253 light frame, opened from the readout's Image card",
+      "options": ["-OpenAnswer", "No", "-Capture", "fits-header-viewer=@FITS Header..."]
+    },
+    {
+      "picture": "assets/images/interface/fits-header-viewer-astrometry-info.webp",
+      "page": "interface/fits-header-viewer.md",
+      "data": ["linear"],
+      "shows": "Astrometry Info of the plate-solved linear master, opened by Info in the readout's Astrometry card",
+      "options": ["-Capture", "fits-header-viewer-astrometry-info=@Info"]
+    },
+    {
+      "picture": "assets/images/interface/annotate-image.webp",
+      "page": "interface/annotate-image.md",
+      "data": ["linear"],
+      "shows": "Annotate Image over the plate-solved linear master in Autostretch, at the Complete level of detail",
+      "options": ["-Display", "Autostretch", "-Capture", "annotate-image=@Annotate...", "-Set", "annotateDetailComplete"]
+    },
+    {
+      "picture": "assets/images/interface/astrometry-overlays.webp",
+      "page": "interface/astrometry-overlays.md",
+      "data": ["linear"],
+      "shows": "The main window with the plate-solved linear master in Autostretch, the grid and the deep-sky annotations shown, and the readout's Astrometry card",
+      "options": ["-Display", "Autostretch", "-View", "@Annotations", "-MainWindow", "astrometry-overlays"]
+    },
+    {
+      "picture": "assets/images/interface/astrometry-overlays-sip.webp",
+      "page": "interface/astrometry-overlays.md",
+      "data": ["linear"],
+      "shows": "The SIP distortion map of the linear master's plate solution over its view in Autostretch, the grid hidden",
+      "options": ["-Display", "Autostretch", "-View", "@SIP map;@Grid", "-MainWindow", "astrometry-overlays-sip", "-MainCrop", "view"]
+    },
+    {
+      "picture": "assets/images/interface/masks.webp",
+      "page": "interface/masks.md",
+      "data": ["linear"],
+      "shows": "The stretched linear master with the mask Range Selection made of it linked and drawn in Overlay Red, and the Image > Mask menu open on Rendering Mode",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Mask Generation > Range Selection|lowerLimitValue=0.45;smoothnessValue=4;OK||@RGB *||Image > Mask > Select Mask", "-MenuShot", "masks=Image > Mask > Rendering Mode > Overlay Red"]
+    },
+    {
+      "picture": "assets/images/interface/masks-selector.webp",
+      "page": "interface/masks.md",
+      "data": ["linear"],
+      "shows": "Mask Selector on the stretched linear master, with the mask Range Selection made of it chosen in New Mask",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Mask Generation > Range Selection|lowerLimitValue=0.45;smoothnessValue=4;OK||@RGB *", "-Capture", "masks-selector=Image > Mask > Select Mask"]
+    },
+    {
+      "picture": "assets/images/interface/saving-and-exporting.webp",
+      "page": "interface/saving-and-exporting.md",
+      "data": ["jupiter"],
+      "shows": "Export Sequence for an 8-bit SER video of Jupiter, set to write an MP4 video stretched by its view's Autostretch",
+      "options": ["-Capture", "saving-and-exporting=Image > Sequence > Export...", "-Set", "outputFormatSelector=MP4;autoStretchCheckBox=On"]
+    },
+    {
+      "picture": "assets/images/interface/sequences.webp",
+      "page": "interface/sequences.md",
+      "data": ["jupiter"],
+      "shows": "The main window with an 8-bit SER video of Jupiter in its view, on its first frame, with the player under the picture",
+      "options": ["-MainWindow", "sequences"]
+    },
+    {
+      "picture": "assets/images/interface/sequences-new-sequence.webp",
+      "page": "interface/sequences.md",
+      "data": ["ngc253"],
+      "shows": "New Sequence with five raw NGC 253 lights added",
+      "options": ["-Capture", "sequences-new-sequence=File > New Sequence...", "-Set", "addFiles?{ngc253:lights\\2023-10-10_00-19-34__21.00_180.00s_0000.fits};addFiles?{ngc253:lights\\2023-10-10_00-22-49__20.80_180.00s_0001.fits};addFiles?{ngc253:lights\\2023-10-10_00-26-19__20.60_180.00s_0002.fits};addFiles?{ngc253:lights\\2023-10-10_00-29-32__20.50_180.00s_0003.fits};addFiles?{ngc253:lights\\2023-10-10_00-33-04__20.50_180.00s_0004.fits}"]
+    }
+  ]
+}

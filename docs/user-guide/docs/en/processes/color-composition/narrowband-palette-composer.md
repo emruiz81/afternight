@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always, even with no image open. The window chooses its images itself and opens without an active image. Apply
-    waits for OIII and Ha or SII, or a one-shot-color image that gives them.
+    Always, even with no image open. The task chooses its images itself and opens without an active image, as a page
+    of its own beside other tasks. Apply waits for OIII and Ha or SII, or a one-shot-color image that gives them.
   inputs: >-
     Up to three open narrowband still images, Ha, OIII and SII, and up to two one-shot-color still images, of any size
     and pixel type. A color image in a narrowband box gives its red channel.
@@ -42,21 +42,15 @@ nonlinear. The masters stay as they are.
 ```figure
 image: ../../assets/images/processes/color-composition/narrowband-palette-composer.webp
 alt: >-
-  The Narrowband Palette Composer window, its title naming the OIII master. On the left, the Sources group with the
-  Ha, OIII and SII boxes naming the three Eagle Nebula masters and OSC1 and OSC2 empty, the Preparation group with
-  Input autostretch and Match sizes to reference ticked, Mode at Palette Grid, the Ha, OIII and SII sliders at 100%,
-  and a Status line. On the right, the Palette Grid shows tiles of the nebula in different colors, the SHO tile first
-  and framed, green clouds over a gray background. Reset, Close and Apply run along the bottom.
+  The Narrowband Palette Composer task. Its header names the process alone. The canvas at the left holds the Palette
+  Grid: tiles of the nebula in different colors, the SHO tile first and framed, green clouds over a gray background.
+  The column at the right holds its sections: Sources with the Ha, OIII and SII boxes naming the three Eagle Nebula
+  masters and OSC1 and OSC2 empty, Preparation with Input autostretch and Match sizes to reference ticked, Mode at
+  Palette Grid, the Ha, OIII and SII sliders at 100%, and a Status line. Reset, Close and Apply stand in its footer.
 caption: >-
   Narrowband Palette Composer with the Ha, OIII and SII masters of the Eagle Nebula and every other control at its
-  default: the grid shows each palette as Apply would write it, SHO selected.
-pins:
-  - {n: 3, x: 2.0, y: 17.7}
-  - {n: 4, x: 2.0, y: 41.8}
-  - {n: 5, x: 45.7, y: 13.2}
-  - {n: 6, x: 2.0, y: 54.7}
-  - {n: 7, x: 2.0, y: 64.7}
-  - {n: 8, x: 90.5, y: 96.8}
+  default: the grid in the canvas shows each palette as Apply would write it, SHO selected.
+owed: true
 ```
 
 ## Before you start
@@ -64,7 +58,7 @@ pins:
 - Register the masters to one reference and crop them alike: each pixel is combined with the pixels at the same place.
 - Finish the linear work on each master first, such as gradient removal and noise reduction. The result is recorded as
   nonlinear, and the color calibrations refuse it.
-- The boxes say which line an image is. The window reads no filter card, passband, exposure or world coordinates, and
+- The boxes say which line an image is. The [task](../../reference/glossary.md#task) reads no filter card, passband, exposure or world coordinates, and
   its twelve palettes are fixed: there is no mapping of your own.
 - Leave the masters linear with **Input autostretch** on, or stretch them yourself and turn it off.
 - Every palette is divided by its brightest value, so the result never keeps the scale of the masters.
@@ -74,10 +68,12 @@ pins:
 
 1. **Open the masters.** Open the registered Ha, OIII and SII masters, each a grayscale image. A one-shot-color
    image can stand in for missing lines.
-2. **Open the window.** Choose **Process > Color Spaces > Narrowband Palette Composer**. The five boxes read
+2. **Open the task.** Choose **Process > Color Spaces > Narrowband Palette Composer**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left names the lines still to choose, the column at the right holds the controls. The five boxes read
    `<--NO IMAGE-->`, and **Apply** is dimmed.
 3. **Assign the lines.** Choose each master in its box under **Sources**. Once OIII and Ha or SII are chosen, the
-   grid fills with twelve tiles.
+   canvas fills with a grid of twelve tiles.
 4. **Keep the preparation.** Leave **Input autostretch** on for linear masters, and **Match sizes to reference** on.
    The line under **Status** reports anything the preparation changed.
 5. **Choose the palette.** Click its tile. The tile is framed, and **Status** names the palette **Apply** creates.
@@ -85,14 +81,14 @@ pins:
    highlights, noise and star alignment. Set **Mode** to **Single Preview** to see one palette large.
 7. **Balance the lines, if needed.** Move **Ha**, **OIII** or **SII** under **Adjust Selected Palette**, one at a time.
    The grid is built again after each change.
-8. **Apply.** Choose **Apply**. The new color image opens as a tab beside the OIII master, and its
-   [history](../../reference/glossary.md#history) names the palette.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The new color image opens beside the
+   OIII master, its [history](../../reference/glossary.md#history) names the palette, and the task stays open.
 
 ## Controls
 
-The window has no **Target Image** or **Channel** box and no preview pane or histogram: its grid takes their place. It
-reads no [mask](../../reference/glossary.md#mask). What **Close** does is said in
-[Process Windows](../../interface/process-windows.md).
+The task has no **Target Image** or **Channel** box, no **Preview** toggle and no histogram: the grid in the canvas
+takes their place. It reads no [mask](../../reference/glossary.md#mask). What **Close** does is said in
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: Narrowband Palette Composer
@@ -107,7 +103,7 @@ controls:
     enabled: The list follows the views as they open, close and are renamed. A box whose view closes returns to `<--NO IMAGE-->`.
     tradeoff: An image in the wrong box, or one not registered to the others, gives false colors. Each chosen image costs a full-size working copy at every build.
     scope: The grid and Apply. Its width and height are the size every line is matched to.
-    persistence: Until the window closes or its view goes. **Reset** and **Apply** keep it.
+    persistence: Until the task closes or its view goes. **Reset** and **Apply** keep it.
     note: With **OSC1** also chosen, the two are averaged half and half.
   - name: OIII
     object: oiiiSourceSelector
@@ -117,8 +113,8 @@ controls:
     effect: Chooses the doubly ionized oxygen image, which every palette needs. A color image gives its red channel, with a warning. Left empty, an OSC image must give it.
     range: The same list as **Ha**.
     tradeoff: OIII is in every palette but HSS, so a weak or noisy OIII shows its noise in the teal and blue of most of them.
-    scope: "The grid and Apply. Its view is the window's target, which the title names. The result opens beside it and takes its name. When the target's view closes, the next box that names an image gives the target. With none left, the window says \"The target image '<name>' has been closed. The process will be closed as well.\" and closes."
-    persistence: Until the window closes or its view goes. **Reset** and **Apply** keep it.
+    scope: "The grid and Apply. Its view is the task's target, though the task header names the process alone. The result opens beside it and takes its name. When the target's view closes, the next box that names an image gives the target. With none left, the task says \"The target image '<name>' has been closed. The process will be closed as well.\" and closes."
+    persistence: Until the task closes or its view goes. **Reset** and **Apply** keep it.
     note: With **OSC1** or **OSC2** also chosen, the OSC estimate is averaged with it half and half.
   - name: SII
     object: siiSourceSelector
@@ -129,7 +125,7 @@ controls:
     range: The same list as **Ha**.
     tradeoff: The stand-in is the Ha signal again, not a guess at the sulfur.
     scope: The grid and Apply.
-    persistence: Until the window closes or its view goes. **Reset** and **Apply** keep it.
+    persistence: Until the task closes or its view goes. **Reset** and **Apply** keep it.
     note: With **OSC2** also chosen, the two are averaged half and half.
   - name: OSC1
     kind: combo
@@ -140,7 +136,7 @@ controls:
     enabled: Optional. Alone, it gives both lines Apply needs.
     tradeoff: Where a box already holds the line, the two are averaged half and half, so the color image's stars and gradients reach the palette. The weights ignore each image's exposure, and the header adds up every image's exposure whatever its weight. Each estimate costs working planes of the image's size.
     scope: The grid and Apply. With **Input autostretch** on, each of its channels is stretched on its own before they are split.
-    persistence: Until the window closes or its view goes. **Reset** and **Apply** keep it.
+    persistence: Until the task closes or its view goes. **Reset** and **Apply** keep it.
   - name: OSC2
     kind: combo
     default: "<--NO IMAGE-->"
@@ -150,7 +146,7 @@ controls:
     enabled: Optional. Alone, it gives both lines Apply needs.
     tradeoff: It is averaged in after **OSC1**. With an OIII image and both OSC images, OIII is a quarter of the OIII image, a quarter of OSC1 and half of OSC2. Use one OSC image, or combine them first with the weights you want.
     scope: The grid and Apply, prepared as **OSC1** is.
-    persistence: Until the window closes or its view goes. **Reset** and **Apply** keep it.
+    persistence: Until the task closes or its view goes. **Reset** and **Apply** keep it.
     note: An OSC image never names the result. Rename the result after Apply if its name should say where it came from.
   - name: Input autostretch
     kind: check
@@ -159,7 +155,7 @@ controls:
     range: The background of 0.25 and the black point 2.8 deviations below the median are fixed. The statistics are the median and median absolute deviation of every sample.
     tradeoff: It makes linear masters visible, and its stretch is part of what Apply writes. On masters already stretched it stretches them again. Each image costs its statistics and a full pass.
     scope: The grid and Apply, before a color image's channels are split and before the sizes are matched.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it on. The history says `stretched inputs` while it is on.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it on. The history says `stretched inputs` while it is on.
     note: Off, the result is still recorded as nonlinear, and its brightest sample is still 1. Bring the masters to one background yourself first, with a stretch of each or with Linear Match.
   - name: Match sizes to reference
     kind: check
@@ -169,15 +165,15 @@ controls:
     enabled: It also decides whether an OSC estimate of another size is resized to the image it is averaged with. Off, that is refused too.
     tradeoff: Resampling changes the sampling and the star profiles. Off is safer while you check that the masters share one grid.
     scope: The grid and Apply. The line under **Status** says "Resized mismatched channels to Ha reference dimensions." when it acted, with the reference's name.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it on. The history says `no resize` while it is off.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it on. The history says `no resize` while it is off.
   - name: Mode
     kind: combo
     default: Palette Grid
     options: [Palette Grid, Single Preview]
     effect: Shows the twelve palettes as a grid, or one large over a gallery of all twelve. The title over them follows.
     tradeoff: Nothing is computed again. Both show the same pictures, and the palette chosen in one is chosen in the other.
-    scope: The window only. It does not change the palette Apply creates.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Palette Grid**.
+    scope: The task only. It does not change the palette Apply creates.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Palette Grid**.
   - name: Ha
     object: haIntensitySpin
     kind: spinbox
@@ -188,7 +184,7 @@ controls:
     enabled: With no Ha chosen, it scales the SII that stands in for Ha.
     tradeoff: Above 100, bright Ha is clipped to 1 before the frame is divided by its maximum, which flattens highlights. Lower the strongest line instead of raising the others. With **Input autostretch** on, any value but 100 also tints the background, whose lines all sit near 0.25.
     scope: All twelve palettes and Apply. Each change builds the grid again.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 100.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 100.
     note: The division by the maximum can hide a change of scale. Lowering all three intensities alike changes no palette but Foraxx, whose blend follows the values themselves, so compare the channels and their clipping, one line at a time.
   - name: OIII
     object: oiiiIntensitySpin
@@ -199,7 +195,7 @@ controls:
     range: Its slider works as the **Ha** slider does.
     tradeoff: Above 100, OIII drives teal and blue into clipping.
     scope: All twelve palettes and Apply. Each change builds the grid again.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 100.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 100.
   - name: SII
     object: siiIntensitySpin
     kind: spinbox
@@ -210,11 +206,11 @@ controls:
     enabled: With no SII chosen, it scales the Ha that stands in for SII.
     tradeoff: Above 100, bright SII is clipped to 1 before the division.
     scope: All twelve palettes and Apply. Each change builds the grid again.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 100.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 100.
   - name: Status
     kind: readout
     default: Select OIII plus Ha or SII to build palettes.
-    effect: Says what the window waits for or does, such as "Updating palette grid..." while a grid is built and "Palette grid is ready. Apply will create a new SHO RGB image view." with the selected palette's name.
+    effect: Says what the task waits for or does, such as "Updating palette grid..." while a grid is built and "Palette grid is ready. Apply will create a new SHO RGB image view." with the selected palette's name.
     range: It also reads "Select OIII plus Ha or SII, or use OSC sources that synthesize them.", "Ready to update SHO. The palette grid refreshes automatically.", "Updating the synchronized palette grid..." while a change waits for the build on its way, and "Palette grid update failed. Check the status details below."
     tradeoff: It gives no percentage.
   - name: Status details
@@ -222,7 +218,7 @@ controls:
     default: ""
     effect: Lists what the preparation changed, one line each, such as "Ha source is RGB; using the red channel to match SetiAstro SASPro.", "OSC1 source is mono; broadcasting it to RGB before OSC synthesis." or "Resized synthetic OIII contribution before blending it with the selected channel." After a failed build it gives the reason.
     enabled: Empty while a build is on its way and while the boxes give no palette.
-    scope: The window only. The result keeps neither these notes nor the weights of an OSC estimate.
+    scope: The task only. The result keeps neither these notes nor the weights of an OSC estimate.
   - name: Reset
     kind: button
     default: ""
@@ -232,10 +228,10 @@ controls:
   - name: Apply
     kind: button
     default: ""
-    effect: Prepares the images again as their views show them and opens the selected palette as a new 32-bit floating-point RGB image, as a tab beside the target's view. The sources stay as they are.
+    effect: Prepares the images again as their views show them and opens the selected palette as a new 32-bit floating-point RGB image beside the target's view, and the task stays open. The sources stay as they are.
     range: "The target is the first of **OIII**, **Ha**, **SII**, **OSC1** and **OSC2** that names an image. The name is the OIII image's, else the Ha's, else the SII's, then the palette's, as `stacked_3008x3004_Oiii_M_16 - SHO Narrowband Palette`. With only OSC images chosen it is the palette's alone, as `SHO Narrowband Palette`."
-    enabled: While OIII and Ha or SII are chosen, or an OSC image gives them, whether or not the grid has landed. While it works, every control, the pictures, **Reset** and **Close** are disabled.
-    tradeoff: It prepares the images and maps the palette again at full size, apart from the grid. It shows no progress window and cannot be cancelled. A failure shows "Error executing the process" with the reason.
+    enabled: While OIII and Ha or SII are chosen, or an OSC image gives them, whether or not the grid has landed. While it works **Cancel** takes its place in the footer, and every control, the pictures, **Reset** and **Close** are disabled.
+    tradeoff: It prepares the images and maps the palette again at full size, apart from the grid. It shows no progress window; the column's run row reads "applying". A failure shows "Error executing the process" with the reason in the column's message strip.
     scope: Still images only. No mask is read, and nothing is written to disk.
     persistence: "The new image's history starts with `Created SHO Narrowband Palette Composer image (Ha 1.00, OIII 1.00, SII 1.00, stretched inputs)`: the palette, the three intensities as factors, and `, no resize` when **Match sizes to reference** is off. Image History shows the target's steps as its inherited lineage. The result is recorded as nonlinear with the operation `narrowband-palette-composer`. The five boxes keep their images, and the other controls return to their defaults."
     note: "The header is built from the chosen images, in the order Ha, OIII, SII, OSC1 and OSC2. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Images that state the same exposure start are one acquisition, such as an image, its starless image and a channel taken from it, and count once with the largest integration and frame count any of them states. An image that states no start counts on its own. One image keeps its own exposure. The images' `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when an image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when an image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every image states the same, and so is every other card. No processing-state or file identity card is kept. The first image's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC` are kept. Its WCS cards and plate solution are kept only when the result has its width and height: an image resized to the reference, or a reference made from an OSC image of another size, leaves none."
@@ -252,7 +248,7 @@ controls:
     range: Up to four tiles a row, as the pane's width allows. The table under the model gives each palette's mapping, and a tile's tooltip describes it.
     enabled: The tiles appear when a grid lands. Until then the grid reads "Select sources to update the palette grid".
     tradeoff: Each tile is an 8-bit picture of a full-size result, and a build holds all twelve 32-bit results at once, about 1.3 GB for a 3008 × 3004 image. Every change of an image, of **Preparation** or of an intensity prepares the images and maps the twelve palettes again. For trials on large masters, compose crops of them, cropped alike, and close the images you do not use.
-    scope: The window only. Choosing another tile computes nothing again.
+    scope: The task only. Choosing another tile computes nothing again.
     persistence: The choice is the single preview's too. **Reset** and a finished Apply return it to SHO.
   - name: Zoom
     kind: action
@@ -272,8 +268,8 @@ controls:
     kind: readout
     default: ""
     effect: Turns over the grid while a grid is built. Its tooltip reads "The synchronized palette grid is updating."
-    range: It gives no percentage, and a build cannot be cancelled. Closing the window stops it.
-    note: The window stays responsive. A change made during a build is built next, with the latest values, when this one lands, and only the latest grid is shown.
+    range: It gives no percentage, and a build cannot be cancelled. Closing the task stops it.
+    note: The task stays responsive. A change made during a build is built next, with the latest values, when this one lands, and only the latest grid is shown.
 ```
 
 ```controls
@@ -445,7 +441,7 @@ The background turns a color after you change an intensity
 
 ## Related
 
-- [Narrowband Imaging](../../workflows/narrowband-imaging.md), the workflow from the narrowband frames to this window
+- [Narrowband Imaging](../../workflows/narrowband-imaging.md), the workflow from the narrowband frames to this task
   and beyond.
 - [Image Registration](../registration-alignment/image-registration.md), to put the masters on one grid first.
 - [Histogram Transformation](../stretching/histogram-transformation.md), to stretch the masters yourself with
@@ -453,7 +449,7 @@ The background turns a color after you change an intensity
 - [SCNR](../color-calibration/scnr.md), to take the green out of an SHO image.
 - [Channel Composition](channel-composition.md), [NB Color Mapper](nb-color-mapper.md) and
   [NBRGB Combination](nbrgb-combination.md), the other ways to make color from narrowband images.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

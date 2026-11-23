@@ -2,14 +2,14 @@
 kind: reference
 summary: >-
   What Image Calibration needs of its masters, the files it writes, its messages and log lines, what too little and too
-  much of each correction look like, what a run costs and what the window keeps.
+  much of each correction look like, what a run costs and what the task keeps.
 ---
 # Image Calibration Reference
 
-This page holds what [Image Calibration](image-calibration.md) leaves out to stay readable beside its window: what each
-[master](../../reference/glossary.md#master) must hold, the files a run writes, the messages the window shows and the
+This page holds what [Image Calibration](image-calibration.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task): what each
+[master](../../reference/glossary.md#master) must hold, the files a run writes, the messages the task shows and the
 lines it writes to the [Session Console](../../interface/log-viewer.md), what too little and too much of each
-correction look like, what a run costs and what the window keeps. Each section can be read on its own.
+correction look like, what a run costs and what the task keeps. Each section can be read on its own.
 
 ## The masters
 
@@ -19,23 +19,23 @@ Every master
     [pixel type](../../reference/glossary.md#pixel-type) does not matter: every master
     is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), as the lights are. A
     floating-point master must hold such fractions, as the stacks of AfterNight write them, and not values in
-    [ADU](../../reference/glossary.md#adu). The window prepares none of them: what each must hold, it holds before you
+    [ADU](../../reference/glossary.md#adu). The task prepares none of them: what each must hold, it holds before you
     choose it.
 
 Bias master
-:   A stack of [bias frames](../../reference/glossary.md#bias-frame) as they are. The window subtracts it from the
+:   A stack of [bias frames](../../reference/glossary.md#bias-frame) as they are. The task subtracts it from the
     lights only, never from the dark or the flat master.
 
 Dark master
 :   A stack of darks of the lights' exposure, gain, offset and temperature. Stacked from raw darks, it holds the bias
     as well, as Image Integration's master dark does: use it without the bias master, unscaled. To scale it, by
     **Dark scaling** or by [dark optimization](../../reference/glossary.md#dark-optimization), make it free of bias:
-    calibrate the darks by the bias master in this window first, stack the results, and check the bias master beside
+    calibrate the darks by the bias master in this task first, stack the results, and check the bias master beside
     it.
 
 Flat master
 :   A stack of flats, each calibrated before the stack by a [dark-flat](../../reference/glossary.md#dark-flat) or, without
-    one, by the bias master, as Image Integration calibrates its flats. This window can do that pass: list the flats,
+    one, by the bias master, as Image Integration calibrates its flats. This task can do that pass: list the flats,
     check the one master they need, calibrate, and stack the results. A flat that still holds its bias corrects too
     little vignetting.
 
@@ -97,14 +97,15 @@ so on when **Use source filename** is off, followed by **Suffix**. For a light `
     "a colour filter array mosaic cannot be written as", or "an X-Trans mosaic cannot be written as FITS".
 
 "Image Calibration: Calibration completed with warnings. N of M images succeeded. First error:" and a reason
-:   Some lights failed and the others were written. The text shows over the controls and is logged.
+:   Some lights failed and the others were written. The text shows in the banner at the head of the page and is
+    logged.
 
 "Image Calibration: Calibration completed with warnings. Cosmetic correction was on but neither the cold nor the hot sigma was checked, so no pixel was corrected."
 :   The run wrote its files without any cosmetic correction. The same note ends the warning above when some lights
     failed too.
 
 "Image Calibration: Calibration executed successfully!"
-:   Every light was written. The text shows over the controls.
+:   Every light was written. The text shows in the banner at the head of the page.
 
 "Cosmetic Correction Estimation", with "Detected N cold pixels and M hot pixels"
 :   The count of **Auto-estimate**. Zero of both means the thresholds as set mark nothing in this dark. The thresholds
@@ -120,7 +121,7 @@ so on when **Use source filename** is off, followed by **Suffix**. For a light `
 :   The question of **Delete From Disk** in the row menu. "Could not delete" with the path follows when the file could
     not be deleted, and its row is gone all the same.
 
-A stopped run, by **Cancel** or by closing the window, ends without a message.
+A stopped run, by **Cancel** or by closing the task, ends without a message.
 
 ## In the Session Console
 
@@ -134,9 +135,9 @@ A stopped run, by **Cancel** or by closing the window, ends without a message.
 | `Image Calibration: <calibrated> calibrated, <failed> failed in <time> seconds` | The run ended, with ` (stopped)` after a stop. |
 | `Image Calibration: detected <cold> cold pixels and <hot> hot pixels` | **Auto-estimate** counted. |
 | `Image Calibration: cosmetic correction is on but neither the cold nor the hot sigma is checked, so no pixel is corrected` | A run started with both sigma boxes unchecked. |
-| `Image Calibration: could not read its settings:` | The kept values could not be read, and the window opened with its defaults. |
+| `Image Calibration: could not read its settings:` | The kept values could not be read, and the task opened with its defaults. |
 
-A warning or an error the window shows is logged too.
+A warning or an error the task shows is logged too.
 
 ## Too little and too much
 
@@ -164,13 +165,14 @@ These are places to start from, not results measured on an image.
 - **64-bit double** about doubles the memory and the disk of the same run.
 - Try one representative light before you turn the costly options on for the whole list.
 
-## What the window keeps
+## What the task keeps
 
-- When the window closes, it keeps for the next window: every value, each master's check and path, the output folder
-  when one is chosen, and the list in its order. Its size is kept as every window's is.
+- When the task closes, it keeps for the next task: every value, each master's check and path, the output folder
+  when one is chosen, and the list in its order. Its page has no size of its own: it fills the centre, or the
+  window it floats in.
 - A kept output folder that no longer exists is shown all the same, and created when a run starts. A kept file that
   can no longer be read is reported when the list is read again, and left out.
 - The statuses are not kept, and every row opens **Pending**. The three advanced sections open closed, and the
   preview starts afresh.
-- **Reset** returns the values to their defaults and leaves the list. The new values are kept when the window
+- **Reset** returns the values to their defaults and leaves the list. The new values are kept when the task
   closes.

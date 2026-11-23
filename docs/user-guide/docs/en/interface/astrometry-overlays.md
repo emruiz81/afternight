@@ -8,75 +8,87 @@ summary: >-
 
 When an image carries a [plate solution](../reference/glossary.md#plate-solution), its view can draw the sky over the
 picture: a grid of right ascension and declination, the galaxies, nebulae and clusters in the field, the names of its
-bright stars and the distortion the solution corrects. The overlays are drawn on the view alone. The pixels, the header
-and the [history](../reference/glossary.md#history) of the image never change, and the image is never marked unsaved.
-Use them to check a solution, to find your way around a field and to name what it holds.
-[Annotate Image](annotate-image.md) draws the same annotations into a picture you can keep.
+bright stars and the distortion the solution corrects. **Show Astrometry**, on the view's floating toolbar, shows and
+hides them; the Astrometry card of the [readout](../reference/glossary.md#readout) chooses each one and opens the
+windows about the solution. The overlays are drawn on the view alone. The pixels, the header and the
+[history](../reference/glossary.md#history) of the image never change, and the image is never marked unsaved. Use them
+to check a solution, to find your way around a field and to name what it holds. [Annotate Image](annotate-image.md)
+draws the same annotations into a picture you can keep.
 
 ```figure
 owed: true
 image: ../assets/images/interface/astrometry-overlays.webp
 alt: >-
   The AfterNight main window with the Carina Nebula master in its view, shown in the Autostretch display mode. Thin
-  blue lines of right ascension and declination cross the picture, with their values at its edges. A large dashed pink
-  circle, labelled NGC 3372 with Carina Nebula under it, runs off the top and bottom of the picture. Small white rings
-  mark seventeen stars, each with its label: η Car beside the bright star in the core of the nebula, the others by
-  their HIP or HR numbers. In the view's toolbar the star-shaped Show Astrometry button is pressed, and the status bar
-  gives the right ascension and declination under the pointer.
+  blue lines of right ascension and declination cross the picture, labelled 10h 40m, 10h 45m and −59° 00′ at its
+  edges. NGC 3372 is written in pink over the core of the nebula, and a large dashed pink circle around it runs off the
+  top and bottom of the view. On the floating toolbar near the bottom, the star-shaped Show Astrometry button is
+  pressed. In the readout at the right, the Astrometry card reads Solved · SIP 4/4 beside a settings button, then the
+  field centre 10:44:30.67 and −59:53:31.7, a scale of 1.095″/px and a rotation of 107.75 deg; under them the chips
+  Grid and Annotations, selected, Star labels, Detected stars and SIP map, and the buttons Plate Solve, Annotate... and
+  Info. The status line at the bottom reads RA − and Dec −.
 caption: >-
-  The linear Carina master in Autostretch, fitted to the window, with the grid, the deep-sky annotations and the star
-  labels at the Complete level of detail.
+  The linear Carina master in Autostretch, fitted to its workspace, with the grid and the deep-sky annotations at the
+  Standard level of detail, turned on from the readout's Astrometry card.
 pins:
-  - {n: 1, x: 49.9, y: 12.6}
-  - {n: 2, x: 52.7, y: 16.1}
-  - {n: 3, x: 14.5, y: 40.3}
-  - {n: 4, x: 17.8, y: 50.9}
-  - {n: 5, x: 69.9, y: 60.1}
-  - {n: 6, x: 84.8, y: 97.6}
+  - {n: 1, x: 5.3, y: 37.3}
+  - {n: 2, x: 36.0, y: 48.2}
+  - {n: 3, x: 54.3, y: 89.6}
+  - {n: 4, x: 75.8, y: 64.5}
+  - {n: 5, x: 96.6, y: 64.5}
+  - {n: 6, x: 75.8, y: 76.8}
+  - {n: 7, x: 75.8, y: 84.2}
+  - {n: 8, x: 84.7, y: 98.5}
 ```
 
 ## What you see
 
-1. **Show Astrometry.** The switch that draws the overlays you ticked, or hides them all.
-2. **Astrometry Settings.** The menu that ticks each overlay and chooses what the annotations name and how they look.
-3. **The equatorial grid.** Lines of constant right ascension and declination at round steps, labelled where they meet
+1. **The equatorial grid.** Lines of constant right ascension and declination at round steps, labelled where they meet
    the edge of the part of the image the view shows.
-4. **The deep-sky annotations.** Each galaxy, nebula and cluster of the bundled catalog in the field, outlined at its
+2. **The deep-sky annotations.** Each galaxy, nebula and cluster of the bundled catalog in the field, outlined at its
    catalog size and labelled. An object larger than much of the image, as the Carina Nebula here, is a dashed region
    labelled inside itself.
-5. **The star labels.** A ring around each bright star the level of detail names, with its name, its designation or
-   its catalog number.
-6. **The sky under the pointer.** The status bar gives the right ascension and declination of the pixel under the
+3. **Show Astrometry.** On the floating toolbar: the switch that draws the overlays chosen, or hides them all.
+4. **The Astrometry card.** "Solved", the solver and the [SIP](../reference/glossary.md#sip) orders, then the field
+   centre, the scale and the rotation of the solution.
+5. **Astrometry Settings.** The menu that ticks each overlay and chooses what the annotations name and how they look.
+6. **The overlay chips.** **Grid**, **Annotations**, **Star labels**, **Detected stars** and **SIP map**, each the switch
+   of one overlay. A chosen chip is filled.
+7. **Plate Solve, Annotate... and Info.** The windows about the solution: Plate Solve, Annotate Image and Astrometry
+   Info.
+8. **The sky under the pointer.** The status line gives the right ascension and declination of the pixel under the
    pointer, which helps you check a position.
 
 ## What you can do
 
 ### Show the overlays
 
-1. Make a solved still image the [active image](../reference/glossary.md#active-image). When **Show Astrometry** is
-   missing, solve the image with [Plate Solving](../processes/registration-alignment/plate-solving.md), with
-   **Write WCS to the current image metadata** ticked, or open a [FITS](../reference/glossary.md#fits) or
+1. Make a solved still image the [active image](../reference/glossary.md#active-image). When its Astrometry card reads
+   "Not solved", solve the image with **Plate Solve**, as
+   [Plate Solving](../processes/registration-alignment/plate-solving.md) says, with
+   **Write WCS to the current image metadata** ticked. Or open a [FITS](../reference/glossary.md#fits) or
    [XISF](../reference/glossary.md#xisf) file saved after a solve.
-2. Click the picture, then press **Show Astrometry** or ++ctrl+shift+w++. The grid appears: on a new profile it is the
-   one overlay ticked.
-3. Open **Astrometry Settings** and tick the overlays you want, or press ++ctrl+1++ to ++ctrl+5++ over the picture. Add
-   one at a time, so that the labels stay readable.
-4. In the same menu, choose **Level of Detail**, **Labels**, **Palette** and **Text Size**. The view follows each
-   choice, and every view you open later starts with it.
+2. Click a chip of the Astrometry card, such as **Annotations**. **Show Astrometry** turns on and the overlay appears.
+   On a new profile **Grid** is the one chip chosen, so **Show Astrometry** alone, or ++ctrl+shift+w++ over the
+   picture, shows the grid.
+3. Add the overlays one at a time, so that the labels stay readable. Over the picture, ++ctrl+1++ to ++ctrl+5++ do the
+   same while **Show Astrometry** is on.
+4. Open **Astrometry Settings** in the card's header, and choose **Level of Detail**, **Labels**, **Palette** and **Text
+   Size**. The view follows each choice, and every view you open later starts with it.
 5. Zoom and pan. The grid is spaced again for the part you see, and zooming in names smaller objects.
-6. Press **Show Astrometry** again to judge the pixels alone. Your overlays stay ticked for the next time.
+6. Press **Show Astrometry** again to judge the pixels alone. Your chips stay chosen for the next time.
 
 ### Check a solution
 
 An overlay draws whatever the solution says, and draws a wrong solution as tidily as a right one. A ring on its star
 or an outline on its nebula shows where the solution places the catalog entry: it does not show that the object is
-really there. Check the center, the scale and the rotation in **Astrometry Info**. Then hold the pointer over several
-known stars and objects across the field and compare their positions. When something is off, turn the overlays off one
-at a time to find the one that disagrees.
+really there. Check the center, the scale and the rotation in the Astrometry card, or in **Astrometry Info**. Then hold
+the pointer over several known stars and objects across the field and compare their positions. When something is off,
+turn the chips off one at a time to find the overlay that disagrees.
 
 ### Read the distortion map
 
-Tick **SIP Distortion Map**. Each arrow starts at a pixel and points to where the [SIP](../reference/glossary.md#sip)
+Choose the **SIP map** chip. Each arrow starts at a pixel and points to where the SIP
 polynomial of the solution moves it. With \((x, y)\) a pixel's position, the first pixel's center at \((0.5, 0.5)\),
 and \(\mathrm{CRPIX1}\) and \(\mathrm{CRPIX2}\) the header's reference pixel, counted from one, the view measures from
 the reference pixel
@@ -98,52 +110,79 @@ image: ../assets/images/interface/astrometry-overlays-sip.webp
 alt: >-
   The Carina Nebula master in its view in the Autostretch display mode, covered by a regular grid of twenty by twenty
   arrows. Over most of the field the arrows are short and green. Toward the left and right edges they grow and turn
-  amber, and the longest, in red, sit in the top left and bottom right corners. A small box at the top left of
-  the picture reads SIP distortion, max, and a number of pixels.
+  yellow and orange, and the longest sit in the top left and bottom right corners. A small box at the top left of the
+  picture reads SIP distortion, max, and a number of pixels, over the AUTOSTRETCH banner. The floating toolbar lies
+  along the foot, its Show Astrometry button pressed.
 caption: >-
-  The SIP distortion map of the Carina master's solution, with the legend that gives the largest correction in
-  pixels.
+  The SIP distortion map of the Carina master's solution, its grid chip turned off, with the legend that gives the
+  largest correction in pixels.
 ```
 
 ## Controls
 
-### The view's buttons
+### Show Astrometry and the Astrometry card
 
 ```controls
-window: The view's astrometry buttons
+window: Floating toolbar
 controls:
   - name: Show Astrometry
     kind: toolbutton
     default: "Off"
-    effect: Draws the overlays the **Astrometry Settings** menu ticks over the picture, or hides them all and leaves their ticks as they are.
-    enabled: Shown only for a still image whose header states a solution AfterNight reads, never for a sequence, the preview of a process window or a still preview. It appears and disappears as a solution is written into the image or removed from it. ++ctrl+shift+w++ over the picture does the same while the button is shown.
+    effect: Draws the overlays the chips of the Astrometry card choose over the picture, or hides them all and leaves the chips as they are.
+    enabled: Shown only for a still image whose header states a solution AfterNight reads, never for a sequence, a task's canvas or a still preview. It appears and disappears as a solution is written into the image or removed from it. ++ctrl+shift+w++ over the picture does the same while the button is shown, and turning a chip on turns it on.
     tradeoff: Several overlays at once can hide the image and add drawing work to every repaint. They are drawn without the graphics processor, and never wait for a network.
     scope: The view only. No pixel, header card, history step, mask, file or new view comes of it, and the image is not marked unsaved. Pixel type, channels, linear or stretched data, the view's channel and display mode, the mask and the zoom do not change the solution the overlays draw.
     persistence: Off in every new view, and never kept. Each view has its own.
     note: The view reads the solution once from the header, each time the image changes, and every overlay draws through it. The header must state a tangent-plane projection, `RA---TAN` and `DEC--TAN`, with `-SIP` or without, in degrees, in the ICRS. A header that states the J2000 equinox and no frame is read as ICRS. One that states FK5, another equinox and no frame, another projection or another axis order gives no solution and no overlay.
+```
+
+```controls
+window: Astrometry
+controls:
   - name: Astrometry Settings
     kind: toolbutton
     default: ""
-    effect: Opens the menu of the overlays and of what the annotations name and how they look. Its tooltip reads "Configure astrometry overlay display options".
-    enabled: Shown with **Show Astrometry**, and enabled while it is on. The menu's shortcuts work only then, over the picture.
+    effect: 'Opens the menu of the overlays and of what the annotations name and how they look, the menu below. Its tooltip reads "Astrometry Settings: level of detail, labels, palette, text size".'
+    enabled: While the readout reads an image's own view. The menu's shortcuts work only while **Show Astrometry** is on, over the picture.
     persistence: The menu closes after each choice. Every choice is kept at once, as the menu's block below says.
-  - name: Astrometry Info
-    kind: toolbutton
-    default: ""
-    effect: Opens the details of the solution. FITS Header, EXIF, And Astrometry Metadata describes the window.
-    enabled: Shown for a still image, and enabled once it has a solution. ++ctrl+shift+p++ does the same.
-  - name: Annotate Image
-    kind: toolbutton
-    default: ""
-    effect: Opens Annotate Image, which draws the annotations into a picture you export or open as an image.
-    enabled: Shown for a solved still image. ++ctrl+shift+l++ does the same.
+  - name: Grid
+    kind: button
+    default: "On"
+    effect: Shows or hides the equatorial grid, as **Equatorial Grid** of the menu does, and turns **Show Astrometry** on when it turns the grid on.
+    enabled: Shown for a solved image, as every chip is. Each chip follows its menu entry and its shortcut, whichever you use.
+  - name: Annotations
+    kind: button
+    default: "Off"
+    effect: Shows or hides the deep-sky annotations, as **Deep-Sky Annotations** does.
+  - name: Star labels
+    kind: button
+    default: "Off"
+    effect: Shows or hides the star labels, as **Star Labels** does.
+  - name: Detected stars
+    kind: button
+    default: "Off"
+    effect: Shows or hides the detected stars, as **Detected Stars** does.
+  - name: SIP map
+    kind: button
+    default: "Off"
+    effect: Shows or hides the distortion map, as **SIP Distortion Map** does.
   - name: Plate Solve
-    kind: toolbutton
+    kind: button
     default: ""
     effect: Opens Plate Solve, which can write a solution with its distortion into the image as a step of its history.
-    enabled: Shown for a still image, never for a sequence. ++ctrl+p++ and **Image > Information > Plate Solve** do the same. The window opens when no solver is set up, and its **Solve** stays disabled until one is.
+    enabled: Shown whether the image is solved or not. ++ctrl+p++ and **Image > Information > Plate Solve** do the same for a still image, never for a sequence. The window opens when no solver is set up, and its **Solve** stays disabled until one is.
     tradeoff: A solve uses processor time and catalog files on disk, and may run another program or upload the image, as the solver chosen does. The overlays add nothing to that cost.
-    persistence: The solvers' settings are kept apart. A written solution, and its removal with **Clear Astrometry**, leave the image with unsaved changes; Saving And Exporting says how to keep it.
+    persistence: The solvers' settings are kept apart. A written solution, and its removal with **Clear Astrometry**, leave the image with unsaved changes; Saving And Exporting says how to keep it in a file before registration or color calibration read it.
+  - name: Annotate...
+    kind: button
+    default: ""
+    effect: Opens Annotate Image, which draws the annotations into a picture you export or open as an image.
+    enabled: Shown for a solved image. ++ctrl+shift+l++ does the same over a solved still image.
+  - name: Info
+    kind: button
+    default: ""
+    effect: Opens Astrometry Info, the details of the solution. FITS Header, EXIF, And Astrometry Metadata describes the window.
+    enabled: Shown for a solved image. ++ctrl+shift+p++ does the same over a solved still image.
 ```
 
 ### The Astrometry Settings menu
@@ -253,34 +292,35 @@ controls:
 
 ## When it goes wrong
 
-**Show Astrometry** is missing
+**Show Astrometry** and the overlay chips are missing
 :   **Cause.** The view shows a [sequence](../reference/glossary.md#sequence), or the header states no solution
-    AfterNight reads: none, a projection other than the tangent plane, or the FK5 frame.
-:   **Fix.** Make a still image active, look at its header in **FITS Header**, and solve it with
-    [Plate Solving](../processes/registration-alignment/plate-solving.md).
+    AfterNight reads: none, a projection other than the tangent plane, or the FK5 frame. The Astrometry card then
+    reads "Not solved".
+:   **Fix.** Make a still image active, look at its header with **FITS Header** in the readout's Image card, and solve
+    it with **Plate Solve**.
 
-**Astrometry Settings** is greyed and ++ctrl+1++ does nothing
+++ctrl+1++ to ++ctrl+5++ do nothing
 :   **Cause.** **Show Astrometry** is off, or the picture does not have the keyboard.
-:   **Fix.** Press **Show Astrometry**, then click the picture before you use a shortcut.
+:   **Fix.** Press **Show Astrometry**, or a chip, then click the picture before you use a shortcut.
 
 The grid shows but no object or star is named
-:   **Cause.** The catalog overlay is not ticked, the level names nothing in this field, or the catalog could not be
+:   **Cause.** The catalog overlay is not chosen, the level names nothing in this field, or the catalog could not be
     read.
-:   **Fix.** Tick **Deep-Sky Annotations** or **Star Labels**, choose **Detailed** or **Complete**, and look in the
-    Session Console for a catalog message. The catalog holds NGC, IC, Messier and Caldwell objects alone, so the
-    Carina field, for one, holds a single object.
+:   **Fix.** Choose the **Annotations** or **Star labels** chip, choose **Detailed** or **Complete** in **Astrometry
+    Settings**, and look in the Session Console for a catalog message. The catalog holds NGC, IC, Messier and Caldwell
+    objects alone, so the Carina field, for one, holds a single object.
 
 Small objects and some stars are named only when you zoom in
 :   **Cause.** The smallest object a level names is a share of what the view shows, and a star whose label finds no
     room is not drawn.
 :   **Fix.** Zoom in, choose a fuller level, or a smaller **Text Size**.
 
-**Detected Stars** is ticked but no ellipse appears
+**Detected stars** is chosen but no ellipse appears
 :   **Cause.** The view holds no detected stars: the detection a solve starts is stopped when the solution lands.
 :   **Fix.** Use [Star Profiler](../processes/registration-alignment/star-profiler.md), which detects the stars and
     draws an ellipse on each over the view.
 
-**SIP Distortion Map** is ticked but no arrow appears
+**SIP map** is chosen but no arrow appears
 :   **Cause.** The solution has no forward distortion terms, only inverse ones, or terms that correct nothing.
 :   **Fix.** Check `A_ORDER` and `B_ORDER` in the header. The other overlays work without them, and a solve can fit
     them.
@@ -289,10 +329,9 @@ Small objects and some stars are named only when you zoom in
 
 - [Plate Solving](../processes/registration-alignment/plate-solving.md), to write the solution the overlays draw.
 - [Annotate Image](annotate-image.md), to draw the same annotations into a picture.
-- [Image Viewer](image-viewer.md), for the zoom, the display mode and the sky position in the status bar.
+- [Readout](readout.md), for the Astrometry card beside the other cards of the active image.
+- [Image Viewer](image-viewer.md), for the floating toolbar, the zoom and the display mode.
 - [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md), for the solution's cards and **Astrometry Info**.
-- [Saving And Exporting](saving-and-exporting.md), to keep a solution in a file before registration or color
-  calibration read it.
 - [Star Profiler](../processes/registration-alignment/star-profiler.md), to see the stars detected in an image.
 
 ## Credits
@@ -307,6 +346,6 @@ Small objects and some stars are named only when you zoom in
   polynomial of equations (1) and (2).
 - [NGC 2000.0, catalog VII/118 at CDS/VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118), by R. W. Sinnott
   after J. L. E. Dreyer, the source of the bundled deep-sky catalog's NGC and IC rows. The Messier names, common names,
-  some sizes and the Caldwell rows are the project's additions.
+  some sizes and the Caldwell rows are AfterNight's additions.
 - [HYG Database 4.2](https://www.astronexus.com/projects/hyg), by Astronexus, under CC BY-SA 4.0, the source of the
   bundled bright-star catalog.

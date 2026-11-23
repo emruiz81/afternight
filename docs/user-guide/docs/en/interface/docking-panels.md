@@ -1,198 +1,214 @@
 ---
 kind: interface
 summary: >-
-  How the workspace holds image views and the Session Console in areas of tabs, side by side or floating, and how to
-  group, split, fit, maximize and lock them.
-menu: Window
+  How a workspace holds its images as tabs of tab groups, side by side, one above another or floating, and how to
+  move, split, group, float and close them.
 ---
-# Docking Panels
+# Docking Images
 
-The [dock workspace](../reference/glossary.md#dock-workspace) holds every image or
-[sequence](../reference/glossary.md#sequence) view, and the [Session Console](log-viewer.md), in areas. An area shows
-its views as tabs. Areas sit side by side or one above another, and an area can float in a window of its own.
-Arranging them changes only what you see: no image, [history](../reference/glossary.md#history) or unsaved state
-changes.
+Inside a [workspace](workspaces.md), each image or [sequence](../reference/glossary.md#sequence) you open has a tab in
+a tab group. A group shows one of its images at a time. Groups sit side by side or one above another, and an image can
+float in a window of its own. Arranging them changes only what you see: no image,
+[history](../reference/glossary.md#history) or unsaved state changes.
 
-Only image views and the Session Console dock. Process windows, Image History, the header viewers and Settings are
-windows of their own. AfterNight does not keep the arrangement: every start opens on the [Dashboard](dashboard.md).
+Only images dock in a [workspace](../reference/glossary.md#workspace). A [task](../reference/glossary.md#task) has a page of its own, the Session Console is a drawer of the main window, and
+Image History, the header viewers and Settings are windows of their own.
 
 ```figure
 owed: true
 image: ../assets/images/interface/docking-panels.webp
 alt: >-
-  The AfterNight main window with three image views side by side, each in an area of its own with a tab, a toolbar
-  and its picture: the red and white clouds of the Carina Nebula on the left, two gray pictures of the same field in
-  the middle and on the right. The Window menu is open under the menu bar and lists Lock Layout, a greyed Unlock
-  Layout, Group All Images, which is highlighted, Split All Images and Fit Images To Window. Four layout buttons
-  follow the Open, Save as and Close buttons on the toolbar.
+  The centre of the main window holding one tab group with two tabs, RGB and the name of a master flat. The flat's tab
+  is in front, with an accent line under it, and each tab has a cross. At the right end of the strip are a chevron, a
+  float button and a cross. The gray master flat with its dark dust shadows fills the group under an AUTOSTRETCH
+  banner, and a dark floating toolbar near the bottom starts with the flat's name. Under the group, the history strip
+  reads HISTORY and Initial state.
 caption: >-
-  Three linear masters opened one after another, each in an area of its own, with the Window menu open on Group All
-  Images.
+  Two images grouped as tabs of one tab group, the master flat in front.
 pins:
-  - {n: 1, x: 32.5, y: 16.0}
-  - {n: 2, x: 15.0, y: 6.7}
-  - {n: 3, x: 42.0, y: 9.8}
-  - {n: 4, x: 63.2, y: 9.8}
-  - {n: 5, x: 34.5, y: 85.0}
+  - {n: 1, x: 1.2, y: 2.0}
+  - {n: 2, x: 9.6, y: 2.0}
+  - {n: 3, x: 34.6, y: 2.0}
+  - {n: 4, x: 91.2, y: 2.0}
+  - {n: 5, x: 24.6, y: 50.0}
+  - {n: 6, x: 11.6, y: 91.7}
 ```
 
 ## What you see
 
-1. **The Window menu.** **Lock Layout** and **Unlock Layout**, then the three commands that arrange every view at
-   once: **Group All Images**, **Split All Images** and **Fit Images To Window**.
-2. **The layout buttons.** The same lock, group, split and fit, on the toolbar after **Open**, **Save as...** and
-   **Close**.
-3. **The tabs.** One for each view of the area: its name, an icon for an image or a sequence, and a cross that
-   closes it. The tab of the view you work in carries an accent line along its top. Hover over a tab for the
-   summary of its image.
-4. **The area's buttons.** **Float / Detach** and **Close Tab Group**, at the right end of the tab bar.
-5. **The areas.** Each holds one or more views, at least 100 by 100 pixels. Drag the bar between two areas to give
-   one more room.
+1. **The tabs.** One for each image of the group: an icon for an image or a sequence, its name, an asterisk in the
+   accent color while it has unsaved changes, and a cross. Hover over a tab for its full name and the summary of its image.
+2. **The tab in front.** Its image is the one the group shows. An accent line runs under it in the group you work in.
+3. **The close cross.** It closes the tab's image.
+4. **The strip's buttons.** **Tab List**, shown with two tabs or more, then **Float / Detach** and
+   **Close Tab Group**.
+5. **The image in front.** It fills its group, which is never smaller than 100 by 100 pixels.
+6. **The name on the floating toolbar.** With more than one image docked in the workspace, the toolbar starts with
+   the name of the image it acts on.
 
 ## What you can do
 
-### Know where a new view goes
+### Know where a new image goes
 
-- Each **File > Open** puts its views in a new area at the right of the workspace. The files you choose together in
-  one Open are tabs of one area.
-- A view made from an image opens as a tab beside it: a duplicate, an extracted channel or frame, a converted copy,
-  a snapshot of a process window.
-- **View > Session Console** docks the console across the bottom.
-- Opening a view while another is maximized restores that one first.
+- A file you open goes at the right of what the workspace on screen holds. The files you choose together in one Open
+  are tabs of one group.
+- An image made from another - a duplicate, an extracted channel or frame, a converted copy, a snapshot of a task's
+  preview - opens as a tab beside it, in its workspace.
+- A new image a task makes opens beside its neighbour too. While the task's page is shown, a message such as
+  "stars_only opened in Workspace 1" says where, with **Show**.
+- Opening an image while another is maximized restores that one first.
 
-Click a tab, or anywhere in an area, to make its image the [active image](../reference/glossary.md#active-image), or
-choose its name in the status bar's box. Clicking the Session Console leaves the active image as it was.
+Click a tab, or anywhere in an image, to make it the [active image](../reference/glossary.md#active-image). The
+[readout](../reference/glossary.md#readout) and the floating toolbar follow it.
 
-### Arrange every view at once
-
-1. Choose **Window > Group All Images**. Every view becomes a tab of one area, and the active image stays in front.
-2. Choose **Window > Split All Images**. Every view gets an area of its own, in areas of equal size.
-3. Choose **Window > Fit Images To Window**. Every view fits its image to its area.
-
-```figure
-owed: true
-image: ../assets/images/interface/docking-panels-grouped.webp
-alt: >-
-  The same main window after Group All Images: one area fills the workspace, with three tabs along its top, and the
-  Carina Nebula master in front.
-caption: >-
-  The three masters after Window > Group All Images: one area with three tabs.
-```
-
-To arrange only the views of one window, right-click a view and open **Current Window**. Its commands leave the
-views of the other windows where they are.
-
-### Move a view
+### Move an image
 
 With the layout unlocked, drag a tab:
 
-- along its tab bar to change the order;
-- onto another area's tab bar to join it;
-- to an edge of an area, where a marker shows, to split that area;
-- out of the main window to float it.
+- along its strip to change the order;
+- onto another group's strip to join that group;
+- over a group or toward an edge of the workspace, where the drop indicators show, to split them;
+- out of the main window to float the image.
 
-Double-click a tab to float its view in a window of its own, and again to dock it back. Double-click the empty part
-of a tab bar to do the same with the whole area. **Float / Detach** floats the area, and docks it back from a
-floating window.
+While you drag, a cross of five square targets stands over the group under the pointer, the middle one for its tabs
+and the four others for its sides, and four more stand at the edges of the workspace. The target under the pointer is
+drawn in the accent color, and a shaded band shows where the image would land. Release it there.
 
-### Give one view the whole workspace
+Drag the empty part of a strip to move the whole group. Drag the bar between two groups to give one more room.
 
-Choose **Maximize image view** on the view's toolbar, **Image > View > Maximize View** or ++f11++. The view fills the
-workspace and the other areas, the Session Console among them, are hidden. Choose it again, now **Restore View**, or
-press ++f11++ to put the view back in its area.
+### Float an image
+
+Double-click a tab to float its image in a window of its own, or choose **Float** on the tab's menu. Double-click the
+empty part of a strip, or choose **Float / Detach**, to float the whole group. In a floating window the same button
+reads **Dock** and docks the group back, and a double-click on a tab docks its image back.
+
+A floating image has a smaller floating toolbar: **Fit To Window**, **Zoom Out**, the zoom, **Zoom In**, the display
+mode as one button, and **More**. It has no history strip: make it the active image and use the **Edit** menu. It
+cannot be maximized.
+
+### Use a tab's menu
+
+Right-click a tab. Its image becomes the active one, and the menu offers **Close**, **Close All Others** and
+**Close Tab Group**, then **Float** and **Move to Workspace**, then **Duplicate**, **Rename** and **Save File...**, and
+**Show in File Browser**. [Workspaces](workspaces.md) says where **Move to Workspace** takes the image.
+
+### Arrange the images of a floating window
+
+Right-click an image in a floating window and open **Current Window**. **Group All Images**, **Split All Images** and
+**Fit All Images to Window** then arrange the images of that window alone. In a workspace, use its layout icons,
+which arrange the images docked in it.
 
 ### Lock the layout
 
-Choose **Window > Lock Layout** or the lock button. With an image open, a right-click on the main window outside the
-views offers both entries too. Tabs and areas can no longer be dragged or double-clicked into another place. Unlock
-the same way.
+Choose **Lock layout** in the top bar, or **Window > Lock Layout**. The workspace's tabs and groups can no longer be
+dragged or double-clicked into another place, and no image can be dropped into it. Unlock it the same way.
 
-### Close views
+### Close images
 
-The cross on a tab closes its view, and **Close Tab Group** closes every view of the area. A view with unsaved
-changes asks first, and the process windows open on its image close with it. Closing the last view brings the
-Dashboard back unless the Session Console is still open.
+The cross on a tab closes its image, and **Close Tab Group** closes each image of the group in turn. An image with
+unsaved changes asks first, and so does one with a task open on it, whose task closes with it. While a run writes an
+image, its cross is disabled and its view is dimmed until the run ends.
 
 ## Controls
 
-### The Window menu and the layout buttons
+### A tab group
 
 ```controls
-window: The Window menu and the layout buttons
-controls:
-  - name: Lock layout
-    kind: toolbutton
-    default: "Off"
-    effect: The first layout button. It locks the layout, and its tooltip then reads **Unlock layout** and it unlocks it. **Window > Lock Layout** and **Window > Unlock Layout** do the same, and the one that matches the present state is greyed.
-    enabled: In the workspace. Disabled on the Dashboard, where the whole toolbar group and the **Window** menu are, and while a view is maximized, when both menu entries are greyed too.
-    tradeoff: The lock stops dragging, the drop markers and the double-click gestures. It does not stop **Group All Images**, **Split All Images**, **Fit Images To Window**, **Float / Detach**, choosing a tab or closing a view.
-    persistence: For the session. **Lock dock layout by default**, on the Interface page of Settings and kept as `interface/lockLayoutByDefault`, locks it at every start. Changing that setting does not lock or unlock the running workspace.
-    note: After a view maximized while the layout was already locked is restored, both menu entries stay greyed. The first press of the button locks again and makes **Unlock Layout** available, and a second press unlocks.
-  - name: Group All Images
-    kind: toolbutton
-    default: ""
-    effect: Puts every image and sequence view in one area as tabs, at the left of the main window, and keeps the active image active.
-    enabled: With an image open. Disabled while a view is maximized.
-    tradeoff: Views in floating windows come back into the main window. No command undoes an arrangement.
-    scope: Every view, never the Session Console.
-  - name: Split All Images
-    kind: toolbutton
-    default: ""
-    effect: Gives every image and sequence view an area of its own, makes the areas equal and keeps the active image active.
-    range: "From one to sixteen views it builds a fixed grid: two side by side, three as two above each other beside one, four as two by two, nine as three by three, sixteen as four by four. Beyond sixteen, every four more views make another column at the right."
-    enabled: As **Group All Images**.
-    tradeoff: The grid follows the count of views, not what they show, and many views leave each a small area. Many views in sight also cost memory and drawing time; group them into tabs, or maximize one, when the application slows. Floating views come back into the main window.
-    scope: Every view, never the Session Console.
-  - name: Fit Images To Window
-    kind: toolbutton
-    default: ""
-    effect: Fits each view's image to its area, as each view's own **Fit To Window** would.
-    enabled: With an image open, and also while a view is maximized.
-    tradeoff: A fitted picture is reduced. Look at 100 % before you judge noise, stars or sharpness.
-    scope: Every image view, floating ones included. It changes the zoom only.
-    note: Lock, group, split and fit have no shortcut. ++ctrl+shift+f++ is the active view's own **Fit To Window**.
-```
-
-### An area
-
-```controls
-window: An area
+window: A tab group
 controls:
   - name: Tab
     kind: action
     default: ""
-    effect: A click makes its view the active image. A drag moves the view, and a double-click floats it or docks it back.
-    enabled: Dragging and double-clicking only while the layout is unlocked.
-    note: Right-click the tab bar for a menu of the area's tabs.
+    effect: A click makes its image the active image. A drag moves the image, and a double-click floats it or docks it back. A right-click opens the tab's menu.
+    enabled: Dragging and double-clicking only while the workspace's layout is unlocked.
+    note: A long name is shortened in the middle, never below twelve characters.
   - name: Tab summary
     kind: readout
     default: ""
-    effect: The tooltip of a tab, and of a floating window's title, shows the summary of the image, the SER sequence or the image list.
-    range: A video sequence shows none, nor does the empty part of the tab bar. A still image an edit is writing at that moment shows none either; hover again.
+    effect: The tooltip of a tab gives the image's full name and the summary of the image, the SER sequence or the image list. The title of a floating window shows the summary too.
+    range: A video sequence shows no summary, nor does the empty part of the strip. A still image an edit is writing at that moment shows none either; hover again.
+  - name: Task mark
+    kind: action
+    default: ""
+    effect: While a task is open on the image, its tab shows the task's mark, whose tooltip reads "<process> is open on this image. Click to go to the task". A click shows the task.
+    note: While the task's run writes the image, the tooltip says that the image is locked until the run ends.
   - name: Close cross
     kind: button
     default: ""
-    effect: Closes the view, after "The image '...' has unsaved changes, are you sure you want to close it?" when it has some, and after a message titled "Close image with process attached" that names the process windows open on it. A sequence stops playing, and those windows close.
-    tradeoff: Nothing is saved for you. Answer No to keep the view open.
+    effect: Closes the image, after "The image '...' has unsaved changes, are you sure you want to close it?" when it has some, and after a message titled "Close image with process attached" that names the tasks open on it. A sequence stops playing, and those tasks close.
+    enabled: Disabled while a run writes the image.
+    tradeoff: Nothing is saved for you. Answer No to keep the image open.
+  - name: Tab List
+    kind: toolbutton
+    default: ""
+    effect: Lists the group's tabs by name. Choosing one brings it to the front; the one in front is greyed.
+    enabled: Shown while the group has two tabs or more.
   - name: Float / Detach
     kind: toolbutton
     default: ""
-    effect: Moves the whole area into a floating window with a title bar of its own, or docks it back from there.
-    tradeoff: In a floating window, **Maximize image view** and **Image > View > Maximize View** are disabled, and the **Current Window** commands act on that window alone.
+    effect: Moves the whole group into a floating window, or docks it back from there, where its tooltip reads **Dock**.
+    enabled: Disabled while a run writes the image in front.
+    tradeoff: In a floating window, **Maximize image view** and **Image > View > Maximize View** are disabled, the history strip is not shown and the floating toolbar is the small one.
   - name: Close Tab Group
     kind: toolbutton
     default: ""
-    effect: Closes each view of the area in turn, each with its own question.
-    range: It stops at the first question you cancel, and the views after it stay open.
-  - name: Bar between areas
+    effect: Closes each image of the group in turn, each with its own question.
+    range: It stops at the first question you cancel, and the images after it stay open.
+    enabled: Disabled while a run writes the image in front.
+  - name: Bar between groups
     kind: action
     default: ""
-    effect: Dragging it moves the border between the two areas.
-  - name: Empty part of the tab bar
+    effect: Dragging it moves the border between the two groups.
+  - name: Empty part of the strip
     kind: action
     default: ""
-    effect: Dragging it moves the whole area. A double-click floats the area, or docks it back.
-    enabled: While the layout is unlocked.
+    effect: Dragging it moves the whole group. A double-click floats the group, or docks it back.
+    enabled: While the workspace's layout is unlocked.
+```
+
+### The tab's menu
+
+```controls
+window: The tab's menu
+controls:
+  - name: Close
+    kind: action
+    default: ""
+    effect: Closes the tab's image, with the questions of its close cross. ++ctrl+w++ closes the active image of a workspace.
+  - name: Close All Others
+    kind: action
+    default: ""
+    effect: Closes every other open image, each with its own question, and goes on to the next after a No.
+  - name: Close Tab Group
+    kind: action
+    default: ""
+    effect: Closes each image of the tab's group, as the strip's **Close Tab Group** does.
+  - name: Float
+    kind: action
+    default: ""
+    effect: Floats the tab's image alone in a window of its own.
+  - name: Move to Workspace
+    kind: action
+    default: ""
+    effect: Lists the other workspaces, then **New Workspace**. The image moves to the right of what the workspace chosen holds, and that workspace is shown.
+  - name: Duplicate
+    kind: action
+    default: ""
+    effect: Opens a copy of the image as a tab beside it.
+    tradeoff: The copy takes the memory of a second image.
+  - name: Rename
+    kind: action
+    default: ""
+    effect: Gives the image another name, which its tab, the top bar and its history show.
+  - name: Save File...
+    kind: action
+    default: ""
+    effect: Saves the image or sequence to a file you name, as **Image > Actions > Save File...** does.
+  - name: Show in File Browser
+    kind: action
+    default: ""
+    effect: Shows the image's file in the system's file browser.
+    enabled: While the image is a file.
 ```
 
 ### Current Window
@@ -203,72 +219,50 @@ controls:
   - name: Group All Images
     kind: action
     default: ""
-    effect: Puts the views of the window the clicked view is in as tabs of one area, and keeps the clicked view active.
-    enabled: In the menu of a right-click on a view. Disabled while that view is maximized.
-    scope: The main window or the one floating window that holds the clicked view.
+    effect: Puts the images of the floating window the clicked image is in as tabs of one group, and keeps the clicked image active.
+    enabled: In the menu of a right-click on an image. Disabled while that image is maximized.
+    scope: The floating window that holds the clicked image.
   - name: Split All Images
     kind: action
     default: ""
-    effect: Gives each view of that window an area of its own, in the same grid as **Window > Split All Images**.
-    enabled: As **Group All Images**. A window with one view is left as it is.
+    effect: Gives each image of that window a group of its own, in the grid of **Split All Images** among the layout icons.
+    enabled: As **Group All Images**. A window with one image is left as it is.
   - name: Fit All Images to Window
     kind: action
     default: ""
-    effect: Fits each view of that window to its area.
-    enabled: Also while the clicked view is maximized.
-```
-
-### Maximize View
-
-```controls
-window: Maximize View
-controls:
-  - name: Maximize View
-    kind: action
-    default: "Off"
-    effect: "**Image > View > Maximize View**, **Maximize image view** on the view's toolbar and ++f11++ give the active view the whole workspace. The entry then reads **Restore View**, the button **Restore image view**, and both put the view back in its area."
-    enabled: For a docked view. Disabled for a view in a floating window, but ++f11++ is not refused there; dock the view before you press it.
-    tradeoff: While a view is maximized, **Lock layout**, **Group All Images** and **Split All Images** are disabled, and the other views and the Session Console are hidden. **Fit Images To Window** stays enabled.
-    scope: The view only. Nothing is copied or written, and the image, its history and its header stay as they were.
-    persistence: An unlocked layout is locked while the view is maximized and unlocked when it is restored. A locked layout stays locked.
-    note: Choosing another image in the status bar's box maximizes that one in its place. ++f11++ works while the view has the keyboard focus.
+    effect: Fits each image of that window to its group.
+    enabled: Also while the clicked image is maximized.
 ```
 
 ## When it goes wrong
 
-The **Window** menu or the layout buttons are greyed
-:   **Cause.** The Dashboard is showing, or a view is maximized.
-:   **Fix.** Open an image, or press ++f11++ on the maximized view to restore it.
-
 A tab cannot be dragged, and a double-click does nothing
-:   **Cause.** The layout is locked.
-:   **Fix.** Choose **Window > Unlock Layout** or the lock button.
+:   **Cause.** The workspace's layout is locked.
+:   **Fix.** Choose **Lock layout** in the top bar again, or **Window > Unlock Layout**.
 
-**Lock Layout** and **Unlock Layout** are both greyed after a view was restored
-:   **Cause.** The view was maximized while the layout was locked, and the restore leaves both entries greyed.
-:   **Fix.** Press the lock button once to lock again, and a second time to unlock.
+An image cannot be dropped into a workspace
+:   **Cause.** That workspace's layout is locked.
+:   **Fix.** Unlock it first, or use **Move to Workspace** on the tab's menu.
 
-**Group All Images** pulled a floating window back into the main window
-:   **Cause.** The **Window** commands arrange every view, floating or not.
-:   **Fix.** Float the area again, and use **Current Window** inside a floating window to arrange it alone.
+The close cross of a tab is greyed
+:   **Cause.** A task's run is writing the image.
+:   **Fix.** Wait for the run to end, or click the tab's task mark to see it.
 
-**Maximize image view** is greyed
-:   **Cause.** The view is in a floating window.
-:   **Fix.** Choose **Float / Detach** to dock its area, or double-click its tab, then maximize it.
+A floating image has no history strip and cannot be maximized
+:   **Cause.** Those belong to a workspace.
+:   **Fix.** Dock it back with a double-click on its tab, **Dock**, or **Dock here** on its workspace's page.
 
 The arrangement is gone after a restart
-:   **Cause.** AfterNight keeps only the main window's size and place, with **Remember window size and position**
-    (`interface/rememberWindowSize`), which is on unless you turn it off. The note "Window layout is automatically saved when closing the application" in
-    Settings means that alone.
-:   **Fix.** Arrange the views again, with **Group All Images** or **Split All Images** for a start.
+:   **Cause.** Without a [project](../reference/glossary.md#project), AfterNight keeps only the main window's size and place, with **Remember window size
+    and position** (`interface/rememberWindowSize`), which is on unless you turn it off.
+:   **Fix.** Work in a [project](projects.md), which keeps its workspaces, or arrange the images again.
 
 ## Related
 
-- [Interface Overview](overview.md), for the main window around the workspace.
-- [Image Viewer](image-viewer.md), for a view's own zoom, **Fit To Window** and **Maximize image view**.
-- [Toolbar & Menus](toolbar-and-menus.md), for the other menus and the view's right-click menu.
-- [Session Console](log-viewer.md), the other panel that docks.
-- [Process Windows](process-windows.md), for the windows that close with their image.
+- [Workspaces](workspaces.md), for the layout icons, several workspaces and moving an image between them.
+- [Image Viewer](image-viewer.md), for an image's own zoom, its floating toolbar and **Maximize image view**.
+- [Tasks](tasks.md), for the tasks that close with their image and the runs that lock it.
+- [The Main Window](overview.md), for the [rail](../reference/glossary.md#rail), the top bar and the status line around the workspace.
 - [Settings](settings-dialog.md), for **Lock dock layout by default** and **Remember window size and position**.
 
 ## Credits

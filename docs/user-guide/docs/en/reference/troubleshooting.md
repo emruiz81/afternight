@@ -31,17 +31,17 @@ A failure reaches you in one of the shapes below. The reason in it is the engine
 AfterNight never reads these words back, so they can change between versions: quote them whole.
 
 "Error executing the process", with "An error occurred when running the process:" and a reason
-:   A process window's **Apply** or **Take snapshot** failed, and nothing was applied. Read the process page's "When it
-    goes wrong", and the [messages of a process window](../interface/process-windows-reference.md#messages).
+:   A [task](glossary.md#task)'s **Apply** or **Take snapshot** failed, and nothing was applied. Read the process
+    page's "When it goes wrong", and the [messages of a task](../interface/tasks-reference.md#messages).
 
-"The preview failed", over a process window's controls
-:   The process refused the preview, and says why in the window's message strip, never in a box. See
-    [Process Windows](../interface/process-windows.md#when-it-goes-wrong).
+"The preview failed", over a task's controls
+:   The process refused the preview, and says why in the message strip of the task's column, never in a box. See
+    [Tasks](../interface/tasks.md#when-it-goes-wrong).
 
 "Error running …", with "An error occurred when executing the … process:" and a reason
-:   A window whose run goes on after it closes, such as Crop, Resize, SCNR or Starnet++, failed and changed nothing.
-    These windows report in a message box and the log only. The
-    [windows that differ](../interface/process-windows-reference.md#windows-that-differ) lists them.
+:   A task that runs its own way, without a [real-time preview](glossary.md#real-time-preview), such as Crop, Resize, SCNR or Starnet++, failed and
+    changed nothing. These tasks report in a message box and the log only. The
+    [tasks that differ](../interface/tasks-reference.md#tasks-that-differ) lists them.
 
 A message titled after a command, "Could not" and what it did, then a reason
 :   A command that runs at once, such as **Image > Convert Format**, failed and changed nothing. The Session Console
@@ -49,8 +49,8 @@ A message titled after a command, "Could not" and what it did, then a reason
 
 "Another process is executing for this image, please cancel that job first before running this process", or the same for a [sequence](glossary.md#sequence)
 :   Another run, or an edit not yet shown, holds the view, and a view takes one change at a time. The message is
-    titled after the window or the command you chose. Wait for that work to show its result, or cancel it in its
-    progress window, then try again.
+    titled after the task or the command you chose. Wait for that work to show its result, or cancel it in its task,
+    whose item in the [rail](glossary.md#rail) shows its run, then try again.
 
 "File open error" with "Could NOT load file", or "File save error" with "Could NOT save file"
 :   A file could not be read or written. The path and an "Error description:" follow. See
@@ -58,7 +58,7 @@ A message titled after a command, "Could not" and what it did, then a reason
 
 A run you stopped
 :   A stop you asked for shows no message and publishes nothing. The Session Console records it, as
-    `Process '<process>' cancelled by the user` for a window and `Stopped:` and the command for a command that runs at
+    `Process '<process>' cancelled by the user` for a task and `Stopped:` and the command for a command that runs at
     once.
 
 No message at all
@@ -103,7 +103,7 @@ The system reports a missing library, DLL or Qt plugin
 Starting AfterNight shows no window
 :   **Cause.** A copy of AfterNight is already running, or is still closing. A second start only asks that copy to come
     to the front, then ends.
-:   **Fix.** Look for its window on the task bar or on another screen, or wait until the earlier copy has closed, then
+:   **Fix.** Look for its window on the taskbar or on another screen, or wait until the earlier copy has closed, then
     start AfterNight again.
 
 A box titled "Error" reads "An error occurred:" and a reason, and AfterNight closes
@@ -112,14 +112,15 @@ A box titled "Error" reads "An error occurred:" and a reason, and AfterNight clo
     written does not stop AfterNight: see
     [The Session Console and the log file](#the-session-console-and-the-log-file).
 
-The Dashboard shows recent files instead of the welcome panel on a first start
-:   **Cause.** Your profile holds recent files from an earlier installation, which uninstalling leaves.
+Home shows recent files instead of the welcome on a first start
+:   **Cause.** Your profile holds recent files or [projects](glossary.md#project) from an earlier installation, which
+    uninstalling leaves.
 :   **Fix.** See [Start AfterNight](../getting-started/first-launch.md#start-afternight) and
-    [Start with a fresh profile](../interface/dashboard.md#start-with-a-fresh-profile).
+    [Start with a fresh profile](../interface/home.md#start-with-a-fresh-profile).
 
 ## The user guide
 
-++f1++, **Help > User Guide** and the Dashboard's question mark open this guide from the copy installed with
+++f1++, **Help > User Guide** and **User Guide**, the question mark in the top bar, open this guide from the copy installed with
 AfterNight: `docs\index.html` in the installation folder on Windows, `usr/share/doc/AfterNight/index.html` inside the
 AppImage on Linux. Only when no copy opens does AfterNight open the guide online, at `https://docs.afternightastro.org/`.
 
@@ -143,7 +144,7 @@ The guide opens online, from the network
 
 The guide names a label or a command the window does not have
 :   **Cause.** The guide and the application are of different versions. The guide's footer names its version, and
-    **About > About AfterNight** names the application's.
+    **Information > About AfterNight**, in the top bar, names the application's.
 :   **Fix.** Open the guide with ++f1++ from the AfterNight you run. Report a difference that remains, with both
     versions.
 
@@ -274,37 +275,39 @@ An AfterNight sequence opens here and not after it moved
 ## Views, menus and shortcuts
 
 The image commands, or a process, are greyed
-:   **Cause.** No view is active, the image is not of the kind the command needs, or another window holds the image.
-:   **Fix.** See [Interface Overview](../interface/overview.md#when-it-goes-wrong) and
-    [Toolbar & Menus](../interface/toolbar-and-menus.md#when-it-goes-wrong).
+:   **Cause.** No view is active, the image is not of the kind the command needs, or a [task](glossary.md#task) open
+    on the image holds it.
+:   **Fix.** See [The Main Window](../interface/overview.md#when-it-goes-wrong) and
+    [Top Bar and Menus](../interface/top-bar-and-menus.md#when-it-goes-wrong).
 
 A command or a process changed the wrong image
 :   **Cause.** Another view was active when you chose it.
-:   **Fix.** Undo the step in that view, then see [Interface Overview](../interface/overview.md#when-it-goes-wrong).
+:   **Fix.** Undo the step in that view, then see [The Main Window](../interface/overview.md#when-it-goes-wrong).
 
 A shortcut does nothing, or acts on another part of the window
-:   **Cause.** The command does not fit the image, or the shortcut belongs to a view that does not have the keyboard.
-:   **Fix.** See [Toolbar & Menus](../interface/toolbar-and-menus.md#when-it-goes-wrong) and
+:   **Cause.** The command does not fit the image, the shortcut belongs to a view that does not have the keyboard, or
+    the task has a window of its own, which the main window's keys do not reach.
+:   **Fix.** See [Top Bar and Menus](../interface/top-bar-and-menus.md#when-it-goes-wrong) and
     [Keyboard Shortcuts](keyboard-shortcuts.md).
 
-++ctrl+n++ does nothing
-:   **Cause.** The Dashboard's hint names a shortcut that New Sequence does not have.
-:   **Fix.** See [Dashboard](../interface/dashboard.md#when-it-goes-wrong).
+The menu bar, or the [readout](glossary.md#readout) beside the images, is missing
+:   **Cause.** The menu bar shows only after ++alt++, and the readout stands beside a
+    [workspace](glossary.md#workspace) only, or was collapsed.
+:   **Fix.** See [The Main Window](../interface/overview.md#when-it-goes-wrong). **All menus** in the top bar holds
+    every menu, and [Coming from 1.1](../getting-started/coming-from-1-1.md) says where each part of the 1.1 window
+    went.
 
-A [linear image](glossary.md#linear-image) looks almost black, or toolbar buttons are missing
-:   **Cause.** The **Linear** display shows samples as they are, and a narrow view moves buttons into **More**.
+A [linear image](glossary.md#linear-image) looks almost black, or **Show Astrometry** is missing
+:   **Cause.** The **Linear** display shows samples as they are, and **Show Astrometry** shows only for a plate-solved
+    still image.
 :   **Fix.** See [Image Viewer](../interface/image-viewer.md#when-it-goes-wrong).
 
-The Dashboard does not come back after the last image closes
-:   **Cause.** The Session Console is still open.
-:   **Fix.** See [Interface Overview](../interface/overview.md#when-it-goes-wrong).
-
-## Process windows
+## Tasks
 
 A process says why it cannot open, or is greyed in the menu
-:   **Cause.** No image is active, the image has the wrong channels, or another window already holds the image.
-:   **Fix.** See [When a window opens](../interface/process-windows-reference.md#when-a-window-opens) and the
-    [troubleshooting of Process Windows Reference](../interface/process-windows-reference.md#troubleshooting).
+:   **Cause.** No image is active, the image has the wrong channels, or another task already holds the image.
+:   **Fix.** See [When a task opens](../interface/tasks-reference.md#when-a-task-opens) and the
+    [troubleshooting of Tasks Reference](../interface/tasks-reference.md#troubleshooting).
 
 "the HSL adjustment needs an image of red, green and blue", or the same of another color process
 :   **Cause.** A process that works on color refuses a grayscale image, or one with an alpha channel, by name.
@@ -324,14 +327,14 @@ A process says why it cannot open, or is greyed in the menu
 
 The preview and the applied result differ
 :   **Cause.** A [preview area](glossary.md#preview-area) limits the preview to part of the image, a drag shows some
-    windows a reduced image, or the [mask](glossary.md#mask) on the view blends the result.
-:   **Fix.** See [The preview while you drag](../interface/process-windows-reference.md#the-preview-while-you-drag) and
-    [Process Windows](../interface/process-windows.md#when-it-goes-wrong), then the process's own page.
+    tasks a reduced image, or the [mask](glossary.md#mask) on the view blends the result.
+:   **Fix.** See [The preview while you drag](../interface/tasks-reference.md#the-preview-while-you-drag) and
+    [Tasks](../interface/tasks.md#when-it-goes-wrong), then the process's own page.
 
 The preview lags behind a drag, or a run goes on for a moment after **Cancel**
 :   **Cause.** The process is slower than the preview's rate, or the run stops only at its next stop point.
-:   **Fix.** See the [troubleshooting of Process Windows Reference](../interface/process-windows-reference.md#troubleshooting).
-    Do not end AfterNight to stop a run.
+:   **Fix.** See the [troubleshooting of Tasks Reference](../interface/tasks-reference.md#troubleshooting). Do not
+    end AfterNight to stop a run.
 
 The result is clipped, has the wrong colors or blocky edges, or looks wrong in another way
 :   **Cause.** A setting, the mask, or an image the process does not expect, such as a stretched image where it wants
@@ -359,7 +362,7 @@ Undo brought back the pixels but not the display, or a preview left no step
 :   **Cause.** A step keeps the image, not the view's display, zoom or mask. A preview, a reset and a cancelled run add
     no step.
 :   **Fix.** See [Image History](../interface/image-history.md#when-it-goes-wrong) and
-    [What a run leaves](../interface/process-windows-reference.md#what-a-run-leaves).
+    [What a run leaves](../interface/tasks-reference.md#what-a-run-leaves).
 
 ## Sequences
 
@@ -395,9 +398,9 @@ Lights stay unregistered, or their stars do not match
 
 A run failed or was cancelled
 :   **Cause.** A stage stopped for the reason its log gives. Groups finished before it are kept.
-:   **Fix.** Keep the output folder as it is, and read the progress window's log. A run that kept a finished group
-    also leaves `workflow_report.html` and `workflow_log.txt` in its `history` folder, and the report opens with
-    what happened, what was kept and what to do. See
+:   **Fix.** Keep the output folder as it is, and read the log in the run's view of its task. A run that kept a
+    finished group also leaves `workflow_report.html` and `workflow_log.txt` in its `history` folder, and the report
+    opens with what happened, what was kept and what to do. See
     [When a run stops or fails](../processes/stacking-integration/image-integration-reference.md#when-a-run-stops-or-fails).
 
 A run is over in seconds and writes nothing new, or reuses an older result
@@ -406,14 +409,14 @@ A run is over in seconds and writes nothing new, or reuses an older result
 
 "The last Image Integration session could not be restored and was kept as it is."
 :   **Cause.** The stored session holds a value this version does not know, as "The session '…' stores … for …, which
-    this version does not know; it was not changed." The window opens empty and saves nothing over it.
+    this version does not know; it was not changed." The task opens empty and saves nothing over it.
 :   **Fix.** See [Image Integration](../processes/stacking-integration/image-integration.md#when-it-goes-wrong).
 
 "The session database '…' was written in format …; this version of AfterNight reads format …", or "The saved Image Integration sessions could not be opened and were left as they are."
 :   **Cause.** The sessions were saved by another version of AfterNight, or their database cannot be opened. A database
     of another format is set aside beside itself, and new sessions are saved from then on. One that cannot be opened
-    is left as it is, and the window saves nothing automatically.
-:   **Fix.** See [What the window keeps](../processes/stacking-integration/image-integration-reference.md#what-the-window-keeps).
+    is left as it is, and the task saves nothing automatically.
+:   **Fix.** See [What the task keeps](../processes/stacking-integration/image-integration-reference.md#what-the-task-keeps).
 
 ## Plate solutions, catalogs and external tools
 
@@ -588,7 +591,8 @@ About AfterNight
     task.
 
 System Information
-:   **About > System Information**, or **More actions > System info** on the Dashboard. A report of the application,
+:   **Information > System Information** in the top bar, **About > System Information**, or **More actions > System
+    info** on Home. A report of the application,
     its version, folder, Qt version and build type; the engine and its libraries; the operating system, with the display
     server and the desktop on Linux; the processor and the graphics card; the displays; the memory in use and free; and
     every disk AfterNight can write to, with its free space. It is read from the computer when the window opens, and

@@ -14,7 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window opens without an image and works on the files you list in it.
+    Always, from the menu or from the Image Calibration card of the Integration hub. The task opens as a page of its
+    own that it fills whole, without an image, and works on the files you list in it.
   inputs: >-
     Still image files of one size, pixel type and channel count, and one bias, one dark and one flat master for the
     whole list, each optional. No open image, sequence or mask is used.
@@ -42,32 +43,27 @@ master dark shows. It makes no masters, matches none to groups of lights, and do
 ```figure
 image: ../../assets/images/processes/calibration/image-calibration.webp
 alt: >-
-  The Image Calibration window. On the left, a preview of the first raw light of NGC 253, dark in the Linear display
-  mode, with a scatter of stars, the faint galaxy across its middle and its statistics. On the right, Bias Master unchecked, Dark Master and Flat Master checked with the paths of the two masters,
-  and the Output & Execution card with the output folder, Use source filename on, the suffix _cal, FITS
-  (Recommended) and 32-bit float, over the Calibrate Images button. Across the bottom, the Light Frames table of 35
-  raw lights, every row with the Status Calibrated, then the buttons Add Files, Add Folder, Remove Selected, two
-  arrows, the counters and Clear All. Reset and Close at the bottom.
+  The Image Calibration task, a page that fills the centre of the main window under a header naming Image
+  Calibration. On the left of the page, a preview of the first raw light of NGC 253, dark in the Linear display mode,
+  with a scatter of stars, the faint galaxy across its middle and its statistics. On the right, Bias Master unchecked,
+  Dark Master and Flat Master checked with the paths of the two masters, and the Output & Execution card with the
+  output folder, Use source filename on, the suffix _cal, FITS (Recommended) and 32-bit float, over the Calibrate
+  Images button. Across the bottom, the Light Frames table of 35 raw lights, every row with the Status Calibrated,
+  then the buttons Add Files, Add Folder, Remove Selected, two arrows, the counters and Clear All, and Reset and Close
+  at the page's foot.
 caption: >-
   Image Calibration after a run over the 35 lights of NGC 253 with the master dark and the master flat: every row
   reads Calibrated, and the preview shows the first light as it was recorded.
-pins:
-  - {n: 2, x: 11.3, y: 69.6}
-  - {n: 3, x: 89.3, y: 69.6}
-  - {n: 4, x: 70.7, y: 14.0}
-  - {n: 5, x: 71.1, y: 21.6}
-  - {n: 6, x: 70.7, y: 33.0}
-  - {n: 7, x: 72.1, y: 44.4}
-  - {n: 8, x: 65.7, y: 64.2}
+owed: true
 ```
 
 ## Before you start
 
-- Make the masters first. The window takes one bias, one dark and one flat master for the whole list and builds
+- Make the masters first. The [task](../../reference/glossary.md#task) takes one bias, one dark and one flat master for the whole list and builds
   none. Stack them with Image Stacking, or take the ones an Image Integration run left. Calibrate the flats before you
-  stack them, by a [dark-flat](../../reference/glossary.md#dark-flat) or by the bias master: this window can do that
+  stack them, by a [dark-flat](../../reference/glossary.md#dark-flat) or by the bias master: this task can do that
   pass too.
-- Know what the dark master holds. The window subtracts the bias, then the dark. A dark stacked from raw darks holds
+- Know what the dark master holds. Image Calibration subtracts the bias, then the dark. A dark stacked from raw darks holds
   the bias already, so use it with **Bias Master** off and **Dark scaling** as it is. Scale only a dark that is free
   of bias.
 - List lights of one kind: one size, one [pixel type](../../reference/glossary.md#pixel-type) and one channel count.
@@ -83,8 +79,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Preprocess > Image Calibration**. It needs no open image, and its masters
-   and output folder stay disabled until the list holds a file.
+1. **Open the task.** Choose **Process > Preprocess > Image Calibration**, find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++, or choose **Image Calibration** under
+   **Single steps** in the [Integration hub](../../interface/integration-hub.md). The task opens as a page that fills
+   the centre. It needs no open image, and its masters and output folder stay disabled until the list holds a file.
 2. **List the lights.** Choose **Add Files** and select the lights, or **Add Folder** to take a folder's files by
    frame type and filter. The rows appear in date order, and the first light shows in the preview.
 3. **Check the list.** Compare **Size**, **Exposure**, **ISO/Gain**, **CFA** and **Depth** down the rows. Remove
@@ -97,17 +95,17 @@ pins:
    automatically** on unless the flat is normalized already.
 7. **Choose where the files go.** Choose the **...** beside **Output directory** and pick an empty folder. Keep the
    naming, the format and the precision unless you need others.
-8. **Calibrate.** Choose **Calibrate Images**. A progress window counts the lights, and each row's **Status** turns
-   to **Calibrated** or **Failed**.
-9. **Check the result.** The strip over the controls reads "Image Calibration: Calibration executed successfully!".
+8. **Calibrate.** Choose **Calibrate Images**, or press ++ctrl+enter++. The head of the page shows the run with its
+   share and **Cancel**, and each row's **Status** turns to **Calibrated** or **Failed**.
+9. **Check the result.** The banner at the head of the page reads "Image Calibration: Calibration executed
+   successfully!".
    Open a calibrated file beside its raw light, both with [Autostretch](../../reference/glossary.md#autostretch), and
    compare the corners, the dust shadows and the hot pixels.
 
 ## Controls
 
-What every process window shares, such as the message strip and the window's size, is in
-[Process Windows](../../interface/process-windows.md). The preview is a still preview, whose toolbar and mouse work as
-in the [Image Viewer](../../interface/image-viewer.md).
+What every task shares, such as the banner at the head of its page, is in [Tasks](../../interface/tasks.md). The
+preview is a still preview, whose toolbar and mouse work as in the [Image Viewer](../../interface/image-viewer.md).
 
 ### Image Calibration
 
@@ -122,7 +120,7 @@ controls:
     enabled: Once the list holds a file, and not while a run works. Checked with an empty path, it holds **Calibrate Images** back.
     tradeoff: A dark stacked from raw darks holds the bias already, and with both checked the bias is subtracted twice. A wrong bias shifts every light and prints its pattern into them.
     scope: Every sample of every light, and only the lights. It is not subtracted from the dark or the flat master. The master is read once a run, its size and channel count are checked against the first light, and its filter array against each light.
-    persistence: The check and the path are kept for the next window. **Reset** clears both.
+    persistence: The check and the path are kept for the next task. **Reset** clears both.
   - name: "..."
     object: biasFileButton
     kind: button
@@ -154,7 +152,7 @@ controls:
     enabled: Under **Advanced Dark Settings**, which opens closed, once the list holds a file and **Dark Master** is checked.
     tradeoff: The dark must be free of bias, with the bias master checked, or the bias is scaled with it. The factor found can differ from the ratio of the exposures, and it is shown and recorded nowhere, so compare a result with a fixed factor. Each light takes one more pass over its central square.
     scope: Each light on its own, before the flat.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Dark scaling
     kind: spinbox
     default: "1.00"
@@ -163,7 +161,7 @@ controls:
     enabled: Under **Advanced Dark Settings**, once the list holds a file and a dark master is chosen, with dark optimization on or off.
     tradeoff: Too high leaves the background too low, with negative values and dark holes at hot pixels. Too low leaves thermal pattern and hot pixels. Scale only a dark that is free of bias, by the ratio of the lights' exposure to the dark's.
     scope: Every light while dark optimization is off. With it on, the RGB and smaller lights only.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Enable cosmetic correction
     kind: check
     default: "Off"
@@ -172,13 +170,13 @@ controls:
     enabled: Under **Advanced Dark Settings**, once the list holds a file and a dark master is chosen.
     tradeoff: The dark is scanned once more and each light copied once more. Low thresholds replace compact real signal, such as small stars, along with the defects.
     scope: Every channel of every light. In a mosaic, a pixel is replaced from pixels of its own color.
-    persistence: Kept for the next window. **Reset** turns it off.
+    persistence: Kept for the next task. **Reset** turns it off.
   - name: Cold sigma
     object: coldSigmaCheck
     kind: check
     default: "On"
     effect: Looks for cold pixels. Off, none is marked.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Cold sigma
     object: coldSigmaValue
     kind: spinbox
@@ -188,13 +186,13 @@ controls:
     range: A sample the hot threshold has already marked stays hot.
     tradeoff: Too low replaces ordinary pixels. Too high leaves cold defects.
     scope: Marked on the dark, replaced in every light, channel by channel.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Hot sigma
     object: hotSigmaCheck
     kind: check
     default: "On"
     effect: Looks for hot pixels. Off, none is marked.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Hot sigma
     object: hotSigmaValue
     kind: spinbox
@@ -204,7 +202,7 @@ controls:
     range: Hot is decided first. Where the two thresholds meet or cross, as with both at 0 or over a dark without spread, a sample that meets both is hot. No threshold is cut to a range, so one beyond every sample marks nothing.
     tradeoff: Too low marks many bright samples. Too high leaves hot pixels.
     scope: Marked on the dark, replaced in every light, channel by channel.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Auto-estimate
     kind: button
     default: ""
@@ -236,14 +234,14 @@ controls:
     enabled: Under **Advanced Flat Settings**, which opens closed, once the list holds a file and **Flat Master** is checked.
     tradeoff: A central third that is not typical of the flat, with a dust shadow in it for example, sets the wrong level. Off, a flat whose values are not near 1 changes the level of every light.
     scope: The flat division of every light.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Output directory
     object: outputDirectory
     kind: readout
     default: ""
     effect: Shows the folder the calibrated files are written to. It cannot be typed in.
     enabled: Once the list holds a file.
-    persistence: Kept for the next window, also when the folder has gone since. A missing folder is created when the run starts, where the system allows it. **Reset** empties it.
+    persistence: Kept for the next task, also when the folder has gone since. A missing folder is created when the run starts, where the system allows it. **Reset** empties it.
   - name: "..."
     object: outputDirectoryButton
     kind: button
@@ -258,14 +256,14 @@ controls:
     effect: Names each file after its light, followed by **Suffix**. Off names them `image_0000`, `image_0001` and so on by their row, counted from 0, followed by **Suffix**.
     tradeoff: Two lights of one name from two folders get one name, and the second replaces the first. Numbers avoid that within a run, but a later run replaces them.
     scope: Every file of the run.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Suffix
     kind: field
     default: "_cal"
     effect: Is added to each name before the extension, as in `light_cal.fits`.
     range: Any text, or none. It is neither checked nor cleaned.
     tradeoff: Without a suffix, an output folder that holds the lights replaces them with their calibrated files. A character or a path the system refuses makes every write fail.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Format
     kind: combo
     default: FITS (Recommended)
@@ -273,7 +271,7 @@ controls:
     effect: Chooses the container. **FITS (Recommended)** keeps a light's `.fit`, `.fts` or `.fits` extension, in any case, and writes `.fits` otherwise. **TIFF** writes `.tiff`. **Original input format** writes the light's own container, extension and pixel type.
     range: An X-Trans mosaic cannot be written as FITS, so choose TIFF for it. A mosaic in its own camera RAW, PNG or JPEG format cannot be written and fails.
     tradeoff: "**Original input format** rounds each value to the nearest code of an integer type, which keeps no value below zero or above full scale. Only the pixel type is stated, and the export settings of the application are not applied."
-    persistence: Kept for the next window. A saved value the window does not know opens as FITS. **Reset** returns it to FITS.
+    persistence: Kept for the next task. A saved value the task does not know opens as FITS. **Reset** returns it to FITS.
   - name: Precision
     kind: combo
     default: 32-bit float
@@ -281,7 +279,7 @@ controls:
     effect: Chooses the pixel type of a FITS or TIFF file, and the precision the calibration works in.
     enabled: Disabled with **Original input format**, which works in 64-bit for a 64-bit floating-point or 32-bit integer light and in 32-bit for the others.
     tradeoff: "**64-bit double** doubles the files on disk and the memory of a run."
-    persistence: Kept for the next window. **Reset** returns it to 32-bit.
+    persistence: Kept for the next task. **Reset** returns it to 32-bit.
   - name: Pedestal (16-bit codes)
     kind: spinbox
     default: "0.0"
@@ -291,14 +289,14 @@ controls:
     enabled: Under **Advanced Calibration Settings**, which opens closed, once the list holds a file. A value above 0 enables **Calibrate Images** without any master.
     tradeoff: It raises the level of every light. It cannot bring back values a file cut before. Leave it at 0 unless you know why the lights must stay above zero, such as an integer output or a next tool that refuses negative values.
     scope: Every sample of every light.
-    persistence: Kept for the next window. **Reset** returns it to its default.
+    persistence: Kept for the next task. **Reset** returns it to its default.
   - name: Calibrate Images
     kind: button
     default: ""
     effect: Calibrates every light of the list, in the list's order, writes one file for each and marks its row.
     range: It needs a checked master with a file, or a pedestal above 0. It asks for an output folder when none is chosen, and asks you to wait while files are still read or **Auto-estimate** counts.
     enabled: Once the list holds a file, while no checked master lacks its file. Disabled while a run works.
-    tradeoff: Each light is read and written whole, one after the other, the arithmetic of each spread over the processor's threads. The window stays usable meanwhile. A stop keeps the files written and leaves none for the light in progress.
+    tradeoff: Each light is read and written whole, one after the other, the arithmetic of each spread over the processor's threads. The page stays usable meanwhile, and the run goes on if you leave it. A stop keeps the files written and leaves none for the light in progress.
     scope: The list and the values as they are when you press it. A change made during the run does not reach it.
     note: Before you register, open a few files at 100 % and check their count, names, pixel type and mosaic, their black level, and the dust and defects left.
   - name: Light Frames
@@ -309,7 +307,7 @@ controls:
     enabled: The list is neither reordered nor changed while a run works.
     tradeoff: The run compares only size, pixel type and channels. Exposure, gain, offset, filter and temperature are shown for you to compare, and a dark or a flat listed here is calibrated as a light.
     scope: The run calibrates every row, in the list's order.
-    persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size, Type and Status order nothing, and equal values keep the order of their dates. A row moved by hand ends the column's order. The list and its order are kept for the next window, and its files are read again when it opens. The statuses are not kept, and a run sets every row to Pending first.
+    persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size, Type and Status order nothing, and equal values keep the order of their dates. A row moved by hand ends the column's order. The list and its order are kept for the next task, and its files are read again when it opens. The statuses are not kept, and a run sets every row to Pending first.
     note: The full path of a file is its tooltip. Right-click a row for the row menu.
   - name: Add Files
     kind: button
@@ -317,7 +315,7 @@ controls:
     effect: Opens a file dialog for one or several still image files, and adds them to the list while their headers are read in the background.
     range: FITS, XISF, TIFF, PNG, JPEG and camera RAW files. A SER file, a video or another sequence is not offered, so extract its frames to still files first. A file already listed, by its full path, is passed over. A file that cannot be read is left out, and the others are added.
     enabled: Disabled while a run works.
-    tradeoff: Many headers take time to read, and the window stays usable meanwhile. When not every file is added, the window says how many it added, passed over and could not read, with the first reason.
+    tradeoff: Many headers take time to read, and the page stays usable meanwhile. When not every file is added, the task says how many it added, passed over and could not read, with the first reason.
     persistence: The dialog starts in the folder you last added from.
   - name: Add Folder
     kind: button
@@ -360,9 +358,9 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. Its values and its list are kept for the next window.
-    range: ++esc++ and the window's own close button do the same.
-    enabled: Also while a run works. Closing then stops the run, the files being read and the count of **Auto-estimate**, and the window closes at once.
+    effect: Closes the task. Its values and its list are kept for the next task.
+    range: ++esc++ and the task header's **Close** do the same while no run works.
+    enabled: Also while a run works. Closing then stops the run, the files being read and the count of **Auto-estimate**, and the task closes at once.
     tradeoff: The files already written stay. The light in progress leaves no file, and the rows not reached are not calibrated.
   - name: Reset
     kind: button
@@ -371,7 +369,7 @@ controls:
     range: It leaves the list, its statuses and the preview as they are.
     enabled: Disabled while a run works.
     tradeoff: The values it clears are gone unless you noted them. No file is touched.
-    persistence: The new values are kept when the window closes.
+    persistence: The new values are kept when the task closes.
     note: Its tooltip reads "Reset calibration settings to their default values."
 ```
 
@@ -385,7 +383,7 @@ controls:
     default: ""
     effect: Shows the file of the selected row as it is recorded, never calibrated. A mosaic is demosaiced in color by the fast method, without a question.
     enabled: Empty until the list holds a file. A newer choice replaces a file still being read. A file that cannot be read shows nothing and is reported.
-    persistence: Nothing of the preview, its zoom, channel, mode or overlay, is kept for the next window.
+    persistence: Nothing of the preview, its zoom, channel, mode or overlay, is kept for the next task.
     note: The wheel zooms as the zoom settings of the Interface page say, a middle-button drag pans, and holding the left button opens the lens, as in an image view.
   - name: Fit To Window
     kind: toolbutton
@@ -487,24 +485,24 @@ controls:
     default: ""
     effect: Asks "This will delete the selected file from the disk permanently. Are you sure you want to proceed?", then removes the row and deletes its file.
     range: The file of the row you clicked only.
-    tradeoff: The file is gone for good. When it cannot be deleted, the row is gone all the same and the window says "Could not delete" with the path.
+    tradeoff: The file is gone for good. When it cannot be deleted, the row is gone all the same and the task says "Could not delete" with the path.
 ```
 
-### Calibration progress
+### The run at the head of the page
 
 ```controls
-window: Calibration progress
+window: The run at the head of the page
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Reads "Calibrating 35 images", with the number of the list, and moves from 0 to 100 percent as each light is done.
-    enabled: Shown while a run works, under the title Image Calibration.
-    note: A run that was stopped ends without a message.
+    effect: Reads "calibrating" with a bar, and moves from 0 to 100 percent as each light is done. A line under it reads "The task keeps running if you leave this page."
+    enabled: Shown while a run works, in the place of the page's banner. No progress window opens. The task header and its item in the rail show the run too.
+    note: A run that was stopped ends without a message. One that ends while another place is shown says "Image Calibration finished", or failed or stopped, at the foot of the centre, with **Show**.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The text reads "Canceling execution..." and the button is disabled.
+    effect: Asks the run to stop. Its tooltip reads "Stop the run".
     range: The light being read, calibrated or written stops at its next check and leaves no file.
     persistence: The files already written stay, and their rows read Calibrated. The rows not reached stay Pending.
 ```
@@ -559,10 +557,10 @@ of a cold one. In a mosaic the neighbours are the sites of the same color, at tw
   light's fails that light.
 - A zero in the flat leaves a sample that is not a number, which the file marks as invalid. Nothing fills it, and
   the flat has no floor. A flat whose central mean is zero, or not a number, fails every light.
-- One set of masters serves every light. The window matches nothing to exposure, filter, temperature, camera or
+- One set of masters serves every light. Image Calibration matches nothing to exposure, filter, temperature, camera or
   night.
 - A light that fails is marked **Failed**, and the others go on. Its reason is in the Session Console.
-- A stop, or closing the window, keeps the files written. The light in progress leaves no file, and the rows not
+- A stop, or closing the task, keeps the files written. The light in progress leaves no file, and the rows not
   reached stay **Pending**.
 
 ### Worked example
@@ -572,7 +570,7 @@ The data is one night of NGC 253 from a QHY183C color camera: 35 lights and 20 d
 5544 by 3684 pixels with `BAYERPAT = 'RGGB'`, gain 11 and offset 30. The masters are made first. In
 [Image Stacking](../stacking-integration/image-stacking.md), as it opens, stack the 30 biases with **Name Template**
 `master_bias.fit` and the 20 darks with `master_dark.fit`. The master dark holds the bias. Then list the 40 flats in
-this window, check **Bias Master** alone with `master_bias.fit`, choose a folder `flats_cal` and calibrate them. Stack
+this task, check **Bias Master** alone with `master_bias.fit`, choose a folder `flats_cal` and calibrate them. Stack
 those 40 files into `master_flat.fit`.
 
 For the lights, choose **Clear All**, add the 35 lights, and uncheck **Bias Master**. Check **Dark Master** with
@@ -692,12 +690,12 @@ Bright corners, rings or pixels that are not a number after the flat
 :   **Fix.** Check **Cold sigma**, **Hot sigma** or both, count with **Auto-estimate**, and run again.
 
 Rows still read Pending after the run
-:   **Cause.** The run was stopped, or the window closed, before it reached them.
+:   **Cause.** The run was stopped, or the task closed, before it reached them.
 :   **Fix.** Check the files written, remove their rows, and calibrate the rest.
 
 ## Related
 
-- [Image Stacking](../stacking-integration/image-stacking.md), to make the bias, dark and flat masters this window
+- [Image Stacking](../stacking-integration/image-stacking.md), to make the bias, dark and flat masters this task
   takes.
 - [Image Integration](../stacking-integration/image-integration.md), which makes the masters, matches them to the
   lights and calibrates, registers and stacks in one run.
@@ -706,4 +704,4 @@ Rows still read Pending after the run
   calibration.
 - [Image Calibration Reference](image-calibration-reference.md), for every message, the files a run writes, and
   what too little and too much of each correction look like.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.

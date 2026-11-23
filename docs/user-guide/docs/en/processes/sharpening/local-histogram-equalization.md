@@ -14,8 +14,8 @@ masks: post-blend
 external: The G'MIC library bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no Local Histogram Equalization window is open on it yet, and no window
-    that needs the image for itself is open on it.
+    An image or a sequence view is active, no Local Histogram Equalization task is open on it yet, and no task that
+    needs the image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, and an optional mask on its view.
   outputs: >-
@@ -40,23 +40,16 @@ computes the samples.
 ```figure
 image: ../../assets/images/processes/sharpening/local-histogram-equalization.webp
 alt: >-
-  The Local Histogram Equalization window. On the left, a histogram with three colored peaks and the lines Clipping
-  Low and Clipping High in its corner, a toolbar, then the Strength, Radius, Sigma, Regularization and Amount boxes
-  with their sliders, the Reduce Halos check box ticked, Target Image, Channel at RGB and Preview. On the right, the
-  preview of the stretched nebula, with a framed area in its middle that shows the equalized result. Reset, Close and
-  Apply run along the bottom.
+  The Local Histogram Equalization task. Its header names the process and the stretched master. The canvas at the
+  left shows the stretched nebula, with a framed area in its middle that shows the equalized result. The column at
+  the right opens with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target
+  Image and Channel at RGB, a histogram with three colored peaks and the lines Clipping Low and Clipping High in its
+  corner, a toolbar, the Strength, Radius, Sigma, Regularization and Amount boxes with their sliders, and the Reduce
+  Halos check box ticked. Reset, Close and Apply stand in its footer.
 caption: >-
-  Local Histogram Equalization on a stretched master with its default values: the framed preview area shows what
-  Apply writes there.
-pins:
-  - {n: 2, x: 2.0, y: 85.5}
-  - {n: 3, x: 2.0, y: 52.1}
-  - {n: 4, x: 2.0, y: 56.3}
-  - {n: 5, x: 2.0, y: 60.6}
-  - {n: 6, x: 2.0, y: 47.9}
-  - {n: 7, x: 73.4, y: 16.6}
-  - {n: 8, x: 2.0, y: 64.8}
-  - {n: 9, x: 91.0, y: 96.7}
+  Local Histogram Equalization on a stretched master with its default values: the framed preview area in the canvas
+  shows what Apply writes there.
+owed: true
 ```
 
 ## Before you start
@@ -76,9 +69,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Intensity Transformations >
-   Local Histogram Equalization**. The preview shows a framed area in the middle of the image already equalized, and
-   **Apply** is enabled at once.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Intensity Transformations >
+   Local Histogram Equalization**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows a framed area in the middle of the image already
+   equalized, the column at the right holds its controls, and **Apply** is enabled at once.
 2. **Choose what to equalize.** Leave **Channel** at **RGB** to equalize the lightness and keep the colors.
 3. **Set the neighborhood.** Raise **Radius** for broader structures. Every step makes the run much longer.
 4. **Set the tone range.** Keep **Reduce Halos** ticked and lower **Sigma** to rank each pixel among neighbors of
@@ -87,15 +81,15 @@ pins:
    flattens.
 6. **Set the strength.** Lower **Strength (%)** to weaken the whole effect. Keep it above 0.
 7. **Check the whole image at 100 %.** Untick **Preview area**, zoom into the background, a bright star and the edge
-   of the frame, and press ++space++ over the preview to compare with the original.
+   of the frame, and hold ++space++ over the canvas to compare with the original.
 8. **Soften the result.** Lower **Amount** last, to fade the whole effect.
-9. **Apply.** Choose **Apply**. The image in its view is the equalized one, its history lists **Local Histogram
+9. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the equalized one, its history lists **Local Histogram
    Equalization** with the six values, and the controls return to their defaults.
 
 ## Controls
 
-The histogram above the controls, its toolbar and the preview pane are the same in every window: see
-[Process Windows](../../interface/process-windows.md). A histogram cannot show a halo: judge halos on the preview.
+The histogram, its toolbar and the canvas are the same in every task: see [Tasks](../../interface/tasks.md). A
+histogram cannot show a halo: judge halos on the preview.
 
 ```controls
 window: Local Histogram Equalization
@@ -108,7 +102,7 @@ controls:
     range: The slider moves it in tenths. At 0 the preview and Apply are refused, because G'MIC then returns two images instead of one. Use **Amount** to fade the result to nothing.
     tradeoff: High values look crunchy and flat, enlarge noise and clip the brightest pixels. The equalization costs as much at any value.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Radius
     kind: spinbox
     default: "4"
@@ -116,7 +110,7 @@ controls:
     effect: Sets the size of the square neighborhood every pixel is ranked in, a side of twice the radius plus one pixel. Higher ranks a pixel among broader structures, from 3 by 3 pixels at 1 to 33 by 33 at 16.
     tradeoff: The work for every pixel is the square's area plus a scan of 512 levels, so 9 samples at 1 and 1,089 at 16. Larger squares spread halos further.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Sigma
     kind: spinbox
     default: "100.00"
@@ -126,7 +120,7 @@ controls:
     enabled: Its effect turns round when **Reduce Halos** is unticked.
     tradeoff: Very low values leave almost no neighbor to rank against. Very high values count every neighbor almost alike.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Regularization
     kind: spinbox
     default: "8.00"
@@ -135,7 +129,7 @@ controls:
     range: The slider moves it in tenths.
     tradeoff: Higher values also soften the fine separation the process is for, and cost one more pass. At 0 the grain of the background is ranked pixel by pixel and grows strongly.
     scope: The preview and Apply, on what **Channel** selects, before the blend, **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: It is G'MIC's bilateral filter, guided by the lightness, with a range of 2 more than this value. On the fractions of full scale G'MIC is given, the lightness spans far less than that range, so the smoothing does not stop at edges.
   - name: Amount
     kind: spinbox
@@ -145,20 +139,20 @@ controls:
     range: The slider moves it in thousandths.
     tradeoff: It fades everything the equalization did and saves no time, because the equalization runs in full at any value. It cannot bring back what was clipped.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Reduce Halos
     kind: check
     default: "On"
     effect: On, a neighbor counts more the closer its lightness is to the pixel's, and one of the same lightness counts fully. Off, the weights are turned round. A neighbor of the same lightness counts nothing, and the more different ones count most.
     tradeoff: Off gives aggressive mappings that change a lot from pixel to pixel. On is the gentler choice, but it does not remove every halo.
     scope: The preview and Apply, with **Sigma**, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply tick it again.
+    persistence: Until the task closes. **Reset** and a finished Apply tick it again.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -167,14 +161,15 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**.
     tradeoff: A chroma or hue component can come back as colors outside the range or as jumps of hue. A component costs two conversions of the image.
     scope: The preview and Apply, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the result beside the controls, with **Amount** and the mask applied. When the window opens it shows a framed preview area of 600 by 600 pixels in the middle of the image.
+    effect: Shows the result in the canvas, with **Amount** and the mask applied. When the task opens it shows a framed preview area of 600 by 600 pixels in the middle of the image.
+    enabled: It stands in the column's toggles row, beside **Preview area**, which is ticked when the task opens. Both are disabled while Apply runs.
     tradeoff: Every change runs the whole equalization again, in a new G'MIC session. On the whole of a large image it takes far longer than on the area.
-    scope: The window only. A preview area is equalized as an image of its own, between its own darkest and brightest pixels, so it can rank differently from the whole image.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. A preview area is equalized as an image of its own, between its own darkest and brightest pixels, so it can rank differently from the whole image.
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: In a build without G'MIC it is off and disabled, with the tooltip "This build of AfterNight carries no G'MIC library, so this process cannot run."
   - name: Reset
     kind: button
@@ -185,8 +180,8 @@ controls:
     kind: button
     default: ""
     effect: Equalizes the image, or every frame of the sequence, with the values as they are when you press it, then returns them to their defaults.
-    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: The image goes to G'MIC as a 32-bit floating-point working copy, beside the second copy every run needs. A single image shows a progress window with a busy bar, because the command reports no share done, and its **Cancel** stops the run.
+    enabled: From the moment the task opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows. **Cancel** takes its place while a run works.
+    tradeoff: The image goes to G'MIC as a 32-bit floating-point working copy, beside the second copy every run needs. On a single image the column's run row reads "applying" with no share, because the command reports none, and **Cancel** stops the run. No progress window opens.
     persistence: >-
       The history step is **Local Histogram Equalization** and reads, for example, `Strength: 75.00, Radius: 4, Sigma:
       100.00, Regularization: 8.00, Amount: 1.00, Reduce Halos: true in channel: RGB`. For a grayscale image it ends
@@ -248,14 +243,14 @@ Equation (3) clips before equation (4) mixes, so **Amount** and the mask cannot 
 - Beyond the frame the neighborhood repeats the image's edge pixels. A
   [preview area](../../reference/glossary.md#preview-area) is a frame of its own, with its own darkest and brightest
   pixels.
-- **Cancel**, or closing the window, asks G'MIC to stop. It stops at its next check, and a stopped run writes nothing.
+- **Cancel** in the column's footer asks G'MIC to stop. It stops at its next check, and a stopped run writes nothing.
 - When G'MIC itself fails, on memory for example, the run reports the library's reason and writes nothing. Try again
   on a smaller image or with fewer images open.
 
 ### Worked example
 
 The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
-Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The window keeps its
+Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The task keeps its
 defaults: **Strength (%)** at 75, **Radius** at 4, **Sigma** at 100, **Regularization** at 8, **Reduce Halos** ticked,
 **Amount** at 1 and **Channel** at **RGB**. **Preview area** is unticked.
 
@@ -279,7 +274,7 @@ images:
       background a little darker and the colors kept.
     label: After
 caption: >-
-  The middle of the stretched Carina Nebula master at 100 %, before and after Apply with the window's defaults. Both
+  The middle of the stretched Carina Nebula master at 100 %, before and after Apply with the task's defaults. Both
   are shown in the Linear display mode, without a display stretch.
 ```
 
@@ -344,8 +339,7 @@ Preview and Apply are disabled, and the tooltip names G'MIC
 - [Wavelet Denoise](../noise-reduction/wavelet-denoise.md), to reduce the noise before.
 - [Masks](../../interface/masks.md), to protect the background or the stars.
 - [Image History](../../interface/image-history.md), to compare with the step before or undo it.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram and what every task shares.
 
 ## Credits
 

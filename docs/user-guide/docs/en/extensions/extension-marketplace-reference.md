@@ -61,6 +61,27 @@ The check at start
   latest, and the latest suits this AfterNight. A copy you installed from a file, copied in by hand or that came with
   AfterNight reads **Installed**, and the list never replaces it on its own.
 
+## How a package runs and where it opens
+
+Three rows of a card's details say what runs a package and where its processes show, before you use them. The first
+reads the installed package's manifest, or the release's when the package is not installed; the other two read the
+installed package alone.
+
+| Row | Reads | Because |
+| --- | --- | --- |
+| **How It Runs** | "With engine access" | The package runs in the full [extension host](../reference/glossary.md#extension-host), with AfterNight's image engine. |
+| | "Without engine access" | It runs in the Lite host, or needs a host this AfterNight does not have. |
+| | "Not declared" | Neither the package nor the release says. |
+| **Where It Opens** | "In the main window" | AfterNight draws its processes as [tasks](../reference/glossary.md#task) of the main window. |
+| | "In a window of its own" | Its processes show a window of their own, with an item in the [rail](../reference/glossary.md#rail). |
+| | "Nowhere, it has no interface" | Its processes draw nothing and show their progress in the rail. |
+| | "Known once it is installed" | The package is not installed yet. |
+| **Processes It Added** | "1 process", "3 processes" | The extension added processes while it ran, and AfterNight lists them now. The row is left out for one that added none. |
+
+When a package's processes open in different places, **Where It Opens** names each process with its place, as
+"<process>: in the main window; <process>: in a window of its own". [Extensions in the Window](extension-tasks.md) says
+what each place looks like.
+
 ## Signatures and hashes
 
 | Signature | Install | What to decide |
@@ -94,7 +115,8 @@ The check at start
    rules of its licence and host on what it may import.
 5. **Its record,** `extension_package_receipt.json` in the package's folder.
 6. **Its environment.** AfterNight prepares the environment, reads and keeps the package's settings and what it needs
-   to start, and compiles the package's Python modules. A dependency that cannot be compiled fails nothing; the
+   to start - among them the parameters from which it draws a process as a task of the main window - and compiles the
+   package's Python modules. A dependency that cannot be compiled fails nothing; the
    package's own modules must compile, or the install fails with "Extension package bytecode precompilation failed".
 7. **In place.** A copy of the same identifier is renamed aside, the new package is moved in and checked again, and
    the old copy is removed.
@@ -103,7 +125,7 @@ A failure or a cancel before step 7 removes the staging folder and an environmen
 package alone. A failure while the package is put in place, or at the check after, puts the old copy back. Extension
 settings are never part of the install, so an update keeps them. When the package is in place, the card reads
 installed at once, the saved list is updated, the tab reads the repository again, the **Installed** tab reads the
-packages again, and the menus follow.
+packages again, and the menus and the [command palette](../reference/glossary.md#command-palette) follow.
 
 ## What a package file may hold
 

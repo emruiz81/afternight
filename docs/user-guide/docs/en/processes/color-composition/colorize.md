@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Colorize window is open on it yet, and no window that needs the image
-    for itself is open on it.
+    An image or a sequence view is active, no Colorize task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence, a mosaic read as one grayscale plane, and an optional mask of the image's
     size on its view. An image with an alpha channel is refused.
@@ -43,20 +43,16 @@ nonlinear.
 ```figure
 image: ../../assets/images/processes/color-composition/colorize.webp
 alt: >-
-  The Colorize window. On the left, a histogram with a red, a green and a blue peak apart from each other, its
-  toolbar, the Method list at HSV, the Hue box at 200.00 and the Saturation box at 0.60 with their sliders, Use
-  lightness ticked, Target Image and Preview. On the right, the preview shows the nebula in shades of blue and cyan.
-  Reset, Close and Apply run along the bottom.
+  The Colorize task. Its header reads Colorize on the stretched master. The canvas at the left shows the preview, the
+  nebula and its stars in shades of one blue, with the word PREVIEW in its corner and the floating toolbar near its
+  foot. The column at the right opens with the compact readout of the preview, then the Preview, Preview area and
+  Processed toggles, Target Image, a histogram with a red, a green and a blue peak apart from each other and its
+  toolbar, the Method list at HSV, Hue at 200.00 and Saturation at 0.60 with their sliders, and Use lightness ticked.
+  Reset, Close and Apply stand in its footer.
 caption: >-
-  Colorize on a stretched master with Hue at 200, Saturation at 0.60 and Use lightness on: the lightness of the image
-  in one blue hue.
-pins:
-  - {n: 2, x: 13.0, y: 70.4}
-  - {n: 3, x: 2.0, y: 55.6}
-  - {n: 4, x: 2.0, y: 60.5}
-  - {n: 5, x: 2.0, y: 65.7}
-  - {n: 6, x: 47.6, y: 40.0}
-  - {n: 7, x: 92.3, y: 96.0}
+  Colorize on a stretched master with Hue at 200, Saturation at 0.60 and Use lightness on: the canvas shows the
+  lightness of the image in one blue hue.
+owed: true
 ```
 
 ## Before you start
@@ -64,9 +60,8 @@ pins:
 - Decide what gives the intensity. A grayscale image gives its one plane. An RGB image gives its
   [CIE L*](../../reference/glossary.md#cie-lab) lightness with **Use lightness**, or each of its channels without it.
 - **Apply** replaces the image and turns a grayscale image, or a mosaic, into RGB. Its history keeps the step before.
-- Use samples between 0 and 1. HSV adds no clamp, so a floating-point sample outside that range gives channels
-  outside it. HSI holds its channels between 0 and 1 at any saturation above 0.
-- The preview is shown as its samples are, with no
+- Use samples between 0 and 1: under HSV a floating-point sample outside that range gives channels outside it.
+- The preview in the canvas is shown as its samples are, with no
   [display stretch](../../reference/glossary.md#display-stretch). A
   [linear image](../../reference/glossary.md#linear-image) looks nearly black in it: read the histogram, or
   [stretch](../../reference/glossary.md#stretch) the image first.
@@ -75,24 +70,26 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image active and choose **Process > Color Spaces > Colorize**. At the defaults the
-   preview shows the image in red, and **Apply** is already enabled.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Spaces > Colorize**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows the image in red at the defaults, the column at
+   the right holds its controls, and **Apply** is already enabled.
 2. **Choose the intensity.** For an RGB image, tick **Use lightness** to color its lightness. Leave it off only when
    you want each channel mapped on its own.
 3. **Choose the model.** Leave **Method** at **HSV** to keep each intensity as the brightest channel, or choose
    **HSI** to keep it as the mean of the three.
 4. **Set the hue.** Move **Hue** to the color you want, in degrees: 0 is red, 120 green and 240 blue.
 5. **Set the saturation.** Lower **Saturation** from 1 toward 0 for a paler color. At 0 the result is gray.
-6. **Check the preview.** Press ++space++ over it to compare with the original, read the histogram, and look at the
-   channels with the preview's **View Channel**. Untick **Preview area**, if you drew one, for the last look.
-7. **Apply.** Choose **Apply**. The image in its view is RGB in the color you set, and its history lists **Colorize**
-   with the hue and the saturation.
+6. **Check the preview.** Hold ++space++ over the canvas to compare with the original, read the histogram, and look
+   at the channels with **View Channel** in the canvas's floating toolbar. Untick **Preview area**, if you ticked it,
+   for the last look.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is RGB in the
+   color you set, and its history lists **Colorize** with the hue and the saturation.
 
 ## Controls
 
-The histogram and its toolbar, **Target Image**, **Preview**, the preview pane, **Close** and the progress window of a
-sequence work as in every process window: see [Process Windows](../../interface/process-windows.md). The preview pane
-of this window has no **Display Mode**.
+The histogram and its toolbar, **Target Image**, **Preview**, the canvas, **Close** and the run over a sequence work
+as in every task: see [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Colorize
@@ -102,10 +99,10 @@ controls:
     default: HSV
     options: [HSV, HSI]
     effect: Chooses the model that turns an intensity into a color. **HSV** keeps the intensity as the brightest of the three channels. **HSI** keeps it as their mean, before they are held between 0 and 1.
-    enabled: It stays enabled while Apply runs, and the run keeps the choice it started with.
+    enabled: Disabled while Apply runs.
     tradeoff: HSI clips bright, saturated colors and loses their detail. HSV keeps every intensity between 0 and 1 inside the range. Both cost the same small work for each pixel, HSI a little more for its cosines and its three clamps.
     scope: The preview and Apply, all three channels of the result, on images and sequences.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **HSV**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **HSV**.
   - name: Hue
     kind: spinbox
     default: "0.00"
@@ -115,7 +112,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: It sets the ratios between the channels. On an RGB image without **Use lightness**, unequal channels give another hue than the one you set.
     scope: The preview and Apply, on images and sequences.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Saturation
     kind: spinbox
     default: "1.00"
@@ -125,31 +122,31 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Higher values separate the channels more, and with **HSI** clip more highlights. Lower values come closer to gray or to the original.
     scope: The preview and Apply, on images and sequences.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Use lightness
     kind: check
     default: "Off"
     effect: On, an RGB image is colored from one plane, its CIE L* lightness divided by 100, so every pixel takes the hue and saturation you set. Off, each of its channels is colored from its own value.
-    range: The lightness is read as the Channel list of a process window reads it. The RGB is converted as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. An image without a full scale is read as the fractions of full scale the view shows.
-    enabled: Only while the target is RGB without an alpha channel. A grayscale target, or one with alpha, disables it and turns it off. It stays enabled while Apply runs, and the run keeps the choice it started with.
+    range: The lightness is read as the Channel list of a task reads it. The RGB is converted as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. An image without a full scale is read as the fractions of full scale the view shows.
+    enabled: Only while the target is RGB without an alpha channel. A grayscale target, or one with alpha, disables it and turns it off. Disabled while Apply runs.
     tradeoff: It keeps the structure of the image together, but the result's own lightness is not the source's. It adds a pass over the image and a floating-point plane of the lightness, which has the precision of 32-bit floating point, or of 64-bit for a 64-bit floating-point image.
     scope: The preview and Apply, which convert alike, for RGB images and sequences.
-    persistence: Until the window closes, or until the target is no longer RGB. **Reset** and a finished Apply leave it as it is.
+    persistence: Until the task closes, or until the target is no longer RGB. **Reset** and a finished Apply leave it as it is.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The preview and whether **Use lightness** is offered follow it.
     range: It lists every open image. An image with an alpha channel, or any channels other than one or three, is refused when the preview or Apply runs.
-    persistence: Until the window closes. **Reset** leaves it.
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the colorized image beside the controls, with the mask blended in. The histogram counts it.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the colorized image in the canvas, with the mask blended in. The histogram counts it.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: The preview holds an RGB result as large as the image, three times a grayscale one.
-    scope: "The window only. The pane shows the samples as they are, in its Linear mode, and offers no **Display Mode** or **Autostretch Settings**. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image. A snapshot is an RGB image named `<target> - Colorize - SNAPSHOT`, not recorded as nonlinear."
-    persistence: Until the window closes. **Reset** leaves it.
+    scope: "The task only. The canvas shows the samples as they are, in its Linear mode, and its floating toolbar offers no **Display Mode** or **Autostretch Settings**. **Preview area** is off when the task opens, and ticked it starts at 600 by 600 pixels in the middle of the image. A snapshot is an RGB image named `<target> - Colorize - SNAPSHOT`, not recorded as nonlinear."
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Reset
     kind: button
     default: ""
@@ -159,7 +156,7 @@ controls:
     kind: button
     default: ""
     effect: Colorizes the whole image, or every frame of the sequence, with the values it finds when you press it, and then returns **Method**, **Hue** and **Saturation** to their defaults.
-    enabled: From the moment the window opens. While the run works it is disabled, with **Target Image**, **Hue**, **Saturation**, **Reset**, **Close**, **Preview area** and **Take snapshot**. **Method**, **Use lightness**, **Preview** and the histogram stay enabled.
+    enabled: From the moment the task opens. While the run works **Cancel** takes its place in the footer, and the column's controls, the toggles, **Reset**, **Close** and **Take snapshot** are disabled.
     tradeoff: The result is three channels in the image's pixel type, and an integer image also needs a three-channel floating-point working copy. A sequence of grayscale frames is written again as RGB, which can take up to three times its disk space.
     scope: The whole image, never limited by a preview area, with the mask on the view blended afterwards.
     persistence: "The history step is **Colorize** and reads, for example, `Colorize hue to 200 and saturation to 0.6`. It does not record **Method** or **Use lightness**."
@@ -224,7 +221,7 @@ while it replaces its hue.
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, with **Method** at **HSV**, **Hue** at 200, **Saturation**
 at 0.60 and **Use lightness** on. The gray background, near 0.28 in each channel, is read as sRGB and has a lightness
 of 30, so \(V = 0.30\). Hue 200 lies in the fourth sector of equation (1), and the background becomes
@@ -314,8 +311,7 @@ Reset did not turn Use lightness off
 - [Adjust HSL](../color-adjustment/adjust-hsl.md), to change the hue and saturation an RGB image already has.
 - [Masks](../../interface/masks.md), to make and attach the mask Apply blends through.
 - [Image History](../../interface/image-history.md), to undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the histogram toolbar and what every task shares.
 
 ## Credits
 

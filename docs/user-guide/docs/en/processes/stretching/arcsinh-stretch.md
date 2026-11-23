@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no ArcSinh Stretch window is open on it yet, and no window that needs
-    the image for itself is open on it. The number of channels is not checked.
+    An image or a sequence view is active, no ArcSinh Stretch task is open on it yet, and no task that needs the
+    image for itself is open on it. The number of channels is not checked. The task opens as a page of its own,
+    beside other tasks.
   inputs: >-
     One grayscale or three-channel RGB image or sequence with samples between 0 and 1, and an optional mask on its
     view.
@@ -43,19 +44,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
 alt: >-
-  The ArcSinhStretch window. On the left, a histogram with one peak near its left fifth and the lines Clipping Low
-  and Clipping High in its corner. Under it a toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with
-  their sliders, Human-weighted luminance checked, Target Image and Preview. On the right, the preview shows a red
-  nebula on a dark gray background. Reset, Close and Apply run along the bottom.
+  The ArcSinh Stretch task. Its header names the process and the linear master, and the column's header reads
+  ArcSinhStretch. The canvas at the left shows the stretched preview, a red nebula on a dark gray background. The
+  column at the right opens with the compact readout of the preview, then the Preview, Preview area and Processed
+  toggles, Target Image, a histogram with one peak near its left fifth and the lines Clipping Low and Clipping High
+  in its corner, its toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with their sliders, and
+  Human-weighted luminance checked. Reset, Close and Apply stand in its footer.
 caption: >-
   ArcSinh Stretch on a linear master with Stretch Factor at 200 and Black Point at 0.02. The histogram is counted
-  from the stretched preview, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 2.0, y: 54.0}
-  - {n: 3, x: 2.0, y: 59.0}
-  - {n: 5, x: 2.0, y: 63.8}
-  - {n: 6, x: 73.0, y: 26.0}
-  - {n: 7, x: 90.9, y: 96.0}
+  from the stretched preview, and the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -73,28 +71,29 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
-   ArcSinh Stretch**. The window opens under the title **ArcSinhStretch**, with a narrow peak at the left of the
-   histogram and a nearly black preview.
+   ArcSinh Stretch**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The
+   [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows a nearly black preview, the column at the right, headed
+   **ArcSinhStretch**, its controls and a histogram with a narrow peak at its left.
 2. **Raise the stretch factor.** Increase **Stretch Factor** until the faint signal shows in the preview. The
    background turns gray and the peak of the histogram moves to the right.
 3. **Set the black point.** Raise **Black Point** until the background is dark again. Stop while **Clipping Low**
    in the histogram still reads near zero: what it counts is lost.
-4. **Adjust the stretch factor again.** The black point changes what the curve receives, so the same factor now
-   lifts less. Raise it until the faint signal is back in the preview.
+4. **Adjust the stretch factor again.** The same factor lifts less after a black point. Raise it until the faint
+   signal is back in the preview.
 5. **Choose the luminance.** On an RGB image, leave **Human-weighted luminance** on, or clear it to weigh the three
    channels equally. The preview shows the difference in strongly colored regions.
-6. **Check the preview at 100 %.** Zoom the preview into the faint areas and the brightest colored stars, and press
+6. **Check the preview at 100 %.** Zoom the canvas into the faint areas and the brightest colored stars, and hold
    ++space++ over it to compare with the original. **Clipping High** tells how many samples reached 1.
-7. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists `ArcSinhStretch` with
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the stretched one, its history lists `ArcSinhStretch` with
    the three values, and the controls return to their defaults.
 
 ## Controls
 
 The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
-resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md).
+resolution** - changes only how the histogram is drawn, and is the same in every task that has one: see
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: The histogram
@@ -104,9 +103,9 @@ controls:
     default: ""
     effect: Shows how the samples of the image are spread between 0 and 1. With **Preview** on it is counted from the stretched preview, mask included. With **Preview** off it is counted from the image as it is.
     range: One line for a grayscale image, three for RGB, at the toolbar's **Plot resolution**.
-    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
+    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the canvas displays, and it shows the original while the canvas does.
     tradeoff: It is counted again after every preview, which adds to the time each change takes.
-    scope: The window only. It never changes a sample.
+    scope: The task only. It never changes a sample.
     note: Holding the left button shows the coordinates under the pointer, and does not pick a black point. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer.
   - name: Clipping Low
     kind: readout
@@ -114,14 +113,14 @@ controls:
     effect: Gives the share of the samples the histogram counts that are at or below 0. In the stretched preview those are the samples at or below the black point.
     range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
     enabled: Shown while the toolbar's clipping button is on.
-    scope: The window only.
+    scope: The task only.
   - name: Clipping High
     kind: readout
     default: ""
     effect: Gives the share of the samples the histogram counts that are at or above 1. In the stretched preview those are the samples that reached 1 in their channel.
     range: Counted as **Clipping Low** is.
     enabled: Shown while the toolbar's clipping button is on.
-    scope: The window only.
+    scope: The task only.
 ```
 
 ```controls
@@ -136,7 +135,7 @@ controls:
     enabled: Disabled while Apply runs. With **Black Point** it decides whether **Apply** is enabled.
     tradeoff: A strong factor lifts the background and its noise with the signal, and clips a channel of the bright colored stars. It does not change the time a run takes.
     scope: The preview and Apply, on images and sequences. A grayscale image gets the curve itself, an RGB image one factor for its three channels. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
   - name: Black Point
     kind: spinbox
     default: "0.00000"
@@ -146,7 +145,7 @@ controls:
     enabled: Disabled while Apply runs. Any value above 0 enables **Apply**, even with **Stretch Factor** at 0.
     tradeoff: Set above the background, it erases faint signal for good. It is taken from each channel alone, so it changes the ratios between the colors before the common factor is computed.
     scope: The preview and Apply, on every channel of images and sequences, before the curve. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
     note: It is a level you choose, and nothing is measured from the image. Used alone, with **Stretch Factor** at 0, it only cuts and rescales, and the result is still recorded as nonlinear.
   - name: Human-weighted luminance
     kind: check
@@ -155,55 +154,55 @@ controls:
     enabled: Disabled while Apply runs. It changes nothing on a grayscale image.
     tradeoff: The weights are applied to the samples as they are stored and mean a luminance only for linear RGB. With it on, green structures drive the stretch more. The plain mean is not a perceptual luminance.
     scope: The preview and Apply, on images and sequences of exactly three channels. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply turn it on.
+    persistence: Until the task closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply turn it on.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces, with the mask on its view. The histogram and the preview follow it.
     range: The number of channels of the image is not checked here.
     tradeoff: Apply replaces the image chosen here, so check it before you Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
-    enabled: It stays enabled while Apply runs.
+    effect: Shows the stretched image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: Each change stretches the whole image again, or the **Preview area** alone, and counts the histogram again. On a large image or sequence, turn it off or use a **Preview area** while you adjust, and check the whole image before Apply.
-    scope: The window only. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: An image made with the preview's snapshot button is a separate image, and is not recorded as nonlinear.
+    scope: The task only. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: An image made with **Take snapshot** in the canvas's floating toolbar is a separate image, and is not recorded as nonlinear.
   - name: Reset
     kind: button
     default: ""
     effect: Returns **Stretch Factor** and **Black Point** to 0 and turns **Human-weighted luminance** on.
     range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
     enabled: Disabled while Apply runs.
-    scope: The window only. The image is not touched, the preview is computed once more, and Apply is disabled afterwards.
+    scope: The task only. The image is not touched, the preview is computed once more, and Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Stretches the image, or every frame of the sequence, with the three values as they are when you press it, and then returns the controls to their defaults.
-    enabled: When **Stretch Factor** or **Black Point** is above 0. It is disabled while the window opens and while a run works.
+    enabled: When **Stretch Factor** or **Black Point** is above 0. It is disabled when the task opens, and **Cancel** takes its place while a run works.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
     persistence: The image and its history keep the result. The history step is `ArcSinhStretch` and reads, for example, `Stretch 50, Black Point 0.001, Human Weight true`. It does not record the toolbar's choices or the mask.
-    note: Closing the window instead discards the values. The window has no presets, and nothing of it is saved between sessions.
+    note: Closing the task instead discards the values. The task has no presets, and nothing of it is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being stretched, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy until the run ends.
     scope: Every frame, with the values and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     note: The sequence is replaced only when every frame has been stretched. After a cancelled run, Apply again and let it finish.
 ```
 
@@ -258,8 +257,7 @@ most \(10^{-12}\) is written black.
 - Floating-point samples are worked in their own precision, 8-bit and 16-bit integers in a single-precision copy
   and 32-bit integers in a double-precision copy. The curve and the luminance are computed in double precision,
   and an integer result is rounded to the nearest value, a tie to the even one.
-- A mosaic image is stretched as grayscale and recorded as nonlinear and `monochrome`. A mosaic sequence whose
-  automatic debayer is on is read as RGB and replaced as RGB.
+- A mosaic image is recorded as nonlinear and `monochrome`.
 
 ### Worked example
 
@@ -301,7 +299,7 @@ hardly moves. With **Black Point** at 0.05, a sample of 0.10 first becomes
 
 ## When it goes wrong
 
-!!! warning "Apply cannot be taken back from this window"
+!!! warning "Apply cannot be taken back from this task"
     The stretch replaces the image and records it as nonlinear, and a later calibration treats it so. Finish color
     calibration and every other linear step first, and use the image's history to return to the linear master.
 
@@ -354,8 +352,7 @@ A mosaic sequence is RGB after Apply
 - [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
 - [Histogram Analysis](../../interface/image-histogram.md) and
   [Image Statistics](../../interface/image-statistics.md), to check black and white clipping before you accept it.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.
 
 ## Credits
 

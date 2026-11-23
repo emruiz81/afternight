@@ -42,24 +42,27 @@ and 3008 × 3004 pixels, in a folder `LIGHT`, and 50 flats for each filter in a 
 ```figure
 image: ../assets/images/processes/stacking-integration/image-integration-lite.png
 alt: >-
-  The Image Integration Lite window after a run. An amber banner at the top reads Ready with 4 warnings. The Dataset
-  card counts 64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and the object M 16. The
+  The Image Integration Lite task after a run, a page that fills the centre of the main window under a header naming
+  Image Integration Lite. An amber banner at the top of the page reads Ready with 4 warnings. Under it, two columns. At
+  the left, the Dataset card counts 64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and
+  the object M 16, and the Frames card below it has the Add as box, the Add Files, Add Folder, Change Type and Clear
+  All buttons, and the table of the files with their type, filter, object, exposure and calibration. At the right, the
   Setup card holds the Output folder with its Browse button and the options of the run, and Processing Settings lists
-  four closed lines. The Frames card has the Add as box, the Add Files, Add Folder, Change Type and Clear All buttons,
-  and the table of the files with their type, filter, object, exposure and calibration. Run Integration, Open Full
-  Process and Close are at the bottom.
+  four closed lines. Open Full Process, Close and Run Integration are at the page's foot.
 caption: >-
   Image Integration Lite after a run on the Eagle Nebula's Ha, OIII and SII lights and their flats, every setting at
   its default.
 pins:
-  - {n: 1, x: 43.6, y: 71.6}
-  - {n: 2, x: 66.0, y: 97.3}
+  - {n: 1, x: 21.2, y: 35.0}
+  - {n: 2, x: 89.5, y: 96.1}
+owed: true
 ```
 
 ### Stack the three filters in one run
 
-Choose **Process > Preprocess > Image Integration Lite**. Choose **Browse** beside **Output** and pick the new, empty
-folder. Leave **Add as** at **Auto-detect**, choose **Add Folder** and pick the folder of the lights, then choose it
+Choose **Integration** in the [rail](../reference/glossary.md#rail), then **New quick integration**, or choose
+**Process > Preprocess > Image Integration Lite**. It opens as a [task](../reference/glossary.md#task) whose page
+fills the centre. Choose **Browse** beside **Output** and pick the new, empty folder. Leave **Add as** at **Auto-detect**, choose **Add Folder** and pick the folder of the lights, then choose it
 again for the flats. Each file's header gives its type and its filter. Leave the four lines of **Processing
 Settings** as they are.
 
@@ -76,23 +79,24 @@ Settings** as they are.
 
 ### Run the integration
 
-Choose **Run Integration**, and keep the frames and the output folder where they are while it runs. A progress
-window names each stage. The lights of all three filters are registered onto one reference, then each filter is
-stacked on its own.
+Choose **Run Integration**, or press ++ctrl+enter++, and keep the frames and the output folder where they are while
+it runs. The run's view takes the place of the task's lists and names each stage. The lights of all three filters are
+registered onto one reference, then each filter is stacked on its own.
 
 !!! see "You should see"
-    A box titled **Complete** reads "Workflow completed successfully." The three masters open, each in its own view:
+    The run's view reads "Workflow Completed Successfully". The three masters open, each in its own view in a
+    [workspace](../reference/glossary.md#workspace), which the centre shows:
     `stacked_3008x3004_Ha_M_16.fit`, `stacked_3008x3004_Oiii_M_16.fit` and `stacked_3008x3004_Sii_M_16.fit`. On the
     guide's data the registration chose one OIII light as the reference of all 64.
 
 ### Check that the masters line up
 
 The masters are [linear images](../reference/glossary.md#linear-image), nearly black: choose
-[Autostretch](../reference/glossary.md#autostretch) in **Display Mode** on the toolbar of each view, which changes the
-display only. Make the Ha master the [active image](../reference/glossary.md#active-image), choose **Process >
-Utilities > Image Compare** and pick the OIII master in **Image 2**. Hold ++space++ over the preview to switch between
-the two, then do the same with the SII master, and choose **Close**. Read each master's **Median** in **Image >
-Information > Statistics**.
+[Autostretch](../reference/glossary.md#autostretch) in the floating toolbar of each view, which changes the display
+only. Make the Ha master the [active image](../reference/glossary.md#active-image), choose **Process >
+Utilities > Image Compare** and pick the OIII master in **Image 2**. Hold ++space++ over the task's canvas to switch
+between the two, then do the same with the SII master, and choose **Close**. Read each master's **Median** in the
+Statistics card of the [readout](../reference/glossary.md#readout), at the right of the workspace.
 
 !!! see "You should see"
     The stars stay in place while the preview switches. The medians are about 0.0378 for Ha, 0.0386 for OIII and
@@ -111,7 +115,7 @@ Make the Ha master active and choose **Process > Background Modelization > Auto 
 runs smoothly across the whole frame, as on these masters, suits a polynomial: tick **Simplified polynomial model**
 and leave **Polynomial degree** at 2. Choose **Preview**, set **Preview display** to **Gradient model**, and choose
 **Apply**. Then choose the OIII master in **Target image** and do the same, and the SII master after it. **Apply**
-returns the controls to their defaults, so tick the box again each time. Close the window when the three are done.
+returns the controls to their defaults, so tick the box again each time. Close the task when the three are done.
 
 !!! see "You should see"
     The model is a smooth surface, without the clouds, the pillars or the stars. After **Apply** the
@@ -138,11 +142,11 @@ They stay linear.
 
 Choose **Process > Color Spaces > Narrowband Palette Composer**. Under **Sources**, choose the Ha master in **Ha**,
 the OIII master in **OIII** and the SII master in **SII**. Leave **Input autostretch** and **Match sizes to reference**
-on: the window [stretches](../reference/glossary.md#stretch) each master by its own statistics as it maps it, so
+on: the task [stretches](../reference/glossary.md#stretch) each master by its own statistics as it maps it, so
 linear masters give a picture. Click the tile of the palette you want, and choose **Apply**.
 
 The new image is a [nonlinear image](../reference/glossary.md#nonlinear-image): the stretch is in its samples, and
-it is recorded so. Choose **Linear** in **Display Mode** to see it as it is, and do not stretch it again. The color
+it is recorded so. Choose **Linear** in the floating toolbar to see it as it is, and do not stretch it again. The color
 calibrations need linear data and refuse it.
 
 For Ha and OIII alone, click the HOO tile. To give each line a hue of your own, use
@@ -211,7 +215,8 @@ image: ../assets/images/workflows/narrowband-imaging-result.webp
 alt: >-
   The AfterNight main window with one image open, in a tab named stacked_3008x3004_Oiii_M_16 - SHO Narrowband
   Palette: the clouds of the Eagle Nebula with the dark pillars near the middle, in warm and blue tones without the
-  green of SHO, over a dark gray background with many stars. The Display Mode box in the view's toolbar reads Linear.
+  green of SHO, over a dark gray background with many stars. The floating toolbar near the foot of the view shows
+  Linear selected, and the readout at the right shows the image's histogram and statistics.
 caption: >-
   The Eagle Nebula in SHO after the steps on this page, shown in the Linear display mode: the picture is in the image
   itself.
@@ -229,7 +234,7 @@ Each image's history lists its steps in order. Return to any of them through
 - [NBRGB Combination](../processes/color-composition/nbrgb-combination.md) adds the line signal of an Ha master to
   the red of a broadband color image.
 - [Image Integration](../processes/stacking-integration/image-integration.md) stacks several nights, with darks
-  matched by hand and a project you save.
+  matched by hand, and keeps the job for another night.
 - [Broadband Imaging](broadband-imaging.md) and [Mosaic Workflow](mosaic-workflow.md) take other kinds of data
   through the same stages.
 - [Saving and Exporting](../interface/saving-and-exporting.md) says what each file format keeps.

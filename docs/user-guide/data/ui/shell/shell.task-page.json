@@ -1,0 +1,21 @@
+{
+  "id": "shell.task-page",
+  "window": "Task page",
+  "controls": [
+    {"label": "The process's menus", "kind": "toolbutton", "object": "taskHeaderMenu", "group": "Task header", "visible": false, "default": ""},
+    {"label": "Float as window", "kind": "toolbutton", "object": "taskHeaderFloat", "group": "Task header", "visible": true, "default": ""},
+    {"label": "Close", "kind": "toolbutton", "object": "taskHeaderClose", "group": "Task header", "visible": true, "default": ""},
+    {"label": "Fit To Window", "kind": "toolbutton", "object": "anFloatingToolbarFit", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "Zoom Out", "kind": "toolbutton", "object": "anFloatingToolbarZoomOut", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "Zoom In", "kind": "toolbutton", "object": "anFloatingToolbarZoomIn", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "Zoom 100%", "kind": "toolbutton", "object": "anFloatingToolbarZoom100", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "View Channel", "kind": "combo", "object": "anFloatingToolbarChannel", "group": "Canvas", "visible": true, "varies": ["default"]},
+    {"label": "Take snapshot", "kind": "toolbutton", "object": "anFloatingToolbarTakeSnapshot", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "More", "kind": "button", "object": "anFloatingToolbarMore", "group": "Canvas", "visible": true, "default": ""},
+    {"label": "Expand the full readout over the process", "kind": "toolbutton", "object": "", "group": "Compact readout", "visible": true, "default": ""},
+    {"label": "Close", "kind": "toolbutton", "object": "pageClose", "group": "Column header", "visible": true, "default": ""},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "Toggles", "visible": true, "default": "On"},
+    {"label": "Preview area", "kind": "check", "object": "pagePreviewArea", "group": "Toggles", "visible": true, "default": "Off"},
+    {"label": "Processed", "kind": "button", "object": "pageCompare", "group": "Toggles", "visible": true, "default": "Off"}
+  ]
+}

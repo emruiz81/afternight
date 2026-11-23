@@ -1,0 +1,9 @@
+{
+  "id": "shell.status-line",
+  "window": "Status line",
+  "controls": [
+    {"label": "Active image", "kind": "combo", "object": "observatoryViewSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Show or hide the readout", "kind": "toolbutton", "object": "observatoryReadoutButton", "group": "", "visible": true, "default": ""},
+    {"label": "Console", "kind": "button", "object": "observatoryConsoleChip", "group": "", "visible": true, "default": ""}
+  ]
+}

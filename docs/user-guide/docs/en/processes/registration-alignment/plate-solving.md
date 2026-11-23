@@ -14,8 +14,9 @@ masks: none
 external: A Gaia DR3 catalog pack, or ASTAP, astrometry.net's solve-field or an astrometry.net API key
 glance:
   enabled: >-
-    A still image view is active. A sequence view offers neither the menu command nor the view's Plate Solve button.
-    The window opens without a solver, but Solve stays disabled until one is set up.
+    A still image view is active. A sequence view offers neither the menu command nor the readout's Plate Solve
+    button. Plate Solve stays a window of its own, not a task. It opens without a solver, but Solve stays disabled until
+    one is set up.
   inputs: >-
     The image the view shows, unsaved edits included, the position and optics its header states or you type, and the
     solvers, catalog and limits chosen in the settings.
@@ -45,20 +46,15 @@ save the image.
 owed: true
 image: ../../assets/images/processes/registration-alignment/plate-solving.webp
 alt: >-
-  The Plate Solve window. Under its title, a line saying what it does. The Acquisition Hints section is open: RA at
-  10h 44m 30.671s, Dec at S 59 degrees 53 minutes 31.732 seconds, a Find object button, Focal length near 435 mm and
-  Pixel size at 2.31 µm. Below it the Solved Field box lists the field center, image scale, rotation, field of view,
-  Internal Gaia as the solver and the SIP distortion. Then the Clear Astrometry button, the ticked Write WCS to the
-  current image metadata check box, and Reset Hints, Solve and Close along the bottom.
+  The Plate Solve window over the main window. Its heading reads Plate Solve over a line saying what it does. The
+  Acquisition Hints section is open: RA at 10h 44m 30.671s, Dec at S 59 degrees 53 minutes 31.732 seconds, a Find
+  object button, Focal length near 435 mm and Pixel size at 2.31 µm. Below it the Solved Field card lists the field
+  center, image scale, rotation, field of view, Internal Gaia as the solver and the SIP distortion. Then the Clear
+  Astrometry button, the ticked Write WCS to the current image metadata check box, and a footer with Reset Hints at
+  its left and Close and Solve at its right.
 caption: >-
   Plate Solve after a solve of the Carina master with the Gaia DR3 G<=14 pack: the hints its header gave, the focal
   length the solve derived and the solution it found and wrote.
-pins:
-  - {n: 3, x: 3.0, y: 22.2}
-  - {n: 4, x: 26.0, y: 34.6}
-  - {n: 5, x: 3.0, y: 90.4}
-  - {n: 6, x: 53.0, y: 95.0}
-  - {n: 7, x: 3.0, y: 49.3}
 ```
 
 ## Before you start
@@ -83,8 +79,9 @@ pins:
    **Gaia DR3 Astrometric Catalogs**. For the recommended pack the page then reads "Selected Gaia catalog: Gaia DR3
    G<=14 (gaia_dr3_g14)".
 2. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Image > Information > Plate Solve**, press **Plate Solve** in the view's toolbar, or press ++ctrl+p++ over the
-   view. The window opens and names the image in its title, as `Plate Solve <RGB>` for an image named RGB.
+   **Image > Information > Plate Solve**, press **Plate Solve** in the Astrometry card of the
+   [readout](../../interface/readout.md), or press ++ctrl+p++ over the view. The window opens over the main window and
+   names the image in its title, as `Plate Solve <RGB>` for an image named RGB.
 3. **Check the hints.** Open **Acquisition Hints** and check that **RA**, **Dec**, **Focal length** and **Pixel size**
    hold the target's position and your optics. The section opens by itself when the header lacks one of them.
 4. **Find the target if no position shows.** Press **Find object...**, search for the target's name and press **OK**
@@ -96,18 +93,18 @@ pins:
 7. **Read the result.** **Solved Field** shows the field's center, scale, rotation and size, the solver and the
    distortion, and **Focal length** the focal length the solve derived. Compare **Image scale** with the scale of your
    optics, equation (1).
-8. **Look at it on the view.** Press **Show Astrometry** in the view's toolbar, or ++ctrl+shift+w++, and the view draws
-   the sky's coordinate grid over the image. The status bar gives the sky position under the pointer, and **Astrometry
-   Info**, ++ctrl+shift+p++, lists the solution.
+8. **Look at it on the view.** Press **Show Astrometry** on the view's floating toolbar, or ++ctrl+shift+w++, and the
+   view draws the sky's coordinate grid over the image. The status line gives the sky position under the pointer, and
+   **Info** in the [readout](../../reference/glossary.md#readout)'s Astrometry card, ++ctrl+shift+p++, lists the solution.
 9. **Save the image.** Save it as [FITS](../../reference/glossary.md#fits) or
    [XISF](../../reference/glossary.md#xisf), which keep every header card. Open the file again later, and Plate Solve
    shows its solution as soon as the window opens.
 
 ## Controls
 
-Plate Solve is a window of the image's view, not a process window: it has no preview, no **Target Image** and no
-**Apply**. Like a [process window](../../interface/process-windows.md), it names its image in its title and says what
-it does under it. The solvers and their limits are set in the [Settings](../../interface/settings-dialog.md): the
+Plate Solve is a window of the image's view, not a [task](../../interface/tasks.md): it opens in a window of its
+own, with no canvas, no **Target Image** and no **Apply**. It names its image in its title and says what it does
+under its heading. The solvers and their limits are set in the [Settings](../../interface/settings-dialog.md): the
 block **The settings the solve reads** below gives what each solver is sent, and **Messages** what a failure says.
 
 ```controls
@@ -367,7 +364,7 @@ controls:
       properties. It keeps the pixels, the file's name, the acquisition cards and every other card, `FOCALLEN` and
       `XPIXSZ` included. The question's default answer is **No**, which leaves the image as it is.
     enabled: While the image's header states a solution and no solve runs.
-    scope: The image in the view. The view's astrometry buttons and overlays leave with the solution.
+    scope: The image in the view. The readout's astrometry buttons and the view's overlays leave with the solution.
     persistence: >-
       The history lists **Clear Astrometry**, described "Removed the astrometric solution", the lineage gains a
       `clearAstrometry` entry, and **Undo** brings the solution back. The image then has unsaved changes, and the file
@@ -505,24 +502,24 @@ controls:
 ```
 
 ```controls
-window: On the image's view
+window: On the image's view and in the readout
 controls:
   - name: Plate Solve
-    kind: toolbutton
+    kind: button
     default: ""
-    effect: Opens Plate Solve for the view, or brings the window that is already open for it to the front. ++ctrl+p++ over the view does the same.
-    enabled: Shown for a still image, hidden for a sequence. The shortcut works only while the button is shown.
+    effect: In the Astrometry card of the readout, opens Plate Solve for the active image, or brings the window that is already open for it to the front. ++ctrl+p++ over the view and **Image > Information > Plate Solve** do the same.
+    enabled: For a still image. A sequence offers neither the command nor its shortcut.
   - name: Show Astrometry
     kind: toolbutton
     default: "Off"
-    effect: Draws the overlays the view's **Astrometry Settings** menu ticks over the image, the coordinate grid until you choose others. ++ctrl+shift+w++ toggles it.
+    effect: On the view's floating toolbar, draws the overlays the Astrometry card's chips and its **Astrometry Settings** menu tick over the image, the coordinate grid until you choose others. ++ctrl+shift+w++ toggles it.
     enabled: Shown once the image has a solution.
     tradeoff: The overlays draw the solution as it is. They show a wrong one as readily as a right one.
-  - name: Astrometry Info
-    kind: toolbutton
+  - name: Info
+    kind: button
     default: ""
-    effect: Opens the summary of the image's solution, as its header states it. ++ctrl+shift+p++ does the same.
-    enabled: Enabled once the image has a solution.
+    effect: In the Astrometry card of the readout, opens **Astrometry Info**, the summary of the image's solution as its header states it. ++ctrl+shift+p++ and **Image > Information > Astrometry Info** do the same.
+    enabled: Shown once the image has a solution.
 ```
 
 ```controls
@@ -694,7 +691,7 @@ length
 
 \[ f' = 206.264806\,\frac{p}{s'} \tag{2} \]
 
-The internal solver projects each Gaia star onto the plane that touches the sky at the trial center, as the
+The internal solver maps each Gaia star onto the plane that touches the sky at the trial center, as the
 coordinates \((\xi, \eta)\), and fits the image positions \((x, y)\) of the matched stars as
 
 \[ \begin{bmatrix} x \\ y \end{bmatrix} = \begin{bmatrix} a & b \\ c & d \end{bmatrix} \begin{bmatrix} \xi \\ \eta \end{bmatrix} + \begin{bmatrix} x_0 \\ y_0 \end{bmatrix} \tag{3} \]

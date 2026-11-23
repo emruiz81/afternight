@@ -109,26 +109,34 @@ nav:
   - Getting Started:
       - Installation: getting-started/installation.md
       - First Launch: getting-started/first-launch.md
+      - Coming from 1.1: getting-started/coming-from-1-1.md
       - Quick Start Tutorial: getting-started/quick-start.md
       - Supported Formats: getting-started/supported-formats.md
   - Interface:
-      - Overview: interface/overview.md
-      - Dashboard: interface/dashboard.md
+      - The Main Window: interface/overview.md
+      - Home: interface/home.md
+      - The Rail and Its Places: interface/rail-and-places.md
+      - Integration Hub: interface/integration-hub.md
+      - Top Bar and Menus: interface/top-bar-and-menus.md
+      - Command Palette: interface/command-palette.md
+      - Workspaces: interface/workspaces.md
+      - Projects: interface/projects.md
+      - Docking Images: interface/docking-panels.md
       - Image Viewer: interface/image-viewer.md
+      - Readout: interface/readout.md
+      - Tasks: interface/tasks.md
+      - Tasks Reference: interface/tasks-reference.md
       - Astrometry Overlays: interface/astrometry-overlays.md
       - Annotate Image: interface/annotate-image.md
       - Sequences: interface/sequences.md
       - Saving & Exporting: interface/saving-and-exporting.md
-      - Docking Panels: interface/docking-panels.md
-      - Toolbar & Menus: interface/toolbar-and-menus.md
-      - Process Windows: interface/process-windows.md
-      - Process Windows Reference: interface/process-windows-reference.md
       - Session Console: interface/log-viewer.md
       - Image History: interface/image-history.md
       - Image Statistics: interface/image-statistics.md
       - Histogram Analysis: interface/image-histogram.md
       - Image Summary: interface/image-summary.md
       - FITS Header, EXIF, And Astrometry Metadata: interface/fits-header-viewer.md
+      - Appearance: interface/appearance.md
       - Settings: interface/settings-dialog.md
       - Settings Reference: interface/settings-dialog-reference.md
       - Masks: interface/masks.md
@@ -244,6 +252,7 @@ nav:
   - Extensions:
       - Using Extensions: extensions/using-extensions.md
       - Using Extensions Reference: extensions/using-extensions-reference.md
+      - Extensions in the Window: extensions/extension-tasks.md
       - Extension Marketplace: extensions/extension-marketplace.md
       - Extension Marketplace Reference: extensions/extension-marketplace-reference.md
   - Reference:

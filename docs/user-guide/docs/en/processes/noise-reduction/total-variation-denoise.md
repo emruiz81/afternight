@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Total Variation Denoise window is open on it yet, and no window that
-    needs the image for itself is open on it.
+    An image or a sequence view is active, no Total Variation Denoise task is open on it yet, and no task that needs
+    the image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only
+    while nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, with finite samples, and an optional mask of the image's
     size on its view.
@@ -41,23 +42,17 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/total-variation-denoise.webp
 alt: >-
-  The Total Variation Denoise window. On the left, the Algorithm box at Chambolle, the Weight, Epsilon and Max
-  Iterations boxes with their sliders, a greyed Isotropic check box, and lower down Target Image, Channel at RGB and the
-  Preview check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch
-  over the preview of a red nebula, with the word PREVIEW in its corner and a framed area in its middle. Reset, Close
-  and Apply run along the bottom.
+  The Total Variation Denoise task. Its header names Total Variation Denoise and the master. The canvas at the left
+  shows the preview of a red nebula, the word PREVIEW in its corner and a framed area in its middle, with a floating
+  toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right
+  holds the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and
+  Channel at RGB, the Algorithm box at Chambolle, the Weight, Epsilon and Max Iterations boxes with their sliders, and
+  a greyed Isotropic check box. Reset, Close and Apply stand in its footer.
 caption: >-
   Total Variation Denoise on the linear master with Algorithm at Chambolle, which sets Epsilon to 0.0002 and Max
-  Iterations to 200, and Weight at 0.0050. The framed area shows what Apply writes there, in the Autostretch display
-  mode.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 2.0, y: 19.9}
-  - {n: 4, x: 2.0, y: 25.0}
-  - {n: 5, x: 2.0, y: 39.9}
-  - {n: 6, x: 2.0, y: 30.1}
-  - {n: 7, x: 57.5, y: 55.2}
-  - {n: 8, x: 88.9, y: 96.0}
+  Iterations to 200, and Weight at 0.0050. The framed area of the canvas shows what Apply writes there, in the
+  Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -76,10 +71,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Noise Reduction > Total Variation
-   Denoise Filter**. The preview shows the denoised image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+   Denoise Filter**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task)
+   opens as a page: the canvas at the left shows the denoised image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, and the column at the right
+   holds its controls.
 2. **Choose the channel.** Leave **Channel** at **RGB** to denoise the three channels, each on its own. Choose
    **CIE L* (Lightness)** or a chroma component to work on the brightness or on color noise alone.
 3. **Choose the solver.** On a [linear image](../../reference/glossary.md#linear-image), choose **Chambolle**: its low
@@ -91,14 +88,14 @@ pins:
 6. **Let the solver finish.** Lower **Epsilon** or raise **Max Iterations** only when the preview still changes as you
    do, which means the solver stopped too soon.
 7. **Check at 100 %.** Zoom into the area, hold ++space++ to compare with the original, and look at faint gradients and
-   small stars. Untick **Preview area** for the last check.
-8. **Apply.** Choose **Apply**. A progress window counts the iterations, the view shows the denoised image, and its
-   history lists **Total Variation Denoise** with the values.
+   small stars. Untick **Preview area** in the column's toggles row for the last check.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column counts the iterations, the
+   view shows the denoised image, and its history lists **Total Variation Denoise** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Total Variation Denoise
@@ -112,7 +109,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Switching discards the values you gave **Epsilon** and **Max Iterations**. The tooltip calls **Chambolle** "fast primal-dual style TV denoising", though it runs Chambolle's projection, not a primal-dual method.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Bregman**. The history records its name.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Bregman**. The history records its name.
   - name: Weight
     kind: spinbox
     default: "0.5000"
@@ -122,7 +119,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: One number is a different strength in the two solvers. **Bregman** at 0 equals **Chambolle** at 0.0833, so no **Bregman** setting is gentler than that. Strong settings flatten faint gradients into terraces and round or erase small stars.
     scope: The preview and Apply, on what **Channel** selects, before the mask.
-    persistence: Until the window closes. Choosing **Algorithm** keeps it. **Reset** and a finished Apply return it to its default. The history records it as typed, not as the solver reads it.
+    persistence: Until the task closes. Choosing **Algorithm** keeps it. **Reset** and a finished Apply return it to its default. The history records it as typed, not as the solver reads it.
   - name: Epsilon
     kind: spinbox
     default: "0.0010"
@@ -136,7 +133,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A large value can stop the solver before the noise is gone. A small one can cost every iteration up to **Max Iterations**.
     scope: The preview and Apply, for each channel.
-    persistence: Until the window closes. Choosing **Algorithm** sets it again. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. Choosing **Algorithm** sets it again. **Reset** and a finished Apply return it to its default.
   - name: Max Iterations
     kind: spinbox
     default: "100"
@@ -146,8 +143,8 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Each iteration passes over the whole channel several times, so the time grows with the iterations that run. A higher limit changes nothing once **Epsilon** stops the solver.
     scope: The preview and Apply, for each channel.
-    persistence: Until the window closes. Choosing **Algorithm** sets it again. **Reset** and a finished Apply return it to its default.
-    note: The progress window counts the iterations of every channel against this limit, and jumps ahead when a channel stops early.
+    persistence: Until the task closes. Choosing **Algorithm** sets it again. **Reset** and a finished Apply return it to its default.
+    note: The run in the column counts the iterations of every channel against this limit, and jumps ahead when a channel stops early.
   - name: Isotropic
     kind: check
     default: "On"
@@ -155,13 +152,13 @@ controls:
     enabled: With **Bregman** only. **Chambolle** disables it and always measures the length. It is disabled while Apply runs, and stays disabled after a run while **Chambolle** is chosen.
     tradeoff: Off can leave a blocky texture of horizontal and vertical steps.
     scope: The preview and Apply, with **Bregman**.
-    persistence: Until the window closes. Choosing **Bregman**, **Reset** and a finished Apply tick it. Choosing **Chambolle** leaves it as it was, and disabled. The history does not record it.
+    persistence: Until the task closes. Choosing **Bregman**, **Reset** and a finished Apply tick it. Choosing **Chambolle** leaves it as it was, and disabled. The history does not record it.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -169,19 +166,19 @@ controls:
     effect: Chooses what is denoised. **RGB** solves each of the three channels on its own, one after another. **Red**, **Green** or **Blue** denoises that channel and keeps the other two. Every other choice denoises one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: The channels are not tied together, so strong smoothing can move a color edge or leave terraces that differ between channels. A component costs two conversions and a working copy, and the conversion back can change colors. A hue or a chroma is no measure of brightness.
-    scope: The preview and Apply, before the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**. The history names it for a color image.
+    scope: The preview and Apply, before the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset**, a finished Apply and a new target return it to **RGB**. The history names it for a color image.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the denoised image beside the controls, with the mask blended in.
+    effect: Shows the denoised image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 800 by 800 pixels in the middle of the image, labelled "Preview: Total
-      Variation Denoise", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
-    tradeoff: The area is solved as an image of its own, with its own edges and its own stopping point. Every change solves it again. **Apply**, or closing the window, stops a preview on its way at the solver's next iteration.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+      The canvas opens with a **Preview area** of 800 by 800 pixels in the middle of the image, labelled "Preview:
+      Total Variation Denoise", or the whole image when it is smaller. **Preview area** is in the column's toggles row,
+      and **Take snapshot** on the canvas's floating toolbar.
+    tradeoff: The area is solved as an image of its own, with its own edges and its own stopping point. Every change solves it again. **Apply**, or closing the task, stops a preview on its way at the solver's next iteration.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -191,8 +188,8 @@ controls:
     kind: button
     default: ""
     effect: Denoises the whole image, or every frame of the sequence, with the values as they are when you press it, and then returns them to their defaults.
-    enabled: From the moment the window opens, at any values.
-    tradeoff: A single image shows a progress window too, which counts the iterations, and its **Cancel** is noticed at the solver's next iteration. The solver keeps six single-precision planes the size of one channel, about 0.94 GB for a 7246 x 5429 frame, beside the second copy every run needs. It works on the threads the run is granted, beside other processes, and gives the same answer at any thread count.
+    enabled: From the moment the task opens, at any values.
+    tradeoff: The column shows the run of a single image too, counting the iterations, and **Cancel**, in Apply's place meanwhile, is noticed at the solver's next iteration. The solver keeps six single-precision planes the size of one channel, about 0.94 GB for a 7246 x 5429 frame, beside the second copy every run needs. It works on the threads the run is granted, beside other processes, and gives the same answer at any thread count.
     persistence: "The history step is **Total Variation Denoise** and reads, for example, `Algorithm: Chambolle, weight: 0.02, eps: 0.0002, max iterations: 200 -  in channel: RGB`. For a grayscale image it ends after the dash. **Isotropic**, the strength the solver read and the mask are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
@@ -203,7 +200,7 @@ controls:
    its [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale) would be.
 2. The solver starts from the image and, iteration by iteration, moves toward the image that minimizes equation (1)
    below, until **Epsilon** stops it or **Max Iterations** is reached. **Bregman** relaxes the image and shrinks its
-   differences by a threshold; **Chambolle** steps a dual field and projects it back.
+   differences by a threshold; **Chambolle** steps a dual field and brings it back within its bound.
 3. The edge of the image is closed: nothing passes across it, so the last rows and columns are smoothed from inside
    alone.
 4. The result is written back in the image's own pixel type, and a mask on the view then blends it with the
@@ -245,7 +242,7 @@ between two broad areas barely moves. A flat area keeps its level.
   its result depends on the solver's route.
 - A 64-bit floating-point image is solved in single precision. A floating-point result is not held between 0 and 1,
   and an integer one is rounded to the nearest code and held to its type's range.
-- **Cancel**, or closing the window, stops the solver at its next iteration, and nothing is written. Each solver
+- **Cancel** stops the solver at its next iteration, and nothing is written. Each solver
   reports its progress after every iteration.
 
 ### Worked example
@@ -315,8 +312,8 @@ A texture of horizontal and vertical steps appears
 
 A run takes long
 :   **Cause.** Each iteration passes over every channel, and a small **Epsilon** runs up to **Max Iterations**.
-:   **Fix.** Follow the progress window, which **Cancel** stops at the next iteration. Raise **Epsilon**, lower **Max
-    Iterations**, or tune in the preview area.
+:   **Fix.** Follow the run in the column, which **Cancel** stops at the next iteration. Raise **Epsilon**, lower
+    **Max Iterations**, or tune in the preview area.
 
 The preview area differs from the result of Apply
 :   **Cause.** The area is solved alone, with its own edges and stopping point.
@@ -339,8 +336,7 @@ Patches spread from a few bad pixels
 - [Broadband Imaging](../../workflows/broadband-imaging.md), for where the denoise sits in a whole workflow.
 - [Masks](../../interface/masks.md), to denoise the background and protect the stars.
 - [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that follows.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

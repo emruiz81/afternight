@@ -8,7 +8,7 @@ summary: >-
 
 This page says what a computer needs to run AfterNight: the systems it is packaged for, the processor, memory, disk,
 display and network, the threads and memory it uses, the programs and data some workflows add, and how to estimate a
-large project. AfterNight states no smallest number of cores, memory, disk or graphics card: the hard requirement is a
+large [project](glossary.md#project). AfterNight states no smallest number of cores, memory, disk or graphics card: the hard requirement is a
 64-bit x86 processor with [AVX2](glossary.md#avx2) on Windows or Linux. The rest depends on your images and on what
 you keep of a run. [Installation](../getting-started/installation.md) says how to install it.
 
@@ -33,8 +33,8 @@ you keep of a run. [Installation](../getting-started/installation.md) says how t
 | --- | --- | --- |
 | Processor | 64-bit x86 with AVX2 and FMA. The engine and every part of the application are built for AVX2, so a processor without it cannot run AfterNight. No number of cores is required. | More cores speed up calibration, registration, stacking and export, where a stage runs in parallel, up to **Max Threads:**. On a processor with the AVX-512 F, BW, DQ and VL subsets, the engine chooses its AVX-512 routines when it runs, where it has them, with nothing to set. |
 | Memory | Room for the system, AfterNight, the images open and the work in progress. No amount is required or checked. | Size the memory from your largest frames and your workflow, with room to spare: see [Estimating a large project](#estimating-a-large-project). |
-| Disk | Room for the installation, your files, the project, the temporary files, the results and any catalog. No free space is required or checked. Each state the [history](glossary.md#history) keeps is a snapshot file in the session's temporary folder. | A fast local disk for the project and the temporary folder. A network share or a removable disk can be slow, disconnect or lock files. |
-| Display | No size is checked. AfterNight is made to stay usable at 1280 x 720. | 1920 x 1080 or more, the size its windows are designed for first, with room for the controls, the views and the reports. |
+| Disk | Room for the installation, your files, the project, the temporary files, the results and any catalog. No free space is required or checked. Each state the [history](glossary.md#history) keeps is a snapshot file in the session's temporary folder, or in the project's folder for an image of a project. | A fast local disk for the project and the temporary folder. A network share or a removable disk can be slow, disconnect or lock files. |
+| Display | No size is checked. The main window is never smaller than 1024 x 640, and AfterNight stays usable on a 1280 x 720 display, where a [task](glossary.md#task)'s column or a large page scrolls. | A 1920 x 1080 display or more, at 100 % or 125 % scaling, the size the main window is designed for. At 125 % it lays out in 1536 x 864. |
 | Graphics | A working desktop and graphics driver for the windows. No graphics card is required. | A current driver. AfterNight processes images, reads video and codes video on the processor. The **GPU Acceleration** options of the Processing page are kept for a later release, and only the AI tools an extension adds use a GPU, with settings of their own. |
 | Network | None, to open, process and save your files, and to read this guide. | Needed for a catalog download, an online plate solve, an extension and the check for its updates, and the online guide when the installed copy cannot be opened. |
 | Rights | Reading your files, and writing the project, the results and the temporary folder. | An installation for your account, in folders your account writes. No administrator rights are needed for it. |
@@ -75,7 +75,7 @@ Admission
 :   Every operation is admitted before it starts and given its share of the threads. With one thread, operations run
     one after another in the order they were asked for. Up to 64 requests wait at once without holding up the window,
     and one more is refused: "the admission queue is full". Background work, such as reading the facts of a
-    Dashboard file, runs on one thread and only when one is free. Image Integration's **CPU Threads** narrows each of
+    recent file on Home, runs on one thread and only when one is free. Image Integration's **CPU Threads** narrows each of
     its stages and never goes above **Max Threads:**. The viewer and the file windows keep the session's threads.
 
 AfterNight's own memory

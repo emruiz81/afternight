@@ -10,7 +10,7 @@ menu:
   - Image > Sequence
   - Process > Adjustments
 summary: >-
-  The Image menu's commands and three of Process > Adjustments that act at once, without a window: they duplicate,
+  The Image menu's commands and three of Process > Adjustments that act at once, without a task: they duplicate,
   extract channels, convert the pixel type, mirror and turn, manage masks and sequences, and invert or change color.
 data_in: either
 data_out: either
@@ -37,31 +37,29 @@ derived: false
 ---
 # Non-Interactive Processes
 
-These commands run as soon as you choose them: they open no process window and have no setting or preview. They
-work on the [active image](../../reference/glossary.md#active-image) or
-[sequence](../../reference/glossary.md#sequence), from six submenus of **Image** - **Actions**,
-**Convert Format**, **Extract Channel**, **Fast Geometry**, **Mask** and **Sequence** - and the end of
-**Process > Adjustments**.
+These commands run as soon as you choose them: they open no [task](../../reference/glossary.md#task) and have no setting or preview. They work on the
+[active image](../../reference/glossary.md#active-image) or [sequence](../../reference/glossary.md#sequence), from six
+submenus of **Image** - **Actions**, **Convert Format**, **Extract Channel**, **Fast Geometry**, **Mask** and
+**Sequence** - and the end of **Process > Adjustments**.
 
-Some open their result in a new view and leave the source as it was: a duplicate, a channel or a color component, a
-copy in another [pixel type](../../reference/glossary.md#pixel-type), a frame of a sequence. Others replace the image
-in its view and add one step to its [history](../../reference/glossary.md#history): a mirror or a turn, a negative, a
-change to gray or to RGB, and a sequence written in another container.
+Some open their result in a new view beside the source and leave the source as it was: a duplicate, a channel or a
+color component, a copy in another [pixel type](../../reference/glossary.md#pixel-type), a frame of a sequence. Others
+replace the image in its view and add one step to its [history](../../reference/glossary.md#history): a mirror or a
+turn, a negative, a change to gray or to RGB, and a sequence written in another container.
 
 ```figure
 image: ../../assets/images/processes/utility/non-interactive-processes.webp
 alt: >-
-  The top left of the main window over the Carina Nebula master. The Image menu is open under the menu bar and lists
-  Actions, Convert Format, Extract Channel, Fast Geometry, Information, Mask, a greyed Sequence and View, then Show in
-  File Browser below a line. Convert Format is highlighted, and its submenu beside it lists seven commands from
-  Convert to 8 bit to Convert to 64 bit float, with Convert to unsigned 16 bit third and Convert to 32 bit float
-  greyed.
+  The main window with the Carina Nebula master in a workspace, stretched for the screen. The menu bar, which Alt
+  shows, runs across the top with File, Edit, View, Image, Process, Extensions, Window and Help. The Image menu is
+  open under it and lists Actions, Convert Format, Extract Channel, Fast Geometry, Information, Mask, a greyed
+  Sequence and View, then Show in File Browser below a line. Convert Format is highlighted, and its submenu beside it
+  lists seven commands from Convert to 8 bit to Convert to 64 bit float, with the pointer on Convert to unsigned 16
+  bit, the third, and Convert to 32 bit float greyed.
 caption: >-
   Image > Convert Format over the linear Carina master: the master's own type, 32-bit floating point, is greyed, and
   Convert to unsigned 16 bit is the command of the worked example.
-pins:
-  - {n: 2, x: 12.6, y: 14.9}
-  - {n: 3, x: 63.8, y: 23.1}
+owed: true
 ```
 
 ## Before you start
@@ -80,16 +78,17 @@ pins:
 
 ## Steps
 
-1. **Make the image active.** Click its view. The status bar under the views names its size, its channels and its
-   pixel type, which decide what is enabled.
-2. **Open the submenu.** Choose **Image** and the submenu, or **Process > Adjustments**. A right click on the view
-   offers the same submenus. Greyed entries do not fit the image.
+1. **Make the image active.** Click its view. The status line at the foot of the window names its size, its channels
+   and its pixel type, which decide what is enabled.
+2. **Open the submenu.** Press ++alt++ to show the menu bar and choose **Image** and the submenu, or
+   **Process > Adjustments**. A right click on the view, or **More** in its floating toolbar, offers the same submenus.
+   Greyed entries do not fit the image.
 3. **Choose the command.** It starts at once. A still image shows no progress window. A sequence shows one, and its
    **Cancel** stops the run.
 4. **Find the result.** A new view opens beside the source, named after it with a suffix such as ` - RED` or
    ` - CONV_16_UINT`. Or the same view shows the changed image, and its history ends with the command's step.
-5. **Check it.** Read the new size, channels and pixel type in the status bar, and the last step in
-   **Edit > Image History**. After a mirror or a turn, plate-solve the image again.
+5. **Check it.** Read the new size, channels and pixel type in the status line, and the last step in the view's
+   history strip or **Edit > Image History**. After a mirror or a turn, plate-solve the image again.
 6. **Keep what you need.** Save a new view, or export a new sequence. Until then a new view is unsaved, and a new
    sequence is a file in the session's temporary folder, which **Image > Show in File Browser** shows.
 
@@ -101,7 +100,7 @@ added when another view has that name. The messages of a refused run are under W
 
 ### Image > Actions
 
-[Toolbar & Menus](../../interface/toolbar-and-menus.md) describes the rest of the menus, and
+[Top Bar and Menus](../../interface/top-bar-and-menus.md) describes the rest of the menus, and
 [Saving and Exporting](../../interface/saving-and-exporting.md) what a save writes.
 
 ```controls
@@ -135,7 +134,7 @@ controls:
     kind: action
     default: ""
     effect: Closes the active view, as **File > Close** does.
-    note: It asks first when the view has unsaved changes, or a process window open on it.
+    note: It asks first when the view has unsaved changes, or a task open on it.
   - name: Save File...
     kind: action
     default: ""
@@ -522,9 +521,9 @@ controls:
 
 ### Image > Sequence
 
-The whole submenu is greyed for a still image. **Extract Sequence** and **Export...** open windows of their own:
-[Extract Sequence](extract-sequence.md) and [Saving and Exporting](../../interface/saving-and-exporting.md) describe
-them. [File Formats](../../reference/file-formats.md) says what each container stores.
+The whole submenu is greyed for a still image. **Extract Sequence** opens a task and **Export...** a window of its
+own: [Extract Sequence](extract-sequence.md) and [Saving and Exporting](../../interface/saving-and-exporting.md)
+describe them. [File Formats](../../reference/file-formats.md) says what each container stores.
 
 ```controls
 window: Image > Sequence
@@ -579,7 +578,7 @@ controls:
     kind: action
     default: ""
     effect: >-
-      Opens the Extract Sequence window, which copies a range of consecutive frames into a new sequence of the source's
+      Opens the Extract Sequence task, which copies a range of consecutive frames into a new sequence of the source's
       container: SER, an image list, AVI, MP4, or Matroska for any other video.
   - name: Export...
     kind: action
@@ -593,7 +592,7 @@ new sequence only once it is complete.
 
 ### Process > Adjustments
 
-The other entries of this submenu open process windows, each described on its own page. These three run at once, on
+The other entries of this submenu open tasks, each described on its own page. These three run at once, on
 the image or on every frame of the sequence. On a sequence, the frames are read with the view's automatic debayer
 setting, so a mosaic is demosaiced first when that setting is on.
 
@@ -714,7 +713,7 @@ the image's own codes is
 \[ y = 1 - x \ \text{(floating point)}, \qquad y = M_T - x \ \text{(unsigned)}, \qquad y = m_T + M_T - x \ \text{(signed)} \tag{4} \]
 
 so a signed 16-bit sample becomes \(-1 - x\). The mask then blends \(y\) with \(x\), as
-[Process Windows](../../interface/process-windows.md) describes. A mirror or a turn computes nothing: each new sample
+[Tasks](../../interface/tasks.md) describes. A mirror or a turn computes nothing: each new sample
 is one old sample, copied bit for bit.
 
 ### Boundaries
@@ -739,10 +738,10 @@ pixels, with a median of 0.02766 in each channel and a plate solution. Choose
 named after it with ` - CONV_16_UINT`, and its history starts with
 `Converted to unsigned 16 bits from image '<name>'`. By equation (2), the median becomes
 \(\operatorname{round}(0.02766 \times 65535) = 1813\). The cores of the stars above 1 become 65535, and the few
-samples below 0 become 0. The status bar reads `[7246x5429 (RGB)] - [16 bit unsigned integer] - [225.10 MB]`, half
+samples below 0 become 0. The status line reads `[7246x5429 (RGB)] - [16 bit unsigned integer] - [225.10 MB]`, half
 the master's 450.19 MB, and the master is unchanged.
 
-Now make the master active and choose **Image > Fast Geometry > Rotate 90º Right**. The status bar reads
+Now make the master active and choose **Image > Fast Geometry > Rotate 90º Right**. The status line reads
 `[5429x7246 (RGB)]`, and the view shows the image turned so that its top left corner is at the top right. Its
 history ends with **Image Rotation**, described as `90 degrees right`. The Session Console says "Astrometric solution
 removed after 90-degree-right rotation of '<name>'. Plate solve again to restore coordinates."
@@ -773,7 +772,7 @@ removed after 90-degree-right rotation of '<name>'. Plate solve again to restore
 
 A **Convert Format** entry is greyed
 :   **Cause.** The image already has that type, or a SER or video sequence cannot hold it.
-:   **Fix.** Check the type in the status bar. For a sequence, choose **Convert to Image List** first.
+:   **Fix.** Check the type in the status line. For a sequence, choose **Convert to Image List** first.
 
 "... sequence cannot hold unsigned 16 bits; convert it to an image list first", or the same of another type
 :   **Cause.** A conversion of a sequence writes the source's container, which cannot store that type.
@@ -794,7 +793,7 @@ A mirror or a turn did nothing, and a message titled **Image Rotation**, **Image
 "Another process is executing for this sequence, please cancel that job first before running this process"
 :   **Cause.** Another run holds the sequence's view. The message is titled after the command, **Rotate Sequence**
     for a mirror or a turn.
-:   **Fix.** Wait for that run to end, or cancel it in its progress window, then choose the command again.
+:   **Fix.** Wait for that run to end, or cancel it, then choose the command again.
 
 "Could NOT extract frame from image <name> because it is not a sequence"
 :   **Cause.** **Extract Frame** was chosen from **Process > Recent Processes** on a still image.
@@ -826,8 +825,7 @@ A sequence command ended with no new sequence and no message
   **Export...**.
 - [Image History](../../interface/image-history.md), to undo a command that replaced the image.
 - [Sequences](../../interface/sequences.md), for the player, the automatic debayer and the temporary folder.
-- [Process Windows](../../interface/process-windows.md), for the color components of **Channel** and how a mask
-  blends a result.
+- [Tasks](../../interface/tasks.md), for the color components of **Channel** and how a mask blends a result.
 
 ## Credits
 

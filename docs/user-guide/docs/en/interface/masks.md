@@ -10,7 +10,9 @@ menu: Image > Mask
 A [mask](../reference/glossary.md#mask) is another open image that you link to a view, its target. A process applied
 to the target then changes it only where the mask lets it: white takes the result, black keeps the original, and gray
 mixes the two. You can draw the mask over the target in a color, invert it, or turn it off without unlinking it.
-Everything here is in **Image > Mask**, which a right-click on the view opens too.
+Everything here is in **Image > Mask**: in the menu bar, which shows on ++alt++, in **All menus**, in the view's menu -
+a right-click on the picture or **More** on its floating toolbar - and in the
+[command palette](../reference/glossary.md#command-palette).
 
 A mask is a link between two views, not a part of the image. It is not saved with the target, not copied by
 **Duplicate**, not kept in the [history](../reference/glossary.md#history), and it ends when either view closes.
@@ -19,27 +21,30 @@ A mask is a link between two views, not a part of the image. It is not saved wit
 owed: true
 image: ../assets/images/interface/masks.webp
 alt: >-
-  The AfterNight main window with two tabs, RGB and RGB - MASK. The view of RGB shows the Carina Nebula covered in
-  solid red, except for its bright clouds, which show through in their own colors. The Image menu is open, and beside
-  it its Mask submenu: Select Mask, Remove Mask, Invert Mask unticked, Enable Mask and Show Mask ticked, and Rendering
-  Mode, whose own submenu lists Overlay Red, ticked, then Overlay Green, Overlay Blue, Overlay Yellow, Overlay
-  Magenta, Overlay Cyan, Replace and Multiply.
+  The AfterNight main window with the menu bar shown and its Image menu open over the view of RGB. The view shows the
+  Carina Nebula covered in solid red, except for its bright clouds, which show through in white and gray. Beside the
+  Image menu, its Mask submenu: Select Mask, Remove Mask, Invert Mask unticked, Enable Mask and Show Mask ticked, and
+  Rendering Mode, whose own submenu lists Overlay Red, chosen, then Overlay Green, Overlay Blue, Overlay Yellow,
+  Overlay Magenta and Overlay Cyan, each with its swatch, then Replace and Multiply. The readout at the right shows the
+  image's histogram, statistics and Astrometry card, and the history strip reads Initial state and Histogram
+  Transformation.
 caption: >-
   The stretched Carina master in the Linear display mode, with the mask Range Selection made of its bright clouds
-  drawn in Overlay Red, and the Image > Mask menu open.
+  drawn in Overlay Red, and Image > Mask > Rendering Mode open from the menu bar.
 pins:
-  - {n: 1, x: 14.4, y: 9.8}
-  - {n: 2, x: 86.0, y: 50.0}
-  - {n: 3, x: 6.0, y: 18.5}
-  - {n: 4, x: 30.9, y: 19.7}
-  - {n: 5, x: 30.9, y: 25.9}
-  - {n: 6, x: 40.4, y: 40.0}
+  - {n: 1, x: 3.6, y: 12.8}
+  - {n: 2, x: 14.0, y: 60.0}
+  - {n: 3, x: 9.6, y: 23.9}
+  - {n: 4, x: 22.8, y: 23.4}
+  - {n: 5, x: 21.4, y: 33.0}
+  - {n: 6, x: 33.8, y: 39.1}
 ```
 
 ## What you see
 
-1. **The target and the mask.** Two open images of the same size, each in its own view. Here the mask,
-   `RGB - MASK`, was made from the target by Range Selection.
+1. **The target and the mask.** Two open images of the same size, each a tab of the
+   [workspace](../reference/glossary.md#workspace): here the target, `RGB`, and beside it, under the menu, the mask
+   `RGB - MASK` that Range Selection made from it.
 2. **The overlay.** The mask drawn over the target: red where the mask keeps the original, clear where it lets the
    process through.
 3. **Image > Mask.** The mask commands of the [active image](../reference/glossary.md#active-image).
@@ -53,8 +58,9 @@ pins:
 
 ### Make a mask
 
-Any image of the target's width and height can be its mask, with one channel or three. The windows of **Process >
-Mask Generation** make one: [Range Selection](../processes/analysis/range-selection.md) from a band of brightness,
+Any image of the target's width and height can be its mask, with one channel or three. The
+[tasks](../reference/glossary.md#task) of **Process > Mask Generation** make one:
+[Range Selection](../processes/analysis/range-selection.md) from a band of brightness,
 [Star Mask](../processes/star-operations/star-mask.md) and
 [Starnet++ Star Mask](../processes/star-operations/starnet-star-mask.md) from the stars, and
 [Mask Drawing](../processes/masking/mask-drawing.md) by hand. [Binarize](../processes/masking/binarize.md) and
@@ -75,9 +81,10 @@ channel, and fits only a color target.
 owed: true
 image: ../assets/images/interface/masks-selector.webp
 alt: >-
-  The Mask Selector window for RGB. Under the heading Mask Selector and a line about choosing a compatible image, a
-  panel says that compatible masks must match dimensions, avoid circular references and respect color format
-  compatibility. Current Mask reads NO MASK and New Mask reads RGB - MASK. OK and Cancel stand at the bottom right.
+  The Mask Selector window, titled Mask Selector <RGB>. Under the heading Mask Selector and a line about choosing a
+  compatible image, a panel says that compatible masks must match dimensions, avoid circular references and respect
+  color format compatibility. Current Mask reads NO MASK and New Mask reads RGB - MASK. Cancel and OK stand at the
+  bottom right.
 caption: >-
   Mask Selector on the stretched Carina master, with the mask Range Selection made of it chosen in New Mask.
 ```
@@ -92,8 +99,8 @@ When the wrong part is protected, choose **Invert Mask**. The overlay and what p
 
 ### Apply a process through it
 
-1. Open the process on the target. Its preview is blended through the mask, so check it at 100 % on both sides of
-   the mask's edges.
+1. Open the process on the target. The preview in its task's canvas is blended through the mask, so check it at 100 %
+   on both sides of the mask's edges.
 2. Choose **Apply**. Where the mask is white the image takes the result, where it is black it keeps its samples, and
    where it is gray it takes a share of each.
 
@@ -106,10 +113,10 @@ With **Invert Mask** on, \(M\) and \(1 - M\) swap places. With \(A = 0.2\) and \
 gives 0.2, 0.5 and 0.8, and inverted 0.8, 0.5 and 0.2.
 
 Not every process uses a mask. The **Masks** row of a process page's **At a glance** card reads **Blended after the
-process** or **Not used**. Among those that do not are the windows that make a mask, the geometry and stacking
-windows, [Debayer](../processes/calibration/debayer.md) and the [CFA](../reference/glossary.md#cfa) tools, Linear
-Match, Starnet++, the recombination windows and Pixel Math.
-[Process Windows Reference](process-windows-reference.md) lists the windows with a preview that leave it out.
+process** or **Not used**. Among those that do not are the tasks that make a mask, the geometry and stacking tasks,
+[Debayer](../processes/calibration/debayer.md) and the [CFA](../reference/glossary.md#cfa) tools, Linear Match,
+Starnet++, the recombination tasks and Pixel Math. [Tasks Reference](tasks-reference.md) lists the tasks with a preview
+that leave it out.
 
 ### Show it, use it, or neither
 
@@ -133,7 +140,7 @@ controls:
     kind: action
     default: ""
     effect: Opens Mask Selector for the active image, to link another open image as its mask.
-    enabled: With an image or a sequence active. Without one the **Mask** menu is greyed, and a command that reaches it says "No selected image to process". There is no shortcut and no toolbar button.
+    enabled: 'With an image or a sequence active. Without one the **Mask** menu is greyed, and a command that reaches it says "No selected image to process". There is no shortcut and no button of its own: the menu bar, **All menus**, the view''s menu and the command palette reach it.'
     note: The window leaves the rest of the application usable, and each choice opens another. It closes with the target's view.
   - name: Remove Mask
     kind: action
@@ -221,7 +228,7 @@ controls:
     range: "A change of either image that makes the mask unfit - another size, other channels, a color mask over a grayscale target - removes the link, in a message titled **Mask Reference**: \"This update made the mask '<mask>' incompatible with the image '<target>'. Removing the mask reference.\" Undoing a crop or a resize of the target does this too."
     scope: A sequence used as a mask gives the frame its view shows, the same one to every frame of a target sequence. No frame of the mask is paired with a frame of the target, so a still mask is safer for a sequence.
     persistence: "The link lasts while both views are open, and survives a rename of either. Closing the target removes it. Closing the mask says \"This image is being used as a mask in other images. The mask references are being removed\", with OK alone, and the view closes all the same. Saving, duplicating, the history, reopening a file and restarting AfterNight keep no link."
-    note: "Some windows link a mask themselves. Star Reduction links the protection mask it builds, enabled and hidden. Every mask an extension writes opens as an image, and the first becomes the mask of the image the extension ran on. A mask linked that way that does not fit is refused with \"'<mask>' cannot be the mask of '<target>': ...\" and the reason."
+    note: "Some tasks link a mask themselves. Star Reduction links the protection mask it builds, enabled and hidden. Every mask an extension writes opens as an image, and the first becomes the mask of the image the extension ran on. A mask linked that way that does not fit is refused with \"'<mask>' cannot be the mask of '<target>': ...\" and the reason."
   - name: The blend
     kind: readout
     default: ""
@@ -237,7 +244,7 @@ controls:
     range: Every pixel type is read as a fraction of full scale and held between 0 and 1, so a code of a signed integer below zero reads as 0, as does a value that is not a number. A pixel the mask marks as invalid is left clear. Each value is rounded once to the 8 bits of the screen.
     scope: A color mask is drawn as one layer whose opacity is one minus the product of its three channels. While **View Channel** shows red, green or blue, only that channel of the mask is drawn, and **Multiply** of one channel uses the mean of the mask's three.
     tradeoff: The layer is computed in the background with the picture, over the same part of the image and at the same reduction, and the view keeps showing the old picture until both are ready. A large mask over several targets costs work and memory, never a pause of the window.
-    persistence: It is drawn again when the mask's image, the target, its stretch or its channel changes, and when you invert the mask or choose another mode. Each time it is drawn from the mask's own samples, so repeated zooming does not blur it. While you paint a mask in Mask Drawing, that window's overlay shows every stroke that has landed since it was last drawn.
+    persistence: It is drawn again when the mask's image, the target, its stretch or its channel changes, and when you invert the mask or choose another mode. Each time it is drawn from the mask's own samples, so repeated zooming does not blur it. While you paint a mask in Mask Drawing, that task's overlay shows every stroke that has landed since it was last drawn.
 ```
 
 ## When it goes wrong
@@ -274,7 +281,7 @@ The mask is gone after the image was saved and opened again
   and [Mask Drawing](../processes/masking/mask-drawing.md), to make a mask.
 - [Binarize](../processes/masking/binarize.md) and
   [Morphological Transformation](../processes/masking/morphological-transformation.md), to harden, grow or shrink one.
-- [Process Windows](process-windows.md), for the preview and the Apply that blend through the mask.
+- [Tasks](tasks.md), for the preview and the Apply that blend through the mask.
 - [Image Viewer](image-viewer.md), for the overlay, the lens and the channels a view shows.
 - [Pixel Math](../processes/pixel-math/pixel-math.md), to write a blend of your own with the mask as `$M`.
 - [Saving and Exporting](saving-and-exporting.md), to keep a mask as a file.

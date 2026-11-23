@@ -37,9 +37,10 @@ are read from, what a complete page contains and how its media is handled.
 | `docs/user-guide/requirements.in` | The direct pins of the documentation toolchain. |
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/requirements-capture.in`, `requirements-capture.txt` | Pillow, pinned and locked for the script that prepares a captured picture ([Media](#media)). Installed by hand by whoever captures, never in continuous integration. |
-| `docs/user-guide/SCREENSHOTS.md` | How a picture of a window is captured and prepared ([Media](#media)). |
+| `docs/user-guide/SCREENSHOTS.md` | How a picture of the application is captured and prepared ([Media](#media)). |
+| `docs/user-guide/captures/` | The recipes of the guide's pictures: a JSON file per group of pages, each picture with its page, the roles of the data it opens, what it shows and the capture script's options, and `roles.json`, what each role of data is ([Media](#media)). |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
-| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)); and `ui/`, the inventory of the controls every process window opens with, which a test of the application writes ([The windows' controls](#the-windows-controls)). |
+| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)); and `ui/`, the inventory of the controls every process window opens with, and `ui/shell/`, the inventory of the main window's own parts, which tests of the application write ([The windows' controls](#the-windows-controls)). |
 | `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events, and the only file `mkdocs.yml` names), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
 | `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
@@ -402,7 +403,10 @@ guide otherwise, as the home page opens.
   (`TopLevelProcessBaseControl::setHelpPath`). An entry point makes and shows its own window and hands nothing back,
   so the window is the process window shown after the launch that was not shown before it.
   `DialogOrchestrationCoordinator::openHelp` walks up from the widget with the keyboard focus to the nearest process
-  window that states a page (`an::ui::helpPathFor`). A path that is not a page inside the guide - one that climbs out
+  window that states a page (`an::ui::helpPathFor`). A process shown as a task is inside the main window, which
+  states the page of the task it shows while that task's page is current, so Help asked from the task's header, its
+  canvas or the window itself opens the process's page too (`TaskHelp.*` in `Test_ShellObservatory`). A path that is
+  not a page inside the guide - one that climbs out
   of it, an absolute one, an address - is not followed, and the home page opens (`an::ui::userGuidePage`).
 - **One F1.** A process window is a window of its own, and a shortcut of the main window's context is not heard
   there, so **Help > User Guide** has the application's shortcut context. Qt runs neither command when two shortcuts
@@ -494,7 +498,7 @@ and each file lists the controls the window opens with, in the order a person me
   the image: the size a geometry tool starts from, the open images a combo lists. The number of threads a window
   offers follows the machine and is recorded the same way.
 - **`shared`** marks what every window has, which a process page leaves out: `rt-preview` is the histogram toolbar
-  of a real-time preview, which the Process windows page describes once; `process-window` is a window's own Apply,
+  of a real-time preview, which the Tasks page describes once; `process-window` is a window's own Apply,
   Reset and Close. The image view inside a window - the preview and its toolbar - is the image viewer and is not
   recorded: it is the same in every window, and how much of its toolbar shows depends on the window's width.
 - **What the inventory does not have:** a dialog one of the window's buttons opens, a window that is no registered
@@ -520,6 +524,33 @@ submenus, is not held to the windows that have pages of their own.
 
 **A new page's blocks start from the inventory.** The names, kinds, defaults, numbers and choices of a `controls`
 block are copied from the window's file, in the window's order; the writer adds what each control does.
+
+### The main window's own controls
+
+The main window has controls that belong to no process: the rail's places, the top bar's buttons, the layout icons,
+the floating toolbar of an image view, the history strip, the readout's cards, the status line and the chrome of a
+task's page. `docs/user-guide/data/ui/shell/` records them, a file a part (`shell.rail.json`), in the same form as a
+process window's record: each part's `window` is the title an interface page's block names it by - `Rail`, `Top bar`,
+`Layout icons`, `Floating toolbar`, `History strip`, `Readout`, `Status line`, `Task page` - and its controls are in the
+order a person meets them, each under the name assistive technology gives it.
+
+- **A test of the application writes the files, and fails when a part no longer matches its file.**
+  `ShellUiInventory.MatchesTheRecord` in `Test_ShellObservatory` starts the window, opens an image and a task as a
+  person does and walks each part. To write the records, run it with `AFTERNIGHT_WRITE_SHELL_INVENTORY` naming the
+  folder:
+
+  ```cmd
+  set AFTERNIGHT_WRITE_SHELL_INVENTORY=<repository>\docs\user-guide\data\ui\shell
+  bin\msvc\release\Test_ShellObservatory.exe --gtest_filter=ShellUiInventory.*
+  ```
+
+- **What it leaves out** follows what a person opened, not the part: the steps of the history strip, a task's item in
+  the rail, a slot of the floating toolbar that the view shown has not filled. What only follows the image - the
+  channel a view shows, the images the status line lists - is recorded as varying.
+- **Rule R14 holds the interface pages to it.** A `controls` block of an interface page whose `window` is a part's
+  title, or the title of a group in one (a readout card, "Task header"), is held to that part as a process page's block
+  is to its window. Every part is named by one interface page's block, and every control of it is listed there, or in
+  another interface page's block of it, or named in the page's `controls_ignore` with the reason.
 
 ## Verifying in the application
 
@@ -673,18 +704,25 @@ written, links, credits and length.
   quality 90 between 130 and 280 KB.
 - **Names.** A process page's window is `assets/images/processes/<group>/<page>.webp`; another page's is
   `assets/images/<section>/<page>.webp`; a second picture of a page is `<page>-<what>.webp`.
-- **The window.** The application runs in its dark theme at 100 % scale, in the `en_US` locale, with an isolated
-  profile (`AFTERNIGHT_TEST_STORAGE_ROOT`). A process window is captured at its default size, with the real-time
-  preview on, its title visible and the mouse outside it, cropped to the window's frame.
-- **The window at work.** A process page's opening picture shows the window in the state of the page's worked
-  example, not as it opens: a stretch at its defaults shows a black preview and a histogram that is one spike,
-  which tells a reader nothing of what the window is for. The caption names the settings, and the capture script
-  sets them (`-Set`).
+- **The window.** The application runs as a new profile starts it - the dark theme, the default preset, the Compact
+  density - at 100 % scale, in the `en_US` locale, with an isolated profile (`AFTERNIGHT_TEST_STORAGE_ROOT`), its main
+  window 1440 x 900, the mouse outside it. A process opens as a task: its picture is the task's page - its header, the
+  canvas at the left and the column at the right - cropped to them, with the real-time preview on. The rail and the top
+  bar are in a picture only on a page about them; an interface page shows the whole window or the part it is about,
+  and a dialog is its own window.
+- **The task at work.** A process page's opening picture shows the task in the state of the page's worked example,
+  not as it opens: a stretch at its defaults shows a black preview and a histogram that is one spike, which tells a
+  reader nothing of what the process is for. The caption names the settings, and the capture script sets them
+  (`-Set`).
 - **The tools.** `build/scripts/tools/capture_guide_screenshots.ps1` takes the picture that way from a deployed
   build, and `build/scripts/tools/optimize_guide_image.py` makes the capture fit the limits and prints its
   provenance row; [docs/user-guide/SCREENSHOTS.md](../user-guide/SCREENSHOTS.md) is the recipe. The capture script
   is committed because the harness that took the README's pictures lived in a scratch folder and was lost. Pillow,
   which the second script needs, is pinned in `docs/user-guide/requirements-capture.txt`.
+- **The recipes.** Every picture is a recipe in `docs/user-guide/captures/`, written with the page that shows it: its
+  page, the roles of the data it opens, what it shows and the script's options. The script runs the recipes of a group
+  of pages, or of the whole guide, into the docs folder, so that the guide's pictures can be taken again when the
+  window changes, and `-WhatIf` lists the pictures they make.
 - **The data** is the maintainer's own, or data the project may publish: a linear color master for the color, noise,
   stretch and finishing pages; a stretched copy of it for the finishing pages; the frame sets the workflows name
   for calibration, registration and stacking; a synthetic frame for a tool that needs no sky.
@@ -694,7 +732,8 @@ written, links, credits and length.
   before and after Apply with the worked example's settings, under the same display mode, which the caption
   names. A process that changes the tone of the whole picture - a stretch, a curve - shows the whole frame; one
   whose effect is in the detail - noise, sharpening, stars - shows a crop at 100 %. The capture script takes both
-  from the main window in one run (`-Apply`), so the two are the same place at the same zoom.
+  from the image's view in one run (`-Apply`), the upper two thirds of it, clear of its floating toolbar, so the two
+  are the same place at the same zoom.
 - **A process that works on a stretched image** is captured on the linear master after the stretch its worked
   example names, which the capture script applies first (`-Prepare`): the guide's data stays one file, and a
   reader can reproduce the picture from the page.
@@ -714,7 +753,8 @@ written, links, credits and length.
   `before_after_groups` that shows no pair on purpose - DeepSNR's, a program whose licence limits what its
   outputs may be used for - is named in `before_after_exempt` of `limits.yml` with its reason, instead of owing
   a pair for ever.
-- **Recapture with the window.** A change that alters a window recaptures its picture in the same pull request.
+- **Recapture with the window.** A change that alters a window, a task or a part of the main window recaptures its
+  picture, from its recipe, in the same change.
 - **What may be committed.** Captures and processed examples made by the maintainer from data the project may
   publish. No third-party astrophotography images, catalog screenshots, captures of other applications or
   downloaded media unless redistribution in the repository and the installers is explicitly allowed; unknown
@@ -843,7 +883,9 @@ R7 to R14 hold every page to its template, its budgets, the style guide and its 
 - R14 holds the `controls` blocks of a process page to the inventory of its windows
   ([The windows' controls](#the-windows-controls)): every control of a window listed, excused or shared; every
   control listed in the window under its label, with the window's kind, default, numbers and choices. Controls in
-  another order than the window's are a warning, and so is an entry of `controls_ignore` that excuses nothing.
+  another order than the window's are a warning, and so is an entry of `controls_ignore` that excuses nothing. It holds
+  the interface pages to the record of the main window's own parts the same way, and every part to some interface page
+  ([The main window's own controls](#the-main-windows-own-controls)).
 
 Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
 site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may

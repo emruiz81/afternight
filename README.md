@@ -32,7 +32,9 @@
 AfterNight is a desktop application for processing astronomical images. It calibrates, registers and stacks a
 night's frames into a master, and then carries the master through the processes that finish it: background
 extraction, colour calibration, stretching, noise reduction, sharpening, star operations and the rest. Most steps
-are previewed on the image before they are applied, and every applied step is kept in the image's history. It is
+are previewed on the image before they are applied, and every applied step is kept in the image's history. Its window
+is a rail of places - Home, the workspaces of open images, the Integration hub - with every process opening as a page
+beside the image it works on, a readout of that image and a command palette that finds any command by name. It is
 written in C++20 and Qt 6, on an image engine of its own.
 
 ## See it work
@@ -45,9 +47,9 @@ written in C++20 and Qt 6, on an image engine of its own.
 filter, object and night, matches the lights to their calibration frames and runs the whole chain: calibration
 masters, calibration, star detection, registration, alignment, normalization and stacking, with rejection, weighting
 and drizzle. A stage whose inputs and settings have not changed is reused rather than run again, and the run ends in
-a report. The window above holds 718 frames of the Carina Nebula through four filters, taken over three nights:
+a report. The integration above holds 718 frames of the Carina Nebula through four filters, taken over three nights:
 twenty hours of exposure in 62.6 GB of files. **Image Integration Lite** is the same workflow behind a simpler
-window.
+page, and the Integration hub lists every integration run with where it stands.
 
 ### The picture is already in the data
 
@@ -62,7 +64,8 @@ is what **Apply** would make of it.
 
 ![Curves Transformation with an S-curve and a preview area over the right half of the Carina Nebula](docs/readme/curves-live-preview.png)
 
-A process window previews on the image as its controls move: drag a point of the curve and the picture follows.
+A process opens as a page beside its image and previews on it as its controls move: drag a point of the curve and
+the picture follows.
 **Preview area** keeps the preview to a part of the frame, so one view holds both states - inside the red frame, the
 curve being drawn; outside it, the image as it is. **Apply** then runs on the whole image.
 

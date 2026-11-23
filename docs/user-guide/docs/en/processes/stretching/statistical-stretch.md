@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence is active, no other Statistical Stretch window is open on it, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence is active, no other Statistical Stretch task is open on it, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence, and an optional mask of the same size on its view. Any other number of
     channels is refused.
@@ -34,28 +34,24 @@ places the median at the level you set in **Target Median**. An RGB image gets o
 the three. Two optional stages follow: a curve that lifts the range above the target, and a division by the
 brightest sample.
 
-The preview shows a result as soon as the window opens, stretched from the starting values. **Apply**
-replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size and
-[pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its
+size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
 [history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/statistical-stretch.webp
 alt: >-
-  The Statistical Stretch window. On the left, a histogram of three overlapping peaks in the lower part of the range,
-  with two clipping shares written in its corner. Under it a toolbar, the Target Median box and slider, the Linked
-  Stretch check box, the Black Point Sigma box and slider, three more check boxes, the Curves Boost box and slider,
-  a line of text with three black points and a count of pixels, Target Image and Preview. On the right, the preview
-  shows a red nebula on a dark background. Reset, Close and Apply run along the bottom.
+  The Statistical Stretch task. Its header names the process and the linear master. The canvas at the left shows the
+  stretched preview, a red nebula on a dark background. The column at the right opens with the compact readout of
+  the preview, then the Preview, Preview area and Processed toggles, Target Image, a histogram of three overlapping
+  peaks in the lower part of the range with two clipping shares written in its corner, and its toolbar. Under them
+  the Target Median box and slider, the Linked Stretch check box, the Black Point Sigma box and slider, three more
+  check boxes, the Curves Boost box and slider, and a line of text with three black points and a count of pixels.
+  Reset, Close and Apply stand in its footer.
 caption: >-
   Statistical Stretch on a linear master with Target Median at 0.15. The histogram is the result's, the line under
-  Curves Boost gives the black points, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 10.9, y: 45.3}
-  - {n: 3, x: 1.9, y: 49.2}
-  - {n: 4, x: 1.9, y: 73.8}
-  - {n: 6, x: 70.4, y: 54.4}
-  - {n: 7, x: 90.3, y: 96.7}
+  Curves Boost gives the black points, and the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -63,7 +59,7 @@ pins:
 - Finish the work that needs linear data first: gradient removal, color calibration, measurement,
   [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. The process finds no
   gradient, removes no [pedestal](../../reference/glossary.md#pedestal) and calibrates no color.
-- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse. Duplicate the
+- **Apply** replaces the image. Its history keeps the step before, and this [task](../../reference/glossary.md#task) has no inverse. Duplicate the
   image first to compare two stretches.
 - The image is grayscale or RGB. Prefer a floating-point one: an integer image is rounded back to its own values.
 - Every statistic is the whole image's, also for a [**Preview area**](../../reference/glossary.md#preview-area) and
@@ -72,9 +68,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
-   Statistical Stretch**. The preview shows the image already stretched, and the histogram shows that result.
+   Statistical Stretch**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++.
+   The task opens as a page: the canvas at the left shows the image already stretched from the starting values, the
+   column at the right holds its controls and a histogram of that result.
 2. **Set the background level.** Move **Target Median** to the brightness the median should have. On most deep-sky
    images the median is the sky background, and the peak of the histogram moves with it.
 3. **Choose one curve or three.** On an RGB image, leave **Linked Stretch** off to bring the three backgrounds to
@@ -85,17 +83,16 @@ pins:
 5. **Leave the finishing stages off at first.** Select **Apply Curves Adjustment** and raise **Curves Boost** only
    when the range above the target needs more lift. Select **Normalize Image** only when the brightest sample must
    become white.
-6. **Check the preview at 100 %.** Zoom into the background, the faint areas and the brightest stars, and press
-   ++space++ over the preview to compare with the original.
-7. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists **Statistical
-   Stretch**, and the controls return to their starting values. The preview then shows a second stretch, of the
-   stretched image: close the window.
+6. **Check the preview at 100 %.** Zoom the canvas into the background, the faint areas and the brightest stars,
+   and hold ++space++ over it to see the original.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the
+   stretched one, its history lists **Statistical Stretch**, and the controls return to their starting values. The
+   preview now shows a second stretch, of the stretched image: close the task.
 
 ## Controls
 
 The toolbar under the histogram - zoom, grid, clipping shares, scales, areas and **Plot resolution** - changes only
-how the histogram is drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md).
+how the histogram is drawn, and is the same in every task that has one: see [Tasks](../../interface/tasks.md).
 
 ```controls
 window: The histogram
@@ -105,16 +102,16 @@ controls:
     default: ""
     effect: Shows the counts of the preview, which is the stretched image with the mask blended in. With **Preview** off it shows the image as it is.
     range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**.
-    enabled: Always shown. The lines it draws follow the channel the preview displays.
+    enabled: Always shown. The lines it draws follow the channel the canvas displays.
     tradeoff: It is counted again after every preview, which adds to the work of each change.
-    scope: The window only, and it never changes a sample. While the preview shows the original, so does the histogram.
+    scope: The task only, and it never changes a sample. While the canvas shows the original, so does the histogram.
     persistence: Counted again when the target, the preview or **Plot resolution** changes.
     note: Holding the left button shows the coordinates under the pointer, which does not set the black point. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms around the pointer.
   - name: Clipping Low and Clipping High
     kind: readout
     default: ""
     effect: Give the share of the plotted samples at or below 0 and at or above 1, over every channel.
-    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the window opens.
+    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the task opens.
     tradeoff: They count samples of the result, with the mask. The line under **Curves Boost** counts pixels of the image at or below the black point, without it. The two numbers answer different questions and need not agree.
     scope: The image the histogram plots.
 ```
@@ -130,7 +127,7 @@ controls:
     range: The slider beside the box moves the same value in 1,000 equal steps.
     tradeoff: A high target brightens the background with its noise and presses the bright signal together.
     scope: The preview and Apply. Each channel's median with **Linked Stretch** off, the median of the three channels together with it on.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The median lands on the target before **Normalize Image**, the mask and the rounding of an integer image. Each of them can move the median you measure afterwards.
   - name: Linked Stretch
     kind: check
@@ -139,7 +136,7 @@ controls:
     enabled: For an RGB image. It is disabled for a grayscale image, which has one curve in any case.
     tradeoff: Off puts every channel's median on the target, which removes a color cast from the background and can shift the color of everything brighter. On keeps a neutral sample neutral, but one curve on each channel still changes the ratios between the colors and their saturation.
     scope: The preview, Apply and the line under **Curves Boost**.
-    persistence: Until the window closes. **Reset** and a finished Apply clear it. The history does not record it.
+    persistence: Until the task closes. **Reset** and a finished Apply clear it. The history does not record it.
     note: It is not a stretch of the luminance. Either way, calibrate color first.
   - name: Black Point Sigma
     kind: spinbox
@@ -150,7 +147,7 @@ controls:
     enabled: While **No Black Clipping** is off.
     tradeoff: A low value cuts faint signal for good. The spread is estimated from at most 400,000 samples of each channel, or of the three together when linked, always the same ones for one image.
     scope: The preview, Apply and the line under **Curves Boost**, for each channel or for the three together.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: No Black Clipping
     kind: check
     default: "Off"
@@ -158,7 +155,7 @@ controls:
     enabled: Always. Selecting it disables **Black Point Sigma**.
     tradeoff: Nothing lies below the black point, so no faint signal is cut. One dark outlier then sets the black point, and the farther it lies below the background, the softer the stretch of everything else.
     scope: The preview, Apply and the line under **Curves Boost**, for each channel or for the three together.
-    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+    persistence: Until the task closes. **Reset** and a finished Apply clear it.
     note: Despite its label, the smallest sample itself still becomes black and is counted by the line.
   - name: Normalize Image
     kind: check
@@ -167,7 +164,7 @@ controls:
     range: One maximum over every channel, taken after the curve of **Apply Curves Adjustment**. Nothing is divided when it is not above zero.
     tradeoff: It moves the median off the target and amplifies the noise with everything else, and one hot pixel can set the scale. When a sample already reaches white after the stretch, it changes nothing.
     scope: The preview and Apply. Every channel is divided by the same number, which keeps the ratios between the channels at this stage.
-    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+    persistence: Until the task closes. **Reset** and a finished Apply clear it.
   - name: Apply Curves Adjustment
     kind: check
     default: "Off"
@@ -175,7 +172,7 @@ controls:
     enabled: Always. Selecting it enables **Curves Boost**.
     tradeoff: It brightens the upper midtones, can flatten the highlights and can raise the brightest sample.
     scope: The preview and Apply, with the same curve on every channel.
-    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+    persistence: Until the task closes. **Reset** and a finished Apply clear it.
   - name: Curves Boost
     kind: spinbox
     default: "0.20"
@@ -185,7 +182,7 @@ controls:
     enabled: While **Apply Curves Adjustment** is on. Its value has no effect while that is off.
     tradeoff: A high value makes a steep step just above the target and wide areas near white.
     scope: The preview and Apply, on every channel.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default. The history does not record the value.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default. The history does not record the value.
   - name: Black clipping
     kind: readout
     default: ""
@@ -198,49 +195,50 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces. The statistics, the line under **Curves Boost**, the histogram and the preview follow it.
     tradeoff: The image you choose is the one replaced. A larger image or a sequence takes more time, memory and disk.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes it, and the histogram then shows the image as it is.
+    effect: Shows the stretched image in the canvas, with the mask blended in. Off removes it, and the histogram then shows the image as it is.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: Each change stretches the whole image again, with a **Preview area** too, and counts the histogram again. The statistics are measured once for each state of the image and kept. On a large image, turn it off while you adjust and on again for the last check.
-    scope: The window only. On a sequence it shows the frame the view displays.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: A snapshot taken from the preview is stretched as the preview is, from the whole image's statistics.
+    scope: The task only. On a sequence it shows the frame the view displays.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: A snapshot taken with **Take snapshot** in the canvas's floating toolbar is stretched as the preview is, from the whole image's statistics.
   - name: Reset
     kind: button
     default: ""
     effect: Returns the three values to their defaults, clears the four check boxes and measures the line under **Curves Boost** again.
     range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
-    scope: The window only. The image is not changed, the preview shows the defaults again and Apply stays enabled.
+    scope: The task only. The image is not changed, the preview shows the defaults again and Apply stays enabled.
   - name: Apply
     kind: button
     default: ""
-    effect: Stretches the image, or every frame of the sequence, with the values the window shows, and then returns the controls to their defaults.
-    enabled: As soon as the window opens. Untouched, it writes the stretch of the starting values, which is what the preview shows. While it works every control is disabled, and when another process is working on the image it only shows a warning.
+    effect: Stretches the image, or every frame of the sequence, with the values the task shows, and then returns the controls to their defaults.
+    enabled: As soon as the task opens. Untouched, it writes the stretch of the starting values, which is what the preview shows. While it works **Cancel** takes its place and every control is disabled, and when another process is working on the image it only shows a warning.
     tradeoff: The whole image is stretched on several threads at once, and the result does not depend on how many.
     scope: The whole image, or every frame of the sequence measured and stretched alone, with the mask blended afterwards. White in the mask takes the stretched image, black keeps the original, gray blends the two, and **Invert Mask** swaps them. Set the stretch with the mask off, then enable it and check its edges.
     persistence: The image and its history keep the result. The history records the target median, the black point sigma, and whether **No Black Clipping**, **Normalize Image** and the curve were on. The image keeps its header, its acquisition data, its plate solution and the record of its color calibration, and is recorded as display RGB when it is a color image and as monochrome when it is grayscale. It states no transfer function afterwards.
-    note: Closing the window instead discards the values. Nothing of the window is saved between sessions.
+    note: Closing the task instead discards the values. Nothing of the task is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being stretched, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy.
     note: The stretched sequence takes the place of the original only after every frame succeeded, with one step in its history.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The request is noticed before each frame, and while one is measured and stretched.
 ```
 
@@ -347,7 +345,7 @@ counts, and at the default target 0.22 lands at 0.051.
 
 ## When it goes wrong
 
-!!! warning "Apply cannot be taken back from this window"
+!!! warning "Apply cannot be taken back from this task"
     The stretch replaces the image and records it as nonlinear. Finish color calibration and every other linear
     step first, and use the image's history to return to the linear master.
 
@@ -366,7 +364,7 @@ counts, and at the default target 0.22 lands at 0.051.
 After Apply the preview no longer looks like the image
 :   **Cause.** A finished Apply returns the controls to their starting values, and the preview shows them applied to
     the stretched image.
-:   **Fix.** Close the window. To stretch another image, set your values again.
+:   **Fix.** Close the task. To stretch another image, set your values again.
 
 The median measured after Apply is not the Target Median
 :   **Cause.** **Normalize Image**, a mask or the rounding of an integer image moved it, or the stretch was linked
@@ -400,5 +398,4 @@ The clipping shares in the histogram and the line under Curves Boost disagree
 - [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
 - [Image Statistics](../../interface/image-statistics.md) and [Image History](../../interface/image-history.md), to
   measure the result and to return to the linear master.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.

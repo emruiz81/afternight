@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Noise Generator window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Noise Generator task is open on it yet, and no task that needs the image
+    for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence, best a duplicate or a synthetic test frame with finite samples between 0
     and 1, and an optional mask of the image's size on its view.
@@ -36,26 +36,23 @@ a camera: it reads no gain, exposure, temperature, read noise, dark current or q
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the noisy one, keeps its size and
 [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
-[history](../../reference/glossary.md#history). The window draws a random seed when it opens and keeps it, so the
+[history](../../reference/glossary.md#history). The [task](../../reference/glossary.md#task) draws a random seed when it opens and keeps it, so the
 preview shows the noise Apply adds.
 
 ```figure
 image: ../../assets/images/processes/utility/noise-generator.webp
 alt: >-
-  The Noise Generator window. On the left, Noise Type at Gaussian, the Mean, Var, Amount and Salt vs Pepper boxes with
-  their sliders, the last two grayed, then Target Image, Channel at RGB and, at the bottom, the Preview check box. On
-  the right, a toolbar of zoom buttons, a channel box, a display mode box and a settings button over the preview of a
-  red nebula, with the word PREVIEW in its corner and a framed area in its middle labelled Preview: Noise Generator,
-  grainier than the image around it. Reset, Close and Apply run along the bottom.
+  The Noise Generator task. Its header reads Noise Generator on the master and preview up to date. The canvas at the
+  left shows the preview of a red nebula, with the word PREVIEW in its corner and a framed area in its middle labelled
+  Preview: Noise Generator, grainier than the image around it, and a floating toolbar near its foot. The column at the
+  right opens with the compact readout of the preview, then the header Noise Generator, the Preview and Preview area
+  toggles ticked and Processed, Target Image and Channel at RGB, Noise Type at Gaussian, and the Mean, Var, Amount
+  and Salt vs Pepper boxes with their sliders, Var at 0.0100 and the last two grayed. Reset, Close and Apply stand in
+  its footer.
 caption: >-
-  Noise Generator on the stretched master with Gaussian noise at a Var of 0.0100. The framed area in the preview shows
+  Noise Generator on the stretched master with Gaussian noise at a Var of 0.0100. The framed area in the canvas shows
   the noise over the original.
-pins:
-  - {n: 2, x: 2.0, y: 16.7}
-  - {n: 3, x: 2.0, y: 25.7}
-  - {n: 4, x: 2.0, y: 43.4}
-  - {n: 5, x: 61.8, y: 55.3}
-  - {n: 6, x: 88.7, y: 96.0}
+owed: true
 ```
 
 ## Before you start
@@ -74,23 +71,25 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the duplicate the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Utilities > Noise Generator**. The preview shows Gaussian noise inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original.
+1. **Open the task.** Make the duplicate the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Utilities > Noise Generator**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows Gaussian noise inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original, and the
+   column at the right holds the controls.
 2. **Choose the noise.** Choose a **Noise Type**. Use only the boxes that type reads, which the controls below list.
 3. **Set its strength.** For Gaussian and Speckle raise **Var**, and set **Mean** only for a shift on purpose. For the
    impulse types set **Amount**, and for Salt & Pepper also **Salt vs Pepper**.
 4. **Choose the channel.** Leave **Channel** at **RGB** to give each channel its own noise. Choose
    **CIE L* (Lightness)** or **CIE Y (Luminance)** for noise in the brightness alone.
-5. **Check at 100 %.** Zoom the preview to 100 % and hold ++space++ to compare with the original. Untick **Preview
-   area** in the menu at the end of the preview's toolbar to see the noise Apply adds to the whole image.
-6. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the noisy image, and its history
-   lists **Noise Generator** with the type.
+5. **Check at 100 %.** Zoom the canvas to 100 % and hold ++space++ to compare with the original. Untick **Preview
+   area** in the column's toggles row to see the noise Apply adds to the whole image.
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column follows the run, the
+   image's view shows the noisy image, and its history lists **Noise Generator** with the type.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Noise Generator
@@ -104,7 +103,7 @@ controls:
     enabled: Disabled while Apply runs. A type enables the boxes it reads, but does not always disable the others. Salt, Pepper and Salt & Pepper leave **Mean** and **Var** as the type before left them, and Speckle leaves **Salt vs Pepper** so. A box left enabled that way is ignored.
     tradeoff: Each change computes the preview again, from the same seed.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended, for images and sequences.
-    persistence: Until the window closes. Each run takes it as it is when it starts. **Reset** and a finished Apply return it to **Gaussian**.
+    persistence: Until the task closes. Each run takes it as it is when it starts. **Reset** and a finished Apply return it to **Gaussian**.
   - name: Mean
     kind: spinbox
     default: "0.0000"
@@ -114,7 +113,7 @@ controls:
     enabled: For Gaussian and Speckle. Every other type ignores it, also when it stays enabled after a change of type.
     tradeoff: A positive mean pushes more samples against the top of the range, where they are held.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Var
     kind: spinbox
     default: "0.0020"
@@ -124,34 +123,34 @@ controls:
     enabled: For Gaussian and Speckle. LocalVar and the other types ignore it, also when it stays enabled.
     tradeoff: A large variance holds more samples at the ends of the range and hides the structure of the image. At 0 nothing random is added, and **Mean** still shifts the samples.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     kind: spinbox
     default: "0.0200"
     widget: {min: 0, max: 0.5, step: 0.001, decimals: 4}
     effect: Sets the share of the samples that Salt, Pepper and Salt & Pepper replace. Higher replaces more.
     range: The chance that each sample of each channel is replaced, drawn for each on its own. The arrows and the slider move it as they move **Mean**.
-    enabled: For Salt, Pepper and Salt & Pepper. Every other type ignores it, and it is disabled when the window opens.
+    enabled: For Salt, Pepper and Salt & Pepper. Every other type ignores it, and it is disabled when the task opens.
     tradeoff: A replaced sample is lost. With **RGB** the three samples of a pixel are drawn separately, so the impulses can be colored.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Salt vs Pepper
     kind: spinbox
     default: "0.50"
     widget: {min: 0, max: 1, step: 0.01, decimals: 2}
     effect: Sets the share of the replaced samples that take the top of the range, the others taking its bottom. Higher gives more bright impulses, lower more dark ones. At 0 every replaced sample is black, at 1 every one is white.
     range: It does not change how many samples are replaced, which is **Amount**. The arrows and the slider move it as they move **Mean**.
-    enabled: For Salt & Pepper, and disabled when the window opens. It stays enabled when you switch from Salt & Pepper to Speckle, which ignores it.
+    enabled: For Salt & Pepper, and disabled when the task opens. It stays enabled when you switch from Salt & Pepper to Speckle, which ignores it.
     tradeoff: Its two ends make a one-sided test with Salt & Pepper.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
     tradeoff: Apply replaces the image chosen here once it succeeds, and the noise cannot be taken out again.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -159,19 +158,19 @@ controls:
     effect: Chooses where the noise goes. **RGB** draws noise for each sample of the three channels on its own. **Red**, **Green** or **Blue** adds it to that channel and keeps the other two. Every other choice adds it to one component of another color model, as one plane, and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: A component costs two conversions and a working copy, and the conversion back can round the image again and put colors out of range.
-    scope: The preview and Apply, before the mask is blended. Process Windows describes each component.
-    persistence: Until the window closes. Each run takes it as it is when it starts. **Reset**, a finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask is blended. Tasks describes each component.
+    persistence: Until the task closes. Each run takes it as it is when it starts. **Reset**, a finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the noisy image beside the controls, with the mask blended in. Every preview draws from the window's seed, so the same values show the same noise.
+    effect: Shows the noisy image in the canvas, with the mask blended in. Every preview draws from the task's seed, so the same values show the same noise.
     range: >-
-      The pane opens with a **Preview area** of 1,200 by 1,200 pixels in the middle of the image, labelled "Preview:
-      Noise Generator", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 1,200 by 1,200 pixels in the middle of the image, labelled "Preview:
+      Noise Generator", or the whole image when it is smaller. **Preview area** stands beside **Preview** in the
+      column's toggles row, and **Take snapshot** in the canvas's floating toolbar.
     tradeoff: The area is drawn as an image of its own, so its noise is not the noise Apply puts on those pixels. Judge the kind and the strength of the noise there, and untick **Preview area** to see the samples Apply writes.
-    scope: "The window only. On a sequence it shows the frame the view displays, with the noise of the first frame. Look at the noise at **Zoom 100%**: a fitted view resamples it and hides single impulses. **View Channel** shows each channel's own draws. **Display Mode** and **Autostretch Settings** change only how the preview is shown, and an Autostretch makes faint noise look stronger."
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: "The task only. On a sequence it shows the frame the view displays, with the noise of the first frame. Look at the noise at **Zoom 100%**: a fitted canvas resamples it and hides single impulses. **View Channel** shows each channel's own draws. **Display Mode** and **Autostretch Settings** in the canvas's toolbar change only how the preview is shown, and an Autostretch makes faint noise look stronger."
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: A snapshot of the preview draws from the same seed as the preview of the same part, opens as `<target> - Noise Generator - SNAPSHOT`, and draws no new seed.
   - name: Reset
     kind: button
@@ -183,11 +182,11 @@ controls:
     kind: button
     default: ""
     effect: Adds the noise to the whole image, or to every frame of the sequence, with the type, the four values, **Channel** and the seed as they are when you press it. Then it returns the controls to their defaults and draws a new seed, so the next Apply adds new noise.
-    enabled: Always, also at the defaults, which add Gaussian noise. While a run works it is disabled, with **Noise Type**, the four boxes, **Reset** and **Close**.
-    tradeoff: A single image shows a progress window too, with **Cancel**, which the generator notices between two rows. The work grows with the number of samples, so an RGB image costs three times a grayscale one. Poisson costs more than the other types, and a color component, a mask and a sequence add work and memory.
+    enabled: Always, also at the defaults, which add Gaussian noise. While a run works, **Cancel** takes its place, and **Noise Type**, the four boxes, **Reset** and **Close** are disabled.
+    tradeoff: The column shows the run of a single image too, and **Cancel** stops it; the generator notices it between two rows. No progress window opens. The work grows with the number of samples, so an RGB image costs three times a grayscale one. Poisson costs more than the other types, and a color component, a mask and a sequence add work and memory.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards. On a single image, Apply adds exactly the noise of a preview without an area. Each frame of a sequence draws its own noise, from the seed shifted by the frame's index.
     persistence: "The history step is **Noise Generator** and reads, for example, `Noise Type Gaussian -  in channel: RGB`. For a grayscale image it ends after the type. It records neither the four values nor the seed. The header cards, the other metadata and the recorded processing state are kept."
-    note: Closing the window instead discards the values and the seed. Nothing of the window is saved between sessions, and nothing brings back the seed of an earlier Apply. For another draw with the same values, apply to a fresh duplicate after an Apply, or open the window again.
+    note: Closing the task instead discards the values and the seed. Nothing of the task is saved between sessions, and nothing brings back the seed of an earlier Apply. For another draw with the same values, apply to a fresh duplicate after an Apply, or open the task again.
 ```
 
 ## How it works
@@ -229,7 +228,7 @@ or below 0 becomes 0. Every draw is for one sample of one channel: in an RGB ima
 
 ### Boundaries
 
-- The seed comes from the system's source of randomness and the clock when the window opens, and is kept until an
+- The seed comes from the system's source of randomness and the clock when the task opens, and is kept until an
   Apply finishes. It is not stored with the image, so a later session cannot draw the same noise.
 - **Var** is a variance, not a standard deviation. The deviation is its square root.
 - The result is held to full scale before the mask blends it and before an integer image is rounded. What the clip
@@ -286,7 +285,7 @@ The noise Apply added is not the noise of the preview area
 :   **Fix.** Untick **Preview area**, and compare the preview of the whole image with Apply.
 
 A second Apply adds different noise
-:   **Cause.** The window draws a new seed after each finished Apply.
+:   **Cause.** The task draws a new seed after each finished Apply.
 :   **Fix.** Duplicate the noisy result when you need the same noise on another copy.
 
 LocalVar looks like plain Gaussian noise
@@ -306,7 +305,7 @@ Nothing seems to change
     very little to a floating-point image.
 :   **Fix.** Check the values the type reads, the mask and its inversion, and look at the preview at 100 %.
 
-Apply reports "An error occurred when running the process:" and a reason
+The message strip reports "An error occurred when running the process:" and a reason
 :   **Cause.** The run was refused, often because the memory limit cannot hold the copies it needs, and nothing was
     written.
 :   **Fix.** Close other images or work on a smaller one, or raise the memory limit on the Processing page of the
@@ -322,8 +321,7 @@ Apply reports "An error occurred when running the process:" and a reason
 - [Image History](../../interface/image-history.md) and [Saving and Exporting](../../interface/saving-and-exporting.md),
   to undo the step and to keep a test frame, since its seed is not kept.
 - [Masks](../../interface/masks.md), to add noise to one part of the image.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the preview area and what every task shares.
 
 ## Credits
 

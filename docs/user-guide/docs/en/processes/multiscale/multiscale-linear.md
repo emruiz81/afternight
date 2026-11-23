@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Multiscale Linear Transform window is open on it yet, and no window that
-    needs the image for itself is open on it.
+    An image or a sequence view is active, no Multiscale Linear Transform task is open on it yet, and no task that
+    needs the image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs
+    only while nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, and an optional mask of the image's size on its view.
   outputs: >-
@@ -31,7 +32,7 @@ derived: false
 
 Multiscale Linear Transform splits each channel of the image into detail layers, each holding the structure of one
 range of sizes, and a residual that holds what is larger. You weight each layer, leave it out, reduce its noise or
-dering its edges, and the window adds the layers back. It offers two transforms, neither of which shrinks a layer: the
+dering its edges, and the [task](../../reference/glossary.md#task) adds the layers back. It offers two transforms, neither of which shrinks a layer: the
 multiscale linear transform, which blurs the original with ever wider Gaussians, and the
 [starlet transform](../../reference/glossary.md#starlet-transform), which blurs it again and again with a small kernel.
 
@@ -42,24 +43,19 @@ multiscale linear transform, which blurs the original with ever wider Gaussians,
 ```figure
 image: ../../assets/images/processes/multiscale/multiscale-linear.webp
 alt: >-
-  The Multiscale Linear Transform window. On the left, the Transform Settings box with Algorithm, Detail Layers at 6,
-  Layer Spacing at Dyadic, a disabled Scaling Function and Amount at 1.00; a table of Layer 1 to Layer 6 and Residual,
-  each ticked with a bias of 0.00, over the Enable All, Disable All and Reset Biases buttons; and a scrolling Global
-  Settings box whose k-Sigma Thresholding group is ticked, with Threshold (k) at 3.00 and Amount at 0.70. On the right,
-  a toolbar over the preview of a red nebula with the word PREVIEW in its corner and a framed area near its right edge, the
-  Selected Layer box for Layer 1, Target Image, Channel at RGB, Preview with Processed Image beside it, and Reset,
-  Close and Apply along the bottom.
+  The Multiscale Linear Transform task. Its header names the process and the master. The canvas at the left shows the
+  preview of a red nebula with the word PREVIEW in its corner and a large framed area in its middle, with a floating
+  toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right
+  holds the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image
+  and Channel at RGB, then, in a body that scrolls, the Transform Settings section with Algorithm, Detail Layers at 6,
+  Layer Spacing at Dyadic, a disabled Scaling Function and Amount at 1.00, a table of Layer 1 to Layer 6 and Residual,
+  each ticked with a bias of 0.00, over the Enable All, Disable All and Reset Biases buttons, and the Global Settings
+  section, whose k-Sigma Thresholding group is ticked, with Threshold (k) at 3.00 and Amount at 0.70. Reset, Close and
+  Apply stand in its footer.
 caption: >-
   Multiscale Linear Transform on the linear master with k-Sigma Thresholding ticked and its Amount at 0.70. The framed
-  area shows the result there, over the original, in the Autostretch display mode.
-pins:
-  - {n: 2, x: 2.2, y: 13.7}
-  - {n: 3, x: 2.2, y: 38.9}
-  - {n: 4, x: 66.4, y: 69.4}
-  - {n: 5, x: 76.8, y: 72.0}
-  - {n: 6, x: 22.5, y: 67.2}
-  - {n: 8, x: 95.6, y: 93.3}
-  - {n: 9, x: 89.2, y: 97.4}
+  area of the canvas shows the result there, over the original, in the Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -71,7 +67,7 @@ pins:
 - **Apply** replaces the image. Duplicate it first, or use its history, which keeps the step before but not each
   layer's settings.
 - A [mask](../../reference/glossary.md#mask) on the view blends the whole result with the original. **Linear Mask** is
-  a mask made inside the window that weighs only the noise reduction.
+  a mask made inside the task that weighs only the noise reduction.
 - [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first: a raw mosaic is
   split as one grayscale plane. On a sequence, every frame gets the same values.
 - Grain and fine detail lie in the first layers, broad structure in the last ones, and the background and large glows
@@ -79,9 +75,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Multiscale > Multiscale Linear Transform**. The preview shows the result inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+1. **Open the task.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Multiscale > Multiscale Linear Transform**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the result inside a framed [preview area](../../reference/glossary.md#preview-area) in the middle of the
+   image, and the column at the right holds its controls.
 2. **Choose the transform.** Keep **Algorithm**, **Detail Layers** and **Layer Spacing** for a first pass. Choose
    **Starlet Transform** to find the grain of single pixels in Layer 1, or to choose a **Scaling Function**.
 3. **Find the scale.** Click a row of the layer table and untick its box: the preview loses the structure of that
@@ -94,15 +92,15 @@ pins:
    detail layer loses what lies below k times its own noise.
 7. **Protect and dering.** Tick **Linear Mask** to aim the noise reduction at the faint areas, and **Deringing**
    against [ringing](../../reference/glossary.md#ringing) at stars and edges.
-8. **Check at 100 %.** Keep **Processed Image** beside **Preview**, zoom the preview to 100 % and hold ++space++ to
-   compare with the original. Then untick **Preview area** and look at the whole image.
-9. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the result, and its history lists
-   **Multiscale Linear Transform**.
+8. **Check at 100 %.** Keep the **Preview** list at **Processed Image**, zoom the canvas to 100 % and hold ++space++
+   to compare with the original. Then untick **Preview area** and look at the whole image.
+9. **Apply.** Choose **Apply**, or press ++ctrl+enter++. The column follows the run, the view shows the result, and
+   its history lists **Multiscale Linear Transform**.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). The blocks below follow the window's groups.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). The blocks below follow the task's groups.
 
 ```controls
 window: Transform Settings
@@ -126,7 +124,7 @@ controls:
       it. The Gaussians of the multiscale linear transform widen with the scale, so its deep layers cost more, while the
       starlet's cost the same at every scale.
     scope: The preview and Apply, on what **Channel** selects. A change builds the layers and their noise estimates again.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Detail Layers
     kind: spinbox
     default: "6"
@@ -147,7 +145,7 @@ controls:
       value turns the residual's row into the new last detail layer, and every row added starts ticked, with a bias of
       0, its noise reduction off and an **Amount** of 0.50. Lowering it turns the last detail layer kept into the
       residual.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Layer Spacing
     kind: combo
     default: Dyadic
@@ -160,7 +158,7 @@ controls:
       Linear scales split the sizes more finely, and their layers overlap more. More of them fit below the limits of
       **Detail Layers**.
     scope: The preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Linear Scale
     kind: spinbox
     default: "1"
@@ -173,7 +171,7 @@ controls:
       A higher step reaches the depth limit of the multiscale linear transform with fewer layers. It does not change
       how many taps the starlet's kernel has, only how far apart they are.
     scope: The preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Scaling Function
     kind: combo
     default: B3 Spline (5)
@@ -188,7 +186,7 @@ controls:
       scales and ignores it.
     tradeoff: A wider kernel blurs more at each layer and costs more taps.
     scope: The preview and Apply of the starlet transform.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     object: amountSpinBox
     kind: spinbox
@@ -203,7 +201,7 @@ controls:
     scope: >-
       The preview and Apply, on the whole image once **Channel** has been converted back, before the mask on the view.
       In the preview it also mixes the original into a layer view and into **Preview Mask**.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
 ```
 
 ```controls
@@ -219,7 +217,7 @@ controls:
       Leaving a detail layer out removes every structure of that size, real or noise. Leaving the residual out removes
       the image's base, and what is left is the detail around 0.
     scope: The preview and Apply. A layer view of the preview ignores it.
-    persistence: Until the window closes. **Reset** and a finished Apply tick every row again.
+    persistence: Until the task closes. **Reset** and a finished Apply tick every row again.
     note: Its header's tooltip reads "Enable/Disable layer".
   - name: Layer
     kind: radio
@@ -230,7 +228,7 @@ controls:
       row is chosen at a time, and a new preview follows the choice.
     range: One row for each detail layer, finest first, and **Residual** last.
     persistence: >-
-      Until the window closes. **Reset** and a finished Apply choose Layer 1 again, and so does a change of **Detail
+      Until the task closes. **Reset** and a finished Apply choose Layer 1 again, and so does a change of **Detail
       Layers** that removes the chosen row.
   - name: Bias
     kind: readout
@@ -251,7 +249,7 @@ controls:
     default: ""
     effect: Ticks every row of the table, the residual included.
     range: The biases and the noise reduction of every row stay as they are.
-    enabled: Disabled while Apply runs, as is every control of the window's groups.
+    enabled: Disabled while Apply runs, as is every control of the task's groups.
     note: Its tooltip reads "Enable all layers".
   - name: Disable All
     kind: button
@@ -287,7 +285,7 @@ controls:
       The **Amount** of every layer's noise reduction and of **k-Sigma Thresholding**, multiplied by the mask. It does
       not weigh **Bias**, **Deringing**, the **Large-Scale Transfer Function** or the **Dynamic Range Extension**, and it
       is not the mask on the target's view, which blends the whole result afterwards.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
     note: >-
       With **Inverted** ticked and **Amplification** at 100, every sample at or above 0.01 gets no noise reduction,
       which is nearly the whole of a linear master.
@@ -302,7 +300,7 @@ controls:
       The slider moves the value one unit at a time. At 10, a background at 0.028 weighs 0.28, or 0.72 once inverted.
     tradeoff: Too high a value makes most of the mask white, or black once inverted, and the mask no longer tells tones apart.
     scope: The mask of **Linear Mask** and **Preview Mask**.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Smoothness
     kind: spinbox
     default: "1.00"
@@ -312,19 +310,19 @@ controls:
       blurred.
     tradeoff: A larger value costs a wider blur.
     scope: The mask of **Linear Mask** and **Preview Mask**.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Preview Mask
     kind: check
     default: "Off"
     effect: >-
       Shows the mask of each channel in the preview in place of the result, white where the thresholds act in full.
-    enabled: While **Linear Mask** is ticked. It comes before the layer views of the list beside **Preview**.
+    enabled: While **Linear Mask** is ticked. It comes before the layer views of the **Preview** list.
     tradeoff: >-
       **Amount** and the mask on the target's view act on it afterwards, as on any preview, so below an **Amount** of 1,
       or under a view mask, the original shows through. Set **Amount** to 1, disable the view's mask, and choose
-      **Linear** in the pane's **Display Mode** to read it.
+      **Linear** in the canvas's **Display Mode** to read it.
     scope: The preview and **Take snapshot** only. **Apply** writes the result, not the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
   - name: Inverted
     kind: check
     default: "On"
@@ -332,7 +330,7 @@ controls:
       Turns the mask round before it is blurred: 1 minus the amplified channel. Ticked, the faint parts get the full
       thresholds and the bright ones are spared. Unticked, the bright parts get them.
     scope: The mask of **Linear Mask** and **Preview Mask**.
-    persistence: Until the window closes. **Reset** and a finished Apply tick it again.
+    persistence: Until the task closes. **Reset** and a finished Apply tick it again.
   - name: k-Sigma Thresholding
     kind: check
     default: "Off"
@@ -344,7 +342,7 @@ controls:
     enabled: It does nothing while **Threshold (k)** or its **Amount** is 0.
     tradeoff: Faint real detail below the threshold goes with the noise.
     scope: The preview and Apply, on every detail layer, weighed by **Linear Mask** while that is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
   - name: Threshold (k)
     kind: spinbox
     default: "3.00"
@@ -356,7 +354,7 @@ controls:
       With **Use MRS** it also bounds the coefficients the noise is measured on. When the median of Layer 1 is 0, each
       layer's noise is measured on its own coefficients.
     scope: Every detail layer, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     object: ksigmaAmountSpinBox
     kind: spinbox
@@ -367,7 +365,7 @@ controls:
       between, a coefficient below the threshold keeps 1 minus this value of itself.
     tradeoff: Lower keeps more of every coefficient, grain and detail together.
     scope: Every detail layer, multiplied by the mask of **Linear Mask** while that is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Soft Threshold
     kind: check
     default: "On"
@@ -376,7 +374,7 @@ controls:
       a coefficient below the threshold becomes 0 and the others are kept whole, one exactly at the threshold included.
     tradeoff: Soft is smoother and weakens all the structure it keeps a little. Hard keeps strong structure whole and can look harsher.
     scope: "**k-Sigma Thresholding** only. The **Noise Reduction** of a layer is always soft."
-    persistence: Until the window closes. **Reset** and a finished Apply tick it again.
+    persistence: Until the task closes. **Reset** and a finished Apply tick it again.
   - name: Use MRS
     kind: check
     default: "Off"
@@ -386,7 +384,7 @@ controls:
     tradeoff: It adds passes over Layer 1. It changes only the noise estimate and keeps no map of where structure lies.
     scope: >-
       The noise of every layer, for the layers' own **Noise Reduction** too, while **k-Sigma Thresholding** is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
     note: Its tooltip reads "Use Multiresolution Support for sigma estimation".
   - name: Deringing
     kind: check
@@ -400,7 +398,7 @@ controls:
     enabled: It does nothing while **Dark** and **Bright** are both 0.
     tradeoff: It can soften real high-contrast detail.
     scope: The preview and Apply, on each channel by its own edges. **Linear Mask** does not weigh it.
-    persistence: Until the window closes. **Reset** and a finished Apply untick it.
+    persistence: Until the task closes. **Reset** and a finished Apply untick it.
   - name: Dark
     kind: spinbox
     default: "0.10"
@@ -411,7 +409,7 @@ controls:
       part.
     tradeoff: Too high a value flattens dark structure along edges.
     scope: The preview and Apply, while **Deringing** is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Bright
     kind: spinbox
     default: "0.00"
@@ -421,7 +419,7 @@ controls:
       the bright rings. Higher removes more of them.
     tradeoff: Too high a value flattens highlights and star cores along edges.
     scope: The preview and Apply, while **Deringing** is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Output Deringing Maps
     kind: check
     default: "Off"
@@ -462,7 +460,7 @@ controls:
       Every choice but **None** makes the result nonlinear, and the image is still recorded as it was. **Hyperbolic**
       brightens only the tones below 1 - b and sends 1 to 1 / (1 + b), so white turns gray.
     scope: The residual only, in the preview and Apply. Its group is **Large-Scale Transfer Function**.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **None**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **None**.
   - name: Breakpoint
     kind: spinbox
     default: "0.75"
@@ -472,7 +470,7 @@ controls:
       the default and at 0.91 at 0.1.
     enabled: Shown only while **Mode** is **Hyperbolic**.
     scope: The residual only, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Low Range
     kind: spinbox
     default: "0.00"
@@ -486,7 +484,7 @@ controls:
     scope: >-
       The whole result, after the layers are added back and deringed. Its group is **Dynamic Range Extension**, and it
       acts whether the transform changed anything or not.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: High Range
     kind: spinbox
     default: "0.00"
@@ -496,7 +494,7 @@ controls:
       sample. Higher brings back samples that rose above 1, and darkens the result.
     tradeoff: The result is held between 0 and 1 after the mapping.
     scope: The whole result, after the layers are added back and deringed.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
 ```
 
 ```controls
@@ -508,7 +506,7 @@ controls:
     effect: Keeps the chosen layer in the result while ticked. It is the **En** box of the layer's row.
     range: It applies to the residual too.
     scope: The preview and Apply.
-    persistence: For each layer until the window closes. **Reset** and a finished Apply tick it on every layer.
+    persistence: For each layer until the task closes. **Reset** and a finished Apply tick it on every layer.
   - name: Layer 1
     kind: readout
     default: Layer 1
@@ -534,7 +532,7 @@ controls:
     effect: >-
       Returns the chosen layer to ticked, a bias of 0, noise reduction off, **Threshold (σ)** at 3.00, **Amount** at
       0.50 and **Iterations** at 1.
-    tradeoff: Its **Amount** of 0.50 is not the 1.00 the window opens with and **Reset** gives.
+    tradeoff: Its **Amount** of 0.50 is not the 1.00 the task opens with and **Reset** gives.
   - name: Bias
     kind: spinbox
     default: "0.00"
@@ -553,7 +551,7 @@ controls:
     scope: >-
       The preview and Apply, after the noise reduction and the deringing of the layer. The layer views of the preview
       scale the layer by five times the bias instead.
-    persistence: For each layer until the window closes. **Reset** and a finished Apply return it to 0 on every layer.
+    persistence: For each layer until the task closes. **Reset** and a finished Apply return it to 0 on every layer.
   - name: Noise Reduction
     kind: check
     default: "Off"
@@ -565,7 +563,7 @@ controls:
     scope: >-
       The chosen layer, in the preview and Apply, before **k-Sigma Thresholding** and **Deringing**, weighed by **Linear
       Mask** while that is ticked.
-    persistence: For each layer until the window closes. **Reset** and a finished Apply untick it on every layer.
+    persistence: For each layer until the task closes. **Reset** and a finished Apply untick it on every layer.
   - name: Threshold (σ)
     kind: spinbox
     default: "3.00"
@@ -579,7 +577,7 @@ controls:
       on every layer, from 4 to nearly 90 times the noise of Layers 2 to 6.
     tradeoff: The same value is therefore much stronger on the deep layers of the starlet than on its Layer 1.
     scope: The chosen layer, weighed by **Linear Mask** while that is ticked.
-    persistence: For each layer until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: For each layer until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amount
     object: nrAmountSpinBox
     kind: spinbox
@@ -588,11 +586,11 @@ controls:
     effect: >-
       Mixes each pass of the shrinkage with the coefficients before it. At 1 a pass acts in full, at 0 not at all.
     range: >-
-      The window opens with 1.00 on every layer and **Reset** gives 1.00, while **Reset Layer** and a layer added by
+      The task opens with 1.00 on every layer and **Reset** gives 1.00, while **Reset Layer** and a layer added by
       raising **Detail Layers** start at 0.50.
     tradeoff: Lower it before you add **Iterations**. Lower keeps more of every coefficient.
     scope: The chosen layer, multiplied by the mask of **Linear Mask** while that is ticked.
-    persistence: For each layer until the window closes.
+    persistence: For each layer until the task closes.
   - name: Iterations
     kind: spinbox
     default: "1"
@@ -602,7 +600,7 @@ controls:
       passes at an **Amount** of 1 act as a threshold three times as high.
     tradeoff: Each pass adds work. The image is not split again between passes.
     scope: The chosen layer.
-    persistence: For each layer until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: For each layer until the task closes. **Reset** and a finished Apply return it to 1.
 ```
 
 ```controls
@@ -611,9 +609,9 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -627,24 +625,24 @@ controls:
       A component costs two conversions and a working copy, and the conversion back can change colors and clip those
       outside the range.
     scope: >-
-      The preview, Apply and the mask of **Linear Mask**, which is made from the channel or component worked on. Process
-      Windows describes each component.
+      The preview, Apply and the mask of **Linear Mask**, which is made from the channel or component worked on. Tasks
+      describes each component.
     persistence: >-
-      Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+      Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     object: preview
     kind: check
     default: "On"
-    effect: Shows the result beside the controls, with **Amount** and the mask applied, or the view the list beside it chooses.
+    effect: Shows the result in the canvas, with **Amount** and the mask applied, or the view the **Preview** list chooses.
     range: >-
-      The pane opens with a **Preview area** of 1200 by 1200 pixels in the middle of the image, labelled "Preview:
+      The canvas opens with a **Preview area** of 1200 by 1200 pixels in the middle of the image, labelled "Preview:
       Multiscale Linear Transform", or the whole image when it is smaller.
     tradeoff: >-
       The area is split into layers as an image of its own: its noise is measured inside it, and its deep layers see
       its border, not the rest of the image. Every change runs the whole transform again. A display in Autostretch can
       make what a threshold leaves look stronger than it is.
-    scope: The window only. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The canvas only. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     object: previewModeComboBox
     kind: combo
@@ -660,18 +658,18 @@ controls:
       the deringing and the residual's curve. At a bias of 0 it is uniform gray or black. A negative bias turns **Layer
       (All Changes)** round and leaves the other two black.
     enabled: >-
-      While **Preview** is ticked, also while Apply runs. **Preview Mask** comes before it, and with no row chosen the
-      layer views show the processed image. Its tooltip reads "Select what to show in the preview window".
+      While **Preview** is ticked. Disabled while Apply runs. **Preview Mask** comes before it, and with no row chosen
+      the layer views show the processed image. Its tooltip reads "Select what to show in the preview window".
     tradeoff: >-
       A layer view is no result: **Amount** below 1 and the mask on the view mix the original into it. Read it with
-      **Amount** at 1, the view's mask disabled and the pane's **Display Mode** at **Linear**.
+      **Amount** at 1, the view's mask disabled and the canvas's **Display Mode** at **Linear**.
     scope: The preview and **Take snapshot**, which takes the view shown. **Apply** always writes the processed image.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **Processed Image**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **Processed Image**.
   - name: Reset
     kind: button
     default: ""
     effect: >-
-      Returns every value of the window to its default: the transform, six rows ticked with a bias of 0 and no noise
+      Returns every value of the task to its default: the transform, six rows ticked with a bias of 0 and no noise
       reduction, Layer 1 chosen, every group of **Global Settings** off and **Processed Image**. One preview follows.
     range: It leaves **Target Image**, **Channel** and **Preview** as they are.
   - name: Apply
@@ -681,10 +679,10 @@ controls:
       Works on the whole image, or every frame of the sequence, with the values as they are when you press it, replaces
       it, and returns the values to their defaults.
     enabled: >-
-      From the moment the window opens, at any values. While it runs, the window's groups, **Reset** and **Close** are
-      disabled.
+      From the moment the task opens, at any values. While it runs, **Cancel** takes its place, and the task's groups,
+      **Reset** and **Close** are disabled.
     tradeoff: >-
-      A single image shows a progress window too, and its **Cancel** stops the run at the next check between or inside
+      The column shows the run of a single image too, and **Cancel** stops it at the next check between or inside
       the transform's passes, so a long pass may finish first. The work grows with the pixels, the channels, the layers,
       the width of the blurs, the iterations and each group that is on, and a run with a noise reduction also splits one
       bright pixel on a square of 512 to 1,024 pixels. The noise shares come from that split, not from random noise,
@@ -736,7 +734,7 @@ weight
 
 where \(g\) is 8 on Layer 1 of the multiscale linear transform and 6 elsewhere. An unticked layer weighs 0.
 
-The noise of Layer 1 is \(\sigma_1 = \operatorname{median}|w_1| / 0.6745\). The window splits a single bright pixel with
+The noise of Layer 1 is \(\sigma_1 = \operatorname{median}|w_1| / 0.6745\). The task splits a single bright pixel with
 the same transform, and \(\rho_l\) is the root of the sum of squares of layer \(l\)'s response. Then
 
 \[ \sigma_l = \sigma_1\,\frac{\rho_l}{\rho_1} \tag{3} \]
@@ -764,21 +762,20 @@ sum of the weighted layers, and \(L\) and \(H\) the values of **Low Range** and 
   single precision.
 - A sample that is no finite number, or that the image marks as invalid, does not stop the run. It counts as 0 for its
   neighbours, and the result keeps it as it was.
-- **Cancel**, or closing the window, stops the run at its next check, and nothing is written and no map opens.
+- **Cancel** stops the run at its next check, and nothing is written and no map opens.
 
 ### Worked example
 
-The image is a 1,100 by 820 crop of the middle of the linear master. The window keeps its defaults, with **k-Sigma
+The image is a 1,100 by 820 crop of the middle of the linear master. The task keeps its defaults, with **k-Sigma
 Thresholding** ticked and its **Amount** at 0.70. Each channel is thresholded by its own noise, which in this master
 is about 0.0003 in red, 0.001 in green and 0.0007 in blue from one pixel to the next.
 
-Suppose the window measures the green channel's noise at 0.001. Equation (3) then gives its six layers a noise of
+Suppose the task measures the green channel's noise at 0.001. Equation (3) then gives its six layers a noise of
 0.00005, 0.00064, 0.00030, 0.00014, 0.00007 and 0.00004, and **Threshold (k)** at 3 makes thresholds three times
 those. In Layer 2, a grain coefficient of 0.0010 lies below the threshold of 0.0019 and keeps 0.3 of itself, 0.0003,
 by equation (4). A star's coefficient of 0.1000 lies above it and keeps 0.0987. Nearly every coefficient of the grain
 lies below its threshold, so the grain keeps about 0.3 of its strength, and structure far above the thresholds keeps
-nearly all of its contrast. Both crops are then stretched alike with Histogram Transformation, **Shadows** and
-**Midtones** at 0.02, and shown in the Linear display mode.
+nearly all of its contrast.
 
 ```figure
 images:
@@ -835,7 +832,7 @@ The noise reduction is far stronger than you set
 A layer view is uniform gray or black, or nearly white
 :   **Cause.** The view scales the layer by five times its **Bias**, which is 0, and
     [Autostretch](../../reference/glossary.md#autostretch) turns its gray almost white.
-:   **Fix.** Set a small **Bias** to look, and choose **Linear** in the pane's **Display Mode**.
+:   **Fix.** Set a small **Bias** to look, and choose **Linear** in the canvas's **Display Mode**.
 
 White turns gray after a Hyperbolic curve
 :   **Cause.** **Hyperbolic** sends 1 to 1 / (1 + b), with b the **Breakpoint**.
@@ -848,5 +845,4 @@ White turns gray after a Hyperbolic curve
 - [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that follows the linear work.
 - [Masks](../../interface/masks.md), for the mask on the view that blends the whole result.
 - [Image History](../../interface/image-history.md), to undo the step and to read its summary.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.

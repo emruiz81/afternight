@@ -8,35 +8,38 @@ menu: Image > Information > Statistics
 # Image Statistics
 
 Image Statistics measures the [active image](../reference/glossary.md#active-image), or the frame of a
-[sequence](../reference/glossary.md#sequence) its view shows, one channel at a time. Use it to put numbers on the
-level, the spread, the clipping and the noise of an image before and after a step. It reads each stored sample as a
-[fraction of full scale](../reference/glossary.md#fraction-of-full-scale), never what the view displays, so the
-[Autostretch](../reference/glossary.md#autostretch) display mode changes none of its figures. The window changes nothing either: not the samples, the header,
-the [history](../reference/glossary.md#history), the [mask](../reference/glossary.md#mask) or a file.
+[sequence](../reference/glossary.md#sequence) its view shows, one channel at a time. The Statistics card of the
+[readout](../reference/glossary.md#readout) shows six of its figures as you work; the window gives all thirteen, and opens from that card's
+header. It reads each stored sample as a [fraction of full scale](../reference/glossary.md#fraction-of-full-scale),
+never what the view displays, so the [Autostretch](../reference/glossary.md#autostretch) display mode changes none of
+its figures. The window changes nothing either: not the samples, the header, the
+[history](../reference/glossary.md#history), the [mask](../reference/glossary.md#mask) or a file.
 
 ```figure
 owed: true
 image: ../assets/images/interface/image-statistics.webp
 alt: >-
-  The Image Statistics window. Under the title bar, the heading Image Statistics and a line about per-channel
-  statistics. A card titled Statistics Table holds a table with the columns Red, Green and Blue and a row for each
-  figure, from Count (px), Count (%), Mean, Sigma and Median downward, each cell a number with seven decimals. Under the
-  table, a box reading Normalized (0.0-1.0), an Unclipped check box, off, and a Refresh button. Close stands at the
-  bottom right.
+  The Image Statistics window, titled Statistics <RGB>. Its heading reads ANALYSIS · RGB over Image Statistics and a
+  line about per-channel statistics. A card titled Statistics Table holds a table with the columns RED, GREEN and BLUE
+  and a row for each figure, from COUNT (PX), COUNT (%), MEAN, SIGMA and MEDIAN to MIN and MAX and more below, each
+  cell a number with seven decimals. Under the table, a box reading Normalized (0.0-1.0), an Unclipped check box, off,
+  and a Refresh button. Close stands at the bottom right.
 caption: >-
-  Image Statistics on the linear Carina master at its defaults, Normalized (0.0-1.0) with Unclipped off.
+  Image Statistics on the linear Carina master, opened from the readout at its defaults: Normalized (0.0-1.0) with
+  Unclipped off.
 pins:
-  - {n: 1, x: 23.0, y: 3.0}
-  - {n: 2, x: 11.0, y: 30.0}
-  - {n: 3, x: 2.8, y: 85.0}
-  - {n: 4, x: 47.0, y: 85.0}
-  - {n: 5, x: 78.5, y: 85.0}
-  - {n: 6, x: 80.5, y: 94.0}
+  - {n: 1, x: 2.0, y: 11.4}
+  - {n: 2, x: 3.4, y: 38.4}
+  - {n: 3, x: 3.2, y: 82.6}
+  - {n: 4, x: 29.8, y: 82.6}
+  - {n: 5, x: 80.6, y: 82.6}
+  - {n: 6, x: 82.2, y: 92.8}
 ```
 
 ## What you see
 
-1. **The title.** It names the view the window measures, as `Statistics <RGB>`.
+1. **The heading.** ANALYSIS and the name of the view the window measures, over the window's name. The title bar
+   names the view too, as `Statistics <RGB>`.
 2. **The table.** One column for each channel and one row for each figure. A grayscale image has one column,
    **Gray**.
 3. **The range box.** The units of the figures: fractions from 0 to 1, or codes of 8, 16 or 32 bits.
@@ -48,9 +51,11 @@ pins:
 
 ### Measure an image
 
-1. Make the image the active view. For a sequence, pause the player on the frame you want to measure.
-2. Choose **Image > Information > Statistics**, choose **Statistics** on the view's toolbar, or press
-   ++ctrl+shift+t++ over the view. The window opens at once, and the table fills when the measurement is done.
+1. Click the image's view to make it the active image. For a sequence, pause the player on the frame you want to
+   measure.
+2. Choose **Open Image Statistics** in the header of the readout's Statistics card, choose **Image > Information >
+   Statistics**, or press ++ctrl+shift+t++ over the view. The window opens over the main window at once, and the
+   table fills when the measurement is done.
 3. Read **Median** and **MAD** for the background, which a few stars hardly move. **Min**, **Max** and the two counts
    show clipping, and **BG Noise** the noise between neighbouring pixels.
 
@@ -89,9 +94,8 @@ controls:
   - name: Title
     kind: readout
     default: ""
-    effect: Names the view the window measures, as `Statistics <RGB>`, and follows a rename. A rename changes nothing else.
-    enabled: The window opens from **Image > Information > Statistics**, from **Statistics** on the view's toolbar, or with ++ctrl+shift+t++ while the view has the focus. While it is open, that view's menu entry, button and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open.
-    tradeoff: The shortcut does nothing while the button sits in the toolbar's **More** menu. Use the menu then.
+    effect: Names the view the window measures, as `Statistics <RGB>`, and follows a rename. A rename changes nothing else. The heading inside says ANALYSIS and the view's name over **Image Statistics**.
+    enabled: The window opens from **Open Image Statistics** in the readout's Statistics card, from **Image > Information > Statistics** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+shift+t++ while the view has the keyboard focus. While it is open, that view's menu entry and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open. The readout's button stays enabled, and opens another window at each choice.
     persistence: Nothing of the window is kept. Each new window opens at **Normalized (0.0-1.0)** with **Unclipped** off.
     note: The window stays open beside your work, and closes with its view. It writes nothing - no image, file, header card, history step or clipboard text.
   - name: Numeric range
@@ -204,9 +208,10 @@ controls:
 
 ## When it goes wrong
 
-**Statistics** is greyed in the menu or on the toolbar
+**Statistics** is greyed in the menu, and ++ctrl+shift+t++ does nothing
 :   **Cause.** A Statistics window of this view is already open, or the active view has no image.
-:   **Fix.** Bring the open window forward or close it, or make a view with an image active.
+:   **Fix.** Bring the open window forward or close it, or choose **Open Image Statistics** in the readout, which opens
+    another one.
 
 The table stays empty
 :   **Cause.** The measurement failed, and a failed measurement leaves the table empty.
@@ -236,8 +241,8 @@ The figures change while a sequence plays
 ## Related
 
 - [Histogram Analysis](image-histogram.md), for where the counted samples lie and how many sit at the ends.
+- [Readout](readout.md), for the Statistics card that shows six figures as you work and opens this window.
 - [Image and Sequence Summary](image-summary.md), for the size, pixel type and acquisition facts of the image.
-- [Image Viewer](image-viewer.md), for the toolbar that opens the window and the display that does not change it.
 - [Saving And Exporting](saving-and-exporting.md), to save an image and open it again before you measure what was
   kept.
 - [Histogram Transformation](../processes/stretching/histogram-transformation.md), to

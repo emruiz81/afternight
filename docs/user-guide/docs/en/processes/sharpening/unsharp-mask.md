@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Unsharp Mask window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Unsharp Mask task is open on it yet, and no task that needs the image
+    for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence with finite samples between 0 and 1, and an optional mask of the image's
     size on its view.
@@ -42,19 +42,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/sharpening/unsharp-mask.webp
 alt: >-
-  The Unsharp Mask window. On the left, the Radius and Amount boxes with their sliders, and lower down Target Image,
-  Channel at RGB and the Preview check box. On the right, a toolbar of zoom buttons, a channel box, a display mode box
-  and a settings button over the preview of a red nebula, with the word PREVIEW in its corner and a framed area in its
-  middle labelled Preview: Unsharp Mask. Reset, Close and Apply run along the bottom.
+  The Unsharp Mask task. Its header names the process and the stretched master. The canvas at the left shows the
+  preview of a red nebula, with the word PREVIEW in its corner, a framed area in its middle labelled Preview: Unsharp
+  Mask, and near its foot the floating toolbar with its zoom buttons, channel box and display mode. The column at the
+  right opens with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target Image
+  and Channel at RGB, and the Radius and Amount boxes with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  Unsharp Mask on the stretched master with Radius at 2.00 and Amount at 1.00. The framed area in the preview shows
+  Unsharp Mask on the stretched master with Radius at 2.00 and Amount at 1.00. The framed area in the canvas shows
   what Apply writes there, over the original.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 2.0, y: 20.1}
-  - {n: 4, x: 2.0, y: 25.1}
-  - {n: 5, x: 56.8, y: 54.6}
-  - {n: 6, x: 89.1, y: 96.0}
+owed: true
 ```
 
 ## Before you start
@@ -72,25 +68,27 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Details > Unsharp Mask**. The
-   preview shows the sharpened image inside a framed [preview area](../../reference/glossary.md#preview-area) in the
-   middle of the image, over the original.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Details > Unsharp Mask**, or
+   find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page:
+   the canvas at the left shows the sharpened image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original, and the
+   column at the right holds its controls.
 2. **Choose what to sharpen.** Leave **Channel** at **RGB** to sharpen the three channels, each on its own. Choose
    **CIE L* (Lightness)** or **CIE Y (Luminance)** to sharpen the brightness and leave the colors alone.
 3. **Set the scale.** Set **Radius** to about the width of the structure you want to bring out. Small values sharpen
    single pixels and the noise, large ones give broad bright and dark rims.
 4. **Set the strength.** Raise **Amount** until the edges in the area gain contrast. Lower it again when rims appear
    around the stars.
-5. **Check at 100 %.** Zoom the preview to 100 % where small stars, a bright edge and a smooth background meet, and
-   hold ++space++ to compare with the original. Move the area, or untick **Preview area** in the menu at the end of
-   the preview's toolbar, to check the rest of the image.
-6. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the sharpened image, and its history
-   lists **Unsharp Mask** with the radius and the amount.
+5. **Check at 100 %.** Zoom the canvas to 100 % where small stars, a bright edge and a smooth background meet, and
+   hold ++space++ to compare with the original. Move the area, or untick **Preview area** in the column's toggles
+   row, to check the rest of the image.
+6. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column's run row follows the run,
+   the view shows the sharpened image, and its history lists **Unsharp Mask** with the radius and the amount.
 
 ## Controls
 
-**Target Image**, **Preview**, the preview pane, **Close** and the progress window work as in every process window:
-see [Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, **Preview**, the canvas, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Unsharp Mask
@@ -104,8 +102,8 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The blur reaches four times the radius on each side, so its cost grows with the radius. The useful radius depends on the sampling, the seeing, the noise reduction done before and the size the image is shown at.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. Each run takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
-    note: While you drag a slider, the preview works on the image reduced to the pane's size, with the radius reduced by the same factor, or on the part shown at 100 % and closer, at full scale. The reduced result comes close to a reduction of what Apply writes but is not one, because the result is clipped after the blur. When you let go, the preview works on the whole image, as Apply does.
+    persistence: Until the task closes. Each run takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    note: While you drag a slider, the preview works on the image reduced to the canvas's size, with the radius reduced by the same factor, or on the part shown at 100 % and closer, at full scale. The reduced result comes close to a reduction of what Apply writes but is not one, because the result is clipped after the blur. When you let go, the preview works on the whole image, as Apply does.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -115,13 +113,13 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A high value raises noise, compression defects and the rims around stars and bright edges as much as real detail. Between 0 and -1 the image is softened, and below -1 the rims are reversed. At 0 the filter still runs and costs as much, and every sample is still held to full scale.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -129,19 +127,19 @@ controls:
     effect: Chooses what is sharpened. **RGB** sharpens each of the three channels on its own. **Red**, **Green** or **Blue** sharpens that channel and keeps the other two. Every other choice sharpens one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB** the channels gain different rims where their edges differ, which shows as colored fringes around stars. A lightness or luminance component sharpens the brightness alone, at the cost of two conversions and a working copy. Colors the conversion back puts out of range are cut in an integer image and kept in a floating-point one.
-    scope: The preview and Apply, before the mask is blended. Process Windows describes each component.
-    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before the mask is blended. Tasks describes each component.
+    persistence: Until the task closes. **Reset**, a finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the sharpened image beside the controls, with the mask blended in.
+    effect: Shows the sharpened image in the canvas, with the mask blended in.
     range: >-
-      The pane opens with a **Preview area** of 1,200 by 1,200 pixels in the middle of the image, labelled "Preview:
-      Unsharp Mask", or the whole image when it is smaller. At the window's default size, **Preview area** is in the
-      menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 1,200 by 1,200 pixels in the middle of the image, labelled "Preview:
+      Unsharp Mask", or the whole image when it is smaller.
+    enabled: It stands in the column's toggles row, beside **Preview area**, and is disabled while Apply runs.
     tradeoff: The area shortens each preview but can hide rims wider than the part it shows. Check the whole image before Apply.
-    scope: The window only. The pane offers **Display Mode** and **Autostretch Settings**, which change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. The canvas's floating toolbar offers **Display Mode** and **Autostretch Settings**, which change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -151,8 +149,8 @@ controls:
     kind: button
     default: ""
     effect: Sharpens the whole image, or every frame of the sequence, with **Radius**, **Amount** and **Channel** as they are when you press it, and then returns them to their defaults.
-    enabled: Whatever the values, also when they change nothing. It stays enabled while a run works, and a second press is ignored.
-    tradeoff: A single image shows a progress window too, with **Cancel**, which the filter notices between two rows. Runs of other windows on other images go on at the same time.
+    enabled: Whatever the values, also when they change nothing. While a run works **Cancel** takes its place.
+    tradeoff: A run shows how far it has come in the column's run row, and opens no progress window. **Cancel** is noticed by the filter between two rows. Runs of other tasks on other images go on at the same time.
     persistence: "The history step is **Unsharp Mask** and reads, for example, `Radius: 2, amount: 1 in channel: RGB`. For a grayscale image it ends after the amount. The header cards, the other metadata and the recorded processing state of the image are kept."
 ```
 
@@ -225,7 +223,7 @@ caption: >-
 | Situation | Start | Then adjust |
 | --- | --- | --- |
 | A stretched image after noise reduction | **Radius** from 1 to 2, **Amount** at 1 | Lower **Amount** when rims show around the stars, then **Radius**. |
-| Colored fringes around stars | **Channel** at **CIE L* (Lightness)** or **CIE Y (Luminance)** | Compare the channels with **View Channel** in the preview's toolbar, then set **Radius** and **Amount** again. |
+| Colored fringes around stars | **Channel** at **CIE L* (Lightness)** or **CIE Y (Luminance)** | Compare the channels with **View Channel** in the canvas's floating toolbar, then set **Radius** and **Amount** again. |
 | The nebula needs it and the background does not | A mask that is white on the nebula | Set the values without the mask, then enable it, check its inversion and its edges at 100 %, and check the whole image. |
 | A gentle blur on purpose | **Amount** at -1 | Choose **Radius**, then move **Amount** toward 0 if the result is too soft. |
 
@@ -248,15 +246,15 @@ The background turns grainy
 :   **Fix.** Reduce the noise first, lower **Amount** or **Radius**, or protect the background with a mask.
 
 Nothing seems to change
-:   **Cause.** **Radius** or **Amount** is 0, a mask protects the area, or the pane shows the original.
-:   **Fix.** Check the two values, the mask and its inversion, and the word PREVIEW in the corner of the pane.
+:   **Cause.** **Radius** or **Amount** is 0, a mask protects the area, or the canvas shows the original.
+:   **Fix.** Check the two values, the mask and its inversion, and the word PREVIEW in the corner of the canvas.
 
 The image is blurred instead of sharpened
 :   **Cause.** **Amount** is negative. At -1 the result is the Gaussian blur itself.
 :   **Fix.** Set a positive **Amount**.
 
 The applied image looks different from the preview
-:   **Cause.** The preview area showed only part of the image, or the pane and the view use different display modes.
+:   **Cause.** The preview area showed only part of the image, or the canvas and the view use different display modes.
 :   **Fix.** Untick **Preview area** for the last check, and compare both under one display mode.
 
 Apply reports "An error occurred when running the process:" and names the memory budget
@@ -273,8 +271,7 @@ Apply reports "An error occurred when running the process:" and names the memory
 - [Masks](../../interface/masks.md), to sharpen one part of the image and protect the rest.
 - [Image History](../../interface/image-history.md) and [Saving and Exporting](../../interface/saving-and-exporting.md),
   to undo the step and to save the result once it is checked at its final size.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

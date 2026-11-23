@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Adjust Brightness And Contrast window is open on it yet, and no window
-    that needs the image for itself is open on it.
+    An image or a sequence view is active, no Adjust Brightness And Contrast task is open on it yet, and no task that
+    needs the image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs
+    only while nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, read as fractions of full scale, and an optional mask of
     the image's size on its view.
@@ -29,7 +30,7 @@ derived: false
 ---
 # Adjust Brightness/Contrast
 
-This window adds one offset to every sample, **Brightness**, and holds the result between black and white. It then
+This [task](../../reference/glossary.md#task) adds one offset to every sample, **Brightness**, and holds the result between black and white. It then
 spreads the samples away from middle gray, or presses them toward it, by **Contrast**, and holds them again.
 **Channel** applies the two to the whole image, to one channel, or to one component of a
 [color model](../../reference/glossary.md#color-model). It is made for a small correction after the main
@@ -42,20 +43,17 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-brightness-contrast.webp
 alt: >-
-  The Adjust Brightness And Contrast window. On the left, a histogram with one broad peak about a fifth of the way
-  across and the lines Clipping Low and Clipping High in its corner. Under it a toolbar, the Brightness box at -10 and the
-  Contrast box at 20 with their sliders, Target Image, Channel at RGB and Preview checked. On the right, the preview
-  shows a red nebula on a dark background. Reset, Close and Apply run along the bottom.
+  The Adjust Brightness And Contrast task. Its header names the process and the master. The canvas at the left shows
+  the preview of a red nebula on a dark background, the word PREVIEW in its corner, with a floating toolbar of zoom
+  buttons and a channel box near its foot. The column at the right holds the preview's small histogram and
+  statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, a toolbar over a
+  histogram with one broad peak about a fifth of the way across and the lines Clipping Low and Clipping High in its
+  corner, and the Brightness box at -10 and the Contrast box at 20 with their sliders. Reset, Close and Apply stand in its
+  footer.
 caption: >-
   Adjust Brightness And Contrast on a stretched master with Brightness at -10 and Contrast at 20. The histogram is
-  counted from the darker, more contrasted preview, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 2.0, y: 84.3}
-  - {n: 3, x: 2.0, y: 54.1}
-  - {n: 4, x: 2.0, y: 59.2}
-  - {n: 5, x: 2.0, y: 19.0}
-  - {n: 6, x: 73.0, y: 26.0}
-  - {n: 7, x: 91.0, y: 96.0}
+  counted from the darker, more contrasted preview, and the preview in the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -71,9 +69,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Adjustments >
-   Brightness/Contrast**. The window opens as **Adjust Brightness And Contrast**, its preview shows the image
-   unchanged, and **Apply** stays disabled until a value leaves 0.
+1. **Open the task.** Make the stretched image the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Adjustments > Brightness/Contrast**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page named **Adjust
+   Brightness And Contrast**: the canvas at the left shows the image unchanged, and the column at the right holds its
+   controls. **Apply** stays disabled until a value leaves 0.
 2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose a single
    color, or a component such as **CIE Y (Luminance)**, only to change one of them on purpose.
 3. **Set the brightness first.** Lower **Brightness** to darken the image, or raise it to brighten it. The preview
@@ -82,16 +82,17 @@ pins:
    toward it. The histogram widens or narrows about its middle.
 5. **Watch the ends.** Read **Clipping Low** and **Clipping High** in the corner of the histogram. Stop when they
    start to rise: what they count has become black or white.
-6. **Check the preview at 100 %.** Zoom the preview into the background, the faint nebula and the brightest stars,
+6. **Check the preview at 100 %.** Zoom the canvas into the background, the faint nebula and the brightest stars,
    and press ++space++ over it to compare with the original. Look at the edges of the mask too.
-7. **Apply.** Choose **Apply**. The image in its view is the adjusted one, its history lists **Adjust Brightness And
-   Contrast** with both values, and the controls return to their defaults.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the adjusted
+   one, its history lists **Adjust Brightness And Contrast** with both values, and the controls return to their
+   defaults.
 
 ## Controls
 
-The histogram and its toolbar, **Target Image**, the preview pane, **Close** and the progress window of a sequence
-work as in every process window, and the choices of **Channel** are described there: see
-[Process Windows](../../interface/process-windows.md). The preview pane of this window has no **Display Mode**.
+The histogram and its toolbar, **Target Image**, the canvas, the toggles row, **Close** and the run in the column work
+as in every task, and the choices of **Channel** are described there: see [Tasks](../../interface/tasks.md). The
+canvas of this task has no **Display Mode**.
 
 ```controls
 window: Adjust Brightness And Contrast
@@ -101,7 +102,7 @@ controls:
     default: ""
     effect: Give the shares of the samples at or below 0 and at or above 1, over all the channels together. With **Preview** on they count the preview, so they rise as the two values send samples to black and white.
     tradeoff: They count every sample at an end, also those that were there before and those a mask kept. Compare them with **Preview** off to see what the two values add.
-    scope: The window only, with the mask blended in.
+    scope: The task only, with the mask blended in.
   - name: Brightness
     kind: spinbox
     default: "0"
@@ -111,7 +112,7 @@ controls:
     enabled: Disabled while Apply runs. Any value but 0 enables **Apply**, as **Contrast** does.
     tradeoff: The result is held between 0 and 1 before **Contrast** works, so what it pushes past an end is lost, and no later **Contrast** brings it back. It also moves the values that sat at middle gray before the contrast pivots there.
     scope: The preview and Apply, on what **Channel** selects, for images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Contrast
     kind: spinbox
     default: "0"
@@ -121,14 +122,14 @@ controls:
     enabled: Disabled while Apply runs. Any value but 0 enables **Apply**.
     tradeoff: A positive value sends the darkest and the brightest values to black and white, and the result is held between 0 and 1 again. A negative value pulls black and white toward gray, and the image looks washed out.
     scope: The preview and Apply, on what **Channel** selects, for images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to 0.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
     range: It lists every open image and sequence.
-    persistence: Until the window closes. **Reset** leaves it.
+    persistence: Until the task closes. **Reset** leaves it.
   - name: Channel
     kind: combo
     default: RGB
@@ -137,15 +138,15 @@ controls:
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**, and its one channel is adjusted. Disabled while Apply runs.
     tradeoff: The same curve on each channel changes the ratios between them, so **RGB** changes the colors a little and a single color shifts the balance. A lightness, luminance or value component changes the tone with less change of color, at the cost of two conversions. On a hue or a chroma the straight curve breaks the circle of hues and is not even to the eye. The conversion back can leave a floating-point color outside 0 to 1, and it cuts an integer one at the ends of its type.
     scope: The preview and Apply, for images and sequences. A mask is blended afterwards.
-    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**.
+    persistence: Until the task closes. **Reset**, a finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the adjusted image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
-    enabled: It stays enabled while Apply runs.
-    scope: The window only. The preview runs the computation Apply runs, so it shows the values Apply writes, inside a preview area too. While you drag a slider it is computed on what the pane shows, the image reduced to the pane's size or the part in view at 100 % and closer, and on the whole image when you stop. The pane shows the samples as they are, in the **Linear** mode, whatever the target's view shows.
-    persistence: Until the window closes. **Reset** leaves it.
-    note: At 0 and 0 the pane shows the image itself. A snapshot of the preview is named `<target> - Adjust Brightness And Contrast - SNAPSHOT` and is not recorded as nonlinear.
+    effect: Shows the adjusted image in the canvas, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: Disabled while Apply runs, with the whole toggles row.
+    scope: The canvas only. The preview runs the computation Apply runs, so it shows the values Apply writes, inside a preview area too. While you drag a slider it is computed on what the canvas shows, the image reduced to the canvas's size or the part in view at 100 % and closer, and on the whole image when you stop. The canvas shows the samples as they are, in the **Linear** mode, whatever the target's view shows.
+    persistence: Until the task closes. **Reset** leaves it.
+    note: At 0 and 0 the canvas shows the image itself. A snapshot of the preview is named `<target> - Adjust Brightness And Contrast - SNAPSHOT` and is not recorded as nonlinear.
   - name: Reset
     kind: button
     default: ""
@@ -155,7 +156,7 @@ controls:
     kind: button
     default: ""
     effect: Adjusts the image, or every frame of the sequence, with the two values and **Channel** as they are when you press it, and then returns all three to their defaults.
-    enabled: When **Brightness** or **Contrast** is not 0, so it is disabled when the window opens. While a run works it is disabled, with **Brightness**, **Contrast**, **Target Image**, **Channel**, **Reset** and **Close**, with **Preview** on or off.
+    enabled: When **Brightness** or **Contrast** is not 0, so it is disabled when the task opens. While a run works **Cancel** takes its place, and **Brightness**, **Contrast**, **Target Image**, **Channel**, the toggles, **Reset** and **Close** are disabled, with **Preview** on or off.
     tradeoff: The values are held between 0 and 1 twice, and the conversion back from a component can cut an integer image again. An integer image is worked a band of rows at a time, without a working copy of the whole image.
     scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards.
     persistence: "The history step is **Adjust Brightness And Contrast** and reads, for example, `Adjust brightness to 40 and contrast to 25 in channel: RGB`. For a grayscale image it ends after the contrast. It does not record the mask, the clipping or the conversion of a component. Undoing the step restores the image before."
@@ -206,12 +207,11 @@ one, the result lies between \(0.5 - 0.5\,k\) and \(0.5 + 0.5\,k\).
 - A pixel the image marks as invalid is left as it was.
 - At 0 and 0 nothing runs: the preview shows the image itself and **Apply** is disabled.
 - A run that is stopped writes nothing, and the image and its history stay as they were. A run stops when its target
-  closes, or with **Cancel** for a sequence.
-- A single image has no progress window and cannot be cancelled once Apply starts.
+  closes, or with **Cancel**, in Apply's place while the run works.
 
 ### Worked example
 
-The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+The picture above shows the task on the linear Carina [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. With **Channel** at
 **RGB**, **Brightness** at -10 and **Contrast** at 20, equation (1) gives an offset of -0.039 and equation (2) a
 factor of 1.169. By equation (3) the background drops to 0.20, a sample of 0.50 becomes 0.45 and one of 0.90 becomes
@@ -282,15 +282,15 @@ The preview and the result differ
 :   **Fix.** Wait for the latest preview, and compare with **Preview area** off.
 
 The preview looks darker than the image's view
-:   **Cause.** The view is in [Autostretch](../../reference/glossary.md#autostretch), and the preview pane shows the
-    samples as they are.
+:   **Cause.** The view is in [Autostretch](../../reference/glossary.md#autostretch), and the canvas shows the samples
+    as they are.
 :   **Fix.** Switch the view to **Linear** to compare, or judge the result in the view after Apply.
 
 ## Related
 
 - [Histogram Transformation](../stretching/histogram-transformation.md),
   [Generalized Hyperbolic Transformation](../stretching/gh-transformation.md) and
-  [ArcSinh Stretch](../stretching/arcsinh-stretch.md), for the main stretch, which this window does not do.
+  [ArcSinh Stretch](../stretching/arcsinh-stretch.md), for the main stretch, which this task does not do.
 - [Exposure Correction](../stretching/exposure-correction.md), which multiplies the samples by a factor instead of
   adding an offset.
 - [Gamma Correction](../stretching/gamma-correction.md), to brighten or darken the
@@ -298,5 +298,4 @@ The preview looks darker than the image's view
 - [Adjust HSL](adjust-hsl.md) and [Adjust LCh](adjust-lch.md), to change hue, saturation or lightness by name.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to check the range of the samples.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.

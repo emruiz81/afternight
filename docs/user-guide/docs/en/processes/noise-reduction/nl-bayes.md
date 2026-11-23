@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Non-Local Bayes window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Non-Local Bayes task is open on it yet, and no task that needs the
+    image to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while
+    nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence, best with every sample between 0 and full scale, and an optional mask of
     the image's size on its view.
@@ -33,7 +34,7 @@ NL-Bayes reduces noise by comparing each small patch of the image with the patch
 alike form a group: what the group has in common is kept as signal, and the rest is treated as noise. A first pass
 makes a basic estimate, and a second pass searches it again to estimate the original patches. A strengthening loop and
 a Fourier finishing stage can follow, and **Amount** mixes the result with the original. The menu names the process
-**Non-Local Bayes Filter**, and its window is titled **Non-Local Bayes**.
+**Non-Local Bayes Filter**, and its [task](../../reference/glossary.md#task) is titled **Non-Local Bayes**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the denoised one, keeps its size
 and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -42,22 +43,18 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/nl-bayes.webp
 alt: >-
-  The Non-Local Bayes window. On the left, the Sigma box at 5.0000, grayed, with its slider, then five check boxes,
-  of which Automatic Sigma Estimation and 1° Step Homogeneous Area are ticked, the SOS Iterations box at 1, SOS Rho at
-  0.80 and Amount at 1.00 with their sliders, and lower down Target Image, Channel at RGB and the Preview check box. On
-  the right, a toolbar of zoom buttons, a channel box, the display mode box at Autostretch, a settings button, a switch
-  and a menu button over the whole nebula, with the word PREVIEW in its corner and a small framed area labelled
-  Preview: Non-Local Bayes Filter in its middle. Reset, Close and Apply run along the bottom.
+  The Non-Local Bayes task. Its header names Non-Local Bayes and the master. The canvas at the left shows the whole
+  nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Non-Local Bayes Filter in its
+  middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings button
+  near its foot. The column at the right holds the preview's small histogram and statistics, the toggles Preview,
+  Preview area and Processed, Target Image and Channel at RGB, the Sigma box at 5.0000, grayed, with its slider, then
+  five check boxes, of which Automatic Sigma Estimation and 1° Step Homogeneous Area are ticked, and the SOS
+  Iterations box at 1, SOS Rho at 0.80 and Amount at 1.00 with their sliders. Reset, Close and Apply stand in its
+  footer.
 caption: >-
-  NL-Bayes on the linear Carina master with the window's defaults, the preview shown in the Autostretch display mode:
-  the framed preview area in the middle of the image is denoised, over the original.
-pins:
-  - {n: 2, x: 3.0, y: 82.7}
-  - {n: 3, x: 3.0, y: 24.9}
-  - {n: 4, x: 3.0, y: 29.4}
-  - {n: 5, x: 60.5, y: 55.0}
-  - {n: 6, x: 3.0, y: 47.7}
-  - {n: 7, x: 3.0, y: 57.8}
+  NL-Bayes on the linear Carina master with the task's defaults, the preview shown in the Autostretch display mode:
+  the framed preview area in the middle of the canvas is denoised, over the original.
+owed: true
 ```
 
 ## Before you start
@@ -76,28 +73,29 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear master the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Noise Reduction > Non-Local Bayes Filter**. The preview shows a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, denoised with the defaults,
-   and **Apply** is enabled at once.
+1. **Open the task.** Make the linear master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Noise Reduction > Non-Local Bayes Filter**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows a framed [preview area](../../reference/glossary.md#preview-area) in the middle of the image, denoised
+   with the defaults, and the column at the right holds its controls.
 2. **Choose what to denoise.** Leave **Channel** at **RGB** to denoise the three channels together, unless a
    comparison on a duplicate favours a component.
 3. **Set the noise level.** Leave **Automatic Sigma Estimation** ticked. Untick it and type **Sigma** only when you
    know the noise, as 255 times its standard deviation.
 4. **Leave the shortcuts.** Keep **1° Step Homogeneous Area** ticked and **2° Step Homogeneous Area** unticked at
    first, and change one at a time.
-5. **Check at 100 %.** Move the preview area over background and fine stars, zoom the preview to 100 % and hold
+5. **Check at 100 %.** Move the preview area over background and fine stars, zoom the canvas to 100 % and hold
    ++space++ to compare. Look for blotches, repeated texture, softened stars and color shifts.
 6. **Strengthen only if needed.** When grain remains after one stable pass, set **SOS Iterations** to 2. Tick
    **Data Adaptive Dual Domain Denoise (DA3D)** only as a last refinement, with **Sigma** set by hand.
 7. **Set the strength.** Lower **Amount** until the result no longer looks smoothed.
-8. **Apply.** Choose **Apply**. A progress window follows the passes, the view shows the denoised image, and its
-   history lists **Non-Local Bayes** with the values.
+8. **Apply.** Choose **Apply**, or press ++ctrl+enter++. The column follows the passes, the view shows the denoised
+   image, and its history lists **Non-Local Bayes** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Non-Local Bayes
@@ -111,7 +109,7 @@ controls:
     enabled: Disabled while **Automatic Sigma Estimation** is ticked, and while Apply runs.
     tradeoff: A value far from the image's noise erases detail or leaves noise. Crossing 20 or 50, or 30 for one channel, changes the patches, the groups and the search window at once, so a small change can change the texture of the result. Larger values use larger patches and windows, which cost more time. In the second pass of an RGB image the covariance has three times a patch's area on each side, so a larger patch costs much more there.
     scope: The preview and Apply, on what **Channel** selects. **Data Adaptive Dual Domain Denoise (DA3D)** runs at this value even while the box is disabled. With **Anscombe Variance-Stabilizing Transform** ticked, the estimator ignores it.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 5.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 5.
   - name: Automatic Sigma Estimation
     kind: check
     default: "On"
@@ -120,7 +118,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: It is no model of the camera. Horizontal structure, a small image, noise that changes across the frame and channels of unequal noise can bias it, and the frames of a sequence can get different patch sizes. The level it measures is shown nowhere.
     scope: The preview and Apply, on what **Channel** selects. It does not reach **Data Adaptive Dual Domain Denoise (DA3D)**, which runs at **Sigma**.
-    persistence: Until the window closes. **Reset** and a finished Apply tick it again.
+    persistence: Until the task closes. **Reset** and a finished Apply tick it again.
   - name: 1° Step Homogeneous Area
     kind: check
     default: "On"
@@ -129,7 +127,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Smooth areas become flatter, and the pass is quicker there. Faint structure of low contrast can be taken for a featureless area and flattened.
     scope: The preview and Apply, on what **Channel** selects. It does not depend on the second-pass box.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is. It is ticked when the window opens.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is. It is ticked when the task opens.
   - name: 2° Step Homogeneous Area
     kind: check
     default: "Off"
@@ -137,7 +135,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: More smooth areas turn into flat patches, and faint signal can be lost. It saves covariance work.
     scope: The preview and Apply, on what **Channel** selects. It does not depend on the first-pass box.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is. It is unticked when the window opens.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is. It is unticked when the task opens.
   - name: Data Adaptive Dual Domain Denoise (DA3D)
     kind: check
     default: "Off"
@@ -145,8 +143,8 @@ controls:
     range: Its patches are transformed at 64 by 64 pixels, and its other settings are fixed. The image, or the preview area, must be at least 64 pixels each way.
     enabled: Disabled, and not run, while **Anscombe Variance-Stabilizing Transform** is ticked. Disabled while Apply runs.
     tradeoff: It can bring back detail and soften steps the estimate left, and can add Fourier or patch artifacts of its own. It adds large buffers and time.
-    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. It runs at the value of **Sigma**, 5 when the window opens, even while **Automatic Sigma Estimation** is ticked.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. It runs at the value of **Sigma**, 5 when the task opens, even while **Automatic Sigma Estimation** is ticked.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is.
   - name: Anscombe Variance-Stabilizing Transform
     kind: check
     default: "Off"
@@ -155,7 +153,7 @@ controls:
     enabled: Disabled while Apply runs. Ticked, it disables **Data Adaptive Dual Domain Denoise (DA3D)**, **SOS Iterations** and **SOS Rho**, and the run uses one pass without the finishing stage.
     tradeoff: On data whose noise does not follow the model, levels, faint signal and detail can change. The way back is biased at very low counts, and the result is held between 0 and full scale.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply leave it as it is.
+    persistence: Until the task closes. **Reset** and a finished Apply leave it as it is.
   - name: SOS Iterations
     kind: spinbox
     default: "1"
@@ -165,7 +163,7 @@ controls:
     enabled: Disabled while **Anscombe Variance-Stabilizing Transform** is ticked, and while Apply runs.
     tradeoff: Each pass costs as much as a whole run at 1, and above 1 the engine holds two more copies of the image. Later passes can amplify artifacts or diverge, which the 1 % rule stops.
     scope: The preview and Apply, on what **Channel** selects. With **Automatic Sigma Estimation**, each pass runs at the noise measured on its own input.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: SOS Rho
     kind: spinbox
     default: "0.80"
@@ -174,7 +172,7 @@ controls:
     range: The slider moves it in 1,000 steps, which the box shows to 0.01.
     enabled: Disabled while **Anscombe Variance-Stabilizing Transform** is ticked, and while Apply runs. It changes nothing while **SOS Iterations** is 1, and the history records it all the same.
     tradeoff: Near 0.99 the subtraction divides by a small number, and the loop can diverge or leave halos.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.80.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.80.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -184,13 +182,13 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Lower brings back signal and noise together. At 0 the whole estimate still runs and costs as much, and any value below 1 adds a blend of the whole image.
     scope: The preview and Apply, after **Channel** has been converted back and before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -198,32 +196,32 @@ controls:
     effect: Chooses what is denoised. **RGB** hands the estimator the three channels together, with the tables for color. **Red**, **Green** or **Blue** denoises that channel and keeps the other two. Every other choice denoises one component, with the tables for one channel, and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB** the channels share one measured noise level and, in the second pass, one covariance. Shared structure is kept, and color can move where the channels' noise or structure differ. A component costs two conversions and a working copy, hue and opponent components are filtered as plain values, and colors the conversion back puts out of range are cut in an integer image and kept in a floating-point one.
-    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the denoised image beside the controls, with **Amount** and the mask applied.
+    effect: Shows the denoised image in the canvas, with **Amount** and the mask applied.
     range: >-
-      The pane opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
-      Non-Local Bayes Filter", or the whole image when it is smaller. At the window's default size, **Preview area**
-      and **Take snapshot** are in the menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
+      Non-Local Bayes Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles row,
+      and **Take snapshot** on the canvas's floating toolbar.
     tradeoff: Every change runs the whole estimate again, patch search included, so without the area each change on a large image takes long. An Autostretch display can exaggerate leftover noise and artifacts.
-    scope: The window only. The area is denoised as an image of its own, so near its edges the search sees nothing of the image around it. Judge at **Zoom 100%**, since a fitted view hides patch artifacts and lost faint stars. The pane offers **Display Mode**.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The canvas only. The area is denoised as an image of its own, so near its edges the search sees nothing of the image around it. Judge at **Zoom 100%**, since a fitted view hides patch artifacts and lost faint stars. The canvas's toolbar offers **Display Mode**.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
     effect: Returns **Sigma**, **Automatic Sigma Estimation**, **SOS Iterations**, **SOS Rho** and **Amount** to their defaults.
-    range: It leaves the two homogeneous-area boxes, **Data Adaptive Dual Domain Denoise (DA3D)**, **Anscombe Variance-Stabilizing Transform** and **Channel** as they are. Close the window and open it again to have them as it opens.
+    range: It leaves the two homogeneous-area boxes, **Data Adaptive Dual Domain Denoise (DA3D)**, **Anscombe Variance-Stabilizing Transform** and **Channel** as they are. Close the task and open it again to have them as it opens.
     enabled: Disabled while Apply runs.
   - name: Apply
     kind: button
     default: ""
     effect: Denoises the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, then returns the values **Reset** returns to their defaults.
-    enabled: From the moment the window opens, at any values. Disabled while a run works.
+    enabled: From the moment the task opens, at any values. **Cancel** takes its place while a run works.
     tradeoff: >-
-      A single image shows a progress window too, with **Cancel**. Its bar moves as each pass over the image ends: two
+      The column shows the run of a single image too. Its bar moves as each pass over the image ends: two
       for each pass of the SOS loop and one for DA3D. The estimate holds three single-precision copies of the image,
       five with **SOS Iterations** above 1, and takes all its working memory before the first patch, so a run the
       memory limit cannot hold is refused before it starts.
@@ -259,8 +257,7 @@ With \(s\) the standard deviation of the noise as a
 
 \[ \sigma = 255\,s \tag{1} \]
 
-so a noise of 0.02 is a **Sigma** of 5.1. The level chooses the patches, the groups and the search window, which
-**Sigma** lists.
+so a noise of 0.02 is a **Sigma** of 5.1.
 
 With **Automatic Sigma Estimation**, \(s_{c,r}\) is the clipped standard deviation of the differences between
 neighbours along row \(r\) of channel \(c\), and for \(K\) channels the level is
@@ -301,18 +298,17 @@ sample, the sample written before the mask is
   patches around it. A measured level that is not a finite number stops the run. Pixels the image marks as invalid
   are read as 0 and left as they were.
 - The image is cut into tiles by its own size, each at least four margins across, with mirrored margins that are
-  discarded. The result does not depend on the number of processor threads. The window is made for images of one or
+  discarded. The result does not depend on the number of processor threads. The task is made for images of one or
   three channels.
-- **Cancel**, or closing the window, is noticed between tiles, between passes and inside DA3D. A cancelled or failed
-  run writes nothing.
+- **Cancel** is noticed between tiles, between passes and inside DA3D. A cancelled or failed run writes nothing.
 
 ### Worked example
 
 The pair below is made on a crop of 1,100 by 820 pixels from the middle of the linear master, whose noise from one
-pixel to the next is about 0.0003 in red, 0.001 in green and 0.0007 in blue. The window keeps its defaults, with
+pixel to the next is about 0.0003 in red, 0.001 in green and 0.0007 in blue. The task keeps its defaults, with
 **Channel** at **RGB**. If equation (2) measures those levels, it averages them to about 0.00067, which is 0.17 by
 equation (1). Any level below 20, a noise of 0.078, gives this RGB image 3 by 3 patches in both passes, groups of 27
-and a search window of 13 pixels. The few star cores above 1 come back at 1. The crop and the result are then
+and a search window of 13 pixels. The crop and the result are then
 stretched by [Histogram Transformation](../stretching/histogram-transformation.md) with **Shadows** and **Midtones**
 at 0.02, and shown in Linear.
 
@@ -325,11 +321,11 @@ images:
     label: Before
   - image: ../../assets/images/processes/noise-reduction/nl-bayes-after.webp
     alt: >-
-      The same crop denoised with the window's defaults before the same stretch: the grain of the background and of
+      The same crop denoised with the task's defaults before the same stretch: the grain of the background and of
       the nebula smoothed, the stars and the edges of the dust lanes kept.
     label: After
 caption: >-
-  The middle of the master at 100 %, without and with NL-Bayes at the window's defaults, both then stretched by
+  The middle of the master at 100 %, without and with NL-Bayes at the task's defaults, both then stretched by
   Histogram Transformation with Shadows and Midtones at 0.02 and shown in the Linear display mode.
 ```
 
@@ -353,7 +349,7 @@ With **SOS Iterations** at 2, a sample of 0.0300 that the first pass returns as 
     **Amount** of 1. Offset or rescale the image into range before you denoise it.
 
 !!! warning "The automatic level reaches neither DA3D nor the Anscombe pass"
-    DA3D runs at the value of **Sigma**, 5 when the window opens, even while **Sigma** is disabled: set **Sigma** to
+    DA3D runs at the value of **Sigma**, 5 when the task opens, even while **Sigma** is disabled: set **Sigma** to
     the noise before you tick it, and compare with DA3D off. The Anscombe pass measures its own level, so **Sigma**
     changes nothing there: set the strength with **Amount**. Note which boxes you ticked to repeat a result.
 
@@ -367,7 +363,7 @@ With **SOS Iterations** at 2, a sample of 0.0300 that the first pass returns as 
 
 **Reset** leaves boxes ticked
 :   **Cause.** **Reset** returns only **Sigma**, the automatic level, the loop and **Amount**.
-:   **Fix.** Untick the homogeneous-area boxes, DA3D or the transform yourself, or close the window and open it again.
+:   **Fix.** Untick the homogeneous-area boxes, DA3D or the transform yourself, or close the task and open it again.
 
 The background turns flat, waxy or patchy
 :   **Cause.** The featureless shortcut, a high level, several passes or DA3D removed real variation.
@@ -394,7 +390,7 @@ Colors shift, or fine color detail disappears
 - [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that follows.
 - [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to protect a region and to
   undo the step.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.
 
 ## Credits
 

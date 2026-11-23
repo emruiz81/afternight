@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    A sequence view is active. The Image > Sequence menu is disabled for a still image, and the window opens only on a
-    sequence.
+    A sequence view is active. The Image > Sequence menu is disabled for a still image, and the task opens only on a
+    sequence, as a page of its own, beside other tasks.
   inputs: One SER, image list, AVI, MP4 or other video sequence that holds at least one frame, and a range of its frames.
   outputs: >-
     A new, unsaved sequence view of the frames in the range, in the source's container, kept in the session's temporary
@@ -46,16 +46,13 @@ source and its [history](../../reference/glossary.md#history) are not changed.
 ```figure
 image: ../../assets/images/processes/utility/extract-sequence.webp
 alt: >-
-  The Extract Sequence window. Under the title, the process name and the line Create a new sequence from a selected
-  frame range. Below, Start Frame at 11 and End Frame at 60, each with a box and a slider, then Selected Frames at 50
-  and Sequence Size in megabytes. Along the bottom, Reset at the left, and OK and Close at the right.
+  The Extract Sequence task. Its header reads Extract Sequence on the video. The canvas at the left shows the
+  video's frame, the disc of Jupiter small on a black field. The column at the right, headed Extract Sequence, holds
+  Start Frame at 11 and End Frame at 60, each with a box and a slider, then Selected Frames at 50 and Sequence Size in
+  megabytes. Reset stands at the left of its footer, and Close and OK at the right.
 caption: >-
   Extract Sequence on a planetary video with Start Frame at 11 and End Frame at 60, which keeps 50 frames.
-pins:
-  - {n: 2, x: 25.5, y: 34.3}
-  - {n: 3, x: 25.5, y: 45.6}
-  - {n: 4, x: 36.0, y: 54.4}
-  - {n: 5, x: 49.9, y: 91.1}
+owed: true
 ```
 
 ## Before you start
@@ -72,19 +69,21 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the sequence's view active and choose **Image > Sequence > Extract Sequence**. The title
-   names the sequence, **End Frame** shows its last frame and **Selected Frames** counts all of them.
+1. **Open the task.** Make the sequence's view active and choose **Image > Sequence > Extract Sequence**, or find it
+   in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: its header
+   names the sequence, the canvas at the left shows the frame its view shows, and the column at the right holds the
+   controls. **End Frame** shows the last frame and **Selected Frames** counts all of them.
 2. **Set the first frame.** Type the number of the first frame to keep in **Start Frame**.
 3. **Set the last frame.** Type the number of the last frame to keep in **End Frame**. Both frames are kept.
 4. **Check the count.** **Selected Frames** shows how many frames the new sequence will hold, and **Sequence Size**
    about how much memory their samples take.
-5. **Extract.** Choose **OK**. A progress window follows the frames, then the window closes and a new sequence view
-   opens beside the source, under its name.
+5. **Extract.** Choose **OK** in the column's footer, or press ++ctrl+enter++. A progress window follows the frames,
+   then the task closes and a new sequence view opens beside the source, under its name.
 
 ## Controls
 
-The header of the window works as in every process window: see [Process Windows](../../interface/process-windows.md).
-The window has no preview and no **Target Image**: it works on the sequence it opened on.
+The task's header and footer work as in every task: see [Tasks](../../interface/tasks.md). The task has no preview
+and no **Target Image**: it works on the sequence it opened on.
 
 ```controls
 window: The frame range
@@ -97,7 +96,7 @@ controls:
     range: From 1 to the sequence's frame count, counted as the player counts them, and kept itself. The slider beside it moves the same value. Raised above **End Frame**, it goes back to **End Frame**.
     tradeoff: A shorter range takes less time to read and write, and less temporary disk.
     scope: Whole frames with every channel, read when you press **OK**. A change made during the run does not reach it.
-    persistence: Until the window closes. **Reset** returns it to 1.
+    persistence: Until the task closes. **Reset** returns it to 1.
   - name: End Frame
     kind: spinbox
     default: The sequence's frame count
@@ -106,20 +105,20 @@ controls:
     range: From 1 to the frame count, counted as the player counts them, and kept itself. The slider beside it moves the same value. Lowered below **Start Frame**, it goes back to **Start Frame**.
     tradeoff: A shorter range takes less time to read and write, and less temporary disk.
     scope: Whole frames with every channel, read when you press **OK**.
-    persistence: Until the window closes. **Reset** returns it to the last frame.
+    persistence: Until the task closes. **Reset** returns it to the last frame.
   - name: Selected Frames
     kind: readout
     default: The sequence's frame count
     effect: Shows how many frames the new sequence will hold, which is **End Frame** minus **Start Frame**, plus one.
     enabled: Counted again after each change of either box.
-    scope: The window only.
+    scope: The task only.
   - name: Sequence Size
     kind: readout
     default: The size of every frame
     effect: Shows how much memory the samples of the selected frames take, in MB, or in GB above 1,024 MB, with two decimals.
     range: The bytes of one frame as the view holds it, times **Selected Frames**. A frame's bytes are its width, height, channels and bytes per sample after the view's demosaic, when the view demosaics its frames.
     tradeoff: It counts the samples alone. It is not the size of the files, not the free disk space the run needs and not its peak memory. When the view demosaics a mosaic, it counts three channels where the file stores one.
-    scope: The window only.
+    scope: The task only.
 ```
 
 ```controls
@@ -128,16 +127,16 @@ controls:
   - name: OK
     kind: button
     default: ""
-    effect: Reads the range, holds the source's view, copies the frames into a new sequence in the source's container, and opens it in a new view beside the source. The window then closes.
-    enabled: Disabled while the run works, with **Close** and **Reset**. While another run holds the source's view, a box titled **Extract Sequence** shows "Another process is executing for this sequence, please cancel that job first before running this process", and nothing starts.
+    effect: Reads the range, holds the source's view, copies the frames into a new sequence in the source's container, and opens it in a new view beside the source. The task then closes.
+    enabled: While the run works, the column says "applying", and its controls, **Close** and **Reset** are disabled. While another run holds the source's view, a box titled **Extract Sequence** shows "Another process is executing for this sequence, please cancel that job first before running this process", and nothing starts.
     tradeoff: The whole range is read and written once, which can take time and much temporary disk. The time grows with the frames, their pixels and their channels. A video is decoded frame by frame, and MP4 and Matroska are encoded again. The source's player is paused and disabled while the run holds the view.
     scope: Whole frames and every channel. No mask is read, and nothing is blended.
     persistence: "The new sequence is unsaved, in the session's temporary folder. Its history starts with `Extract Sequence: Extracted frames 11 to 60 from sequence '<name>'`, with the range and the source's name. The source's history gets no step."
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without extracting. The range is discarded.
-    enabled: Disabled while the run works. Closing the window another way during the run hides it until the run ends, and does not stop the run.
+    effect: Closes the task without extracting. The range is discarded. ++esc++ and the task header's **Close** do the same.
+    enabled: Disabled while the run works, as every other way to close the task is.
   - name: Reset
     kind: button
     default: ""
@@ -151,18 +150,18 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Shows "Extracting new sequence from sequence <name>" and the share of the frames written, from 0 to 100 percent, in a window titled **Extract Sequence**.
+    effect: Shows "Extracting new sequence from sequence <name>" and the share of the frames written, from 0 to 100 percent, in a window titled **Extract Sequence**. The column's run row shows the same share.
     enabled: Shown while the run works.
   - name: Cancel
     kind: button
     default: ""
     effect: Stops the run before the next frame. Nothing is published, what was written is removed, and the source is unchanged.
-    persistence: The Extract Sequence window stays open with its controls enabled, and no message is shown.
+    persistence: The task stays open with its controls enabled, and no message is shown.
 ```
 
 ## How it works
 
-1. The window reads the sequence's frame count and keeps both boxes between 1 and it.
+1. The task reads the sequence's frame count and keeps both boxes between 1 and it.
 2. **OK** reads the range, holds the source's view and asks for a new file in the session's temporary folder, in the
    source's container: `SEQ_SWAP<token>.ser`, `.anseq`, `.avi`, `.mp4`, or `.mkv` for any other video container.
 3. The frames from **Start Frame** to **End Frame** are read in order, as the file recorded them, and appended. A
@@ -208,11 +207,11 @@ The new sequence keeps the source's frame rate, or 1 frame per second when the s
 - The range is one run of consecutive frames. No frame inside it can be skipped, and nothing ranks or rejects frames.
 - **Cancel** stops the run before the next frame and leaves nothing in the temporary folder. A failed or cancelled run
   releases the source's view and enables its player again.
-- When the application lends no temporary files, the run does not start. A box titled **Error running Extract
-  Sequence** says "An error occurred when executing the Extract Sequence process:" and "the application lends no
-  temporary files".
-- A read, write or completion that fails shows the same box with its reason and writes it to the log. The incomplete
-  output is removed, and the window stays open with its controls enabled.
+- When the application lends no temporary files, the run does not start. The task's message strip says "Error
+  running Extract Sequence: An error occurred when executing the Extract Sequence process:" and "the application
+  lends no temporary files".
+- A read, write or completion that fails shows the same message with its reason and writes it to the log. The
+  incomplete output is removed, and the task stays open with its controls enabled.
 
 ### Worked example
 
@@ -241,12 +240,12 @@ name. Its first frame is the video's eleventh, and its history starts with "Extr
 :   **Fix.** Make the sequence's view active, then choose the command again.
 
 **Start Frame** or **End Frame** jumps back
-:   **Cause.** The window keeps the range in order: a box moved past the other goes back to it.
+:   **Cause.** The task keeps the range in order: a box moved past the other goes back to it.
 :   **Fix.** Move the other box first: raise **End Frame** before **Start Frame**, or lower **Start Frame** before
     **End Frame**.
 
 The file on disk is larger or smaller than **Sequence Size**
-:   **Cause.** The readout counts the samples of the frames as the view holds them, not the encoded file.
+:   **Cause.** The [readout](../../reference/glossary.md#readout) counts the samples of the frames as the view holds them, not the encoded file.
 :   **Fix.** Use it as a rough guide, and look at the size of the file once it is written.
 
 "Another process is executing for this sequence, please cancel that job first before running this process"

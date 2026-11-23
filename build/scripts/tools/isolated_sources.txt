@@ -2679,6 +2679,8 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ContributedProcessesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ExtensionManagerTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ShellUiInventoryTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TaskHelpTest.cpp
     header   src/AfterNightShellCore/services/ExtensionService.h
     header   src/AfterNightShellCore/services/RecentProcessesModel.h
     header   src/AfterNightControls/app/ExtensionViewRequests.h

@@ -13,8 +13,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active. The window opens beside other process windows, and Apply waits for
-    nothing else to be working on the target.
+    An image or a sequence view is active. The task opens as a page of its own, beside other tasks, and Apply waits
+    for nothing else to be working on the target.
   inputs: >-
     One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size
     on its view.
@@ -40,20 +40,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/curves-transformation.webp
 alt: >-
-  The Curves Transformation window. On the left, the curve editor: a white curve that sags below a dotted diagonal
-  through one point, over a grid and the three colored lines of a histogram with its peak near the left edge, and
-  two lines of clipping percentages in its top left corner. Under it a row of toolbar buttons, the Interpolation
-  box, Target Image, Channel and Preview. On the right, the preview shows a red nebula on a dark background. Reset,
-  Close and Apply run along the bottom.
+  The Curves Transformation task. Its header names the process and the stretched master. The canvas at the left
+  shows the preview, a red nebula on a dark background. The column at the right opens with the compact readout of
+  the preview, then the Preview, Preview area and Processed toggles, Target Image, and the curve editor: a white
+  curve that sags below a dotted diagonal through one point, over a grid and the three colored lines of a histogram
+  with its peak near the left edge, and two lines of clipping percentages in its top left corner. Under it a row of
+  toolbar buttons, the Interpolation box and Channel at RGB. Reset, Close and Apply stand in its footer.
 caption: >-
   Curves Transformation on a stretched master with one point pulled down from 0.28 to 0.14. The histogram behind
-  the curve is the result's, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 10.4, y: 84.3}
-  - {n: 3, x: 3.6, y: 59.6}
-  - {n: 4, x: 18.0, y: 44.7}
-  - {n: 6, x: 64.0, y: 54.0}
-  - {n: 7, x: 90.4, y: 96.0}
+  the curve is the result's, and the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -74,9 +70,10 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image active and choose **Process > Intensity Transformations > Curves
-   Transformation**. The editor shows a straight line from corner to corner over the image's histogram, and the
-   preview shows the image unchanged.
+1. **Open the task.** Make the stretched image active and choose **Process > Intensity Transformations > Curves
+   Transformation**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The
+   [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows the image unchanged, and the editor in the column at the right
+   a straight line from corner to corner over the image's histogram.
 2. **Choose the channel.** Leave **Channel** at **RGB** to send the three channels through one curve. Choose a
    lightness or value component to change tone with less effect on color.
 3. **Choose the interpolation.** Leave **Interpolation** at **Cubic** for a smooth curve. Choose **Steffen** or
@@ -84,18 +81,17 @@ pins:
 4. **Add a point and drag it.** Press the left button on the line, where the pointer turns into a hand, and drag.
    Up brightens that range of inputs, down darkens it, and the curve and the preview follow.
 5. **Anchor what must stay.** Click the line on each side of the point to pin the ranges you want to protect. The
-   dotted diagonal shows where the image is unchanged, and the histogram where its samples lie. A right click on a
-   point removes it.
-6. **Check the preview at 100 %.** Zoom the preview into the shadows, the transitions and the brightest stars, and
-   press ++space++ over it to compare with the original. Read **Clipping Low** and **Clipping High** in the editor
+   histogram shows where the samples lie. A right click on a point removes it.
+6. **Check the preview at 100 %.** Zoom the canvas into the shadows, the transitions and the brightest stars, and
+   hold ++space++ over it to compare with the original. Read **Clipping Low** and **Clipping High** in the editor
    as a first warning.
-7. **Apply.** Choose **Apply**. The image in its view is the curved one, its history lists **Curves
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the curved one, its history lists **Curves
    Transformation** with the channel and the interpolation, and the editor returns to a straight line.
 
 ## Controls
 
-The zoom, grid and area buttons under the editor change only how it is drawn, and are the same in every window
-that has them: see [Process Windows](../../interface/process-windows.md).
+The zoom, grid and area buttons under the editor change only how it is drawn, and are the same in every task that
+has them: see [Tasks](../../interface/tasks.md).
 
 ```controls
 window: The curve editor
@@ -108,8 +104,8 @@ controls:
     enabled: Always shown.
     tradeoff: The curve is drawn as you set it, without the mask.
     scope: The curve of the choice in **Channel**, for the preview and Apply, on an image or a sequence.
-    persistence: Until **Reset** or a finished Apply returns the straight line. Closing the window discards it.
-    note: The window has no list of points, no box to type a point's values, no preset, no curve file and no undo. Turning the wheel with ++ctrl++ held zooms the editor around the pointer, by 1.2 or 0.8 for each notch, and dragging with the middle button pans it once it is enlarged. Neither changes what is computed.
+    persistence: Until **Reset** or a finished Apply returns the straight line. Closing the task discards it.
+    note: The task has no list of points, no box to type a point's values, no preset, no curve file and no undo. Turning the wheel with ++ctrl++ held zooms the editor around the pointer, by 1.2 or 0.8 for each notch, and dragging with the middle button pans it once it is enlarged. Neither changes what is computed.
   - name: Points
     kind: slider
     default: The two end points
@@ -118,17 +114,17 @@ controls:
     range: The two end points move up and down only. A point between them stays between its neighbors, at least 0.0001 from each, and every output stays between 0 and 1. A right click removes a point between the ends at once. The end points cannot be removed.
     enabled: The pointer turns into a hand where a press takes or adds a point. The editor takes no press while Apply runs.
     tradeoff: Points close together, or far from the diagonal, give abrupt contrast, more visible noise or a curve that swings past them. Removing a point widens the reach of its neighbors.
-    scope: While you hold a point, the preview is computed from what the preview pane shows, which is the image reduced to the pane's size with each pixel the mean of its block, or the part of it shown at 1:1 and closer. When you let go, or hold the point still, the whole image follows.
+    scope: While you hold a point, the preview is computed from what the canvas shows, which is the image reduced to the canvas's size with each pixel the mean of its block, or the part of it shown at 1:1 and closer. When you let go, or hold the point still, the whole image follows.
     persistence: Until **Reset** or a finished Apply.
     note: A press a few pixels off the line already bends the curve a little, because the point is placed where you pressed.
   - name: Histogram
     kind: readout
     default: ""
-    effect: Shows, behind the curve, the counts of the image the preview shows. That is the result of the curve, or the original while the preview shows the original.
+    effect: Shows, behind the curve, the counts of the image the canvas shows. That is the result of the curve, or the original while the canvas shows the original.
     range: 256 bins, one line for a grayscale image and three for RGB. A sample at full scale has the last bin to itself.
     enabled: With **Show histogram** and **Preview** on.
     tradeoff: It is counted again after each preview of the whole image, and keeps its last counts while you hold a point. It counts the preview with the mask blended in, so it is a guide and not a measurement of the result at full precision.
-    scope: The window only. Its lines follow the channel the preview displays, not **Channel**. On a sequence it counts the frame the preview shows.
+    scope: The task only. Its lines follow the channel the canvas displays, not **Channel**. On a sequence it counts the frame the preview shows.
   - name: Clipping Low and Clipping High
     kind: readout
     default: ""
@@ -136,7 +132,7 @@ controls:
     range: The counts of all channels together. A value just inside 0 or 1 is not counted.
     enabled: Always shown, in the editor's top left corner.
     tradeoff: The two numbers are counted with the histogram. With **Show histogram** or **Preview** off they keep their last values.
-    scope: The window only, with the mask blended in.
+    scope: The task only, with the mask blended in.
     note: For exact counts, use Image Statistics after Apply.
   - name: Coordinates
     kind: readout
@@ -149,7 +145,7 @@ controls:
     kind: readout
     default: ""
     effect: Shows the direction of the input axis under the plot, from black on the left to white on the right.
-    range: While the preview displays the red, green or blue channel alone, the strip ends in that color.
+    range: While the canvas displays the red, green or blue channel alone, the strip ends in that color.
     enabled: Always shown.
 ```
 
@@ -161,14 +157,14 @@ controls:
     default: "On"
     effect: Shows or hides the dotted diagonal, which is the curve of an unchanged image. A curve above it brightens and one below it darkens.
     scope: The editor's drawing only.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Show histogram
     kind: toolbutton
     default: "On"
     effect: Shows or hides the histogram behind the curve. Off also disables **Draw histogram areas**, which keeps its state.
     enabled: Always. The histogram itself needs **Preview** on.
     scope: The editor's drawing only.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Interpolation
     kind: combo
     default: Cubic
@@ -178,14 +174,14 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: "**Cubic** and **Akima** can swing past their points. What leaves the range 0 to 1 is cut to black or white, which does not stop the curve from turning between points. **Linear** shows a corner at each point."
     scope: The preview and Apply, for every choice of **Channel**, on an image or a sequence.
-    persistence: Until the window closes. **Reset** and Apply keep the choice and build the new straight line with it. A new window opens with **Cubic**.
+    persistence: Until the task closes. **Reset** and Apply keep the choice and build the new straight line with it. A new task opens with **Cubic**.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces. The choices of **Channel**, the preview and the histogram follow it.
     tradeoff: A larger image or a sequence takes more time, memory and disk.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -195,47 +191,48 @@ controls:
     enabled: An RGB image. A grayscale image shows a disabled **Grayscale** instead. Disabled while Apply runs.
     tradeoff: One curve on **RGB** does not keep the ratios between the channels, so it changes saturation. A component costs two conversions of the whole image and a working copy of it, in 32-bit floating point, or 64-bit for a 64-bit image. An integer image is rounded once on the way back, so prefer floating point for strong component curves.
     scope: The preview and Apply, on an image or a sequence, before the mask is blended. It does not choose the lines of the histogram.
-    persistence: Until the window closes. **Reset** and Apply return it to **RGB**. A grayscale image keeps **Grayscale**.
+    persistence: Until the task closes. **Reset** and Apply return it to **RGB**. A grayscale image keeps **Grayscale**.
     note: Hue is treated as a line from 0 to 1 and not as a circle. A tone curve is rarely right for the signed components, where the middle of the range means no color. The conversion back is the exact inverse of the conversion there, so the two components left alone return the colors they came from.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the curved image beside the controls, with the mask blended in. Off removes it, and the editor's histogram with it.
-    tradeoff: Each change computes the image again and keeps a second copy of it. While you hold a point only what the pane shows is computed. The whole image, its conversions and the histogram follow when you let go, which takes longer on a large image. Turn it off while you place many points on a large image.
-    scope: The window only. The image is not changed. On a sequence it shows the frame the view shows.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    effect: Shows the curved image in the canvas, with the mask blended in. Off removes it, and the editor's histogram with it.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
+    tradeoff: Each change computes the image again and keeps a second copy of it. While you hold a point only what the canvas shows is computed. The whole image, its conversions and the histogram follow when you let go, which takes longer on a large image. Turn it off while you place many points on a large image.
+    scope: The task only. The image is not changed. On a sequence it shows the frame the view shows.
+    persistence: Until the task closes. **Reset** leaves it as it is.
     note: At rest the preview is what Apply writes, and a **Preview area** shows exactly what Apply writes there.
   - name: Reset
     kind: button
     default: ""
     effect: Returns the curve to the straight line, **Channel** to **RGB** and the editor's zoom to fit.
     range: It leaves **Interpolation**, the target, **Preview** and the toolbar's buttons as they are, and builds the straight line with the interpolation shown.
-    scope: The window only. The image is not changed, and Apply is disabled afterwards.
+    scope: The task only. The image is not changed, and Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Sends the image, or every frame of the sequence, through the curve, and then returns the curve, **Channel** and the editor's zoom as **Reset** does.
-    enabled: When the curve is anything but the straight line between its two end points. It is disabled while the window opens.
+    enabled: When the curve is anything but the straight line between its two end points. It is disabled when the task opens.
     range: An unsigned 8- or 16-bit image gets one table entry for each of its codes, held in single precision.
     tradeoff: The work grows with the number of samples and runs on several threads. A component choice adds two conversions, and a sequence is written again in a temporary place.
     scope: The whole image or sequence, on the choice in **Channel**, with the mask blended afterwards.
     persistence: The image and its history keep the result. The history and the image's lineage record the texts of **Channel** and **Interpolation**, and not the points, the toolbar's buttons or the mask.
-    note: While it runs, the editor, **Interpolation**, **Channel**, **Reset** and **Close** are disabled. Closing the window instead discards the curve. Nothing of the window is saved between sessions.
+    note: While it runs, **Cancel** takes its place, and the editor, **Interpolation**, **Channel**, **Reset** and **Close** are disabled. Closing the task instead discards the curve. Nothing of the task is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the frame being curved, from 0 to 100 percent. Every frame gets the same curve, interpolation and channel.
-    enabled: Shown only while Apply works on a sequence.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being curved, from 0 to 100 percent. Every frame gets the same curve, interpolation and channel.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy. It replaces the original only when every frame succeeded.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The frame being worked on may finish before the request is noticed.
     note: A run that fails leaves the original in the same way. Run it again with the final curve, and keep enough free disk space.
 ```
@@ -334,7 +331,7 @@ rises all the way. Only the lightness of each pixel goes through the curve.
 
 ## When it goes wrong
 
-!!! warning "Apply cannot be taken back from this window, and the curve is not kept"
+!!! warning "Apply cannot be taken back from this task, and the curve is not kept"
     Apply replaces the image and returns the editor to a straight line. The history records the channel and the
     interpolation only, so the curve cannot be drawn again from it. Duplicate the image first, or note where the
     points were.
@@ -388,8 +385,7 @@ A mosaic sequence is RGB after Apply
 - [Image Statistics](../../interface/image-statistics.md), for exact counts of black and white samples after
   Apply.
 - [Image History](../../interface/image-history.md), to return to the image before the curve.
-- [Process Windows](../../interface/process-windows.md), for the preview, the editor's toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the editor's toolbar and what every task shares.
 
 ## Credits
 

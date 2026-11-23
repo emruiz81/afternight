@@ -37,15 +37,16 @@ start at step 6.
 owed: true
 image: ../assets/images/interface/sequences.webp
 alt: >-
-  The AfterNight main window with one sequence view, its tab named jupiter_8bit. Under the tab, the view's toolbar.
-  Below, the disc of Jupiter with its belts on a black sky. Under the picture, the player's play, stop, previous and
-  next buttons, a long slider and a box reading 1/4965. The status bar reads SER SEQUENCE, 448x448 (RGB), 1/4965 and
-  82.46 fps.
+  The AfterNight main window with one sequence view in Workspace 1, its tab named jupiter_8bit. The disc of Jupiter
+  with its belts on a black sky fills the view, with the floating toolbar near its foot. Under the picture, the
+  player's play, stop, previous and next buttons, a long slider and a box reading 1/4965, then the history strip. The
+  readout column stands at the right. The status line along the bottom reads SER
+  SEQUENCE, 448x448 (RGB), 1/4965 and 82.46 fps.
 caption: >-
   The guide's SER video of Jupiter in its view, on its first frame, with the player under the picture.
 pins:
-  - {n: 1, x: 16.2, y: 97.6}
-  - {n: 2, x: 2.5, y: 91.0}
+  - {n: 1, x: 9.8, y: 98.4}
+  - {n: 2, x: 3.6, y: 91.5}
 ```
 
 ### Open the video
@@ -55,7 +56,7 @@ picture, and keeps the file open until the view closes. The file is never change
 **Image > Sequence > Convert > Convert to SER** writes it again as a temporary SER in the same view.
 
 !!! see "You should see"
-    The status bar reads `SER SEQUENCE`, the frame's size and the frame shown out of the count: `448x448 (RGB)` and
+    The status line reads `SER SEQUENCE`, the frame's size and the frame shown out of the count: `448x448 (RGB)` and
     `1/4965` for the guide's video, at `82.46 fps`.
 
 ### Keep the steady part
@@ -93,8 +94,10 @@ added. A mosaic stays a mosaic.
 
 ### Register the frames
 
-Choose [**Process > Preprocess > Image Registration**](../processes/registration-alignment/image-registration.md).
-Choose **Add Folder** and pick the `-frames` folder, then choose **Browse** and pick the empty output folder. Set
+Choose [**Process > Preprocess > Image Registration**](../processes/registration-alignment/image-registration.md),
+or **Image Registration** under **Single steps** in the Integration place of the
+[rail](../reference/glossary.md#rail). It opens as a [task](../reference/glossary.md#task) whose page fills the
+centre. Choose **Add Folder** and pick the `-frames` folder, then choose **Browse** and pick the empty output folder. Set
 **Method** to **Phase Correlation**: it measures each frame's shift from the whole picture, and needs no stars. Type
 the row number of a sharp frame in the box beside **Reference**, and choose **Register**.
 
@@ -122,14 +125,14 @@ is written onto the reference's grid as a new 32-bit floating-point FITS file.
 ### Stack the frames
 
 Choose [**Process > Preprocess > Image Stacking**](../processes/stacking-integration/image-stacking.md). Choose **Add
-Files** and select every `_reg.fits` file of the output folder. Keep **Method** at **Average**, with its
+Files** and select every `_reg.fits` file of the output folder. Image Stacking opens as a task too. Keep **Method** at **Average**, with its
 **Winsorized Sigma Clipping** [rejection](../reference/glossary.md#rejection). Type a name such as `jupiter.fit` in
 **Name Template**, choose **Browse** for its folder, and choose **Stack Images**. Keep the rejection's limits as they
 open: tighter ones reject samples along the bright limb, where the frames differ most.
 
 !!! see "You should see"
-    A progress window names the group as it is stacked. The master opens in its own view, smoother than any single
-    frame, with the planet where it is in the reference frame.
+    The head of the task's page names the group as it is stacked. The master opens in its own view, smoother than
+    any single frame, with the planet where it is in the reference frame.
 
 ??? wrong "If it goes wrong: the planet is smeared or doubled"
     The frames were not aligned, or the range holds poor frames or too much rotation. Stack the `_reg.fits` files,
@@ -188,7 +191,7 @@ owed: true
 image: ../assets/images/workflows/planetary-imaging-result.webp
 alt: >-
   The AfterNight main window with one image open, in a tab named jupiter: the disc of Jupiter, its dark belts and pale
-  zones crossed by fine detail, on a black sky. The Display Mode box in the view's toolbar reads Linear.
+  zones crossed by fine detail, on a black sky. The floating toolbar near the foot of the view shows Linear selected.
 caption: >-
   Jupiter stacked from the guide's video and sharpened as this page describes, shown in the Linear display mode.
 ```

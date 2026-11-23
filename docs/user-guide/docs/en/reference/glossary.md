@@ -2,7 +2,7 @@
 kind: reference
 summary: >-
   What the terms of the guide mean: astrophotography, calibration, stretching, color and file formats, and
-  AfterNight's own ideas, such as the history, the preview area and the processing state.
+  AfterNight's own ideas, such as the task, the workspace, the history and the processing state.
 ---
 # Glossary
 
@@ -16,8 +16,10 @@ find it in the [Process Catalog](../processes/index.md) or with the guide's sear
 
 ### Active image
 
-The image whose view the menu commands, the Process menu, masks and the viewer's tools act on. A process window
-opens on the active image, and its **Target Image** box can then choose another open image.
+The image the menus, the [command palette](#command-palette), masks and the viewer's tools act on: the one whose view
+or tab you clicked last, which the status line's box names. A [task](#task) opens on the active image, and its
+**Target Image** box can then choose another open image. While a task's page shows, the image commands act on its
+target.
 
 ### ADU
 
@@ -93,6 +95,12 @@ axes, [YCbCr](#ycbcr) a luma and two color differences. Components of one name a
 lightness, HSV value, CIE L* and luma are four different things. See also
 [Component encoding](#component-encoding).
 
+### Command palette
+
+The search that finds every command by name and runs it: the processes, the open images and the recent files, the
+commands of the menus, the places of the [rail](#rail), and every page and row of the settings. ++ctrl+k++ or the
+field in the top bar opens it. See [Command Palette](../interface/command-palette.md).
+
 ### Component encoding
 
 How AfterNight stores a color component that is not a level of light, such as a hue, a chroma or CIE a*: as a value
@@ -163,11 +171,6 @@ Moving the telescope's pointing by a few pixels between [light frames](#light-fr
 falls on a different part of the sky in each. It keeps fixed patterns from adding up, lets [rejection](#rejection)
 remove [hot pixels](#hot-pixel), and gives [drizzle](#drizzle) the offsets it needs.
 
-### Dock workspace
-
-The central area of the main window, which holds the image and sequence views and the Session Console. Creating or
-opening a view, or opening the console, shows it in place of the Dashboard.
-
 ### Drizzle
 
 Stacking that drops each frame's pixels, shrunk, onto a finer output grid instead of resampling them, so that
@@ -200,10 +203,10 @@ and -1 halves it. The value of Exposure Correction is not a number of stops.
 
 ### Extension host
 
-A separate AfterNight process that runs an extension's Python code and its windows. A package whose backend is
-`runtime` runs in the full host, with direct access to the image engine and to AfterNight's own controls. One whose
-backend is `protocol` runs in the lite host, which loads no part of the image engine. See
-[Using Extensions](../extensions/using-extensions.md).
+A separate AfterNight process that runs an extension's Python code. AfterNight draws the extension's controls as a
+task while the code runs there, or the host shows a window of its own. A package whose backend is `runtime` runs in
+the full host, with direct access to the image engine; one whose backend is `protocol` runs in the lite host, which
+loads no part of the image engine. See [Extensions in the Window](../extensions/extension-tasks.md).
 
 ## F
 
@@ -266,9 +269,10 @@ those its format allows when **Embed EXIF** is on. The image's [processing state
 
 ### History
 
-The steps of an image or a sequence view: each Apply or other edit adds one, and up to 20 states are kept. In the
-Image History panel you can preview, restore or clone a step, remove steps and read their log. A history lasts as
-long as its view: no file stores it. See [Image History](../interface/image-history.md).
+The steps of an image or a sequence view: each Apply or other edit adds one, and up to 20 states are kept. The
+history strip under the view shows them, and the Image History window can preview, restore or clone a step, remove
+steps and read their log. Without a [project](#project), a history lasts as long as its view. An image of a project
+keeps its history in the project's folder. See [Image History](../interface/image-history.md).
 
 ### Homography
 
@@ -321,6 +325,12 @@ turns it into a calibrated magnitude.
 The [light frames](#light-frame) that Image Integration stacks into one final [master](#master). Lights of another
 size, filter or object always go to another group, and you can split groups further by session, by a tag of your own
 or by exposure.
+
+### Integration job
+
+A session of Image Integration: its frames, its settings and its output folder. The Integration place lists every
+job with how its last run ended, and opens it again. A job run with no project open can be given a
+[project](#project) in its output folder. See [Integration Hub](../interface/integration-hub.md).
 
 ## L
 
@@ -490,8 +500,8 @@ overlays and the photometric color calibrations read it.
 
 ### Preview area
 
-A rectangle you place on the preview of a process window, with the **Preview area** check box of the preview's
-toolbar, so that the preview computes only that part. The part is processed as Apply would process it and shown over
+A rectangle you place on a [task](#task)'s canvas, with the **Preview area** toggle of its column, so that the
+preview computes only that part. The part is processed as Apply would process it and shown over
 the original. Apply still processes the whole image.
 
 ### Processing channel
@@ -508,6 +518,14 @@ loader, a process or a person, and `ANOP` the operation. FITS and XISF files kee
 none. A stretch, a tone or color adjustment, CLAHE, SCNR or Pixel Math records its result
 nonlinear under its own name.
 
+### Project
+
+A folder that keeps a body of work together. Its images stay where they are on disk, and the project keeps their
+undo [histories](#history), the [workspaces](#workspace) and the images open in them, your notes and its
+[integration jobs](#integration-job). Opened again, it brings the window back as it was left. A project is optional.
+Image Integration's own project, which its **Export Project...** writes, is a job's frames and settings, not this
+folder. See [Projects](../interface/projects.md).
+
 ### Protection point
 
 In Generalized Hyperbolic Transformation, a shadow or highlight level below or above which the curve goes on as a
@@ -520,6 +538,13 @@ Point spread function: the shape a point of light, such as a star, takes in the 
 angle, its wings and how well a model fits it. [FWHM](#fwhm) and a [Moffat profile](#moffat-profile) describe it.
 
 ## R
+
+### Rail
+
+The column of icons down the left of the main window. At its top are the places: Home, each
+[workspace](#workspace) and Integration, each of which a click shows in the centre. Under them, each open
+[task](#task) has an item, and at its foot are Session Console and Settings. See
+[The Rail and Its Places](../interface/rail-and-places.md).
 
 ### Range mask
 
@@ -544,10 +569,17 @@ Radial basis function: a surface built from bumps centered on sample points, eac
 its center. Background Extraction fits a smoothed thin-plate spline, one such surface, through the medians of its
 samples and evaluates it at every pixel.
 
+### Readout
+
+The column at the right of the main window beside a [workspace](#workspace), which reads the
+[active image](#active-image) in four cards: Histogram, Statistics, Astrometry and Image. It measures in the
+background and never changes the image. A [task](#task)'s column holds a compact readout of its preview instead. See
+[Readout](../interface/readout.md).
+
 ### Real-time preview
 
-The preview of a process window, which shows the result on a copy of the target while you change the controls,
-without changing the image. Each preview uses the values the window held when it was asked for. A change made while
+The preview in a [task](#task)'s canvas, which shows the result on a copy of the target while you change the
+controls, without changing the image. Each preview uses the values the task held when it was asked for. A change made while
 one runs asks for one more, with the latest values, and only the newest result is shown. Switching between the
 original and the result, the display stretch and the histogram never apply anything.
 
@@ -668,6 +700,13 @@ symmetrically. It is named SP.
 
 ## T
 
+### Task
+
+A process opened as a page of the main window's centre, with an item of its own in the [rail](#rail) while it is
+open. Its page has a header, a canvas at the left that shows the [preview](#real-time-preview) or the target, and a
+column at the right with the process's controls and **Reset**, **Close** and **Apply**. A task can float in a window
+of its own and be attached again. See [Tasks](../interface/tasks.md).
+
 ### Temporary sequence
 
 A [sequence](#sequence) that a process, a conversion or an extraction writes to AfterNight's temporary storage on
@@ -701,6 +740,13 @@ above it is lost. Histogram Transformation sets it with **Highlights**. See also
 What a color calibration takes as white. In Spectrophotometric Color Calibration, a reference spectrum chosen by name
 and version, which sets the balance point at which the fit is evaluated. In Color Calibration, an image, or a
 rectangle of one, whose channels' means above the background set the gains.
+
+### Workspace
+
+A place of the [rail](#rail) whose page holds open images, each in a view: as tabs of a group, side by side, one
+above another, or floating in windows of their own. There is one, Workspace 1, until you make another, and the
+[readout](#readout) stands beside it. Arranging a workspace changes only what you see. A [project](#project) keeps
+its workspaces and the images open in them. See [Workspaces](../interface/workspaces.md).
 
 ## X
 

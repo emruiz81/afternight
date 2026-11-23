@@ -1,0 +1,20 @@
+{
+  "roles": {
+    "linear": "A linear RGB master of the Carina Nebula, the maintainer's own data",
+    "flat": "A master flat of the Carina Nebula set, the maintainer's own data",
+    "ngc253": "The NGC 253 color-camera set of the workflow pages: a folder of lights, darks, flats and bias frames, the maintainer's own data",
+    "eagle": "The Eagle Nebula narrowband lights and flats of the workflow pages, the maintainer's own data",
+    "cfa": "A raw color-filter frame of the NGC 253 set, the maintainer's own data",
+    "synthetic": "A synthetic mono frame made for the purpose",
+    "work": "An empty folder a recipe writes to - a project, a run's output - whose path names nothing personal, such as D:\\Captures, since a picture may show it",
+    "starnet": "A storage root kept by an earlier run, whose settings name the StarNet2 program (tools/starnetPath)",
+    "deepsnr": "A storage root kept by an earlier run, whose settings name the DeepSNR program (tools/deepsnrPath)",
+    "gaia": "A storage root kept by an earlier run, with a Gaia catalog pack installed for plate solving",
+    "spcc": "A storage root kept by an earlier run, with the catalogs spectrophotometric color calibration needs",
+    "tools": "A storage root kept by an earlier run, whose settings name the external tools a page uses",
+    "cfaname": "Not a path: the name of the raw color-filter frame's view, its file name without the extension",
+    "eaglelight": "Not a path: the file name of a registered Ha light of the Eagle set, as the run wrote it",
+    "extensions": "A storage root kept by an earlier run, with the extensions the extension pages show installed",
+    "jupiter": "An 8-bit SER video of Jupiter from the project's sample data"
+  }
+}

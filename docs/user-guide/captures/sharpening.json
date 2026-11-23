@@ -1,0 +1,47 @@
+{
+  "group": "Sharpening",
+  "captures": [
+    {
+      "picture": "assets/images/processes/sharpening/unsharp-mask.webp",
+      "page": "processes/sharpening/unsharp-mask.md",
+      "data": ["linear"],
+      "shows": "The Unsharp Mask task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Radius at 2.00 and Amount at 1.00, its preview area in the middle of the canvas",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\unsharp-mask.md", "-Set", "radiusValue=2"]
+    },
+    {
+      "picture": "assets/images/processes/sharpening/sharpen-alpha.webp",
+      "page": "processes/sharpening/sharpen-alpha.md",
+      "data": ["linear"],
+      "shows": "The Multiscale Alpha Sharpen task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Amplitude at 1.00, Number of Scales at 5, Anisotropy at 0.00 and Amount at 0.70, its preview area in the middle of the canvas",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\sharpen-alpha.md", "-Set", "numOfScalesValue=5;anisotropyValue=0;amountValue=0.7"]
+    },
+    {
+      "picture": "assets/images/processes/sharpening/high-pass-filter.webp",
+      "page": "processes/sharpening/high-pass-filter.md",
+      "data": ["linear"],
+      "shows": "The High Pass task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Radius at 5.00, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\high-pass-filter.md", "-Set", "radiusValue=5"]
+    },
+    {
+      "picture": "assets/images/processes/sharpening/local-contrast-enhancement.webp",
+      "page": "processes/sharpening/local-contrast-enhancement.md",
+      "data": ["linear"],
+      "shows": "The Local Contrast Enhancement task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with its default values and the preview area off, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\local-contrast-enhancement.md", "-Set", "pagePreviewArea=Off"]
+    },
+    {
+      "picture": "assets/images/processes/sharpening/clahe.webp",
+      "page": "processes/sharpening/clahe.md",
+      "data": ["linear"],
+      "shows": "The CLA Histogram Equalization task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Grid Size at 8 and Contrast Limit at 1.50, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\clahe.md", "-Set", "contrastLimitValue=1.5"]
+    },
+    {
+      "picture": "assets/images/processes/sharpening/local-histogram-equalization.webp",
+      "page": "processes/sharpening/local-histogram-equalization.md",
+      "data": ["linear"],
+      "shows": "The Local Histogram Equalization task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with its default values, its preview area in the middle of the canvas",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\sharpening\\local-histogram-equalization.md"]
+    }
+  ]
+}

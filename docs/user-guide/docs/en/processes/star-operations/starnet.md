@@ -14,9 +14,9 @@ masks: none
 external: The StarNet2 command-line tool, 2.5.3 or newer, with its ONNX model, installed separately
 glance:
   enabled: >-
-    An image or a sequence view is active, no Starnet++ window is open on it yet, and no window that needs the image
-    for itself is open on it. The window opens whether or not StarNet2 is installed, and OK waits until the window
-    says the program is ready.
+    An image or a sequence view is active, no Starnet++ task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks, whether or not StarNet2 is
+    installed, and OK waits until the task says the program is ready.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, not a raw color-filter mosaic. StarNet2 asks for at
     least 512 by 512 pixels.
@@ -38,28 +38,21 @@ There is no preview.
 
 **OK** opens the [starless image](../../reference/glossary.md#starless-image) as a new view beside the target and,
 when you ask, the star [mask](../../reference/glossary.md#mask) and the star layer the program makes. The target
-and its [history](../../reference/glossary.md#history) stay as they were, and the window stays open.
+and its [history](../../reference/glossary.md#history) stay as they were, and the [task](../../reference/glossary.md#task) stays open.
 
 ```figure
 image: ../../assets/images/processes/star-operations/starnet.webp
 alt: >-
-  The Starnet++ window. Under the title bar, the process name and a line that says it extracts stars or starless
-  output with StarNet2. In a card below, the check boxes Upsample x2 and Pre-Stretch linear image, clear, and
-  Highlight protection and Generate Stars Output, ticked; Output reading Subtractive Mask; Stride reading Standard
-  (256), with a grayed box reading 256 beside it; Weights, an empty field showing Default StarNet2_weights.onnx in
-  gray, with a Browse button; Target Image reading RGB; the line StarNet2 is configured and ready to use; and a
-  Configure button. OK and Close run along the bottom.
+  The Starnet++ task. Its header names the process and the stretched Carina master. The canvas at the left shows
+  the master as its view does, with no preview. The column at the right holds Target Image reading RGB, then the
+  check boxes Upsample x2 and Pre-Stretch linear image, clear, and Highlight protection and Generate Stars Output,
+  ticked; Output reading Subtractive Mask; Stride reading Standard (256), with a grayed box reading 256 beside it;
+  Weights, an empty field showing Default StarNet2_weights.onnx in gray, with a Browse button; the line StarNet2 is
+  configured and ready to use; and a Configure button. Close and OK stand in its footer.
 caption: >-
   Starnet++ at its defaults on the stretched Carina master, once AfterNight knows where StarNet2 is: the line above
   Configure says the program is ready.
-pins:
-  - {n: 1, x: 3.0, y: 77.7}
-  - {n: 2, x: 3.0, y: 84.5}
-  - {n: 3, x: 3.0, y: 70.3}
-  - {n: 4, x: 3.0, y: 30.7}
-  - {n: 5, x: 3.0, y: 41.9}
-  - {n: 6, x: 3.0, y: 55.3}
-  - {n: 7, x: 41.5, y: 94.2}
+owed: true
 ```
 
 ## Before you start
@@ -75,7 +68,7 @@ pins:
 - Choose when the stars come out. On the linear [master](../../reference/glossary.md#master), tick the pre-stretch.
   For [Star Reduction](star-reduction.md) and [Starmask Recombination](starmask-recombination.md), make the starless
   image from the stretched image, with the pre-stretch off.
-- **OK** opens new views and leaves the target as it is. The mask on the view is not used, and the window has no
+- **OK** opens new views and leaves the target as it is. The mask on the view is not used, and the task has no
   preview, **Apply**, **Reset** or **Channel**. A star mask it opens is an ordinary image until you attach it through
   [Masks](../../interface/masks.md).
 - The temporary files location, on the **General** page of the settings, needs room for a 16-bit copy of the image
@@ -83,9 +76,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image or [sequence](../../reference/glossary.md#sequence) the
-   [active image](../../reference/glossary.md#active-image) and choose **Process > Star Processing > Starnet++**. The
-   line above **Configure** says whether AfterNight can run StarNet2.
+1. **Open the task.** Make the image or [sequence](../../reference/glossary.md#sequence) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Star Processing > Starnet++**, or
+   find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the
+   canvas at the left shows the target as its view does, the column at the right holds its controls. The line above
+   **Configure** says whether AfterNight can run StarNet2.
 2. **Point AfterNight at StarNet2.** When the line names a problem, click **Configure**, then **Detect** beside
    **StarNet2:** and the settings' **OK**. The line reads "StarNet2 is configured and ready to use."
 3. **Check the target.** **Target Image** names the image or sequence StarNet2 receives. The new views take its
@@ -97,16 +92,16 @@ pins:
    image alone.
 6. **Leave the rest for a first run.** Keep **Highlight protection** ticked, **Upsample x2** off, **Stride** at
    **Standard (256)** and **Weights** empty.
-7. **Run.** Click **OK**. A progress window follows the program, and its **Cancel** stops it. The views
-   `<target> - starless` and the star output open as tabs beside the target.
+7. **Run.** Click **OK** in the column's footer. The column's run row follows the program, and **Cancel** in the
+   footer stops it. The views `<target> - starless` and the star output open as tabs beside the target.
 8. **Check at 100 %.** Zoom the starless view and the target to 100 % in the same display mode. The nebula stands
    without its stars: look there and in the star output for stars left behind, detail taken away, rings around
    bright stars and seams.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md). This window has no
-preview: it reads its controls when you press **OK**.
+What every task shares is on [Tasks](../../interface/tasks.md). This task has no preview: its canvas shows the
+target, and it reads its controls when you press **OK**.
 
 ```controls
 window: Starnet++
@@ -118,7 +113,7 @@ controls:
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author says it can take about four times as long, and it needs more memory. Very large stars can become harder to remove. Use it when an image needs it, not by default.
     scope: The whole image, or every frame of a sequence.
-    persistence: Until the window closes. The lineage keeps it among the program's arguments.
+    persistence: Until the task closes. The lineage keeps it among the program's arguments.
   - name: Pre-Stretch linear image
     kind: check
     default: "Off"
@@ -129,16 +124,16 @@ controls:
       A linear image reaches the program as a visible picture instead of a nearly black one. The way back cannot
       restore what the curve sent to black or what the 16-bit file rounded, so the round trip is close, not exact.
       It changes the samples of the copy, unlike the Autostretch display of a view. A stretched image stretched again
-      comes back with wrong tones, and the window does not check which kind of image it has.
+      comes back with wrong tones, and the task does not check which kind of image it has.
     scope: Each channel on its own, in the copy only. The star mask is not brought back through the inverse, so it stays in the units of the stretched copy.
-    persistence: Until the window closes. The lineage records `pre-stretch unlinked`, or `pre-stretch none` when it is off.
+    persistence: Until the task closes. The lineage records `pre-stretch unlinked`, or `pre-stretch none` when it is off.
   - name: Highlight protection
     kind: check
     default: "On"
     effect: On, StarNet2 keeps its own protection of bright and nearly saturated regions in the starless image, as it does by default. Off passes `--disable-highlights-protection`.
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author offers Off for comparison or troubleshooting. Off can leave worse marks around bright stars.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Generate Stars Output
     kind: check
     default: "On"
@@ -146,7 +141,7 @@ controls:
     enabled: Once the line above **Configure** says StarNet2 is ready. Its tick enables **Output**.
     tradeoff: The program runs once either way. Each output adds a file the program writes, a read, a conversion and a new view, with the disk and memory they take.
     scope: New views only. A star mask it opens is an ordinary image until you attach it to a view as its mask.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Output
     kind: combo
     default: Subtractive Mask
@@ -163,7 +158,7 @@ controls:
     scope: >-
       With **Pre-Stretch linear image**, the star layer comes back through the inverse curve, which puts its black at
       each channel's black point rather than at 0, and the star mask stays in the stretched units.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Stride
     object: stridePreset
     kind: combo
@@ -173,7 +168,7 @@ controls:
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Its author starts most images at 256, suggests 384 for wide fields of generally small stars, and finds values below 256 rarely useful. How the program blends its windows is not published.
     scope: The whole image, or every frame of a sequence, all channels together. The program receives it as `--stride`.
-    persistence: Until the window closes. The lineage keeps the stride that ran.
+    persistence: Until the task closes. The lineage keeps the stride that ran.
   - name: Stride
     object: customStrideValue
     kind: spinbox
@@ -183,7 +178,7 @@ controls:
     range: Even values only. An odd value you type is lowered to the even value below it.
     enabled: With **Custom** chosen, once the line above **Configure** says StarNet2 is ready.
     tradeoff: A smaller stride places more windows and takes longer. Extreme values change how the windows overlap, and there is no preview to judge them.
-    persistence: Until the window closes. It keeps its value while the list shows another choice.
+    persistence: Until the task closes. It keeps its value while the list shows another choice.
   - name: Weights
     kind: field
     default: ""
@@ -197,7 +192,7 @@ controls:
       AfterNight does not check the file, its model or its licence before the run. A missing or unsuitable file makes
       the run fail when the program starts. Another model gives another result, and may take another time.
     scope: The whole image, or every frame of a sequence.
-    persistence: Until the window closes. It is not saved. The lineage keeps it among the program's arguments.
+    persistence: Until the task closes. It is not saved. The lineage keeps it among the program's arguments.
     note: Try a model on a duplicate, with every other control as it was for a run with the default model, so the two results can be compared.
   - name: Browse
     kind: button
@@ -209,17 +204,17 @@ controls:
       program's `bin` folder, as `C:\Program Files\StarNet2\lib\starnet2`.
     enabled: Once the line above **Configure** says StarNet2 is ready.
     tradeoff: Choosing a file does not check it.
-    persistence: The path stays in **Weights** until the window closes.
+    persistence: The path stays in **Weights** until the task closes.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence the program receives. The new views are named after it and open beside it.
     range: Whether the program can take the image is checked when you press **OK**, before anything is written.
-    enabled: Whether or not StarNet2 is ready, and also while a run works. A run keeps the view that was chosen when you pressed **OK**, and a change reaches the next run.
+    enabled: Whether or not StarNet2 is ready. It stands at the head of the column, and is disabled while a run works, which keeps the view that was chosen when you pressed **OK**.
     tradeoff: A larger image or a sequence needs more disk, memory and time.
     scope: The whole image, every channel, without the mask on the view.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Status line
     kind: readout
     default: StarNet2 executable path is empty.
@@ -230,16 +225,16 @@ controls:
       "Could not detect StarNet2 version. StarNet2 2.5.3 or newer is required." and "StarNet2 2.5.0 detected. StarNet2
       2.5.3 or newer is required.", with the version the program gave.
     enabled: >-
-      Worked out when the window opens and when the settings close after **Configure**. The program is asked
+      Worked out when the task opens and when the settings close after **Configure**. The program is asked
       `--machine-info` first, and a program that gives no such answer is asked `--version`, as StarNet2 2.5.3 is. Both
-      answers must come within 3 seconds, which the window can wait for while it opens.
+      answers must come within 3 seconds, which the task can wait for while it opens.
     tradeoff: Ready means the program answered a version of 2.5.3 or newer, not that its model and runtime can complete a run.
-    scope: The window, and every run, which asks the program again before it writes anything.
-    persistence: The program's path is kept in the settings, as `tools/starnetPath`, for every session and for both StarNet2 windows. The line is worked out again each time.
+    scope: The task, and every run, which asks the program again before it writes anything.
+    persistence: The program's path is kept in the settings, as `tools/starnetPath`, for every session and for both StarNet2 tasks. The line is worked out again each time.
   - name: Configure
     kind: button
     default: ""
-    effect: Opens the settings at **External Tools**, whose **StarNet2:** holds the program's path. When the settings close, the window reads the saved path and asks the program again.
+    effect: Opens the settings at **External Tools**, whose **StarNet2:** holds the program's path. When the settings close, the task reads the saved path and asks the program again.
     range: >-
       **Detect** there looks for `starnet2.exe` on the system's `PATH`, then in `C:\Program Files\StarNet2\bin`,
       `C:\Program Files\StarNet2`, and `StarNet2`, `AppData\Local\StarNet2\bin` and `AppData\Local\StarNet2` in your
@@ -247,19 +242,19 @@ controls:
       `/opt/starnet2/bin`, `~/StarNet2` and `~/.local/bin`, and on macOS in `/usr/local/bin`, `/opt/homebrew/bin`,
       `~/StarNet2` and `~/.local/bin`. It accepts only a supported version, and the page then shows
       "✓ StarNet2 2.5.3 detected", with the version found.
-    enabled: Always, also while the other controls are disabled and while a run works.
+    enabled: Always, also while the other controls are disabled, but not while a run works.
     tradeoff: The check starts the program and sends it no image, so it does not check the model.
-    persistence: The path is kept for every session. The window's own values are not saved.
+    persistence: The path is kept for every session. The task's own values are not saved.
   - name: OK
     kind: button
     default: ""
     effect: >-
-      Reads the window as it is, opens the progress window and runs StarNet2 over the target. When every answer is
-      back, it opens the starless image, then the star mask, then the star layer, as new views beside the target. The
-      window stays open with its values for another run.
+      Reads the task as it is and runs StarNet2 over the target, which the column's run row follows. When every
+      answer is back, it opens the starless image, then the star mask, then the star layer, as new views beside the
+      target. The task stays open with its values for another run.
     enabled: >-
-      Once the line above **Configure** says StarNet2 is ready. It is disabled from the press until the run has ended.
-      The other controls stay enabled, and what you change reaches the next run only.
+      Once the line above **Configure** says StarNet2 is ready. From the press until the run has ended **Cancel** stands
+      in its place, and the task's controls and **Close** are disabled. ++ctrl+enter++ does the same as OK.
     tradeoff: >-
       The run writes a 16-bit copy of the image and the program's answers to disk and holds them in memory. The
       program's own work dominates, and grows with the image's area, **Upsample x2** and a smaller stride. It chooses
@@ -275,27 +270,25 @@ controls:
       created from '<target>'`, `StarNet2: Star mask created from '<target>'` and `StarNet2: Unscreen stars image
       created from '<target>'`. A name already in use is made unique. Nothing is saved to a file.
     note: >-
-      A failed run says why in a message titled "Error running StarNet2", whose text starts "An error occurred when
-      running StarNet2 process:", and in the log, and opens nothing.
+      A failed run says why in the column's message strip, as "Error running StarNet2: An error occurred when
+      running StarNet2 process:" and the reason, and in the log, and opens nothing.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. Its values are discarded.
-    enabled: Always, also while a run works.
-    note: Closing the window while a run works hides it, and it closes when the run has ended. It does not stop the run, whose views still open. The progress window's **Cancel** stops it.
+    effect: Closes the task. Its values are discarded. ++esc++ does the same.
+    enabled: Disabled while a run works. The task does not close until its run has ended; **Cancel** stops the run.
 ```
 
 ```controls
-window: Progress
+window: The run in the column
 controls:
   - name: Progress
     kind: readout
     default: ""
     effect: >-
-      Follows the run, under the title `Starnet++ <name>`. On an image, the text names each stage, "Preparing StarNet2
-      execution...", "Executing StarNet2..." and "Processing output...", and the bar follows the program's own
-      percentages from 10 to 90 percent, then 95 while the answers are read. On a sequence, the text reads
-      `Executing StarNet2 on <name>` and the bar counts the frames.
+      Follows the run in the column's run row, which reads "applying", and in the task header. On an image, the bar
+      follows the program's own percentages from 10 to 90 percent, then 95 while the answers are read. On a sequence,
+      the bar counts the frames. No progress window opens.
     tradeoff: >-
       The bar moves forward only. StarNet2 2.5.3 prints its percentages, which AfterNight reads. A version whose
       `--machine-info` answer says it reports its progress for machines is asked for `--machine-progress`, and that
@@ -307,7 +300,7 @@ controls:
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. The program's output is read at least every 300 milliseconds, and the program is ended at the next read. The progress window closes without a view and without a message.
+    effect: Stands in the footer in place of **OK**, and stops the run. The program's output is read at least every 300 milliseconds, and the program is ended at the next read. The run row leaves the column without a view and without a message.
     range: The stop is also seen before anything is written, once the copy for the program is written, and after each answer is read.
     tradeoff: The program is ended at once, with no chance to finish. The temporary files are removed.
     persistence: The target and its history stay as they were, and no view opens.
@@ -315,7 +308,7 @@ controls:
 
 ## How it works
 
-1. When you press **OK**, the window reads its controls and its target. The run refuses a raw mosaic and an image of
+1. When you press **OK**, the task reads its controls and its target. The run refuses a raw mosaic and an image of
    other than one or three channels before anything is written, then asks the program its version again.
 2. The engine writes the image as unsigned 16-bit codes, rounded to the nearest code with ties to even, to
    `srcFile.tiff`, whole or not at all, in a folder of the run's own named after `starnet2` under the temporary files
@@ -416,7 +409,7 @@ images:
     alt: The same crop of the starless view, the same clouds and dust lanes with the stars gone and the nebula filled in where they were.
     label: After
 caption: >-
-  The middle of the stretched Carina master at 100 %, and of the starless view that OK opened at the window's
+  The middle of the stretched Carina master at 100 %, and of the starless view that OK opened at the task's
   defaults. Both crops are shown in the Linear display mode.
 ```
 
@@ -459,9 +452,9 @@ leaves the background as it was, equation (3) brings it back near 0.0277.
 :   **Fix.** Install a current StarNet2 package whole, and choose its program again. Run `starnet2 --version` in a
     terminal to see what it answers.
 
-**OK** is disabled although the line says the program is ready
-:   **Cause.** A run of this window is still working.
-:   **Fix.** Wait for the progress window to close, or click its **Cancel**.
+**Cancel** stands where **OK** was, although the line says the program is ready
+:   **Cause.** A run of this task is still working.
+:   **Fix.** Wait for the run row to leave the column, or click **Cancel**.
 
 "StarNet2 takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first"
 :   **Cause.** The image is a raw mosaic. "StarNet2 supports grayscale and RGB images only." means it has neither one
@@ -496,20 +489,20 @@ The starless image looks stretched, or its tones are wrong
     cannot restore.
 :   **Fix.** Run again from the unchanged image, with **Pre-Stretch linear image** off for a stretched image.
 
-The window disappeared while the run went on
-:   **Cause.** **Close** was pressed during the run, which hides the window until the run ends.
-:   **Fix.** Wait for the views to open, or click **Cancel** in the progress window to stop the run.
+**Close** is disabled and ++esc++ does nothing
+:   **Cause.** The run is still working, and a task does not close during its run.
+:   **Fix.** Wait for the views to open, or click **Cancel** in the footer to stop the run.
 
 ## Related
 
 - [Starnet++ Star Mask](starnet-star-mask.md), for a star mask from StarNet2 shaped to one channel or to black and
   white.
 - [Star Mask](star-mask.md), for a star mask found by measuring the stars, without an external program.
-- [Star Reduction](star-reduction.md), whose **Generate starless view** opens this window to make its starless
+- [Star Reduction](star-reduction.md), whose **Generate starless view** opens this task to make its starless
   image, with no star output, and closes it when the image opens.
 - [Starmask Recombination](starmask-recombination.md), to add the star mask back to the starless image.
 - [Settings](../../interface/settings-dialog.md), whose **External Tools** page holds the program's path.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

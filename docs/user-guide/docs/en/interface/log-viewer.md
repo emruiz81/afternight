@@ -7,10 +7,10 @@ menu: View > Session Console
 ---
 # Session Console
 
-The Session Console is a panel of the [dock workspace](../reference/glossary.md#dock-workspace) that lists
-AfterNight's messages since it started: what it opened, ran and saved, its warnings and its errors, each with the
-time and a severity. It only shows messages, and changes no image and no image's
-[history](../reference/glossary.md#history).
+The Session Console lists AfterNight's messages since it started: what it opened, ran and saved, its warnings and its
+errors, each with the time and a severity. It is a drawer of the main window, above the status line and as wide as the
+centre and the [readout](../reference/glossary.md#readout) together, and it can float in a window of its own. It only shows messages, and changes no image
+and no image's [history](../reference/glossary.md#history).
 
 It keeps the messages of this session in memory. The [log file](../reference/glossary.md#log-file), which the
 Logging page of [Settings](settings-dialog.md) sets up, keeps them on disk between sessions. The two are separate:
@@ -20,49 +20,69 @@ clearing or filtering the console leaves the file as it is.
 owed: true
 image: ../assets/images/interface/log-viewer.webp
 alt: >-
-  The AfterNight main window with the Carina Nebula master in its view at the top and the Session Console docked
-  below it. The console's tab reads Session Console. Its toolbar holds zoom buttons, a wrap button, a bin, a reload
-  arrow, a terminal icon and a gear, then Show >= with a box reading info, the words File log: info, a magnifier and
-  a disk. Below, two lines of text, each a date and time, the word info in color and a message about the image.
+  The main window with the Carina Nebula master in its workspace, its readout at the right, and the Session Console's
+  drawer open under them, above the status line. The drawer's toolbar reads Session Console, then holds zoom buttons,
+  a wrap button, a bin, a reload arrow, a terminal icon and a gear, Show >= with a box reading info, the words File
+  log: info, and at the far right a magnifier, a disk, a window icon and a cross. Below, lines of text, each a date
+  and time, the word info in blue and a message. At the rail's foot a terminal icon, and at the status line's right
+  end a button reading Console.
 caption: >-
-  The Session Console after Clear Session and two commands on the Carina master: one line for each.
+  The Session Console's drawer open under the Carina master's workspace.
 pins:
-  - {n: 1, x: 9.6, y: 54.5}
-  - {n: 2, x: 12.4, y: 54.5}
-  - {n: 3, x: 17.3, y: 54.5}
-  - {n: 4, x: 26.9, y: 54.5}
-  - {n: 5, x: 31.2, y: 54.5}
-  - {n: 6, x: 55.0, y: 61.0}
+  - {n: 1, x: 3.6, y: 75.0}
+  - {n: 2, x: 11.6, y: 75.0}
+  - {n: 3, x: 30.2, y: 75.0}
+  - {n: 4, x: 40.8, y: 75.0}
+  - {n: 5, x: 91.0, y: 75.0}
+  - {n: 6, x: 95.7, y: 75.0}
+  - {n: 7, x: 3.6, y: 81.0}
+  - {n: 8, x: 3.6, y: 92.9}
+  - {n: 9, x: 93.6, y: 98.4}
 ```
 
 ## What you see
 
-1. **The tab.** **Session Console**, with the cross that closes it. The console docks, tabs and floats as an image
-   view does: see [Docking Panels](docking-panels.md).
+1. **The drawer.** Its title, **Session Console**, leads its toolbar. Drag the drawer's top edge to make it taller
+   or shorter.
 2. **The buttons.** **Zoom In**, **Zoom Out** and **Zoom 100%** for the text size, word wrap, **Clear Session**,
    **Reload session lines**, **ANSI Colors** and **Settings**.
 3. **Show >=.** The least severe kind of message the console shows.
 4. **File log.** The level of the log file, as the Logging page of Settings sets it.
 5. **Search and export.** **Search...** finds a word in the lines, and **Export visible session text** saves them
-   to a text file.
-6. **The messages.** One line for each message: the date and time to the millisecond, the severity in its color,
+   to a text file. Before them, a tag counts the session's warnings and errors, once there are any.
+6. **Float and Close.** **Float** moves the console into a window of its own, and the cross closes the drawer.
+7. **The messages.** One line for each message: the date and time to the millisecond, the severity in its color,
    and the message.
+8. **Session Console in the rail.** Opens or closes the drawer. Its count is the warnings and errors that arrived
+   while the console was closed.
+9. **Console in the status line.** Opens the drawer, with the same count.
 
 ## What you can do
 
 ### Open and close the console
 
-Choose **View > Session Console**. The console docks across the bottom of the workspace, and from the Dashboard the
-workspace replaces it. The console shows every message kept since AfterNight started, not only the ones after you
-open it. Close it with the same menu entry or the cross on its tab. With no image open, the Dashboard comes back.
+Choose **Session Console** at the foot of the [rail](../reference/glossary.md#rail), **Console** in the status line, or **View > Session Console**. The
+drawer opens above the status line, whatever place the centre shows, and the console shows every message kept since
+AfterNight started, not only the ones after you open it. Close it with the rail's item, the menu entry or the cross
+at the end of its toolbar.
+
+The console is made the first time you open it and kept while AfterNight runs, so its lines, its scroll position, its
+zoom and **Show >=** stay as you left them. Whether it is open, its height and whether it floats are kept for the
+next start.
+
+### Resize or float the console
+
+Drag the drawer's top edge: the drawer is 220 pixels high at first, and between 120 pixels and 60 % of the window's
+height. Choose **Float** to move the console into a window of its own, over the lower part of the main window, which
+you can move and size; **Attach** in its toolbar brings it back into the drawer. Closing that window closes the
+console, which opens floating again next time.
 
 ### Read a message
 
 A line reads `2026-11-10 21:04:13.512 - info  - AfterNight version ... - engine ...`, which is the first message
-of every session. The severities are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. A process window writes
-a line when its run starts and when it ends or fails, as the "In the Session Console" section of
-[Process Windows Reference](process-windows-reference.md) lists. A file that cannot be opened leaves its error here
-too.
+of every session. The severities are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. A [task](../reference/glossary.md#task) writes a line
+when its run starts and when it ends or fails, as the "In the Session Console" section of
+[Tasks Reference](tasks-reference.md) lists. A file that cannot be opened leaves its error here too.
 
 !!! warning "The lines name your folders"
     A line about a file names it with its full path, and some name the folders AfterNight uses. Read an export
@@ -91,6 +111,34 @@ bring it back. New messages appear as they come. The log file keeps what its lev
 
 ## Controls
 
+### The drawer
+
+```controls
+window: The drawer
+controls:
+  - name: Top edge
+    kind: action
+    default: "220"
+    effect: Drag the drawer's top edge up to make it taller, down to make it shorter. Its tooltip reads "Drag to resize the Session Console".
+    range: From 120 pixels to 60 % of the main window's height, and kept inside them when the window is resized.
+    persistence: Kept between sessions as `interface/consoleDrawerHeight`.
+  - name: Warnings
+    kind: readout
+    default: ""
+    effect: A tag before **Search...** that counts the warnings and errors of the session, with the tooltip "Warnings and errors in this session".
+    enabled: Shown once the session has one. **Clear Session** sets it back to none.
+  - name: Float
+    kind: toolbutton
+    default: ""
+    effect: Moves the console into a window of its own, with the title Session Console. In that window it reads **Attach**, which brings the console back into the drawer.
+    persistence: Kept between sessions as `interface/consoleFloating`.
+  - name: Close
+    kind: toolbutton
+    default: ""
+    effect: Closes the drawer, as the rail's **Session Console** and **View > Session Console** do. Its tooltip reads "Close the Session Console".
+    persistence: Whether the console is open is kept between sessions as `interface/consoleDrawerOpen`.
+```
+
 ### The toolbar
 
 ```controls
@@ -101,7 +149,7 @@ controls:
     default: ""
     effect: Makes the text one point larger, and shows the lines again.
     range: There is no limit. **Zoom 100%** returns to the size of **Default font Size**.
-    persistence: Until the console closes.
+    persistence: While AfterNight runs. Closing the drawer keeps it.
   - name: Zoom Out
     kind: toolbutton
     default: ""
@@ -114,7 +162,7 @@ controls:
     kind: toolbutton
     default: "On"
     effect: While long lines wrap at the console's width, its tooltip reads **Disable word wrap**, and it shows them on one line each, with a scroll bar. It then reads **Enable word wrap**.
-    persistence: Kept between sessions as `log/line_wrap`, written when the console closes, when **ANSI Colors** changes and when the settings are applied.
+    persistence: Kept between sessions as `log/line_wrap`, written when AfterNight closes, when **ANSI Colors** changes and when the settings are applied.
   - name: Clear Session
     kind: toolbutton
     default: ""
@@ -145,13 +193,13 @@ controls:
     effect: Shows the messages of the chosen severity and every more severe one. **error** also shows `fatal`, which has no entry of its own.
     tradeoff: "**debug** and **trace** show far more lines, which take longer to show and to search."
     scope: The console only. It changes neither what AfterNight records nor the log file. Its tooltip says so.
-    persistence: Back to **info** each time the console opens.
+    persistence: Kept while AfterNight runs, the drawer closed and opened again. **info** at the next start.
     note: AfterNight keeps the messages of every severity, so choosing **debug** shows the debug lines of the whole session.
   - name: File log
     kind: readout
     default: "File log: info"
     effect: Shows the level the log file keeps, as `logging.conf` states it, such as `warning` or `off`, and `info` when it states none.
-    range: Read again when the console opens, when the lines are shown again, and when the console gets the focus or its tab comes forward. A level changed in Settings shows at one of those moments.
+    range: Read when the console is first opened, and again each time the lines are shown again. A level changed in Settings shows at the next of those moments, such as **Reload session lines**.
     note: Its tooltip reads "Current file logging level from Settings > Logging."
   - name: Search...
     kind: toolbutton
@@ -341,9 +389,9 @@ The text or the selection cannot be read
 
 ## Related
 
-- [Interface Overview](overview.md), for the main window the console docks in.
-- [Docking Panels](docking-panels.md), to move, tab, float or close the console like a view.
-- [Process Windows Reference](process-windows-reference.md), for the lines a process window writes here.
+- [The Main Window](overview.md), for the status line and the other regions around the drawer.
+- [The Rail and Its Places](rail-and-places.md), for the rail's **Session Console** and its count.
+- [Tasks Reference](tasks-reference.md), for the lines a task writes here.
 - [Settings](settings-dialog.md), for the log file's folder, level, size and count on the Logging page.
 - [Troubleshooting And Diagnostics](../reference/troubleshooting.md), for what to send when you report a problem.
-- [Toolbar & Menus](toolbar-and-menus.md), for **View > Session Console** among the other menus.
+- [Top Bar and Menus](top-bar-and-menus.md), for **View > Session Console** among the other menus.

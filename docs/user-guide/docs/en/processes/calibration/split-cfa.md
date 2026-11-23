@@ -15,7 +15,7 @@ external: none
 glance:
   enabled: >-
     An image or a sequence view is active. Target Image lists only the open one-channel mosaics, and OK refuses a
-    target that states no two-by-two Bayer pattern.
+    target that states no two-by-two Bayer pattern. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One undebayered mosaic of an RGGB, BGGR, GRBG or GBRG pattern at any phase, as a still image or a sequence, in any
     pixel type.
@@ -35,7 +35,7 @@ Channels** opens the four positions of each two-by-two cell of its
 two green sites, or an Ha and OIII pair derived for a dual-band filter.
 
 **OK** opens each result in a new view beside the mosaic, or as a new [sequence](../../reference/glossary.md#sequence)
-for a sequence, and closes the window. Each result keeps the mosaic's
+for a sequence, and closes the [task](../../reference/glossary.md#task). Each result keeps the mosaic's
 [pixel type](../../reference/glossary.md#pixel-type). The mosaic and its
 [history](../../reference/glossary.md#history) are not changed.
 
@@ -43,16 +43,11 @@ for a sequence, and closes the window. Each result keeps the mosaic's
 owed: true
 image: ../../assets/images/processes/calibration/split-cfa.webp
 alt: >-
-  The Split CFA window. Under the title, the process name and the line Extract CFA channels or derived Ha/OIII/green
-  components from RAW mosaic frames. Below, Method at Split CFA Channels, Ha/OIII Resampling greyed at No Resampling,
-  and Target Image naming the light. OK and Close run along the bottom.
+  The Split CFA task. Its header names Split CFA and the raw light, and the canvas at the left shows the light as its
+  view does, a gray mosaic. The column at the right holds Method at Split CFA Channels, Ha/OIII Resampling greyed at No
+  Resampling, and Target Image naming the light, with Close and OK in its footer.
 caption: >-
   Split CFA on a raw NGC 253 light with Method at Split CFA Channels, which opens the light's four positional planes.
-pins:
-  - {n: 2, x: 2.8, y: 67.5}
-  - {n: 3, x: 2.8, y: 40.0}
-  - {n: 4, x: 2.8, y: 53.5}
-  - {n: 5, x: 54.0, y: 90.0}
 ```
 
 ## Before you start
@@ -73,19 +68,19 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the mosaic the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Color Spaces > Split CFA**. The title names the mosaic.
-2. **Check the target.** Check that **Target Image**, which lists the open mosaics, names the one you mean.
-3. **Choose the method.** Choose **Method**. **Split CFA Channels** keeps every sample.
-4. **Size the pair.** For **Extract Ha/OIII** only, choose **Ha/OIII Resampling**: keep each product at its own size,
+1. **Open the task.** Make the mosaic the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Spaces > Split CFA**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: its canvas shows the mosaic, and **Target Image** in its column names
+   it.
+2. **Choose the method.** Choose **Method**. **Split CFA Channels** keeps every sample.
+3. **Size the pair.** For **Extract Ha/OIII** only, choose **Ha/OIII Resampling**: keep each product at its own size,
    or bring one to the other's.
-5. **Split.** Choose **OK**. The window closes and new views open beside the mosaic, named after it and the plane,
-   as `<mosaic> - CFA0 - Red`.
+4. **Split.** Choose **OK**. The task closes and new views open beside the mosaic, named after it and the plane, as
+   `<mosaic> - CFA0 - Red`.
 
 ## Controls
 
-The window has no preview, no **Channel** and no **Reset**. What every process window shares is on
-[Process Windows](../../interface/process-windows.md).
+The task has no preview, no **Channel** and no **Reset**. What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Split CFA
@@ -94,46 +89,46 @@ controls:
     kind: combo
     default: Split CFA Channels
     options: [Split CFA Channels, Extract Ha, Extract Ha/OIII, Extract Green]
-    effect: Chooses what the window makes. **Split CFA Channels** makes four images, one for each position of the cell. **Extract Ha** makes one of the red sites. **Extract Green** makes one of the mean of the two green sites of each cell. **Extract Ha/OIII** makes an Ha and an OIII image for a dual-band filter.
+    effect: Chooses what the task makes. **Split CFA Channels** makes four images, one for each position of the cell. **Extract Ha** makes one of the red sites. **Extract Green** makes one of the mean of the two green sites of each cell. **Extract Ha/OIII** makes an Ha and an OIII image for a dual-band filter.
     enabled: "**Ha/OIII Resampling** is enabled only with **Extract Ha/OIII**."
     tradeoff: Only the four positional planes can be merged back into the mosaic. The three extractions drop, average or estimate sites, and cannot.
     scope: OK, on the image or on every frame of the sequence. No mask is used.
-    persistence: Until the window closes. The next window opens at **Split CFA Channels**.
+    persistence: Until the task closes. The next task opens at **Split CFA Channels**.
     note: "**Split CFA Channels** makes four results, named `<mosaic> - CFA0 - Red` to `<mosaic> - CFA3 - Blue` by position and color. **Extract Ha** makes `<mosaic> - Ha`, **Extract Green** `<mosaic> - Green`, and **Extract Ha/OIII** both `<mosaic> - Ha` and `<mosaic> - Oiii`. On a sequence each result is a new sequence."
   - name: Ha/OIII Resampling
     kind: combo
     default: No Resampling
     options: [No Resampling, Upsample Ha, Downsample OIII]
     effect: "**No Resampling** keeps Ha at half the mosaic's width and height and OIII at its full size. **Upsample Ha** enlarges Ha by two to the size of OIII. **Downsample OIII** reduces OIII by two to the size of Ha."
-    enabled: With **Method** at **Extract Ha/OIII**. It is disabled when the window opens.
+    enabled: With **Method** at **Extract Ha/OIII**. It is disabled when the task opens.
     tradeoff: "**Upsample Ha** makes samples that were never measured and takes four times the memory of Ha. It adds no resolution. **Downsample OIII** discards the resolution of OIII. Both resample with a Lanczos filter, which can ring beside a sharp edge such as a star."
     scope: The Ha and OIII results only.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Target Image
     kind: combo
     default: The active mosaic
     options: [The active mosaic, Every other open one-channel mosaic]
     effect: Chooses the mosaic or mosaic sequence OK splits. It is read and never changed.
     range: It lists the views that show a one-channel mosaic, a still image that states a filter array, or a sequence whose view does not debayer its frames. An X-Trans mosaic is listed, and OK refuses it.
-    enabled: Disabled while a run works. **Method** and **Ha/OIII Resampling** stay enabled, and a change to them does not reach the run.
+    enabled: Disabled while a run works, with every control of the column.
     tradeoff: A longer sequence takes more time and more temporary disk.
-    persistence: Until the window closes.
-    note: Opened on an image that is no mosaic, the window works on that image, which its title names, and OK refuses it even while this box shows a mosaic.
+    persistence: Until the task closes.
+    note: Opened on an image that is no mosaic, the task works on that image, which its header names, and OK refuses it even while this box shows a mosaic.
   - name: OK
     kind: button
     default: ""
-    effect: Checks that the target is a two-by-two mosaic, reads **Method** and **Ha/OIII Resampling**, and makes the results away from the window. New views open beside the mosaic, and the window closes.
-    enabled: Enabled when the window opens, also on an image that is no mosaic, which it refuses when you press it. Disabled while a run works, with **Close** and **Target Image**.
+    effect: Checks that the target is a two-by-two mosaic, reads **Method** and **Ha/OIII Resampling**, and makes the results on the thread pool. New views open beside the mosaic, and the task closes.
+    enabled: Enabled when the task opens, also on an image that is no mosaic, which it refuses when you press it. While a run works, **Cancel** stands in its place and the column's controls are disabled.
     tradeoff: "**Extract Ha/OIII** works on a floating copy of the whole mosaic, and a resampling holds a 64-bit working plane on top of it. A still image shows no progress window, and its run cannot be stopped once it starts."
     scope: The whole image or every frame of the sequence, without the mask.
     persistence: "Each new view is unsaved, and its history starts with `Split CFA: CFA0 extracted from RAW image '<mosaic>'`, where `CFA0` is `CFA0` to `CFA3`, `Ha`, `Green` or `OIII`, and `RAW sequence` replaces `RAW image` for a sequence. Its lineage records the split and the plane, or the extraction. The mosaic's history gets no step."
-    note: A run that fails leaves the window open with its controls enabled.
+    note: A run that fails leaves the task open with its controls enabled.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without splitting.
+    effect: Closes the task without splitting. ++esc++ does the same.
     enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+    note: The task stays open until its run has ended.
 ```
 
 ```controls
@@ -148,8 +143,8 @@ controls:
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest. Nothing opens, the temporary files are removed, and the Split CFA window stays open.
-    note: Closing the Split CFA window does not stop the run.
+    effect: Stops the run, before the next frame at the latest. Nothing opens, the temporary files are removed, and the Split CFA task stays open.
+    note: The column's run row shows the same share meanwhile.
 ```
 
 ## How it works
@@ -223,7 +218,7 @@ half-pixel positions, reading the nearest edge sample beyond the picture.
 - The Lanczos result is not clamped. Beside a sharp edge a floating product can fall outside 0 to 1, and an integer
   one stops at the ends of its type.
 - A refusal or a failure is reported in a message box titled "Error running Split CFA", which starts "An error
-  occurred when executing the Split CFA process:", and in the log, not in the window's message strip. No view opens.
+  occurred when executing the Split CFA process:", and in the log, not in the column's banner. No view opens.
 
 ### Worked example
 
@@ -259,8 +254,8 @@ lie two of the sensor's apart, 2.29″ on the sky in place of 1.15″, and the p
 :   **Fix.** Open the raw file or the sequence again, and answer **No** when AfterNight asks whether to debayer it.
 
 "the image states no colour filter array"
-:   **Cause.** The target states no Bayer pattern, or the window opened on an image that is no mosaic.
-:   **Fix.** Open the mosaic from a file that states its pattern, make its view active, and open the window again. Do
+:   **Cause.** The target states no Bayer pattern, or the task opened on an image that is no mosaic.
+:   **Fix.** Open the mosaic from a file that states its pattern, make its view active, and open the task again. Do
     not guess a pattern you do not know.
 
 "the XTrans filter array is not a two-by-two arrangement, which is all this process takes apart"
@@ -295,4 +290,4 @@ A plane's plate solve fails, or finds twice the scale its hints give
 - [Debayer](debayer.md), for a color image made from every site.
 - [CFA Integer Resample](cfa-integer-resample.md), to bin or enlarge the mosaic and keep its filters.
 - [Plate Solving](../registration-alignment/plate-solving.md), to solve a plane or a product again.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.

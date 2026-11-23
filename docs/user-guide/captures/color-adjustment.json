@@ -1,0 +1,40 @@
+{
+  "group": "Color Adjustment",
+  "captures": [
+    {
+      "picture": "assets/images/processes/color-adjustment/adjust-brightness-contrast.webp",
+      "page": "processes/color-adjustment/adjust-brightness-contrast.md",
+      "data": ["linear"],
+      "shows": "The Adjust Brightness And Contrast task with Brightness at -10 and Contrast at 20 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-adjustment\\adjust-brightness-contrast.md", "-Set", "brightnessValue=-10;contrastValue=20"]
+    },
+    {
+      "picture": "assets/images/processes/color-adjustment/adjust-hsl.webp",
+      "page": "processes/color-adjustment/adjust-hsl.md",
+      "data": ["linear"],
+      "shows": "The Adjust Hue/Saturation/Lightness task with Saturation at 25 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-adjustment\\adjust-hsl.md", "-Set", "saturationValue=25"]
+    },
+    {
+      "picture": "assets/images/processes/color-adjustment/adjust-lch.webp",
+      "page": "processes/color-adjustment/adjust-lch.md",
+      "data": ["linear"],
+      "shows": "The Adjust Lightness/Chroma/Hue task with Chroma at 25 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-adjustment\\adjust-lch.md", "-Set", "chromaValue=25"]
+    },
+    {
+      "picture": "assets/images/processes/color-adjustment/color-saturation.webp",
+      "page": "processes/color-adjustment/color-saturation.md",
+      "data": ["linear"],
+      "shows": "The Color Saturation task with Hue at Global, Amount at 0.50 and Background factor at 1.00 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-adjustment\\color-saturation.md", "-Set", "amountValue=0.5"]
+    },
+    {
+      "picture": "assets/images/processes/color-adjustment/tighten-edges.webp",
+      "page": "processes/color-adjustment/tighten-edges.md",
+      "data": ["linear"],
+      "shows": "The Tighten Edges task with Value at 0.50 and Amount at 1.00 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-adjustment\\tighten-edges.md", "-Set", "valueValue=0.5"]
+    }
+  ]
+}

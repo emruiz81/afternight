@@ -4,7 +4,7 @@ stage: stretch
 menu: Process > Intensity Transformations > Generalized Hyperbolic Transformation
 summary: >-
   Stretches a linear image with a generalized hyperbolic curve placed around a symmetry point, or with the histogram,
-  arcsinh, linear, inversion and statistics-derived curves the same window offers.
+  arcsinh, linear, inversion and statistics-derived curves the same task offers.
 data_in: linear
 data_out: nonlinear
 destructive: true
@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active. The window opens beside other process windows, but a second one for the
-    same image is refused. Apply waits for nothing else to be working on the target.
+    An image or a sequence view is active. The task opens as a page of its own, beside other tasks, but a second one
+    for the same image is refused. Apply waits for nothing else to be working on the target.
   inputs: One grayscale or RGB image or sequence, and an optional mask on its view.
   outputs: >-
     The same view, replaced, with one history step. Its size and pixel type are kept. No file, lookup table, preset
@@ -25,7 +25,7 @@ glance:
     deconvolution or noise reduction that needs linear data.
 derived: false
 controls_ignore:
-  - {label: Human weighted luminance, reason: The window never shows it and no result reads it.}
+  - {label: Human weighted luminance, reason: The task never shows it and no result reads it.}
 ---
 # Generalized Hyperbolic Transformation
 
@@ -33,7 +33,7 @@ Generalized Hyperbolic Transformation [stretches](../../reference/glossary.md#st
 [linear image](../../reference/glossary.md#linear-image) with a curve you place. A stretch factor sets its strength and
 a local intensity its shape. A [symmetry point (SP)](../../reference/glossary.md#symmetry-point) names the tones that
 get the most contrast, and two [protection points (LP/HP)](../../reference/glossary.md#protection-point) limit how far
-the curve bends on either side. The same window offers a histogram, an arcsinh and a linear curve, the negative of the
+the curve bends on either side. The same [task](../../reference/glossary.md#task) offers a histogram, an arcsinh and a linear curve, the negative of the
 image, and a curve derived from the image's statistics.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size
@@ -43,24 +43,19 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/gh-transformation.webp
 alt: >-
-  The Generalized Hyperbolic Transformation window. On the left, two histograms, each under a white curve. In the
-  upper one the peak stands about a quarter of the way along. In the lower one it is a spike at the left edge, under
-  a curve that rises steeply and then bends over, with three handles below it. Under them a toolbar, the Channel and
-  Transformation type boxes with the Invert box, five values with sliders, from Stretch factor to Protect highlights,
-  three SP picker buttons, Target Image and Preview. On the right, the preview shows a pale nebula on a gray background. Reset, Close and
-  Apply run along the bottom.
+  The Generalized Hyperbolic Transformation task. Its header names the process and the linear master. The canvas at
+  the left shows the stretched preview, a pale nebula on a gray background. The column at the right opens with the
+  compact readout of the preview, then the Preview, Preview area and Processed toggles, Target Image, and two
+  histograms, each under a white curve. In the upper one the peak stands about a quarter of the way along. In the
+  lower one it is a spike at the left edge, under a curve that rises steeply and then bends over, with three handles
+  below it. Under them a toolbar, the Channel and Transformation type boxes with the Invert box, five values with
+  sliders, from Stretch factor to Protect highlights, and three SP picker buttons. Reset, Close and Apply stand in its
+  footer.
 caption: >-
   Generalized Hyperbolic Transformation on a linear master, with the symmetry point at 0.025, a stretch factor of 2.5
-  and a local intensity of 5. The lower histogram is the image, the upper one the result, and the preview shows what
+  and a local intensity of 5. The lower histogram is the image, the upper one the result, and the canvas shows what
   Apply writes.
-pins:
-  - {n: 2, x: 3.0, y: 61.1}
-  - {n: 3, x: 3.0, y: 70.2}
-  - {n: 4, x: 3.0, y: 64.1}
-  - {n: 5, x: 3.0, y: 67.2}
-  - {n: 6, x: 3.0, y: 73.2}
-  - {n: 7, x: 41.0, y: 29.0}
-  - {n: 8, x: 92.6, y: 97.6}
+owed: true
 ```
 
 ## Before you start
@@ -72,7 +67,6 @@ pins:
   rounding, and clipping at both ends.
 - The image is grayscale or RGB. A raw color-filter mosaic is stretched as a grayscale image:
   [debayer](../../reference/glossary.md#debayer) it first.
-- Samples below 0 or above 1 are cut to that range before the curve.
 - A [mask](../../reference/glossary.md#mask) on the view blends the stretched image with the original after the stretch.
   The curve, the histograms and the clipping figures leave it out.
 - On a sequence, your values give every frame the same curve. Only **STF Transformation** gives each frame the curve
@@ -80,15 +74,16 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
-   Generalized Hyperbolic Transformation**. The lower histogram shows the image as a narrow peak at the left, and the
-   preview is nearly black.
+   Generalized Hyperbolic Transformation**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows a nearly black preview, the column at the
+   right holds the controls, and its lower histogram shows the image as a narrow peak at the left.
 2. **Keep the channel and the type.** Leave **Channel** at **RGB** and **Transformation type** at **Generalized
    Hyperbolic**, the curve made for a linear master. Both white curves stay straight lines until you raise the
    stretch factor.
 3. **Place the symmetry point.** Set **Symmetry point (SP)** at the peak of the lower histogram, or just below it.
-   Type it, drag the middle handle, or press an **SP picker** button, click the background in the preview and press
+   Type it, drag the middle handle, or press an **SP picker** button, click the background in the canvas and press
    the button again. The middle handle now sits under the peak.
 4. **Raise the stretch.** Raise **Stretch factor(In(D+1))** until the faint signal shows in the preview. The peak of
    the upper histogram moves to the right.
@@ -96,17 +91,17 @@ pins:
    the bright ones away from white. Then set the stretch factor again.
 6. **Protect the ends.** Leave the two protection points alone at first. Lower **Protect highlights (HP)** when star
    cores flatten, and raise **Protect shadows (LP)** when the darkest tones lose their contrast.
-7. **Check the preview at 100 %.** Zoom the preview into the faint areas and the brightest stars, and press
+7. **Check the preview at 100 %.** Zoom the canvas into the faint areas and the brightest stars, and hold
    ++space++ over it to compare with the original.
-8. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists **Generalized
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the stretched one, its history lists **Generalized
    Hyperbolic Transformation** with the values you set, and the controls return to their defaults.
 
 ## Controls
 
 The toolbar under the histograms - zoom, grid, curve, scales, areas and **Plot resolution** - changes only how the
-histograms are drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md). Its **Show clipping info** button is described with the
-figures it shows. Controls that **Channel** or **Transformation type** hides are listed where the window puts them.
+histograms are drawn, and is the same in every task that has one: see [Tasks](../../interface/tasks.md). Its
+**Show clipping info** button is described with the figures it shows. Controls that **Channel** or **Transformation
+type** hides are listed where the task puts them.
 
 ```controls
 window: The histograms
@@ -116,9 +111,9 @@ controls:
     default: ""
     effect: Shows the result, which is the image's counts sent through the curve, with the curve drawn over it.
     range: One line for a grayscale image and three for RGB. With **Red**, **Green** or **Blue** in **Channel** it draws that channel alone, and with **Lightness**, **Saturation** or **Colour** the component being stretched.
-    enabled: Always shown, and its curve cannot be hidden. Choosing one channel to display in the preview's own toolbar changes the lines of both histograms only until the next change of a value.
+    enabled: Always shown, and its curve cannot be hidden. Choosing one channel to display in **View Channel** of the canvas's floating toolbar changes the lines of both histograms only until the next change of a value.
     tradeoff: For **RGB** and the single channels it is a prediction, each count moved to the bin nearest to where its value goes. For **Lightness**, **Saturation** and **Colour** the whole image is stretched and counted again, which takes longer. It leaves the mask out.
-    scope: The window only. It is redrawn after every change of a value, of the type, of **Channel**, of the target and of **Plot resolution**.
+    scope: The task only. It is redrawn after every change of a value, of the type, of **Channel**, of the target and of **Plot resolution**.
     note: With **Pick from histogram point** on, a click here sets the symmetry point.
   - name: Lower histogram
     kind: readout
@@ -126,17 +121,17 @@ controls:
     effect: Shows the image as it is, with the three handles under it and a guide line that follows the pointer.
     enabled: Always shown. The toolbar's **Transfer curve** button draws or hides the white curve over this histogram only.
     tradeoff: The narrow peak of a linear image may need the toolbar's zoom or a finer **Plot resolution** to be seen. Neither changes the image.
-    scope: The window only, without the mask. While you set up a sequence, both histograms and the preview show one frame of it.
+    scope: The task only, without the mask. While you set up a sequence, both histograms and the preview show one frame of it.
     note: A click away from a handle shows the coordinates under the pointer. Dragging with the middle button pans, the wheel with ++ctrl++ held zooms and a right click restores the zoom, in both histograms. The curve is white in the light theme too.
   - name: Clipping Low and Clipping High
     kind: readout
     default: ""
     effect: Gives, in the corner of each histogram, the share of its samples at the black end and at the white end.
     range: On the lower histogram, and on an upper histogram counted again from a stretched image, these are the samples at or below 0 and at or above 1. On a predicted upper histogram they are the counts that land in its first and its last bin, a forecast that changes with **Plot resolution**.
-    enabled: With the toolbar's **Show clipping info** button on, as it is when the window opens.
+    enabled: With the toolbar's **Show clipping info** button on, as it is when the task opens.
     tradeoff: Each share is of all the channels the histogram holds, the stretched component included, whichever lines are drawn. Take it as orientation, and use Image Statistics after Apply for exact counts.
-    scope: The window only, without the mask.
-    persistence: The button keeps its state through **Reset**, until the window closes.
+    scope: The task only, without the mask.
+    persistence: The button keeps its state through **Reset**, until the task closes.
   - name: LP, SP and HP handles
     kind: slider
     default: At 0, 0 and 1
@@ -144,9 +139,9 @@ controls:
     effect: Dragging a handle left or right moves its value, and the preview follows as you drag.
     range: The outer handles stop at the middle one. The middle handle pushes an outer handle along when it reaches it.
     enabled: With **Linear Stretch** the outer handles are **Black point (BP)** and **White point (WP)**, and the middle handle, placed halfway between them, changes nothing. With **Image Inversion** and **STF Transformation** the handles move values those types do not use.
-    tradeoff: Where handles lie on top of each other, as LP and SP do when the window opens, the middle one is picked up first. Type an exact value in its box instead. With **Linear Stretch** an outer handle cannot pass the middle one, so type that point in its box.
+    tradeoff: Where handles lie on top of each other, as LP and SP do when the task opens, the middle one is picked up first. Type an exact value in its box instead. With **Linear Stretch** an outer handle cannot pass the middle one, so type that point in its box.
     scope: The same values as the boxes of the same names, on what **Channel** selects.
-    persistence: Until **Reset**, **Apply** or the window closes.
+    persistence: Until **Reset**, **Apply** or the task closes.
     note: Dragging the middle handle turns off an SP picker.
 ```
 
@@ -161,7 +156,7 @@ controls:
     enabled: A grayscale image shows a disabled **Grayscale** instead.
     tradeoff: One channel alone shifts the color balance. **Lightness**, **Saturation** and **Colour** convert every pixel, which takes longer and more memory, and colors at the edge of the range can round or clip.
     scope: The preview, Apply and the lines both histograms draw. The mask is blended afterwards.
-    persistence: Until the window closes. **Reset** and Apply return it to **RGB**.
+    persistence: Until the task closes. **Reset** and Apply return it to **RGB**.
     note: With **Linear Stretch** the choices **Lightness**, **Saturation** and **Colour** stretch the three channels, each on its own, as **RGB** does. With **STF Transformation** and **Linked STF** off, they stretch their component with the curve derived from the red channel.
   - name: Colour clip
     kind: combo
@@ -171,7 +166,7 @@ controls:
     enabled: Shown only with **Channel** at **Colour**.
     tradeoff: With **Clip** the ratios between the colors change in bright pixels. **Rescale** keeps them and brightens those pixels less.
     scope: The preview and Apply.
-    persistence: Until the window closes. **Reset** and Apply return it to **Clip**. The history does not record it.
+    persistence: Until the task closes. **Reset** and Apply return it to **Clip**. The history does not record it.
   - name: Luminance coeffs
     kind: combo
     default: Default
@@ -180,7 +175,7 @@ controls:
     enabled: Shown only with **Channel** at **Colour**.
     tradeoff: With **Image** no weights are read from the image or from a color profile, so it gives what **Default** gives.
     scope: The preview, Apply and the luminance both histograms show.
-    persistence: Until the window closes. **Reset** and Apply return it to **Default**. The history does not record it.
+    persistence: Until the task closes. **Reset** and Apply return it to **Default**. The history does not record it.
   - name: R/G/B
     object: lumCoeffRValue
     kind: spinbox
@@ -191,7 +186,7 @@ controls:
     enabled: Shown only with **Channel** at **Colour** and **Luminance coeffs** at **Manual**.
     tradeoff: Uneven weights change which colors drive the common factor, and so which pixels reach 1 first.
     scope: The luminance of **Colour** only, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and Apply return it to its default. The history does not record it.
+    persistence: Until the task closes. **Reset** and Apply return it to its default. The history does not record it.
   - name: R/G/B
     object: lumCoeffGValue
     kind: spinbox
@@ -211,10 +206,10 @@ controls:
     default: Generalized Hyperbolic
     options: [Generalized Hyperbolic, Histogram Transformation, Arcsinh, Linear Stretch, Image Inversion, STF Transformation]
     effect: Chooses the curve. **Generalized Hyperbolic** is the stretch for a linear master, shaped by all five values. **Histogram Transformation** puts a midtones curve around the symmetry point, and **Arcsinh** an inverse hyperbolic sine. **Linear Stretch** rescales between a black and a white point. **Image Inversion** makes the negative. **STF Transformation** applies a curve derived from the image's statistics.
-    enabled: Always. It decides which controls the window shows below it. The stretch factor, the symmetry point, the two protection points and the SP pickers show with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**. **Local intensity (b)** shows with **Generalized Hyperbolic** only, the black and the white point with **Linear Stretch**, **Linked STF** with **STF Transformation**, and none of them with **Image Inversion**.
-    tradeoff: The types differ in where they put the contrast and in what they do to color. **Histogram Transformation** here is set by the stretch factor and the symmetry point, not by the three values of the Histogram Transformation window. **STF Transformation** measures the image, which takes longer, and adapts to each frame of a sequence.
+    enabled: Always. It decides which controls the task shows below it. The stretch factor, the symmetry point, the two protection points and the SP pickers show with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**. **Local intensity (b)** shows with **Generalized Hyperbolic** only, the black and the white point with **Linear Stretch**, **Linked STF** with **STF Transformation**, and none of them with **Image Inversion**.
+    tradeoff: The types differ in where they put the contrast and in what they do to color. **Histogram Transformation** here is set by the stretch factor and the symmetry point, not by the three values of the Histogram Transformation task. **STF Transformation** measures the image, which takes longer, and adapts to each frame of a sequence.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and Apply return it to **Generalized Hyperbolic**.
+    persistence: Until the task closes. **Reset** and Apply return it to **Generalized Hyperbolic**.
     note: Changing it turns off an SP picker. The values of the controls it hides are kept. Every type records the result as nonlinear.
   - name: Invert
     kind: check
@@ -223,7 +218,7 @@ controls:
     enabled: With **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**. Any other type clears and disables it.
     tradeoff: It does not give the earlier image back exactly, because clipping at 0 and 1, rounding to the pixel type and color conversion are not undone. The result is still recorded as nonlinear.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and Apply clear it. The history names the type with `(Inverse)` after it.
+    persistence: Until the task closes. **Reset** and Apply clear it. The history names the type with `(Inverse)` after it.
     note: It is not **Image Inversion**, which makes the negative of the image.
   - name: Linked STF
     kind: check
@@ -232,7 +227,7 @@ controls:
     enabled: Shown only with **STF Transformation**. A grayscale image has one curve either way.
     tradeoff: Off brings the channels' backgrounds together, which changes the ratios between the colors. On keeps the color balance and leaves the backgrounds apart.
     scope: The preview and Apply. A **Preview area** is stretched with the statistics of the whole image, so it shows what Apply writes there. On a sequence, each frame gets the curve of its own statistics.
-    persistence: Until the window closes. **Reset** and Apply clear it. The history does not record it.
+    persistence: Until the task closes. **Reset** and Apply clear it. The history does not record it.
     note: The derived values are shown nowhere. Both histograms draw the curve, for the channel in **Channel** when that is **Green** or **Blue** and for red otherwise.
   - name: Stretch factor(In(D+1))
     kind: spinbox
@@ -243,7 +238,7 @@ controls:
     enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**.
     tradeoff: Too low, the image stays close to what it was. Too high, the bright tones crowd against white, and noise and the steps between tones show.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
   - name: Local intensity (b)
     kind: spinbox
     default: "0.0000"
@@ -253,7 +248,7 @@ controls:
     enabled: Shown only with **Generalized Hyperbolic**.
     tradeoff: Too low, the contrast stays spread over a wide range. Too high, it gathers in a narrow band at the symmetry point, and the passage out of that band looks abrupt although the curve has no break.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
   - name: Symmetry point (SP)
     kind: spinbox
     default: "0.0000"
@@ -263,7 +258,7 @@ controls:
     enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**.
     tradeoff: Placed in the background, it stretches the noise most. Placed far above the faint signal, it compresses the tones you want to show.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
     note: Typing a value, or moving its slider or the middle handle, turns off an SP picker.
   - name: Protect shadows (LP)
     kind: spinbox
@@ -274,7 +269,7 @@ controls:
     enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**.
     tradeoff: The higher it is, the more of the output range goes to the tones below the symmetry point, and the less is left for the signal above it.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
     note: The reference page has a table of checkpoints for a curve with both protection points set.
   - name: Protect highlights (HP)
     kind: spinbox
@@ -285,7 +280,7 @@ controls:
     enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**.
     tradeoff: The lower it is, the more of the output range goes to the bright tones, and the less is left for the faint signal.
     scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
   - name: Black point (BP)
     kind: spinbox
     default: "0.0000"
@@ -295,7 +290,7 @@ controls:
     enabled: Shown only with **Linear Stretch**. The left handle follows it.
     tradeoff: What it sends to black is lost.
     scope: The preview and Apply, on the single channel **Channel** names or else on all three channels.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
   - name: White point (WP)
     kind: spinbox
     default: "1.0000"
@@ -305,17 +300,17 @@ controls:
     enabled: Shown only with **Linear Stretch**. The right handle follows it.
     tradeoff: What it sends to white, star cores first, is lost.
     scope: The preview and Apply, on the single channel **Channel** names or else on all three channels.
-    persistence: Until the window closes. **Reset** and Apply return it to its default.
+    persistence: Until the task closes. **Reset** and Apply return it to its default.
   - name: Pick from image point
     kind: button
     default: "Off"
     effect: Sets the symmetry point from a pixel you click. The value is the mean of the pixel's channels, whatever **Channel** says.
     range: The first of the three **SP picker** buttons. Only one of the three is on at a time.
-    enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**. Click in the preview, or in the image's own view when **Preview** is off.
+    enabled: Shown with **Generalized Hyperbolic**, **Histogram Transformation** and **Arcsinh**. Click in the canvas, or in the image's own view when **Preview** is off.
     tradeoff: One pixel may be a star, a hot pixel or noise. Every further click sets the symmetry point again while the button is on.
     scope: The value is read from the image itself, not from the stretched preview, and without the mask.
     persistence: It stays on after a click. Pressing it again, another picker, a value typed in **Symmetry point (SP)**, a drag of the middle handle, a change of **Transformation type** or **Reset** turns it off.
-    note: While it is on, the window shows `** PICK VALUE FROM IMAGE **` under the buttons, and the pointer shows its coordinates.
+    note: While it is on, the task shows `** PICK VALUE FROM IMAGE **` under the buttons, and the pointer shows its coordinates.
   - name: Pick from image area
     kind: button
     default: "Off"
@@ -325,7 +320,7 @@ controls:
     tradeoff: An area is steadier than one pixel, but it may mix background and nebula. Every rectangle you draw or move sets the symmetry point again while the button is on.
     scope: The value is read from the image itself, without the mask.
     persistence: It stays on after a rectangle, and is turned off as the first picker is.
-    note: While it is on, the window shows `** PICK VALUE FROM IMAGE AREA **` under the buttons.
+    note: While it is on, the task shows `** PICK VALUE FROM IMAGE AREA **` under the buttons.
   - name: Pick from histogram point
     kind: button
     default: "Off"
@@ -335,60 +330,61 @@ controls:
     tradeoff: The value is as fine as the histogram is wide on screen. Zoom the histogram for a finer one, or type the value. Every click sets the symmetry point again while the button is on.
     scope: The upper histogram only. A click there shows no coordinates while the button is on.
     persistence: It stays on after a click, and is turned off as the first picker is.
-    note: While it is on, the window shows `** PICK VALUE FROM HISTOGRAM **` under the buttons.
+    note: While it is on, the task shows `** PICK VALUE FROM HISTOGRAM **` under the buttons.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces. The histograms, the channels, the pickers and the preview follow it.
     tradeoff: A larger image or a sequence takes more time, memory and disk.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes it. The histograms keep working.
+    effect: Shows the stretched image in the canvas, with the mask blended in. Off removes it. The histograms keep working.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
     tradeoff: Each change stretches the whole image again, and a color choice of **Channel** adds conversions to it. On a large image, turn it off while you adjust and on again for a check.
-    scope: The window only. The image is not changed, and a newer change replaces a preview still being computed.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. The image is not changed, and a newer change replaces a preview still being computed.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
     effect: Returns every value, **Channel**, **Transformation type**, **Invert**, **Linked STF**, **Colour clip**, **Luminance coeffs** and the three weights to their defaults, turns off an SP picker and restores the zoom of both histograms.
     range: It leaves the toolbar's choices, the target and **Preview** as they are.
-    scope: The window only. The image is not changed, and Apply stays enabled.
+    scope: The task only. The image is not changed, and Apply stays enabled.
   - name: Apply
     kind: button
     default: ""
     effect: Stretches the image, or every frame of the sequence, with the type and the values shown, and then returns the controls to their defaults.
-    enabled: From the moment the window opens, with every value at its default too. An Apply at the defaults only cuts samples outside 0 to 1, and still records the image as nonlinear.
+    enabled: From the moment the task opens, with every value at its default too. An Apply at the defaults only cuts samples outside 0 to 1, and still records the image as nonlinear.
     range: While another process is working on the target, it only shows "Another process is executing for this image, please cancel that job first before running this process".
     scope: The whole image or sequence, on what **Channel** selects, with the mask blended afterwards.
     persistence: The image and its history keep the result. The history records the type, **Channel**, the stretch factor, the local intensity, the symmetry point, both protection points, and the black and the white point. It does not record the mask, **Colour clip**, the luminance weights, **Linked STF**, the curve an STF derived or the toolbar's choices. The image no longer states a transfer function.
-    note: Closing the window instead discards the values. Nothing of the window is saved between sessions, and it has no presets.
+    note: Closing the task instead discards the values. Nothing of the task is saved between sessions, and it has no presets.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done and of the frame being stretched, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: The stretched sequence is written to a new file, whose name starts with `SEQ_SWAP`, in the session's temporary folder, which needs the disk space of a second copy. The view shows it in place of the original only when every frame succeeded, and the original file is not changed.
     scope: One set of values, taken when Apply starts, for every frame. **STF Transformation** measures each frame and derives its curve again.
     note: A sequence whose view debayers its mosaic frames is stretched as RGB frames, and the sequence written is RGB. Turn that option of the view off first to keep the frames as mosaics.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The request is noticed between frames and at intervals inside one, so the frame being read or written may finish first.
-    note: Closing the Generalized Hyperbolic Transformation window while a sequence is being stretched asks the run to stop too. The window goes out of sight and closes when the run has ended.
+    note: The task's **Close** is disabled while the run lasts, and the task does not close until the run has ended.
 ```
 
 ## How it works
 
-1. The window counts a histogram of each channel, and of the component a color choice of **Channel** stretches, at
+1. The task counts a histogram of each channel, and of the component a color choice of **Channel** stretches, at
    the toolbar's **Plot resolution**.
 2. The type and its values define one curve from 0 to 1. **STF Transformation** first measures the median and the
    deviation of every valid sample of the whole image, once for each state of the image.
@@ -478,8 +474,8 @@ channels by one factor \(k\). **Rescale** uses the second factor:
 - A 64-bit floating-point or 32-bit integer image is computed in double precision, every other type in single
   precision. In the channels left alone, floating-point samples outside 0 to 1 are kept. After **Lightness**,
   **Saturation** or **Colour**, all three channels lie between 0 and 1.
-- The window is made for images of one or three channels, and opens on others without a warning.
-- A single image has no progress window and cannot be cancelled once Apply starts. A run that fails changes nothing.
+- The task is made for images of one or three channels, and opens on others without a warning.
+- A run that fails, or that **Cancel** stops, changes nothing.
 
 ### Worked example
 
@@ -514,7 +510,7 @@ caption: >-
 
 ## When it goes wrong
 
-!!! warning "Apply cannot be taken back from this window"
+!!! warning "Apply cannot be taken back from this task"
     Every type replaces the image and records it as nonlinear, **Linear Stretch**, **Image Inversion** and a stretch
     factor of 0 included. **Invert** does not give the linear master back. Use the image's history to return.
 
@@ -526,7 +522,7 @@ The preview does not change when you move a value
 :   **Cause.** **Stretch factor(In(D+1))** is at 0, where the three curves it drives change nothing.
 :   **Fix.** Raise the stretch factor first.
 
-The symmetry point changes when you click in the preview or in the upper histogram
+The symmetry point changes when you click in the canvas or in the upper histogram
 :   **Cause.** An **SP picker** button is still on.
 :   **Fix.** Press the button again to turn it off.
 
@@ -556,12 +552,11 @@ The frames of a sequence come out unevenly bright
 - [Generalized Hyperbolic Transformation Reference](gh-transformation-reference.md), for the inverse curves, the
   derivation of the STF curve, checkpoints of a curve and the history text.
 - [Histogram Transformation](histogram-transformation.md) and [ArcSinh Stretch](arcsinh-stretch.md), two other
-  stretches for a linear master, each in its own window.
+  stretches for a linear master.
 - [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   return to the linear master and for exact counts after Apply.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.
 
 ## Credits
 

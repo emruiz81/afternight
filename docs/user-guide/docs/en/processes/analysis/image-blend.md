@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Image Blend window is open on it yet, and no window that needs the image
-    for itself is open on it. OK is enabled before a blend image is chosen.
+    An image or a sequence view is active, no Image Blend task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks. OK is enabled before a blend image
+    is chosen.
   inputs: >-
     The base, one grayscale or RGB image or sequence, a blend image of exactly its width and height, and an optional
     mask on the base's view.
@@ -41,30 +42,24 @@ image can be blurred, reduced to its detail or colored, and **Opacity** mixes th
 ```figure
 image: ../../assets/images/processes/analysis/image-blend.webp
 alt: >-
-  The Image Blend window. On the left, a histogram over its toolbar, then the Base image group with its Image box and
-  three Stretch rows, the Blend image group with its Image box, three Stretch rows with Black Point and Midtones at
-  0.0200, Filter Type at High Pass with the Radius row under it, and Opacity, then Blend mode at Overlay with the
-  Preserve lightness check box, and Preview. On the right, the preview shows the stretched red nebula with its edges
-  and stars drawn sharply. Reset, OK and Close run along the bottom.
+  The Image Blend task. Its header reads Image Blend on the stretched master. The canvas at the left shows the
+  preview, the stretched red nebula with its edges and stars drawn sharply, the word PREVIEW in its corner and the
+  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
+  Preview, Preview area and Processed toggles, the base's Image box, a histogram over its toolbar and the three
+  Stretch rows of the base. The blend image's group follows in the body, which scrolls, and Reset, Close and OK stand
+  in the footer.
 caption: >-
   Image Blend on the stretched Carina master, with the linear master stretched alike as the blend image, filtered by
-  High Pass at a radius of 10 and laid over the base in Overlay.
-pins:
-  - {n: 2, x: 2.0, y: 54.1}
-  - {n: 3, x: 2.0, y: 60.0}
-  - {n: 4, x: 2.0, y: 72.5}
-  - {n: 5, x: 2.0, y: 85.8}
-  - {n: 6, x: 2.0, y: 79.2}
-  - {n: 7, x: 88.0, y: 22.0}
-  - {n: 8, x: 80.4, y: 97.0}
+  High Pass at a radius of 10 and laid over the base in Overlay: the blend in the canvas, the controls in the column.
+owed: true
 ```
 
 ## Before you start
 
 - **OK** replaces the base and records it as nonlinear, with any mode and any **Opacity**. Duplicate it first, or use
   its history to return.
-- Register and crop the two images alike. The blend image is offered by its width and height alone: nothing aligns,
-  resamples or normalizes it, or checks its world coordinates, channels, exposure or background.
+- Register and crop the two images alike: the blend image is offered by its width and height alone, and nothing
+  aligns or normalizes it.
 - Bring the two to the same stage. A [linear image](../../reference/glossary.md#linear-image) blended with a
   stretched one mixes two scales: the **Stretch** groups can [stretch](../../reference/glossary.md#stretch) either
   image for the blend.
@@ -76,28 +71,28 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image you want to change the
-   [active image](../../reference/glossary.md#active-image) and choose **Process > Utilities > Image Blend**. The
-   **Image** box of **Base image** names it, the **Image** box of **Blend image** reads `<--NO IMAGE-->`, and the
-   controls under it are dimmed.
+1. **Open the task.** Make the base the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Utilities > Image Blend**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows the preview, the column at the right holds the
+   controls. The base's **Image** box, at the column's head, names it, the blend image's reads `<--NO IMAGE-->`, and
+   the controls under it are dimmed.
 2. **Choose the blend image.** Pick it in the **Image** box of **Blend image**. The dimmed controls enable, and the
-   preview shows the blend image, because **Blend mode** starts at **Replace**.
+   canvas shows the blend image, because **Blend mode** starts at **Replace**.
 3. **Stretch an image if it needs it.** Leave both **Stretch** groups at their defaults unless one image must be
    brought to the other's levels.
 4. **Filter the blend image.** Choose **High Pass** or **Gaussian Blur** in **Filter Type** and set **Radius**, or
    **Hue** or **Color** and set **Saturation** and **Hue**. Leave **None** to blend the image as it is.
-5. **Choose the mode.** Pick it in **Blend mode**. The preview shows the blend.
+5. **Choose the mode.** Pick it in **Blend mode**. The canvas shows the blend.
 6. **Set the strength.** Lower **Opacity** to mix the result back toward the base.
-7. **Check at 100 %.** Zoom the preview into stars, edges and background, and hold ++space++ over it to see the BASE
+7. **Check at 100 %.** Zoom the canvas into stars, edges and background, and hold ++space++ over it to see the BASE
    IMAGE. The histogram counts the result.
-8. **Choose OK.** The base is replaced, its history lists **Image Blend** with the mode and the blend image's name,
-   and the controls return to their defaults. The blend image stays chosen.
+8. **Choose OK.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The base is replaced, its history
+   lists **Image Blend** with the mode and the blend image's name, and the controls return to their defaults.
 
 ## Controls
 
-The histogram, its toolbar, the preview's toolbar and the progress window of a sequence are those of every process
-window: see [Process Windows](../../interface/process-windows.md). The preview is labelled PREVIEW, and BASE IMAGE
-while you switch to the original.
+The histogram and its toolbar, the canvas's toolbar and the run over a sequence are those of every task: see
+[Tasks](../../interface/tasks.md). The canvas reads PREVIEW, and BASE IMAGE while it shows the original.
 
 ```controls
 window: Image Blend
@@ -106,11 +101,11 @@ controls:
     object: targetImageSelector
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the base, the image OK replaces. Its mask blends the result, and its pixel grid, plate solution and history are the result's.
-    enabled: It is the only control of the window disabled while a run works.
-    tradeoff: The wrong base is replaced. Check the window's title before OK.
-    persistence: Until the window closes. Choosing another fills the blend image's list again and returns it to `<--NO IMAGE-->`. **Reset** leaves it.
+    enabled: Disabled while a run works, as every control of the column is.
+    tradeoff: The wrong base is replaced. Check the task header before OK.
+    persistence: Until the task closes. Choosing another fills the blend image's list again and returns it to `<--NO IMAGE-->`. **Reset** leaves it.
   - name: Black Point
     object: srcImageBlackPointValue
     kind: spinbox
@@ -120,7 +115,7 @@ controls:
     range: A black point above **Highlights** is refused when the preview or OK runs. Equal to them, the stretch is a black and white threshold.
     tradeoff: What it sends to black is lost to the mode. **Opacity** and the mask still mix with the base as it was.
     scope: Every channel of the base, before the mode. **Opacity** and the mask mix with the base unstretched.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 0.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 0.
     note: The slider beside the box moves the same value. The three values at their defaults leave the base as it is, and no stretch is run.
   - name: Highlights
     object: srcImageHighlightsValue
@@ -130,7 +125,7 @@ controls:
     effect: Sets the white point of the base's stretch. Lower sends more of the high samples to white and spreads the rest.
     tradeoff: Lowering it flattens star cores and bright structure in what the mode receives.
     scope: Every channel of the base, before the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 1.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 1.
   - name: Midtones
     object: srcImageMidtonesValue
     kind: spinbox
@@ -139,7 +134,7 @@ controls:
     effect: Sets the balance of the base's stretch. Below 0.5 it brightens what lies between the two points, above 0.5 it darkens it.
     tradeoff: Near either end of its range almost everything collapses to black or white.
     scope: Every channel of the base, before the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 0.5.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 0.5.
   - name: Image
     object: secondImageSelector
     kind: combo
@@ -150,7 +145,7 @@ controls:
     enabled: The list follows the views as they open, close, change or are renamed. When the image chosen closes, the box returns to `<--NO IMAGE-->`.
     tradeoff: Nothing checks the registration, the channels, the world coordinates, the exposure or the background. A pair off by a pixel gives doubled edges.
     scope: The image its view shows when the preview, a snapshot or OK is asked for, which is the current frame of a sequence, for every frame of a base sequence too. A preview area crops it to the same area as the base. Its own mask plays no part.
-    persistence: Until the window closes or the base changes. **Reset** and OK leave it.
+    persistence: Until the task closes or the base changes. **Reset** and OK leave it.
   - name: Black Point
     object: imageBlendBlackPointValue
     kind: spinbox
@@ -160,7 +155,7 @@ controls:
     range: A black point above **Highlights** is refused when the preview or OK runs.
     enabled: With a blend image.
     scope: Every channel of the blend image, before its filter and the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 0.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 0.
   - name: Highlights
     object: imageBlendHighlightsValue
     kind: spinbox
@@ -169,7 +164,7 @@ controls:
     effect: Sets the white point of the blend image's stretch. Lower sends more of its high samples to white.
     enabled: With a blend image.
     scope: Every channel of the blend image, before its filter and the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 1.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 1.
   - name: Midtones
     object: imageBlendMidtonesValue
     kind: spinbox
@@ -179,7 +174,7 @@ controls:
     enabled: With a blend image.
     tradeoff: A strong stretch redistributes the blend image's tones before the mode sees them.
     scope: Every channel of the blend image, before its filter and the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 0.5.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 0.5.
   - name: Filter Type
     kind: combo
     default: None
@@ -188,7 +183,7 @@ controls:
     enabled: With a blend image. **Gaussian Blur** and **High Pass** show **Radius**. **Hue** and **Color** show **Saturation** and **Hue**.
     tradeoff: A filter adds a full-size working copy and its own work to every preview. **Hue** and **Color** make the result color.
     scope: The blend image only, before the mode.
-    persistence: Until the window closes. **Reset** and a finished OK return it to **None**.
+    persistence: Until the task closes. **Reset** and a finished OK return it to **None**.
   - name: Radius
     kind: spinbox
     default: "10.000"
@@ -197,7 +192,7 @@ controls:
     enabled: Shown for **Gaussian Blur** and **High Pass**.
     tradeoff: Its work grows with the radius, and with its square where the blur runs in passes. Near the edges a large radius reads the image mirrored.
     scope: The blend image only.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 10.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 10.
     note: Above about 32 pixels the blur runs as one kernel up to 4,096 pixels wide, on a blend image more than twice that kernel's radius wide and high, and otherwise as several exact passes whose variances add up to it.
   - name: Saturation
     kind: spinbox
@@ -206,7 +201,7 @@ controls:
     effect: Sets how strong the color of **Hue** and **Color** is. 0 leaves the blend image gray, 1 gives the full color.
     enabled: Shown for **Hue** and **Color**.
     scope: The blend image only.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 1.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 1.
   - name: Hue
     kind: spinbox
     default: "0.000"
@@ -214,16 +209,16 @@ controls:
     effect: Sets the color of **Hue** and **Color**, in degrees around the color wheel. 0 and 360 are red, 120 green and 240 blue.
     enabled: Shown for **Hue** and **Color**.
     scope: The blend image only.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 0.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 0.
   - name: Opacity
     kind: spinbox
     default: "1.0000"
     widget: {min: 0, max: 1, step: 0.05, decimals: 4}
     effect: Mixes the result with the base. 1 takes the result whole, 0 gives the base back, and between them the two are mixed in proportion.
     enabled: With a blend image.
-    tradeoff: Lower softens everything the window does, the stretches and the filter included.
+    tradeoff: Lower softens everything the task does, the stretches and the filter included.
     scope: After the mode and **Preserve lightness**, with the base as it was before its stretch. The mask blends after it.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 1.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 1.
   - name: Blend mode
     kind: combo
     default: Replace
@@ -233,7 +228,7 @@ controls:
     enabled: With a blend image.
     tradeoff: The contrast modes clip readily. **Darker Color**, **Lighter Color** and the four component modes convert every pixel to another color model and cost more. **Hue**, **Saturation**, **Color** and **Lightness** make the result color.
     scope: Every channel, before **Opacity** and the mask.
-    persistence: Until the window closes. **Reset** and a finished OK return it to **Replace**.
+    persistence: Until the task closes. **Reset** and a finished OK return it to **Replace**.
     note: Every formula is on the reference page.
   - name: Preserve lightness
     kind: check
@@ -242,22 +237,23 @@ controls:
     enabled: With a blend image, when the base or the blend image is color, and with a mode other than **Color** and **Lightness**, which settle the lightness themselves.
     tradeoff: Two color conversions of the whole image for each preview, so while it is ticked a dragged slider updates the preview only when you let go. Colors outside the range are held at full scale.
     scope: A color result only. **Opacity** and the mask act afterwards, and can move the lightness again.
-    persistence: Until the window closes. **Reset** and a finished OK return it to off.
+    persistence: Until the task closes. **Reset** and a finished OK return it to off.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the blended image beside the controls, with the mask blended in. Off removes the pane.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    effect: Shows the blended image in the canvas, with the mask blended in. Off stops the preview, and the canvas says "The preview is off".
+    enabled: It stands in the column's toggles row, with **Preview area** and **Processed**.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Blends the base, or every frame of a base sequence, with the blend image as the window stands, replaces it and returns the controls to their defaults.
+    effect: Blends the base, or every frame of a base sequence, with the blend image as the task stands, replaces it and returns the controls to their defaults.
     enabled: Always, also before a blend image is chosen. Then it applies the base's stretch alone and records the result as nonlinear, or leaves the samples as they were with the stretch at its defaults.
     scope: The whole base, through the mask on its view. Each frame of a sequence is stretched by the base's values and blended with the one blend image.
     persistence: >-
       The history step is **Image Blend**, read as `<mode> with <blend image>`, such as `Overlay with M42 stretched`.
       Without a blend image it reads like `Base stretch: shadows 0.000, midtones 0.250, highlights 1.000`.
-    note: While the run works only the base's **Image** is disabled. A change made meanwhile does not reach the run. **Close** then hides the window, and a run on a single image still finishes.
+    note: While the run works the column's controls, **Reset** and **Close** are disabled, and **Cancel** takes the place of **OK**. A change made meanwhile does not reach the run.
   - name: Reset
     kind: button
     default: ""
@@ -371,14 +367,14 @@ become 1 and 0: the filament's edge is clipped to white and its dark side to bla
 
 The image you want is not in the blend image's list
 :   **Cause.** It is the base itself, or its width or height differs from the base's.
-:   **Fix.** Register, crop or resize it to the base's grid, or open the window on the other image.
+:   **Fix.** Register, crop or resize it to the base's grid, or open the task on the other image.
 
 The blend controls stay dimmed
 :   **Cause.** No blend image is chosen, or the one chosen was closed.
 :   **Fix.** Choose the blend image in the **Image** box of **Blend image**.
 
 The preview shows the blend image, not a blend
-:   **Cause.** **Blend mode** is **Replace**, as it is when the window opens and after every OK.
+:   **Cause.** **Blend mode** is **Replace**, as it is when the task opens and after every OK.
 :   **Fix.** Choose the mode you want.
 
 "a transfer's parameters must be finite, within the unit interval and ordered"
@@ -387,7 +383,7 @@ The preview shows the blend image, not a blend
 
 Preserve lightness is dimmed
 :   **Cause.** The mode is **Color** or **Lightness**, or both images are grayscale.
-:   **Fix.** None is needed: those modes settle the lightness themselves, and a grayscale pair has no color.
+:   **Fix.** Nothing to fix: those modes settle the lightness themselves.
 
 Black spots where the blend image is white, in Color Dodge
 :   **Cause.** **Color Dodge** gives 0 where the blend sample is exactly 1.
@@ -413,5 +409,4 @@ OK only stretched the base, or seemed to do nothing
   [Pixel Math](../pixel-math/pixel-math.md), to put the stars back after separate processing, and for a formula of
   your own.
 - [Masks](../../interface/masks.md), to make, attach and invert the mask the result is blended through.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.

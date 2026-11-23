@@ -3,15 +3,18 @@ kind: tutorial
 stages: [calibrate, register, stack]
 menu: Process > Preprocess > Image Integration Lite
 summary: >-
-  Calibrate, register and stack your first set of frames with Image Integration Lite.
+  Calibrate, register and stack your first set of frames with Image Integration Lite, a task opened from the
+  Integration place.
 needs: []
 ---
 # Quick Start
 
 You start with the frames of one night on one target: your [light frames](../reference/glossary.md#light-frame) and,
 when you have them, darks, flats and [bias frames](../reference/glossary.md#bias-frame). You end with one stacked,
-linear [master](../reference/glossary.md#master) open in AfterNight, and a report of what was done to get it. **Image Integration Lite** does the calibration, the registration and the stacking in one
-run, with settings chosen for a first result.
+linear [master](../reference/glossary.md#master) open in AfterNight, and a report of what was done to get it.
+**Image Integration Lite** does the calibration, the registration and the stacking in one run, with settings chosen
+for a first result. It opens as a [task](../reference/glossary.md#task): a page that fills the centre of the main
+window.
 
 ## What you need
 
@@ -20,7 +23,7 @@ run, with settings chosen for a first result.
 - [ ] A new, empty folder for the results, on a disk with room for several times the size of your lights
 - [ ] Folders that hold nothing but these frames, if you plan to add a whole folder
 
-Lights alone are enough to run. The result is then stacked but not calibrated, and the window says so.
+Lights alone are enough to run. The result is then stacked but not calibrated, and the task says so.
 
 ## Your camera
 
@@ -36,32 +39,37 @@ Lights alone are enough to run. The result is then stacked but not calibrated, a
 ```figure
 image: ../assets/images/getting-started/quick-start.png
 alt: >-
-  The Image Integration Lite window. A green banner at the top reads Ready. Under it, the Dataset card counts 18
-  light, 40 flat, 20 dark and 30 bias frames of the object NGC253. The Setup card holds the Output folder with its
-  Browse button and the options of the run. The Processing Settings card lists four collapsed lines: Calibration,
-  Registration, Normalization and Stacking. The Frames card has the Add as box, the Add Files, Add Folder, Change
-  Type and Clear All buttons, and a table of the files with their type, object, exposure and calibration. Run
-  Integration, Open Full Process and Close are at the bottom.
+  The Image Integration Lite task, a page that fills the centre of the main window under a header naming Image
+  Integration Lite. A green banner at the top of the page reads Ready. Under it, two columns. At the left, the Dataset
+  card counts 18 light, 40 flat, 20 dark and 30 bias frames of the object NGC253, and the Frames card below it has the
+  Add as box reading Auto-detect, the Add Files, Add Folder, Change Type and Clear All buttons, and a table of the files
+  with their type, object, exposure and calibration. At the right, the Setup card holds the Output folder with its
+  Browse button and the options of the run, and Processing Settings lists four closed lines: Calibration,
+  Registration, Normalization and Stacking. Open Full Process, Close and Run Integration are at the page's foot.
 caption: >-
   Image Integration Lite with a night on NGC 253 loaded and ready to run: a color camera's lights with their darks,
   flats and bias frames.
 pins:
-  - {n: 2, x: 10.2, y: 30.9}
-  - {n: 3, x: 43.6, y: 71.6}
-  - {n: 4, x: 97.0, y: 83.0}
-  - {n: 5, x: 16.4, y: 48.4}
-  - {n: 6, x: 8.2, y: 10.9}
-  - {n: 7, x: 69.0, y: 97.3}
+  - {n: 2, x: 60.5, y: 18.6}
+  - {n: 3, x: 21.2, y: 35.0}
+  - {n: 4, x: 2.4, y: 40.0}
+  - {n: 5, x: 60.5, y: 44.1}
+  - {n: 6, x: 1.6, y: 8.5}
+  - {n: 7, x: 89.5, y: 96.1}
+owed: true
 ```
 
 ### Open Image Integration Lite
 
-Choose **Process > Preprocess > Image Integration Lite**. The window needs no open image. The Dashboard's **Image
-Integration** card opens the full process, which is another window.
+Choose **Integration** in the [rail](../reference/glossary.md#rail), at the left of the main window, then **New quick
+integration** under **Image Integration Lite**. **Process > Preprocess > Image Integration Lite** does the same, and
+so does the [command palette](../interface/command-palette.md): press ++ctrl+k++ and type `lite`. The task needs no
+open image. Home's **Image integration** opens the full Image Integration instead, which is another task.
 
 !!! see "You should see"
-    A red banner: "No light frames available." On a first run it also says "Output directory is required." Later,
-    the window restores the last folder you used, even one that is gone, and its own size.
+    The task's page in the centre and its item in the rail, with a red banner: "No light frames available." On a
+    first run it also says "Output directory is required." Later, the task restores the last folder you used, even
+    one that is gone.
 
 ### Choose the output folder
 
@@ -126,8 +134,8 @@ everything else the run allocates.
 
 ### Read the banner
 
-The banner at the top says whether the run can start. Red is an error and must be resolved. Amber is a warning:
-hover over the banner to read each one, and decide whether you accept it. Without
+The banner at the top of the page says whether the run can start. Red is an error and must be resolved. Amber is a
+warning: hover over the banner to read each one, and decide whether you accept it. Without
 [calibration frames](../reference/glossary.md#calibration-frame) the amber
 banner reads "No calibration frames provided. Lights will be integrated without bias, dark, or flat calibration."
 
@@ -146,39 +154,42 @@ whether the frames are sharp.
 
 ### Run the integration
 
-Choose **Run Integration**. Keep the frames and the output folder where they are while it runs. Changes you make in
-the window after this point do not change the run.
+Choose **Run Integration**, or press ++ctrl+enter++. Keep the frames and the output folder where they are while it
+runs. The run's view takes the place of the task's lists until you close it, so a change cannot reach the run.
 
-**Cancel** in the progress window stops the run at the next point where it can stop. What was finished by then is
-kept and reported.
+You can leave the page while the run works: a ring turns around the task's item in the rail, and a message at the foot
+of the centre says when the run has ended. **Cancel** in the run's view stops the run at the next point where it can
+stop. What was finished by then is kept and reported.
 
 !!! see "You should see"
-    The banner changes to "Preparing integration...", the button is disabled and the **Image Integration -
-    Processing** window names each stage in turn. At the end a box titled **Complete** reads "Workflow completed
-    successfully." Choose **OK** and close the progress window.
+    The banner changes to "Preparing integration...", then the run's view names each stage in a list at its left,
+    with a bar and the file at work, and its log under them. At the end its line reads "Workflow Completed
+    Successfully".
 
 ??? wrong "If it goes wrong: the run stops with an error"
-    Keep the output folder and read the message. A warning that lists frames before the run starts names the ones
-    whose size or format does not fit: remove or correct them and run again. A "Registration Records" warning
-    means the folder holds records written by a newer AfterNight: use a new folder. A run that fails later ends
-    with a box titled **Failed** that reads "Workflow failed:" and the reason, and a cancelled one with "Workflow
-    was cancelled."
+    Keep the output folder and read the log in the run's view. A warning that lists frames before the run starts
+    names the ones whose size or format does not fit: remove or correct them and run again. A "Registration Records"
+    warning means the folder holds records written by a newer AfterNight: use a new folder. A run that fails later
+    ends with "Workflow Failed" and the reason in its log, and a cancelled one with "Workflow Cancelled".
 
 ### Look at the result
 
-With **Open results when complete** on, the master opens in the workspace. It is
+With **Open results when complete** on, the master opens in a view of its own in a
+[workspace](../reference/glossary.md#workspace), and the centre shows it. It is
 [linear](../reference/glossary.md#linear-image), so it looks nearly black: choose
-[**Autostretch**](../reference/glossary.md#autostretch) in the display mode box of its toolbar to see it. That changes the
-display only, not the image.
+[**Autostretch**](../reference/glossary.md#autostretch) in the floating toolbar near the foot of the view. That changes
+the display only, not the image.
 
-Zoom to 100 % and look at the stars and the background. Then open the report of the run, `workflow_report.html`
-under `history` in the output folder. Its header says how many lights the master combines, and **Needs attention**
-lists what the run could not do as asked: check that the frames, the calibration and the warnings are what you
-intended. [Image Integration Report](../processes/stacking-integration/integration-report.md) says how to read the
-rest.
+Zoom to 100 % and look at the stars and the background. Then go back to the task with its item in the rail, and
+choose **Open Report** in the run's view, or open `workflow_report.html` under `history` in the output folder. Its
+header says how many lights the master combines, and **Needs attention** lists what the run could not do as asked:
+check that the frames, the calibration and the warnings are what you intended.
+[Image Integration Report](../processes/stacking-integration/integration-report.md) says how to read the rest.
+**Close** in the run's view brings the task's lists back.
 
 !!! see "You should see"
-    The master open in its own view, named after its file, and the window's banner back at "Ready."
+    The master open in its own view, named after its file, and the [readout](../reference/glossary.md#readout) at
+    the right with its histogram and statistics.
 
 ??? wrong "If it goes wrong: the master is gray, or its colors are wrong"
     The registration makes a color image only from files that state their filter pattern. Files that state none are
@@ -200,17 +211,21 @@ disk space, and a later run in the same folder reuses or replaces what matches.
 ```figure
 image: ../assets/images/getting-started/quick-start-result.webp
 alt: >-
-  The AfterNight main window with one image open, in a tab named stacked_5544x3684_NGC253: a pale galaxy seen
-  almost edge-on, in the middle of a field of stars on a gray background. The display mode box in the view's toolbar
-  reads Autostretch.
+  The AfterNight main window with one image open in Workspace 1, in a tab named stacked_5544x3684_NGC253: a pale
+  galaxy seen almost edge-on, in the middle of a field of stars on a gray background. The floating toolbar near the
+  foot of the view shows Autostretch selected, and the readout at the right shows the master's histogram and
+  statistics. In the rail, under the places, the item of the Image Integration Lite task.
 caption: >-
   The stacked master of NGC 253 as the run opened it, shown with Autostretch. Its colors are those of the camera:
   color calibration comes later.
+owed: true
 ```
 
-Lite keeps its list of frames only while the window is open, and does one target at a time. It does not take video
-or sequence files, [masks](../reference/glossary.md#mask) or comets. For those, and to assign calibration by hand or save the work as a project,
-choose **Open Full Process**: it opens Image Integration with the frames and the settings you have here.
+Lite keeps its list of frames only while the task is open, and does one target at a time. It does not take video
+or sequence files, [masks](../reference/glossary.md#mask) or comets. For those, and to assign calibration by hand or
+keep the frames for another night, choose **Open Full Process**: it opens Image Integration with the frames and the
+settings you have here. The **Integration** place lists the full process's sessions as
+[integration jobs](../reference/glossary.md#integration-job), with how each run ended.
 
 ## Next
 
@@ -218,8 +233,9 @@ choose **Open Full Process**: it opens Image Integration with the frames and the
 - [Histogram Transformation](../processes/stretching/histogram-transformation.md)
   [stretches](../reference/glossary.md#stretch) the master into a picture.
 - [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md) describes every control of
-  the window you just used.
+  the task you just used.
 - [Image Integration](../processes/stacking-integration/image-integration.md) is the full process, for several
-  targets, projects and calibration by hand.
+  targets, several nights and calibration by hand.
+- [Integration Hub](../interface/integration-hub.md) gathers the ways to stack and the integration jobs.
 - [Broadband Imaging](../workflows/broadband-imaging.md) goes from the frames to the finished picture.
 - [Supported Formats](supported-formats.md) says how to save and export the result.

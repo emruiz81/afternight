@@ -1,0 +1,44 @@
+{
+  "group": "Workflows",
+  "captures": [
+    {
+      "picture": "assets/images/workflows/broadband-imaging.webp",
+      "page": "workflows/broadband-imaging.md",
+      "data": ["ngc253", "work"],
+      "shows": "The Image Integration task on its Lights page with the NGC 253 set added, in the Hierarchical display: one group of lights for the object NGC253 and one for Target",
+      "options": ["-Capture", "broadband-imaging=Process > Preprocess > Image Integration", "-Set", "actionAddFolder?{ngc253}\\biases;integrationStageList@50,19;actionAddFolder?{ngc253}\\darks;integrationStageList@50,31;actionAddFolder?{ngc253}\\flats;integrationStageList@50,44;actionAddFolder?{ngc253}\\lights;outputDirectoryEdit={work};Hierarchical=On"]
+    },
+    {
+      "picture": "assets/images/workflows/broadband-imaging-result.webp",
+      "page": "workflows/broadband-imaging.md",
+      "data": ["work"],
+      "note": "The master the Image Integration recipe of the Stacking and Integration group writes into the work folder. The optional star reduction is left out.",
+      "shows": "NGC 253 after the page's steps - crop, gradient removal, background neutralization, color calibration, noise reduction, the stretch and the saturation - in the Linear display mode",
+      "options": ["-Open", "{work}\\stacked_5544x3684_NGC253.fit", "-Prepare", "Process > Geometry > Crop|targetPosX=128;targetPosY=128;targetWidth=5288;targetHeight=3428||Process > Background Modelization > Auto Gradient Removal|previewDisplaySelector=Gradient model||Process > Color Calibration > Background Neutralization|backgroundUpperLimitValue=0.1||Process > Color Calibration > Color Calibration|whiteRoiGroupBox=On;whiteRoiLeftValue=2000;whiteRoiTopValue=1300;whiteRoiWidthValue=1300;whiteRoiHeightValue=900;backgroundRoiGroupBox=On;backgroundRoiLeftValue=400;backgroundRoiTopValue=400;backgroundRoiWidthValue=800;backgroundRoiHeightValue=800||Process > Noise Reduction > Wavelet Denoise Filter|thresholdValue=1.4||Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Intensity Transformations > Color Saturation|amountValue=0.5", "-MainWindow", "broadband-imaging-result"]
+    },
+    {
+      "picture": "assets/images/workflows/mosaic-workflow.webp",
+      "page": "workflows/mosaic-workflow.md",
+      "data": ["ngc253", "gaia"],
+      "note": "A dialog opened by a button of a task's page; the lights of one field stand in for the panels, since the dialog shows only the group's name. The gaia storage root has a plate solver set up, which ticks and greys Auto-solve.",
+      "shows": "The Registration Settings dialog of an Image Integration group of lights with the Mosaic canvas chosen and a plate solver set up",
+      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-View", "Process > Preprocess > Image Integration", "-Capture", "mosaic-workflow=@Registration Settings", "-Set", "alignModeMosaic=On"]
+    },
+    {
+      "picture": "assets/images/workflows/narrowband-imaging-result.webp",
+      "page": "workflows/narrowband-imaging.md",
+      "data": ["work"],
+      "note": "The three masters the Image Integration Lite recipe of the Stacking and Integration group writes into the work folder from the Eagle set.",
+      "shows": "The Eagle Nebula in SHO after the page's steps - gradient removal of each master, the palette, SCNR, a curve and the saturation - in the Linear display mode",
+      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit,{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Sii_M_16.fit", "-Prepare", "Process > Background Modelization > Auto Gradient Removal|targetImageSelector=stacked_3008x3004_Ha_M_16;simplifiedModel=On||Process > Background Modelization > Auto Gradient Removal|targetImageSelector=stacked_3008x3004_Oiii_M_16;simplifiedModel=On||Process > Background Modelization > Auto Gradient Removal|targetImageSelector=stacked_3008x3004_Sii_M_16;simplifiedModel=On||Process > Color Spaces > Narrowband Palette Composer|haSourceSelector=stacked_3008x3004_Ha_M_16;oiiiSourceSelector=stacked_3008x3004_Oiii_M_16;siiSourceSelector=stacked_3008x3004_Sii_M_16||Process > Color Calibration > SCNR Filter|targetImageSelector=stacked_3008x3004_Oiii_M_16 - SHO Narrowband Palette||Process > Intensity Transformations > Curves Transformation|targetImageSelector=stacked_3008x3004_Oiii_M_16 - SHO Narrowband Palette;curvesEditorScrollArea@25,75>25,85||Process > Intensity Transformations > Color Saturation|targetImageSelector=stacked_3008x3004_Oiii_M_16 - SHO Narrowband Palette;amountValue=0.5", "-HoldSeconds", "30", "-MainWindow", "narrowband-imaging-result"]
+    },
+    {
+      "picture": "assets/images/workflows/planetary-imaging-result.webp",
+      "page": "workflows/planetary-imaging.md",
+      "data": ["work"],
+      "note": "The master jupiter.fit that the page's registration, alignment and stacking write into the work folder from the jupiter video; no recipe writes it.",
+      "shows": "Jupiter stacked from the guide's video, color-balanced on a square inside the disc and sharpened with Multiscale Linear Transform, in the Linear display mode",
+      "options": ["-Open", "{work}\\jupiter.fit", "-Prepare", "Process > Color Calibration > Color Calibration|whiteRoiGroupBox=On;whiteRoiLeftValue=118;whiteRoiTopValue=120;whiteRoiWidthValue=200;whiteRoiHeightValue=200||Process > Multiscale > Multiscale Linear Transform|biasSpinBox=0.05;deringingGroup=On", "-MainWindow", "planetary-imaging-result"]
+    }
+  ]
+}

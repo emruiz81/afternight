@@ -6,7 +6,7 @@ summary: >-
 ---
 # Image Stacking Reference
 
-This page holds what [Image Stacking](image-stacking.md) leaves out to stay readable beside its window: the rule of
+This page holds what [Image Stacking](image-stacking.md) leaves out to stay readable beside its [task](../../reference/glossary.md#task): the rule of
 each method, [rejection](../../reference/glossary.md#rejection), normalization and weighting, how the frames are
 grouped and the files named, what a run writes and the memory it takes, comet stacking, what too little and too much
 of each setting look like, and every message. Each section can be read on its own.
@@ -112,8 +112,8 @@ median of a frame's samples and \(s\) its spread by **Scale Estimator**, a sampl
 
 The weights apply to **Average** alone, with or without a rejection, and are the same in every channel. Each is
 divided by their mean, so only their ratios count. When no frame of a group has the figure a weighting reads, the
-group is stacked with equal weights and the window says why. When only some frames have it, the group is refused,
-the window having named the first frame without it: no frame is given a weight of zero.
+group is stacked with equal weights and the task says why. When only some frames have it, the group is refused,
+the task having named the first frame without it: no frame is given a weight of zero.
 
 None (Equal)
 :   Every frame weighs the same.
@@ -319,12 +319,12 @@ A message that names a file and why it cannot be read
 :   An import did not add every file: "Added 28 file(s); passed over 2 already listed or kept out by the filter",
     with how many could not be read and the first reason.
 
-## What this window leaves to Image Integration
+## What this task leaves to Image Integration
 
 Image Stacking runs one ordinary stack for each group. [Image Integration](image-integration.md) adds what this
-window does not offer.
+task does not offer.
 
-- Calibration, registration, the choice of a reference, project files, workflow reports and the record of its
+- Calibration, registration, the choice of a reference, [project](../../reference/glossary.md#project) files, workflow reports and the record of its
   products.
 - The merge of exposures of different lengths into one high dynamic range.
 - The normalization of overlapping panels. Here the frames must share one geometry, and no mosaic is stitched or

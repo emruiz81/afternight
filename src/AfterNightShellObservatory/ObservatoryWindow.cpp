@@ -897,6 +897,13 @@ void ObservatoryWindow::buildRegions()
     impl.centre = new QStackedWidget(central);
     impl.centre->setObjectName(QStringLiteral("observatoryCentre"));
     middle->addWidget(impl.centre, 1);
+    // Help asked from anywhere on a task's page - its header, its canvas, the window itself - opens the guide at its
+    // process's page: the window states that page while the task's page is shown, which an::ui::helpPathFor reads.
+    QObject::connect(impl.centre, &QStackedWidget::currentChanged, this, [this]() {
+        const auto* const page = dynamic_cast<const TaskPage*>(m_impl->centre->currentWidget());
+        const TopLevelProcessBaseControl* const process = page != nullptr ? page->process() : nullptr;
+        setProperty("anHelpPath", process != nullptr ? process->helpPath() : QString());
+    });
 
     impl.rightColumn = new QWidget(central);
     impl.rightColumn->setObjectName(QStringLiteral("observatoryRightColumn"));

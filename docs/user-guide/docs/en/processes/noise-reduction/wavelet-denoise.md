@@ -14,8 +14,9 @@ masks: post-blend
 external: The G'MIC library, bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no Wavelet Denoise window is open on it yet, and no window that needs the
-    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+    An image or a sequence view is active, no Wavelet Denoise task is open on it yet, and no task that needs the image
+    to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target. Preview and Apply also need a build that carries G'MIC.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an
     optional mask of the image's size on its view.
@@ -42,21 +43,17 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/wavelet-denoise.webp
 alt: >-
-  The Wavelet Denoise window. On the left, the Threshold, Scales, Iterations and Amount boxes with their sliders, and
-  lower down Target Image, Channel at RGB and the Preview check box. On the right, a toolbar of zoom buttons, a channel
-  box and a display mode box reading Autostretch over the preview of a red nebula, with the word PREVIEW in its corner
-  and a small framed area in its middle. Reset, Close and Apply run along the bottom.
+  The Wavelet Denoise task. Its header names Wavelet Denoise and the master. The canvas at the left shows the preview
+  of a red nebula, the word PREVIEW in its corner and a small framed area in its middle, with a floating toolbar of
+  zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right holds the
+  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
+  at RGB, and the Threshold, Scales, Iterations and Amount boxes with their sliders. Reset, Close and Apply stand in its
+  footer.
 caption: >-
   Wavelet Denoise on the linear master with its defaults, Threshold at 1.40, Scales at 6, Iterations at 10 and Amount
-  at 1.00. The framed area shows what Apply writes there, over the original, in the Autostretch display mode.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 63.0, y: 55.2}
-  - {n: 4, x: 2.0, y: 20.1}
-  - {n: 5, x: 2.0, y: 24.6}
-  - {n: 6, x: 2.0, y: 29.1}
-  - {n: 7, x: 2.0, y: 33.6}
-  - {n: 9, x: 89.2, y: 96.0}
+  at 1.00. The framed area of the canvas shows what Apply writes there, over the original, in the Autostretch display
+  mode.
+owed: true
 ```
 
 ## Before you start
@@ -75,10 +72,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Noise Reduction > Wavelet Denoise Filter**. The preview shows the denoised image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+   **Process > Noise Reduction > Wavelet Denoise Filter**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas at the
+   left shows the denoised image inside a framed [preview area](../../reference/glossary.md#preview-area) in the middle
+   of the image, and the column at the right holds its controls.
 2. **Choose what to denoise.** Leave **Channel** at **RGB** to denoise the three channels with one threshold. Choose
    **CIE L* (Lightness)** to smooth the brightness alone, or a chroma component for color noise.
 3. **Place the area.** Move the frame over smooth background, faint nebula and a few small stars. The noise estimate
@@ -91,13 +90,13 @@ pins:
 7. **Set the strength.** Lower **Amount** to bring back part of the original when the result looks waxy.
 8. **Check at 100 %.** Zoom into the area and hold ++space++ to compare with the original. Then untick **Preview area**
    to see the whole image.
-9. **Apply.** Choose **Apply**. A progress window with a busy bar follows the run, the view shows the denoised image,
-   and its history lists **Wavelet Denoise** with the four values.
+9. **Apply.** Choose **Apply**, or press ++ctrl+enter++. The column follows the run, the view shows the denoised
+   image, and its history lists **Wavelet Denoise** with the four values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Wavelet Denoise
@@ -111,7 +110,7 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: One threshold acts on every scale and on the coarsest layer, so a high value also lowers broad levels and can leave blocks around stars and sharp edges. It costs no more time.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Scales
     kind: spinbox
     default: "6"
@@ -121,7 +120,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The image is padded with zeros to a multiple of 2 to the power of **Scales** plus one, 128 pixels at 6 scales and 2,048 at 10, which pads a 7246 x 5429 frame to 8192 x 6144. More scales add work and memory, and expose broad structure and the edges of the frame to the threshold.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Iterations
     kind: spinbox
     default: "10"
@@ -131,7 +130,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The time grows in proportion to it. Its tooltip says that more iterations increase smoothing. They average more copies of one denoise, which evens out its blocks rather than raising its strength.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default. The shifts are not recorded.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default. The shifts are not recorded.
   - name: Amount
     kind: spinbox
     default: "1.00"
@@ -141,13 +140,13 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: It brings back noise and detail together. The command runs in full at any value, and below 1 the mix adds one pass over the image.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -155,22 +154,22 @@ controls:
     effect: Chooses what is denoised. **RGB** hands the command the three channels as one color image, with one noise estimate and one threshold for all three, each channel transformed on its own. **Red**, **Green** or **Blue** denoises that channel, with its own estimate, and keeps the other two. Every other choice denoises one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, a channel noisier than the others keeps more of its noise, a cleaner one loses more detail, and colors can shift. A component costs two conversions and a working copy, and the conversion back can change colors. A hue is denoised as a line, not as a circle.
-    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the denoised image beside the controls, with **Amount** and the mask applied.
+    effect: Shows the denoised image in the canvas, with **Amount** and the mask applied.
     range: >-
-      The pane opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview: Wavelet
-      Denoise Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and **Take
-      snapshot** are in the menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
+      Wavelet Denoise Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles row,
+      and **Take snapshot** on the canvas's floating toolbar.
     enabled: >-
       In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
       G'MIC library, so this process cannot run."
-    tradeoff: The area is denoised as an image of its own, with its own noise estimate, its own padding and edges, and at most 7 scales. Every change runs the whole command again. **Apply**, or closing the window, stops a preview on its way inside the command.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    tradeoff: The area is denoised as an image of its own, with its own noise estimate, its own padding and edges, and at most 7 scales. Every change runs the whole command again. **Apply**, or closing the task, stops a preview on its way inside the command.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -180,15 +179,14 @@ controls:
     kind: button
     default: ""
     effect: Denoises the whole image, or every frame of the sequence, with the four values and **Channel** as they are when you press it, and then returns the four values to their defaults.
-    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: A single image shows a progress window too, with a busy bar, because the command reports no share done, and its **Cancel** stops the run. The command runs on one thread and holds several copies of the padded image in memory, beside the second copy every run needs.
+    enabled: From the moment the task opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: The column shows the run of a single image too, with no share done, because the command reports none, and **Cancel**, in Apply's place meanwhile, stops it. The command runs on one thread and holds several copies of the padded image in memory, beside the second copy every run needs.
     persistence: "The history step is **Wavelet Denoise** and reads, for example, `Threshold: 1.40, Scales: 6, Iterations: 10, Amount: 1.00 in channel: RGB`. For a grayscale image it ends after the amount. The noise estimate, the scales the command used, the shifts, the mask and the G'MIC version are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
 ## How it works
 
-1. The channels **Channel** selects are checked: an image that holds a sample that is not a finite number is refused.
-   Otherwise they go to G'MIC, in one session for the run, as single-precision
+1. The channels **Channel** selects go to G'MIC, in one session for the run, as single-precision
    [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale).
 2. The command estimates the noise of the image once, from its Laplacian, and pads the image with zeros at its right
    and bottom to a size the transform can halve **Scales** times.
@@ -236,13 +234,12 @@ the result before the mask is
   finite number, which G'MIC cannot process", and left unchanged. When G'MIC itself fails, on memory for example, the
   run reports its message and writes nothing. An image whose shorter side is below 8 pixels gets fewer than 2 scales,
   and a very small one can make the command fail.
-- **Cancel**, or closing the window, asks G'MIC to stop, and it stops at its next check inside the command. A stopped
-  run writes nothing.
+- **Cancel** asks G'MIC to stop, and it stops at its next check inside the command. A stopped run writes nothing.
 
 ### Worked example
 
 The image is the linear master. Its noise from one pixel to the next is about 0.0003 in red, 0.001 in green and
-0.0007 in blue. The window keeps its defaults: **Threshold** at 1.40, **Scales** at 6, **Iterations** at 10,
+0.0007 in blue. The task keeps its defaults: **Threshold** at 1.40, **Scales** at 6, **Iterations** at 10,
 **Amount** at 1.00 and **Channel** at **RGB**.
 
 With **RGB**, equation (1) takes one median over the three channels, which comes to about 0.0006. The threshold is
@@ -269,7 +266,7 @@ images:
       colored speckle most of all, the stars and the edges of the dust lane kept.
     label: After
 caption: >-
-  The middle of the Carina Nebula master at 100 %, without and with Wavelet Denoise at the window's defaults, both then
+  The middle of the Carina Nebula master at 100 %, without and with Wavelet Denoise at the task's defaults, both then
   stretched by Histogram Transformation with Shadows and Midtones at 0.02. Both are shown in the Linear display mode.
 ```
 
@@ -336,8 +333,7 @@ The preview area differs from the result of Apply
 - [Masks](../../interface/masks.md), to denoise the background and protect the stars.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to compare the noise before and after.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

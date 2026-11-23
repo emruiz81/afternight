@@ -1,0 +1,35 @@
+{
+  "group": "Getting Started",
+  "captures": [
+    {
+      "picture": "assets/images/getting-started/first-launch.webp",
+      "page": "getting-started/first-launch.md",
+      "data": [],
+      "shows": "The main window on Home at the first start of a new profile, with its welcome",
+      "options": ["-MainWindow", "first-launch"]
+    },
+    {
+      "picture": "assets/images/getting-started/first-launch-image.webp",
+      "page": "getting-started/first-launch.md",
+      "data": ["linear"],
+      "shows": "The main window with the linear Carina master just opened in Workspace 1, in the Autostretch display mode, the readout beside it",
+      "options": ["-Display", "Autostretch", "-MainWindow", "first-launch-image"]
+    },
+    {
+      "picture": "assets/images/getting-started/quick-start.png",
+      "page": "getting-started/quick-start.md",
+      "data": ["ngc253", "work"],
+      "note": "The 18 lights the capture program named NGC253, the first 18 of the night, so that Lite takes one object; the 17 named Target are left out.",
+      "shows": "The Image Integration Lite task with the 18 NGC 253 lights and their darks, flats and bias frames added and the output folder chosen, ready to run",
+      "options": ["-Page", "getting-started\\quick-start.md", "-Set", "liteOutputDirectoryEdit={work};liteAddFolderButton?{ngc253:biases};liteAddFolderButton?{ngc253:darks};liteAddFolderButton?{ngc253:flats};liteAddFilesButton?\"{ngc253:lights\\2023-10-10_00-19-34__21.00_180.00s_0000.fits}\" \"{ngc253:lights\\2023-10-10_00-22-49__20.80_180.00s_0001.fits}\" \"{ngc253:lights\\2023-10-10_00-26-19__20.60_180.00s_0002.fits}\" \"{ngc253:lights\\2023-10-10_00-29-32__20.50_180.00s_0003.fits}\" \"{ngc253:lights\\2023-10-10_00-33-04__20.50_180.00s_0004.fits}\" \"{ngc253:lights\\2023-10-10_00-36-37__20.40_180.00s_0005.fits}\" \"{ngc253:lights\\2023-10-10_00-40-10__20.30_180.00s_0006.fits}\" \"{ngc253:lights\\2023-10-10_00-43-26__20.20_180.00s_0007.fits}\" \"{ngc253:lights\\2023-10-10_00-46-42__20.10_180.00s_0008.fits}\" \"{ngc253:lights\\2023-10-10_00-49-59__20.00_180.00s_0009.fits}\" \"{ngc253:lights\\2023-10-10_00-53-16__20.00_180.00s_0010.fits}\" \"{ngc253:lights\\2023-10-10_00-56-33__19.90_180.00s_0011.fits}\" \"{ngc253:lights\\2023-10-10_00-59-54__19.90_180.00s_0012.fits}\" \"{ngc253:lights\\2023-10-10_01-03-14__19.90_180.00s_0013.fits}\" \"{ngc253:lights\\2023-10-10_01-13-04__20.30_180.00s_0014.fits}\" \"{ngc253:lights\\2023-10-10_01-16-19__20.10_180.00s_0015.fits}\" \"{ngc253:lights\\2023-10-10_01-19-36__20.00_180.00s_0016.fits}\" \"{ngc253:lights\\2023-10-10_01-22-51__19.90_180.00s_0017.fits}\""]
+    },
+    {
+      "picture": "assets/images/getting-started/quick-start-result.webp",
+      "page": "getting-started/quick-start.md",
+      "data": ["ngc253", "work"],
+      "note": "The run of the quick-start picture's recipe, then the master it opened; the task is closed once the run has ended.",
+      "shows": "The main window with the NGC 253 master an Image Integration Lite run opened in Workspace 1, shown with Autostretch",
+      "options": ["-Prepare", "Process > Preprocess > Image Integration Lite|liteOutputDirectoryEdit={work};liteAddFolderButton?{ngc253:biases};liteAddFolderButton?{ngc253:darks};liteAddFolderButton?{ngc253:flats};liteAddFilesButton?\"{ngc253:lights\\2023-10-10_00-19-34__21.00_180.00s_0000.fits}\" \"{ngc253:lights\\2023-10-10_00-22-49__20.80_180.00s_0001.fits}\" \"{ngc253:lights\\2023-10-10_00-26-19__20.60_180.00s_0002.fits}\" \"{ngc253:lights\\2023-10-10_00-29-32__20.50_180.00s_0003.fits}\" \"{ngc253:lights\\2023-10-10_00-33-04__20.50_180.00s_0004.fits}\" \"{ngc253:lights\\2023-10-10_00-36-37__20.40_180.00s_0005.fits}\" \"{ngc253:lights\\2023-10-10_00-40-10__20.30_180.00s_0006.fits}\" \"{ngc253:lights\\2023-10-10_00-43-26__20.20_180.00s_0007.fits}\" \"{ngc253:lights\\2023-10-10_00-46-42__20.10_180.00s_0008.fits}\" \"{ngc253:lights\\2023-10-10_00-49-59__20.00_180.00s_0009.fits}\" \"{ngc253:lights\\2023-10-10_00-53-16__20.00_180.00s_0010.fits}\" \"{ngc253:lights\\2023-10-10_00-56-33__19.90_180.00s_0011.fits}\" \"{ngc253:lights\\2023-10-10_00-59-54__19.90_180.00s_0012.fits}\" \"{ngc253:lights\\2023-10-10_01-03-14__19.90_180.00s_0013.fits}\" \"{ngc253:lights\\2023-10-10_01-13-04__20.30_180.00s_0014.fits}\" \"{ngc253:lights\\2023-10-10_01-16-19__20.10_180.00s_0015.fits}\" \"{ngc253:lights\\2023-10-10_01-19-36__20.00_180.00s_0016.fits}\" \"{ngc253:lights\\2023-10-10_01-22-51__19.90_180.00s_0017.fits}\";liteRunIntegrationButton!", "-Display", "Autostretch", "-MainWindow", "quick-start-result"]
+    }
+  ]
+}

@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window chooses its images itself and opens without an active image. Preview and OK wait for a
-    starless image and a stars image.
+    Always. The task chooses its images itself and opens without an active image, as a page of its own beside other
+    tasks. Preview and OK wait for a starless image and a stars image.
   inputs: >-
     A starless image and a stars image of the same width, height and channels, one or three, and an optional mask
     image of their width and height with one channel or theirs.
@@ -32,60 +32,58 @@ derived: false
 Starmask Recombination puts the stars back on a [starless image](../../reference/glossary.md#starless-image). It adds
 a stars image to the starless one, pixel by pixel, after you have processed each on its own: the nebula without its
 stars, the stars without the nebula. An optional [mask](../../reference/glossary.md#mask) image limits where the stars
-return. The window chooses its images itself, and opens without an
+return. The [task](../../reference/glossary.md#task) chooses its images itself, and opens without an
 [active image](../../reference/glossary.md#active-image).
 
-**OK** opens the result as a new image beside the starless image and closes the window. The starless image, the
+**OK** opens the result as a new image beside the starless image and closes the task. The starless image, the
 stars and the mask stay as they were. The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/star-operations/starmask-recombination.webp
 alt: >-
-  The Starmask Recombination window. On the left, Starless Image and Stars Image each name an image of the Carina
-  nebula, Mask (optional) reads NO IMAGE beside a dimmed Invert check box, and Preview is ticked. On the right, the
-  preview shows the nebula with its stars. OK and Close run along the bottom.
+  The Starmask Recombination task. Its header names the process alone. The canvas at the left shows the preview, the
+  nebula with its stars. The column at the right opens with the compact readout of the preview, then the Preview
+  toggle ticked, Preview area and Processed, then Starless Image and Stars Image, each naming an image of the Carina
+  nebula, and Mask (optional) reading NO IMAGE beside a dimmed Invert check box. Close and OK stand in its footer.
 caption: >-
   Starmask Recombination with the starless Carina image and the star image Starnet++ made from it, without a mask.
-  The preview shows the sum OK writes.
-pins:
-  - {n: 2, x: 2.0, y: 18.2}
-  - {n: 3, x: 2.0, y: 23.1}
-  - {n: 4, x: 2.0, y: 28.1}
-  - {n: 5, x: 12.0, y: 88.8}
-  - {n: 6, x: 77.5, y: 95.8}
+  The canvas shows the sum OK writes.
+owed: true
 ```
 
 ## Before you start
 
 - Make the two images from one image, at the same stage, so they are aligned pixel for pixel and of the same size
-  and channels. The window does not align, resample or match them.
+  and channels. The task does not align, resample or match them.
 - Use a stars image made for addition, the image less its starless version. Starnet++ makes one with
   **Subtractive Mask**.
 - Keep floating-point images when the stars may add up above 1. A pair that includes an integer image is added as
   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), and the sum is held at 1.
-- Use still images. The window is made for one image, not a [sequence](../../reference/glossary.md#sequence).
+- Use still images. The task is made for one image, not a [sequence](../../reference/glossary.md#sequence).
 - A mask image must have the pair's width and height, and one channel or as many as the pair. The mask on a view
   does not count here.
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Star Processing > Starmask Recombination**. Its three boxes read
-   `<--NO IMAGE-->`, and **Preview** and **OK** are disabled.
-2. **Choose the starless image.** Pick it in **Starless Image**. It becomes the window's target, and its name is
+1. **Open the task.** Choose **Process > Star Processing > Starmask Recombination**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left says "Choose the images to see the result", and the column at the right holds its controls. Its three boxes
+   read `<--NO IMAGE-->`, and **Preview** and **OK** are disabled.
+2. **Choose the starless image.** Pick it in **Starless Image**. It becomes the task's target, and its name is
    the first part of the result's.
-3. **Choose the stars.** Pick them in **Stars Image**. **Preview** and **OK** enable, and the preview shows the sum.
+3. **Choose the stars.** Pick them in **Stars Image**. **Preview** and **OK** enable, and the canvas shows the sum.
 4. **Limit where the stars return, if you want.** Pick a mask image in **Mask (optional)**: white puts the stars
    back, black keeps the starless image. Tick **Invert** to swap the two.
-5. **Check at 100 %.** Zoom the preview into bright cores, halos and the mask's edges, and hold ++space++ over it to
+5. **Check at 100 %.** Zoom the canvas into bright cores, halos and the mask's edges, and hold ++space++ over it to
    see the starless image.
-6. **Choose OK.** The result opens beside the starless image as `<starless> - <stars> - MERGED`, and the window
-   closes.
+6. **Choose OK.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The result opens beside the
+   starless image as `<starless> - <stars> - MERGED`, and the task closes.
 
 ## Controls
 
-The preview, its toolbar and its progress window are those of every process window: see
-[Process Windows](../../interface/process-windows.md). The original the preview switches to is the starless image,
-and its display follows the starless image's view.
+The canvas, its floating toolbar and the run in the column are those of every task: see
+[Tasks](../../interface/tasks.md). The original the canvas switches to is the starless image, and its display
+follows the starless image's view.
 
 ```controls
 window: Starmask Recombination
@@ -94,11 +92,11 @@ controls:
     kind: combo
     default: "<--NO IMAGE-->"
     options: ["<--NO IMAGE-->", Every open image or sequence]
-    effect: Chooses the base the stars are added to. It becomes the window's target, gives the result its first name, its header and its record, and sets the preview's display.
+    effect: Chooses the base the stars are added to. It becomes the task's target, gives the result its first name, its header and its record, and sets the preview's display.
     range: The list holds every open view, whatever its size, channels, pixel type or state. The same image may be picked in more than one box.
     tradeoff: A pair that is not aligned, or not at the same stage, gives doubled, shifted or missing structure.
     scope: The preview, a snapshot and OK. Its view is never changed.
-    persistence: Until the window closes. Closing the image returns the box to `<--NO IMAGE-->`.
+    persistence: Until the task closes. Closing the image returns the box to `<--NO IMAGE-->`.
   - name: Stars Image
     kind: combo
     default: "<--NO IMAGE-->"
@@ -107,7 +105,7 @@ controls:
     range: The run refuses an image whose width, height or channels differ from the starless image's.
     tradeoff: Whatever it holds besides stars is added too. A pixel type higher than the starless image's becomes the result's.
     scope: The preview, a snapshot and OK, cropped to a preview area as the starless image is.
-    persistence: Until the window closes. Its name is the second part of the result's.
+    persistence: Until the task closes. Its name is the second part of the result's.
   - name: Mask (optional)
     kind: combo
     default: "<--NO IMAGE-->"
@@ -116,8 +114,8 @@ controls:
     range: It must have the pair's width and height. One channel weighs every channel, and as many channels as the pair weigh each channel by its own. Its samples are read as fractions of full scale and held between 0 and 1.
     enabled: Choosing an image enables **Invert**.
     tradeoff: A color mask can weigh the channels differently and shift star colors.
-    scope: This window only, cropped to a preview area as the pair is. The mask on a view, and the view's mask settings, are not used.
-    persistence: Until the window closes.
+    scope: This task only, cropped to a preview area as the pair is. The mask on a view, and the view's mask settings, are not used.
+    persistence: Until the task closes.
   - name: Invert
     kind: check
     default: "Off"
@@ -125,19 +123,19 @@ controls:
     range: The mask is held between 0 and 1 first, then inverted.
     enabled: While **Mask (optional)** names an image. Clearing the mask keeps the tick, which then does nothing.
     tradeoff: Inverting a protection mask the wrong way puts stars back where they should stay out.
-    persistence: Until the window closes. The window has no **Reset**.
+    persistence: Until the task closes. The task has no **Reset**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the recombined image beside the boxes, as in every process window.
-    enabled: While a starless image and a stars image are chosen. The window grows when the pane appears.
+    effect: Shows the recombined image in the canvas, as in every task.
+    enabled: While a starless image and a stars image are chosen. It stands in the column's toggles row, and is disabled while OK runs.
     tradeoff: Each change adds the two images again, with the mask and a copy of each integer image.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: OK
     kind: button
     default: ""
-    effect: Adds the stars to the starless image through the mask and opens the result beside the starless image as `<starless> - <stars> - MERGED`. The window then closes.
-    enabled: While a starless image and a stars image are chosen. It does not check that they match. The run does.
+    effect: Adds the stars to the starless image through the mask and opens the result beside the starless image as `<starless> - <stars> - MERGED`. The task then closes.
+    enabled: While a starless image and a stars image are chosen. It does not check that they match. The run does. While a run works **Cancel** stands in its place.
     tradeoff: The result is a full new image, and an integer image or mask is copied to floating point first. Its time grows with the pixels and the channels.
     scope: The whole image, with the stars, the mask and **Invert** as they are when you press it. A change made afterwards reaches the next run only.
     persistence: >-
@@ -147,13 +145,13 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without a run, as in every process window.
+    effect: Closes the task without a run, as in every task. ++esc++ does the same.
     note: An image made by an earlier OK or a snapshot stays as it is.
 ```
 
 ## How it works
 
-1. When a run is asked for, the window reads the stars and the mask, each cropped to the
+1. When a run is asked for, the task reads the stars and the mask, each cropped to the
    [preview area](../../reference/glossary.md#preview-area) when there is one, beside the starless image, which is its
    target.
 2. It refuses a pair whose width, height or channels differ, an image of other than one or three channels, and a
@@ -231,14 +229,14 @@ caption: >-
 
 | Situation | Start | Then adjust |
 | --- | --- | --- |
-| Every star back | Floating-point images, no mask | Look at cores and halos at 100 %. Change the stars image itself, not this window. |
+| Every star back | Floating-point images, no mask | Look at cores and halos at 100 %. Change the stars image itself, not this task. |
 | Stars back only in places | A grayscale mask of the pair's size, **Invert** off | Look at the mask's edges at 100 %. Tick **Invert** only for a mask drawn the other way round. |
 | Images of different pixel types | Convert both images, and the mask, to floating point first | Recombine. An integer result stops at its largest code. |
 
 ## When it goes wrong
 
 !!! warning "A stars image made by unscreen comes back too bright"
-    The window adds. A stars image made by unscreen, such as **Unscreen Star Layer** of Starnet++ or the reduced
+    The task adds. A stars image made by unscreen, such as **Unscreen Star Layer** of Starnet++ or the reduced
     stars of [Star Reduction](star-reduction.md), is larger than the image less its starless version, so its stars
     return brighter than they were. Use a stars image made by subtraction.
 
@@ -262,9 +260,9 @@ Bright cores are flat at the top
 :   **Cause.** The pair includes an integer image, or one in fractions of full scale, so the sum is held at 1.
 :   **Fix.** Convert both images to floating point first, or dim the stars image before you add it.
 
-The window closed after OK
-:   **Cause.** A finished OK opens a new image and closes the window.
-:   **Fix.** Look for `<starless> - <stars> - MERGED` beside the starless image. Open the window again for another
+The task closed after OK
+:   **Cause.** A finished OK opens a new image and closes the task.
+:   **Fix.** Look for `<starless> - <stars> - MERGED` beside the starless image. Open the task again for another
     try.
 
 ## Related
@@ -273,4 +271,4 @@ The window closed after OK
 - [Profiled Starmask Recombination](profiled-starmask-recomb.md), to put back only the stars a star profile lists.
 - [Star Reduction](star-reduction.md), to make the stars smaller instead of separating them.
 - [Star Mask](star-mask.md), to make a mask image of the stars for **Mask (optional)**.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.

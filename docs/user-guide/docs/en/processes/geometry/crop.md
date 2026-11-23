@@ -3,7 +3,7 @@ kind: process
 stage: any
 menu: Process > Geometry > Crop
 summary: >-
-  Cuts an image, or every frame of a sequence, to a rectangle you type or draw on its view, to remove stacking borders
+  Cuts an image, or every frame of a sequence, to a rectangle you type or draw on the image, to remove stacking borders
   or frame a region without resampling a single pixel.
 data_in: either
 data_out: either
@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active and no other process window is open on it. Crop needs the image to itself,
-    so no other window opens on it while Crop is open.
+    An image or a sequence view is active and no other task is open on it. The task opens as a page of its own,
+    beside other tasks, and needs the image to itself: no other task opens on it while Crop is open.
   inputs: One image or sequence of any pixel type and any number of channels, a raw color-filter mosaic included.
   outputs: >-
     The same view, replaced, with one history step: the rectangle, every sample in it unchanged. No file, preset or
@@ -27,12 +27,12 @@ derived: false
 ---
 # Crop
 
-Crop cuts an image to a rectangle. You type the rectangle's top-left corner and its size, or draw it on the image's
-view, where a frame shows the part that stays. Every sample inside the rectangle is kept exactly as it was: nothing is
-interpolated.
+Crop cuts an image to a rectangle. You type the rectangle's top-left corner and its size, or draw it on the image in
+the [task](../../reference/glossary.md#task)'s canvas, where a frame shows the part that stays. Every sample inside the rectangle is kept exactly as it
+was: nothing is interpolated.
 
 **OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the rectangle,
-adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+adds one step to its [history](../../reference/glossary.md#history) and closes the task. The
 [pixel type](../../reference/glossary.md#pixel-type) and the channels are kept, and a
 [plate solution](../../reference/glossary.md#plate-solution) moves with the pixels, so the cut image needs no new
 plate solve.
@@ -40,26 +40,23 @@ plate solve.
 ```figure
 image: ../../assets/images/processes/geometry/crop.webp
 alt: >-
-  The Crop window. On the left, the Pos X, Pos Y, Width and Height boxes at 1623, 1214, 4000 and 3000. On the right,
-  the Current Size field at 450.19 MB, the New Size field at 137.33 MB and the New Selection button. Under them the
-  Target Image box names the master, and Reset, OK and Close run along the bottom.
+  The Crop task. Its header reads Crop on the master. The canvas at the left shows the whole master stretched for
+  the screen, the red nebula among its stars, with an amber dashed frame divided in thirds around the middle of the
+  field, and a floating toolbar near its foot. The column at the right, headed Crop, holds Target Image naming the
+  master, the Pos X, Pos Y, Width and Height boxes at 1623, 1214, 4000 and 3000, Current Size at 450.19 MB, New Size
+  at 137.33 MB and the New Selection button. Reset, Close and OK stand in its footer.
 caption: >-
-  Crop on the linear Carina master with a rectangle of 4000 by 3000 pixels at its middle: New Size shows what the
-  result will hold.
-pins:
-  - {n: 2, x: 17.5, y: 34.0}
-  - {n: 3, x: 17.8, y: 53.5}
-  - {n: 4, x: 61.0, y: 54.0}
-  - {n: 5, x: 60.5, y: 43.5}
-  - {n: 6, x: 37.0, y: 91.5}
+  Crop on the linear Carina master with a rectangle of 4000 by 3000 pixels at its middle: the frame on the canvas
+  shows what stays, and New Size what the result will hold.
+owed: true
 ```
 
 ## Before you start
 
 - **OK** replaces the image rather than making a new one. Its history keeps the step before: duplicate an image you
   could not load again.
-- Crop needs the image to itself. Close the other process windows open on it first, and expect no other window to
-  open on it while Crop is open.
+- Crop needs the image to itself. Close the other tasks open on it first, and expect no other task to open on it
+  while Crop is open.
 - Every channel is cut, and a [mask](../../reference/glossary.md#mask) on the view is not used.
 - On a sequence, every frame is cut to the same rectangle, whatever frames its player has selected. Crop finds no
   border and aligns nothing: register the frames first.
@@ -70,22 +67,23 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Geometry > Crop**. A frame around the whole image appears on its view, and **OK** stays disabled while
-   the rectangle is the whole image.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Crop**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The task opens as a page: the canvas at the left shows the image itself, framed whole, and the column
+   at the right holds the controls. **OK** stays disabled while the rectangle is the whole image.
 2. **Place the corner.** Type **Pos X** and **Pos Y**, the pixels to cut from the left and from the top. The frame on
-   the view moves with them.
+   the canvas moves with them.
 3. **Set the size.** Type **Width** and **Height**. Each one stops at what is left of the image beyond the corner.
-4. **Or draw the rectangle.** Choose **New Selection** and drag a rectangle on the view. The four boxes follow it, and
-   once you release the button you can still move the frame or drag its edges.
+4. **Or draw the rectangle.** Choose **New Selection** and drag a rectangle on the canvas. The four boxes follow it,
+   and once you release the button you can still move the frame or drag its edges.
 5. **Check the result's size.** **New Size** gives the memory the result will hold, beside **Current Size**.
-6. **Crop.** Choose **OK**. The window closes, the view shows the cut image, and its history lists **Crop** with the
-   rectangle.
+6. **Crop.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The task closes, the image's view shows
+   the cut image, and its history lists **Crop** with the rectangle.
 
 ## Controls
 
-The rectangle is counted in the image's own pixels from its top-left pixel, which is at 0, 0. What every process
-window shares is on [Process Windows](../../interface/process-windows.md).
+The rectangle is counted in the image's own pixels from its top-left pixel, which is at 0, 0. What every task shares
+is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Crop
@@ -98,7 +96,7 @@ controls:
     range: Up to the image's width. **Width** cannot reach past the image's right edge from it.
     tradeoff: The columns left of it are gone from the result, and no later step can use them.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to 0.
+    persistence: Until the task closes. **Reset** and another target return it to 0.
   - name: Pos Y
     kind: spinbox
     default: "0"
@@ -107,7 +105,7 @@ controls:
     range: Up to the image's height. **Height** cannot reach past the image's bottom edge from it.
     tradeoff: The rows above it are gone from the result, and no later step can use them.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to 0.
+    persistence: Until the task closes. **Reset** and another target return it to 0.
   - name: Width
     kind: spinbox
     default: The image's width
@@ -116,7 +114,7 @@ controls:
     range: Up to the image's width less **Pos X**. OK is disabled at 0.
     tradeoff: The result's memory, and the time of every later step, grow with its area.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to the image's width.
+    persistence: Until the task closes. **Reset** and another target return it to the image's width.
   - name: Height
     kind: spinbox
     default: The image's height
@@ -125,7 +123,7 @@ controls:
     range: Up to the image's height less **Pos Y**. OK is disabled at 0.
     tradeoff: The result's memory, and the time of every later step, grow with its area.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to the image's height.
+    persistence: Until the task closes. **Reset** and another target return it to the image's height.
   - name: Current Size
     kind: readout
     default: The image's size in memory
@@ -143,32 +141,32 @@ controls:
   - name: New Selection
     kind: button
     default: "Off"
-    effect: Lets you draw the rectangle on the view. Choose it, then drag on the image. The four boxes read 0 until you press the mouse button, and follow the rectangle as you drag.
+    effect: Lets you draw the rectangle on the canvas. Choose it, then drag on the image. The four boxes read 0 until you press the mouse button, and follow the rectangle as you drag.
     range: Choosing it again before you drag cancels the drawing and returns the rectangle to the whole image.
-    scope: The frame on the view and the four boxes. Nothing is cut until OK. On a sequence you draw on the frame the view shows.
+    scope: The frame on the canvas and the four boxes. Nothing is cut until OK. On a sequence you draw on the frame the canvas shows.
     persistence: It turns itself off when the drag ends. **Reset** cancels a drawing.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
-    effect: Chooses the image or sequence OK cuts. Choosing another one moves the frame to it and returns the rectangle to the whole of that image.
+    options: [The active image, Every other open image or sequence the task can work on]
+    effect: Chooses the image or sequence OK cuts. Choosing another one shows it in the canvas, with the frame, and returns the rectangle to the whole of that image.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Reads the rectangle and cuts the image, or every frame of the sequence. The window closes once the view shows the result.
+    effect: Reads the rectangle and cuts the image, or every frame of the sequence. The task closes once the image's view shows the result.
     enabled: When **Width** and **Height** are above 0 and the rectangle is not the whole image. Its tooltip says why it is disabled - "Crop width and height must be greater than zero." or "The crop region matches the full image. Adjust the region to enable."
     tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the cut copy.
     scope: The whole image, on every channel, without the mask. A change made to a box after you press it does not reach the run.
     persistence: "The image and its history keep the result, as the step **Crop** with the text `Cropped area : X: <x> Y: <y> W:<width> H:<height>`."
-    note: OK, **Close** and **Reset** are disabled while the run works, and the four boxes stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open.
+    note: While the run works, the column says "applying" and its controls, **Close** and **Reset** are disabled. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the task open, with the reason in its message strip.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without cutting, and the frame leaves the view.
+    effect: Closes the task without cutting, and the frame leaves the canvas.
     enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+    note: ++esc++ and the task header's **Close** do the same, and none of them closes the task during a run.
   - name: Reset
     kind: button
     default: ""
@@ -178,13 +176,13 @@ controls:
 ```
 
 ```controls
-window: The frame on the view
+window: The frame on the canvas
 controls:
   - name: Crop frame
     kind: readout
     default: Around the whole image
-    effect: Shows the rectangle on the image's view, as an amber dashed frame, and follows the four boxes.
-    scope: The view only. It changes no sample.
+    effect: Shows the rectangle on the image in the canvas, as an amber dashed frame, and follows the four boxes.
+    scope: The canvas only. It changes no sample.
   - name: Drag inside the frame
     kind: action
     default: ""
@@ -202,7 +200,7 @@ controls:
     kind: action
     default: ""
     effect: Draws a new rectangle from the point where you press the button to the point where you release it.
-    note: While the Crop window is open, holding the left button does not open the view's lens.
+    note: While Crop is open, holding the left button on the canvas does not open the lens.
 ```
 
 ```controls
@@ -211,19 +209,19 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Crop** and the text `Executing crop to sequence <name>`."
+    effect: "Shows the share of the frames done, from 0 to 100 percent, in a window titled **Crop** with the text `Executing crop to sequence <name>`. The column's run row shows the same share."
     enabled: Shown only while OK works on a sequence. A single image has no progress window.
     tradeoff: The cut sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
     effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
-    note: Closing the Crop window does not stop the run.
+    note: This window's **Cancel** stops the run; the task cannot be closed while it works.
 ```
 
 ## How it works
 
-1. **OK** reads the four boxes, and the run works on that rectangle away from the window.
+1. **OK** reads the four boxes, and the run works on that rectangle in the background.
 2. The run refuses a rectangle that holds no pixel, starts outside the image or reaches past its edge.
 3. Every sample of every channel inside the rectangle is copied, unchanged, into a new image of the same pixel type.
    A mosaic states the [Bayer pattern](../../reference/glossary.md#bayer-pattern) that starts at its new corner.
@@ -280,7 +278,7 @@ saved.
 ### Boundaries
 
 - A rectangle the run refuses, or a result it has no memory for, is reported as "Error running crop" and in the log.
-  The image, its history and the window stay as they were.
+  The image, its history and the task stay as they were.
 - Every sample of the result comes from a sample of the image, so the image's
   [validity rule](../../reference/glossary.md#validity-rule) is kept, and a mask of valid samples is cut with them.
 - A sequence keeps its container, and its frames are stored as the container stores frames:
@@ -366,4 +364,4 @@ The astrometry overlay is gone after the crop
 - [Plate Solving](../registration-alignment/plate-solving.md), to solve again after a change that drops the solution.
 - [Image Viewer](../../interface/image-viewer.md), for the look of the frame and the view's own gestures.
 - [Image History](../../interface/image-history.md), to undo the crop.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the column and what every task shares.

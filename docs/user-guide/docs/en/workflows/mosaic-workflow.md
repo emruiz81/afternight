@@ -49,21 +49,24 @@ caption: >-
 
 ### Add every panel's frames
 
-Choose **Process > Preprocess > Image Integration**. The window opens with the project you left: choose **Frames >
-Remove All Frames...** to start a new one. On each tab of **Frame Sources**, choose **Add Folder** and pick the folder
-of that type, for every panel and every night. Type the new folder in **Output Directory** at the bottom.
+Choose **Integration** in the [rail](../reference/glossary.md#rail), then **New integration**, or choose **Process >
+Preprocess > Image Integration**. It opens as a [task](../reference/glossary.md#task) whose page fills the centre,
+with the last [integration job](../reference/glossary.md#integration-job) you left: choose **Frames > Remove All
+Frames...**, under the button of the task header, to start a new one. Select **Bias**, **Darks**, **Flats** and
+**Lights** in turn in the stage list at the page's left, and on each choose **Add Folder** and pick the folder of that
+type, for every panel and every night. Type the new folder in **Output Directory** at the foot of the stage list.
 
 !!! see "You should see"
-    After each import a note says what was added. The **Lights** tab lists the lights of every panel.
+    After each import a note says what was added. The **Lights** page lists the lights of every panel.
 
 ### Give the panels one object
 
 Capture programs often name each panel differently, and the registration and the stack split the lights by object.
-On the **Lights** tab, choose **Hierarchical** under the list. Right-click the group of each panel, choose **Metadata
+On the **Lights** page, choose **Hierarchical** under the list. Right-click the group of each panel, choose **Metadata
 Overrides > Set Object...** and type the same name each time. Your files are not changed.
 
 !!! see "You should see"
-    The panels of one filter and night form one group. On **Workflow > Registration**, **Registration Groups** lists
+    The panels of one filter and night form one group. On the **Registration** stage, **Registration Groups** lists
     one [registration group](../reference/glossary.md#registration-group) for all the panels, whatever their filter,
     so the masters of the filters line up.
 
@@ -72,7 +75,7 @@ Overrides > Set Object...** and type the same name each time. Your files are not
 
 ### Check the calibration
 
-Open **Workflow > Calibration** and read the **Bias**, **Dark** and **Flat** cells of each light group. The lights of
+Select **Calibration** in the stage list and read the **Bias**, **Dark** and **Flat** cells of each light group. The lights of
 each night take that night's flats.
 
 !!! see "You should see"
@@ -84,7 +87,7 @@ each night take that night's flats.
 
 ### Choose the mosaic canvas
 
-On **Workflow > Registration**, select the group and choose **Registration Settings**. Choose **Mosaic**, then **OK**.
+Select **Registration** in the stage list, select the group and choose **Registration Settings**. Choose **Mosaic**, then **OK**.
 The canvas then holds every panel. A light that shares too few stars with the reference is tried again through the
 lights already registered nearest it, in the order of their file paths. A light the stars cannot place at all is
 placed by its sky solution: its header's, or the plate solver's. With several registration groups, choose **Apply to
@@ -102,7 +105,7 @@ All Groups** before **OK**.
 
 ### Match the panels over their overlaps
 
-On the **Stacking** tab, select each row of **Integration Groups** and choose **Stacking Settings...**. Leave
+On the **Stacking** stage, select each row of **Integration Groups** and choose **Stacking Settings...**. Leave
 **Normalization** at **Additive With Scaling**, tick **Enable Overlap Normalization** and choose **OK**. Without it,
 each light is matched to the reference alone, which a panel shares little or nothing of, and the panels can meet at a
 step in brightness.
@@ -113,13 +116,15 @@ step in brightness.
 
 ### Run the integration
 
-On **Summary**, choose **Execute Integration**, read the **Execution Plan**, and choose **Run**. To keep the disk
+On **Summary**, choose **Execute Integration**, or press ++ctrl+enter++, read the **Execution Plan**, and choose
+**Run**. To keep the disk
 from filling, tick **Allow Registered Images to Be Discarded** in the stacking settings first: the stack then warps
 each light as it reads it, and no registered light is written.
 
 !!! see "You should see"
-    During the normalization the progress window reads "Finding overlaps", then "Measuring overlaps". At the end a box
-    reads "Workflow completed successfully.", and one master for each filter opens. Each holds every panel on one
+    The run's view takes the place of the stage's page. During the normalization it reads "Finding overlaps", then
+    "Measuring overlaps", and at the end "Workflow Completed Successfully". One master for each filter opens in a
+    [workspace](../reference/glossary.md#workspace). Each holds every panel on one
     canvas, at 0 where no light reaches. Its [header cards](../reference/glossary.md#header-card) `RA` and `DEC` state
     the center of the solved field, or without a solution the mean of the lights' own pointings.
 
@@ -130,7 +135,7 @@ each light as it reads it, and no registered light is written.
 
 ### Look at the seams
 
-Choose [Autostretch](../reference/glossary.md#autostretch) in **Display Mode** on the master's toolbar, which shows a
+Choose [Autostretch](../reference/glossary.md#autostretch) in the floating toolbar of the master's view, which shows a
 small difference of level clearly. Zoom to 100 % and follow the places where panels meet.
 
 !!! see "You should see"

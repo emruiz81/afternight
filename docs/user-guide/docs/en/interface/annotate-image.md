@@ -19,22 +19,24 @@ or not, and needs a [plate solution](../reference/glossary.md#plate-solution), t
 owed: true
 image: ../assets/images/interface/annotate-image.webp
 alt: >-
-  The Annotate Image window. On the left, a column of choices: four level-of-detail buttons, Essential, Standard,
-  Detailed and Complete, with Complete highlighted; six ticked check boxes for the layers; a Label text box; then the
-  Style section with a Palette box showing Aurora, and its Text and Lines settings. On the right, a preview of the
-  Carina Nebula with a blue coordinate grid, a dashed pink circle labelled NGC 3372 and Carina Nebula, white rings and
-  labels on stars, a compass at the top right, a scale bar at the bottom right and a panel of facts at the bottom left.
-  Under the preview, a line counts the objects and gives the picture's size. Reset, Open as Image, Export and Close
-  run along the bottom.
+  The Annotate Image window, titled Annotate Image <RGB>, under the heading ANALYSIS · RGB, Annotate Image and a line
+  of description. On the left, a column of choices: under ANNOTATIONS, four level-of-detail buttons, Essential,
+  Standard, Detailed and Complete, with Complete highlighted, six ticked check boxes for the layers and a Label text box
+  reading Designation and name; then the STYLE section with a Palette box showing Aurora, and its TEXT and LINES
+  settings. On the right, a preview of the Carina Nebula with faint blue grid lines labelled at its edges, NGC 3372 and
+  Carina Nebula named over its core, white rings and HIP numbers on stars, η Car on the bright star of the core, a
+  compass at the top right, a scale bar reading 20′ at the bottom right and a panel titled Carina Nebula at the bottom
+  left. Under the preview, a line reads 18 objects and the picture's size. Reset stands at the bottom left; Close, Open
+  as Image and Export… at the bottom right.
 caption: >-
-  Annotate Image over the Carina master at the Complete level of detail, with a credit typed for the panel.
+  Annotate Image over the Carina master in Autostretch, at the Complete level of detail.
 pins:
-  - {n: 1, x: 11.3, y: 17.6}
-  - {n: 2, x: 28.0, y: 24.8}
-  - {n: 3, x: 9.0, y: 39.6}
-  - {n: 4, x: 48.4, y: 14.7}
-  - {n: 5, x: 56.7, y: 92.3}
-  - {n: 6, x: 74.9, y: 96.4}
+  - {n: 1, x: 1.3, y: 22.6}
+  - {n: 2, x: 1.3, y: 29.5}
+  - {n: 3, x: 1.3, y: 42.0}
+  - {n: 4, x: 34.5, y: 22.0}
+  - {n: 5, x: 29.9, y: 91.4}
+  - {n: 6, x: 75.6, y: 95.5}
 ```
 
 ## What you see
@@ -49,16 +51,16 @@ pins:
    and a small "Updating…" badge shows in its corner while a new layout is on its way.
 5. **The summary.** How many objects the picture marks, how many of them are labelled when some are not, and the
    picture's size in pixels.
-6. **The buttons.** **Reset** returns the choices to their defaults, **Open as Image** and **Export…** make the
-   picture, and **Close** keeps your choices for the next time.
+6. **The buttons.** **Reset**, at the left, returns the choices to their defaults. At the right, **Close** keeps your
+   choices for the next time, and **Open as Image** and **Export…** make the picture.
 
 ## What you can do
 
 ### Make a picture
 
-1. Make the solved image's view active and choose **Annotate Image** in the view's toolbar, press ++ctrl+shift+l++ over
-   the picture, or choose **Image > Information > Annotate Image...**. The preview fills with the image while the
-   catalogs are read.
+1. Click the solved image's view, then choose **Annotate...** in the Astrometry card of the [readout](../reference/glossary.md#readout),
+   press ++ctrl+shift+l++ over the picture, or choose **Image > Information > Annotate Image...**. The window opens over
+   the main window, and its preview fills with the image while the catalogs are read.
 2. Look at the image in its view first. With **Image** at **As the view shows it**, the picture takes the view's
    display mode and [Autostretch](../reference/glossary.md#autostretch) settings, and the image itself does not change.
 3. Choose a **Level of detail**, then the layers and **Label text**. The preview is laid out again after each change.
@@ -476,6 +478,11 @@ controls:
     kind: button
     default: ""
     effect: Returns every choice to its default, the title included, and keeps the credit and your own colors.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and keeps the choices.
+    note: One window per view. Asking for it again - **Annotate...**, the menu or the shortcut - brings it forward, and it closes with its view. Its title, `Annotate Image <name>`, and the ANALYSIS line of its heading follow a rename of the image. The window can be maximized, and the rest of AfterNight stays at hand while it is open.
   - name: Open as Image
     kind: button
     default: ""
@@ -490,11 +497,6 @@ controls:
     enabled: As **Open as Image**.
     scope: The file holds 8-bit RGB, or RGBA for a transparent background, written as the **Export** page of the settings writes that format - its JPEG quality, its TIFF compression and whether a raster file carries the image's metadata.
     tradeoff: A full-size picture of the 7246 by 5429 Carina master is drawn and written as an uncompressed TIFF in about half a second on a 16-thread desktop, and compression adds its own time. The file chosen is overwritten without a second question once the file window has asked.
-  - name: Close
-    kind: button
-    default: ""
-    effect: Closes the window and keeps the choices.
-    note: One window per view. Asking for it again brings it forward, and it closes with its view. Its title, `Annotate Image <name>`, follows a rename of the image. The window can be maximized, and the rest of AfterNight stays at hand while it is open.
   - name: Progress
     kind: readout
     default: ""
@@ -504,7 +506,7 @@ controls:
 
 ## When it goes wrong
 
-The **Annotate Image** button is missing, or the menu command is greyed
+**Annotate...** is missing from the readout's Astrometry card, or the menu command is greyed
 :   **Cause.** The view shows a [sequence](../reference/glossary.md#sequence), or its image has no solution AfterNight
     reads.
 :   **Fix.** Plate solve the image with [Plate Solving](../processes/registration-alignment/plate-solving.md), or open
@@ -547,7 +549,7 @@ Stars are ringed but not named
   Astrophysics 395 (2002), which define the tangent-plane projection through which every position is drawn.
 - [NGC 2000.0, catalog VII/118 at CDS/VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118), by R. W. Sinnott
   after J. L. E. Dreyer, the source of the bundled deep-sky catalog's NGC and IC rows. The Messier names, common names,
-  some sizes and the Caldwell rows are the project's additions; the Caldwell rows carry the limits
+  some sizes and the Caldwell rows are AfterNight's additions; the Caldwell rows carry the limits
   [Astrometry Overlays](astrometry-overlays.md) states.
 - [HYG Database 4.2](https://www.astronexus.com/projects/hyg), by Astronexus, under CC BY-SA 4.0, the source of the
   bundled bright-star catalog: the 83,479 stars to visual magnitude 9.

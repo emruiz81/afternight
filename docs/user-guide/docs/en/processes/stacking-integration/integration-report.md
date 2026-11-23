@@ -34,8 +34,8 @@ shows are beside it, under `report_previews`.
 
 | Where | Choose | What happens |
 | --- | --- | --- |
-| The progress window, when the run has ended | **Open Report** | The run's report opens in your web browser. |
-| **Run History**, on the **Summary** tab of Image Integration | **Report** on the run's row | The report is written again from the record the run kept, then opened. |
+| The run's view in the [task](../../reference/glossary.md#task), when the run has ended | **Open Report** | The run's report opens in your web browser. |
+| **Run History**, on the **Summary** stage of Image Integration | **Report** on the run's row | The report is written again from the record the run kept, then opened. |
 | The same row | **Save As...** | You name a file, and the report is written into it as one file that opens on its own. See [The two forms](#the-two-forms). |
 | The run's folder | `workflow_report.html` | The report opens as the run left it. |
 
@@ -408,7 +408,7 @@ No report was written
 
 ## Related
 
-- [Image Integration](image-integration.md), for the window, the **Summary** tab and its **Run History**.
+- [Image Integration](image-integration.md), for the task, the **Summary** stage and its **Run History**.
 - [Image Integration Lite](image-integration-lite.md), for a run with the choices made for you.
 - [Image Integration Reference](image-integration-reference.md), for the files a run writes and how a later run
   reuses them.

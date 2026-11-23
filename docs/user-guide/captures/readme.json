@@ -1,0 +1,65 @@
+{
+  "group": "README and the home page",
+  "captures": [
+    {
+      "picture": "assets/images/interface/hero-screenshot.png",
+      "page": "index.md",
+      "data": [],
+      "note": "The home page's hero, in its front matter: when the optimizing script writes a .webp, the front matter's image names it.",
+      "shows": "The main window on Home at the first start of a new profile, with its welcome",
+      "options": ["-MainWindow", "hero-screenshot"]
+    },
+    {
+      "picture": "docs/readme/dashboard.png",
+      "page": "README.md",
+      "data": ["linear", "flat"],
+      "note": "The README's alt text says what the picture shows; it changes with the picture.",
+      "shows": "Home with recent images, after they were opened and closed",
+      "options": ["-View", "File > Close All;@Home", "-MainWindow", "dashboard"]
+    },
+    {
+      "picture": "assets/images/processes/stacking-integration/image-integration.png",
+      "page": "README.md",
+      "data": ["ngc253", "work"],
+      "note": "The README's Image Integration picture: the page holding a set of frames, grouped. ngc253 is the set's folder.",
+      "shows": "Image Integration's page holding the NGC 253 set, its frames grouped by type and filter",
+      "options": ["-Page", "processes\\stacking-integration\\image-integration.md", "-Set", "actionAddFolder?{ngc253}", "-Crop", "window"]
+    },
+    {
+      "picture": "docs/readme/stretch-before-after.jpg",
+      "page": "README.md",
+      "data": ["linear"],
+      "shows": "The Carina master as stacked, almost black, beside the live preview of Statistical Stretch at its defaults",
+      "options": ["-Capture", "stretch-before-after=Process > Intensity Transformations > Statistical Stretch", "-Set", "pagePreviewArea=On", "-Crop", "canvas"]
+    },
+    {
+      "picture": "docs/readme/curves-live-preview.png",
+      "page": "README.md",
+      "data": ["linear"],
+      "shows": "Curves Transformation with an S-curve and a preview area over the right half of the Carina Nebula",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "curves-live-preview=Process > Intensity Transformations > Curves Transformation", "-Set", "curvesEditorScrollArea@28,69>28,82;curvesEditorScrollArea@72,30>72,22;pagePreviewArea=On", "-Crop", "task"]
+    },
+    {
+      "picture": "docs/readme/image-history.png",
+      "page": "README.md",
+      "data": ["linear"],
+      "shows": "An image with three steps in its history strip: a stretch, a gamma and a curve",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Adjustments > Gamma Correction|gammaValue=0.8||Process > Intensity Transformations > Curves Transformation|curvesEditorScrollArea@28,69>28,82", "-MainWindow", "image-history", "-MainCrop", "observatoryCentre"]
+    },
+    {
+      "picture": "assets/images/interface/process-windows.png",
+      "page": "README.md",
+      "data": ["linear"],
+      "note": "The README's noise reduction picture: a task's page with a preview area.",
+      "shows": "The Non-Local Bayes task previewing noise reduction on part of a stacked master",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "process-windows=Process > Noise Reduction > Non-Local Bayes Filter", "-Set", "pagePreviewArea=On", "-HoldSeconds", "20"]
+    },
+    {
+      "picture": "docs/readme/astrometry-overlay.jpg",
+      "page": "README.md",
+      "data": ["linear"],
+      "shows": "The Carina Nebula in the image view, with the equatorial grid and catalog star labels drawn over it",
+      "options": ["-Display", "Autostretch", "-View", "@Show Astrometry;@Star labels", "-MainWindow", "astrometry-overlay", "-MainCrop", "view"]
+    }
+  ]
+}

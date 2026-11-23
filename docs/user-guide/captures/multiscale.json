@@ -1,0 +1,12 @@
+{
+  "group": "Multiscale",
+  "captures": [
+    {
+      "picture": "assets/images/processes/multiscale/multiscale-linear.webp",
+      "page": "processes/multiscale/multiscale-linear.md",
+      "data": ["linear"],
+      "shows": "The Multiscale Linear Transform task on the linear master with k-Sigma Thresholding ticked and its Amount at 0.70, every other value at its default, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\multiscale\\multiscale-linear.md", "-Set", "ksigmaGroup=On;ksigmaAmountSpinBox=0.7"]
+    }
+  ]
+}

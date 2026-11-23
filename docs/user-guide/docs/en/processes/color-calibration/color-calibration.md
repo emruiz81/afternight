@@ -14,14 +14,14 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An RGB image or sequence view is active and no other process window is open on it. Color Calibration needs the
-    image to itself, so no other window opens on it while Color Calibration is open.
+    An RGB image or sequence view is active and no other task is open on it. The task opens as a page of its own and
+    needs the image to itself, so no other task opens on it while Color Calibration is open.
   inputs: >-
     One RGB image or sequence of any pixel type. A background reference and, unless the balance is typed, a white
     reference: each the target or another open RGB image, whole or a rectangle of it. An optional mask on the target's
     view.
   outputs: >-
-    The same view, replaced, with one history step, and the window closes. On request, a white and a background mask
+    The same view, replaced, with one history step, and the task closes. On request, a white and a background mask
     image that show which pixels each reference kept. No file is written.
   state: >-
     A stacked and cropped linear RGB master after gradient removal and before the stretch, with a field of stars or a
@@ -33,36 +33,33 @@ derived: false
 Color Calibration balances the three channels of an RGB image, or of every frame of an RGB
 [sequence](../../reference/glossary.md#sequence). It measures each channel's level in a patch of sky and in something
 that should be white, such as a field of stars, and gives each channel the gain that lifts its white as far above its
-sky as the strongest channel's. You can type the three gains instead. Each channel is scaled about its own background,
-which stays where it was.
+sky as the strongest channel's. You can type the three gains instead. Each channel's background stays where it was.
 
 **Apply** replaces the image, keeps its size and [pixel type](../../reference/glossary.md#pixel-type), adds one step
-to its [history](../../reference/glossary.md#history) and closes the window. The balance is relative: no catalog,
-filter or camera response enters it.
+to its [history](../../reference/glossary.md#history) and closes the [task](../../reference/glossary.md#task). The balance is relative: no catalog,
+filter or camera response enters it. The task has no preview: its canvas shows the image itself.
 
 ```figure
 image: ../../assets/images/processes/color-calibration/color-calibration.webp
 alt: >-
-  The Color Calibration window, titled ColorCalibration with the image's name. Under the White Reference heading, the
-  Reference image box at <--TARGET IMAGE-->, Lower Limit at 0 and Upper Limit at 0.9 with their sliders, a ticked
-  Region of interest group with Left 6000, Top 200, Width 1000, Height 1000 and a From Selection button, an unticked
-  Manual White Balance group with Red, Green and Blue at 1, and the Output White Reference Mask check box. Under the
-  Background Reference heading, the same rows with the limits at 0 and 0.1 and the same rectangle, and the Output
-  Background Reference Mask check box. Target Image names the master, and Reset, Close and Apply run along the bottom.
+  The Color Calibration task. Its header reads Color Calibration on the master, with Float as window and Close at its
+  right. The canvas at the left shows the linear master itself, a pink nebula and blue-white stars on a gray
+  background. The column at the right, headed ColorCalibration, opens with Target Image naming the master. Under the
+  White Reference heading, the Reference image box at <--TARGET IMAGE-->, Lower Limit at 0 and Upper Limit at 0.9 with
+  their sliders, and a ticked Region of interest group with Left 6000, Top 200, Width 1000, Height 1000 and a From
+  Selection button; further down, Manual White Balance, the Output White Reference Mask check box and the same rows of
+  the Background Reference, which the column scrolls to. Reset, Close and Apply stand in its footer.
 caption: >-
   Color Calibration on the linear Carina master with the star field of its top right corner, 1000 by 1000 pixels at
-  6000, 200, as both the white and the background reference.
-pins:
-  - {n: 2, x: 2.5, y: 27.7}
-  - {n: 4, x: 2.6, y: 74.0}
-  - {n: 5, x: 2.5, y: 40.0}
-  - {n: 7, x: 88.0, y: 93.6}
+  6000, 200, as both the white and the background reference: the canvas shows the image as it is, in the Autostretch
+  display with Linked channels on.
+owed: true
 ```
 
 ## Before you start
 
 - Remove gradients and crop the stacking borders first: both bias the references. Use a
-  [linear image](../../reference/glossary.md#linear-image). The window does not check, and on stretched data the
+  [linear image](../../reference/glossary.md#linear-image). The task does not check, and on stretched data the
   means and medians it compares lose their meaning.
 - Color Calibration keeps each channel's background level. To bring the three together, run Background
   Neutralization first.
@@ -73,11 +70,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear RGB [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear RGB [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Color Calibration > Color
-   Calibration**. Both **Reference image** boxes read `<--TARGET IMAGE-->`: the whole image is both references.
+   Calibration**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task
+   opens as a page: the canvas at the left shows the image itself, the column at the right holds its controls.
 2. **Choose what should be white.** Under **White Reference**, tick **Region of interest** and type **Left**, **Top**,
-   **Width** and **Height** of a field of stars without nebula. Or choose **From Selection** and drag it on the image.
+   **Width** and **Height** of a field of stars without nebula. Or choose **From Selection** and drag it on the canvas.
 3. **Leave out saturated stars.** Keep **Upper Limit** below the level of saturated star cores, which have lost their
    color. Leave **Lower Limit** at 0, so that the stars' faint light counts too.
 4. **Choose the sky under it.** Under **Background Reference**, tick **Region of interest** and type the same
@@ -86,16 +84,16 @@ pins:
    is too strong. The background reference is still measured.
 6. **Ask for the masks.** Tick **Output White Reference Mask** and **Output Background Reference Mask** to see which
    pixels each reference kept.
-7. **Apply.** Choose **Apply**. The window closes, the view shows the balanced image, its history lists
-   **ColorCalibration**, and the masks open beside it.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The task closes, the view shows the
+   balanced image, its history lists **ColorCalibration**, and the masks open beside it.
 8. **Check the balance.** Open the view's [Autostretch](../../reference/glossary.md#autostretch) Settings and turn
-   on **Linked channels**, without which each channel is shown on its own and most of a calibration hides. The stars
+   on **Linked channels**: unlinked, each channel is stretched alone and most of a calibration hides. The stars
    should now look white.
 
 ## Controls
 
-A rectangle is counted in its reference's own pixels from the top-left one, at 0, 0. What every process window
-shares is on [Process Windows](../../interface/process-windows.md).
+A rectangle is counted in its reference's own pixels from the top-left one, at 0, 0. What every task shares is on
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: White Reference
@@ -104,7 +102,7 @@ controls:
     kind: combo
     default: "<--TARGET IMAGE-->"
     options: ["<--TARGET IMAGE-->"]
-    effect: Chooses the image whose channels' means between the limits are taken as white. `<--TARGET IMAGE-->` is the image the window calibrates.
+    effect: Chooses the image whose channels' means between the limits are taken as white. `<--TARGET IMAGE-->` is the image the task calibrates.
     range: >-
       It lists `<--TARGET IMAGE-->` and every other open RGB image or sequence by its view's name, and follows them as
       they open, close and are renamed. A reference may differ from the target in size and pixel type.
@@ -112,7 +110,7 @@ controls:
     tradeoff: A reference whose channels barely stand above its sky gives large, unstable gains.
     scope: Apply only. On a sequence, `<--TARGET IMAGE-->` is the frame the view shows when you press **Apply**.
     persistence: >-
-      Until the window closes. **Reset** and another target return it to `<--TARGET IMAGE-->`, and so does closing the
+      Until the task closes. **Reset** and another target return it to `<--TARGET IMAGE-->`, and so does closing the
       view it names. Choosing another image while **Region of interest** is on fills the four boxes with that image's
       size.
     note: >-
@@ -132,7 +130,7 @@ controls:
       Raised, it keeps another set of pixels in each channel, so the three means no longer measure the same light.
       Above every sample of a channel, or above **Upper Limit**, the run is refused.
     scope: The white mean and the white mask.
-    persistence: Until the window closes. **Reset** and another target return it to 0.
+    persistence: Until the task closes. **Reset** and another target return it to 0.
   - name: Upper Limit
     kind: spinbox
     default: "0.900000"
@@ -142,16 +140,20 @@ controls:
     enabled: Disabled while **Manual White Balance** is on.
     tradeoff: Too low leaves too little of what is white. Saturated cores, equal in every channel, pull the gains toward 1.
     scope: The white mean and the white mask.
-    persistence: Until the window closes. **Reset** and another target return it to 0.9.
+    persistence: Until the task closes. **Reset** and another target return it to 0.9.
   - name: Region of interest
     kind: check
     default: "Off"
     effect: On, the white is measured over the rectangle of **Left**, **Top**, **Width** and **Height** only. Off, over the whole reference.
     range: Turning it on fills the four boxes with the whole reference. Turning it off returns them to 0 and ends a drawing with **From Selection**.
     enabled: Disabled while **Manual White Balance** is on.
-    tradeoff: A small clean rectangle keeps nebula and gradients out, and measures fewer samples.
+    tradeoff: >-
+      A small clean rectangle keeps nebula and gradients out, and measures fewer samples. Off, with the defaults, the
+      whole frame is both references and a nebula's light counts as white: on the master of the worked example the gaps
+      become 0.00248, 0.00217 and 0.00348, and the gains 1.400, 1.603 and 1, so red is lifted far less than the stars
+      ask for.
     scope: The white mean and the white mask.
-    persistence: Until the window closes. **Reset** and another target turn it off.
+    persistence: Until the task closes. **Reset** and another target turn it off.
     note: >-
       A rectangle that holds no pixel, or reaches past the reference's edge, is refused when you press **Apply** with
       "The white reference ROI must be fully inside the reference image and have a non-zero size."
@@ -165,7 +167,7 @@ controls:
       99. **Width** cannot reach past the right edge from it.
     enabled: With **Region of interest** on and **Manual White Balance** off.
     scope: The white rectangle. While **From Selection** is on, the frame on the view follows it.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Top
     kind: spinbox
     default: "0"
@@ -176,20 +178,20 @@ controls:
       99. **Height** cannot reach past the bottom edge from it.
     enabled: With **Region of interest** on and **Manual White Balance** off.
     scope: The white rectangle. While **From Selection** is on, the frame on the view follows it.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: From Selection
     kind: button
     default: "Off"
     effect: >-
-      Lets you draw the rectangle on the reference's view. Choose it, then drag on the image. The four boxes read 0
-      until you press the mouse button, and then follow the frame.
+      Lets you draw the rectangle on the reference's view, or on the canvas when the reference is the target. Choose
+      it, then drag on the image. The four boxes read 0 until you press the mouse button, and then follow the frame.
     range: Choosing it again ends the drawing and keeps the rectangle, or returns to the whole reference when **Width** or **Height** is 0.
     enabled: >-
       With **Region of interest** on and **Manual White Balance** off. Choosing the other **From Selection**, turning
       **Manual White Balance** on, turning **Region of interest** off or choosing another **Reference image** ends it.
     tradeoff: It places the rectangle and shows nothing of the result.
     scope: The frame on the reference's view and the four boxes. On a sequence you draw on the frame the view shows.
-    persistence: Until you choose it again or the window closes. **Reset** ends it.
+    persistence: Until you choose it again or the task closes. **Reset** ends it.
   - name: Width
     kind: spinbox
     default: "0"
@@ -199,7 +201,7 @@ controls:
     enabled: With **Region of interest** on and **Manual White Balance** off.
     tradeoff: Fewer samples make the mean noisier.
     scope: The white rectangle.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Height
     kind: spinbox
     default: "0"
@@ -209,7 +211,7 @@ controls:
     enabled: With **Region of interest** on and **Manual White Balance** off.
     tradeoff: Fewer samples make the mean noisier.
     scope: The white rectangle.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Manual White Balance
     kind: check
     default: "Off"
@@ -219,7 +221,7 @@ controls:
       White Reference Mask** of this group, and ends a white drawing.
     tradeoff: Simple and repeatable. No value exceeds 1, so it can lower a channel toward its background but never lift one.
     scope: Apply, every pixel. The background reference is still measured, because its medians are the levels the gains scale about.
-    persistence: Until the window closes. **Reset** and another target turn it off.
+    persistence: Until the task closes. **Reset** and another target turn it off.
   - name: Red
     kind: spinbox
     default: "1.000000"
@@ -229,7 +231,7 @@ controls:
     enabled: With **Manual White Balance** on.
     tradeoff: A very small value leaves red almost at its background level everywhere.
     scope: The red channel, through the mask.
-    persistence: Until the window closes. **Reset** and another target return it to 1.
+    persistence: Until the task closes. **Reset** and another target return it to 1.
   - name: Green
     kind: spinbox
     default: "1.000000"
@@ -237,7 +239,7 @@ controls:
     effect: Sets the green channel's gain about its background, as **Red** does for red.
     enabled: With **Manual White Balance** on.
     scope: The green channel, through the mask.
-    persistence: Until the window closes. **Reset** and another target return it to 1.
+    persistence: Until the task closes. **Reset** and another target return it to 1.
   - name: Blue
     kind: spinbox
     default: "1.000000"
@@ -245,7 +247,7 @@ controls:
     effect: Sets the blue channel's gain about its background, as **Red** does for red.
     enabled: With **Manual White Balance** on.
     scope: The blue channel, through the mask.
-    persistence: Until the window closes. **Reset** and another target return it to 1.
+    persistence: Until the task closes. **Reset** and another target return it to 1.
   - name: Output White Reference Mask
     kind: check
     default: "Off"
@@ -259,7 +261,7 @@ controls:
     tradeoff: Adds one image of the reference's size and pixel type.
     scope: An output only. It never limits the calibration.
     persistence: >-
-      It opens once the result is shown, while the target is open, even when the window has closed. Its history begins
+      It opens once the result is shown, while the target is open, after the task has closed. Its history begins
       with `ColorCalibration: White reference mask image created from '<target>'`. It keeps the reference's
       acquisition data and plate solution, and no header cards.
 ```
@@ -290,7 +292,7 @@ controls:
     range: A sample equal to a limit is selected. It is not held below **Upper Limit**.
     tradeoff: It changes nothing of the result, because the levels are the medians of every sample of the rectangle.
     scope: The background mask only.
-    persistence: Until the window closes. **Reset** and another target return it to 0.
+    persistence: Until the task closes. **Reset** and another target return it to 0.
   - name: Upper Limit
     kind: spinbox
     default: "0.100000"
@@ -299,7 +301,7 @@ controls:
     range: A sample equal to a limit is selected. It is not held above **Lower Limit**.
     tradeoff: It changes nothing of the result, as **Lower Limit**.
     scope: The background mask only.
-    persistence: Until the window closes. **Reset** and another target return it to 0.1.
+    persistence: Until the task closes. **Reset** and another target return it to 0.1.
   - name: Region of interest
     kind: check
     default: "Off"
@@ -307,7 +309,7 @@ controls:
     range: As the white **Region of interest**, with **Manual White Balance** on or off.
     tradeoff: A clean rectangle of sky keeps stars and nebula out of the levels.
     scope: The background levels and the background mask.
-    persistence: Until the window closes. **Reset** and another target turn it off.
+    persistence: Until the task closes. **Reset** and another target turn it off.
     note: >-
       A rectangle that holds no pixel, or reaches past the reference's edge, is refused when you press **Apply** with
       "The background reference ROI must be fully inside the reference image and have a non-zero size."
@@ -334,7 +336,7 @@ controls:
     enabled: >-
       With **Region of interest** on. Choosing the white **From Selection**, turning **Region of interest** off or
       choosing another **Reference image** ends it.
-    persistence: Until you choose it again or the window closes. **Reset** ends it.
+    persistence: Until you choose it again or the task closes. **Reset** ends it.
   - name: Width
     kind: spinbox
     default: "0"
@@ -374,15 +376,12 @@ controls:
     options: [The active image, Every other open RGB image or sequence]
     effect: Chooses the RGB image or sequence **Apply** calibrates.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes. Choosing another target returns every other control of the window to its default, as **Reset** does.
+    persistence: Until the task closes. Choosing another target returns every other control of the task to its default, as **Reset** does.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without applying, and the frame of **From Selection** leaves the view.
-    enabled: Disabled while a run works.
-    note: >-
-      Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not
-      stopped, on a sequence either: the progress window's **Cancel** stops it. The masks asked for still open.
+    effect: Closes the task without applying, as ++esc++ does, and the frame of **From Selection** leaves the view.
+    enabled: Disabled while a run works. The task cannot be closed until the run has ended.
   - name: Reset
     kind: button
     default: ""
@@ -396,11 +395,11 @@ controls:
     kind: button
     default: ""
     effect: >-
-      Reads the window, the references and the mask on the target's view, calibrates the image or every frame of the
-      sequence, and closes the window once the view shows the result.
+      Reads the task, the references and the mask on the target's view, calibrates the image or every frame of the
+      sequence, and closes the task once the view shows the result.
     enabled: >-
-      Whenever no run works, from the moment the window opens. While a run works, **Apply**, **Close** and **Reset**
-      are disabled and the other controls stay enabled, but a change made then does not reach the run.
+      Whenever no run works, from the moment the task opens. While a run works, the controls, **Close** and **Reset**
+      are disabled, the run's row in the column says how far it has come, and **Cancel** stands in the place of Apply.
     tradeoff: >-
       The run makes a floating-point copy of each reference, with a bit for each of its samples, and of the target, and
       the history keeps the image beside the result. A mask adds a copy for the blend, and each reference mask an
@@ -418,13 +417,13 @@ controls:
       is named by the target's view name, and a rectangle that is off reads as the whole reference.
     note: >-
       Before anything runs, a reference view that holds no image, or a rectangle that does not fit its reference, is
-      refused in a message titled **Color Calibration**, and nothing starts. A single image has no progress window, and
-      its run cannot be stopped. A sequence shows a progress window titled
+      refused in the column's message strip, after "Color Calibration:", and nothing starts. A single image has no
+      progress window, and its run cannot be stopped, though **Cancel** shows. A sequence shows a progress window titled
       **Color Calibration** with `Executing color calibration to sequence <name>`, whose **Cancel** stops the run, before
-      the next frame at the latest. A run that fails says why under "Error running color calibration", after "An error occurred when
-      executing the color calibration process:", writes it to the log, and leaves the image, its history and the window
-      as they were. While another run holds a sequence, **Apply** shows the busy warning under the title **Color
-      Calibration** and starts nothing.
+      the next frame at the latest; the column's run row shows the same share. A run that fails says why in the message
+      strip, after "Error running color calibration: An error occurred when executing the color calibration process:",
+      writes it to the log, and leaves the image, its history and the task as they were. While another run holds a
+      sequence, **Apply** shows the busy warning under the title **Color Calibration** and starts nothing.
 ```
 
 ```controls
@@ -433,7 +432,7 @@ controls:
   - name: Selection frame
     kind: readout
     default: ""
-    effect: Shows the rectangle as a thin dashed frame on the reference's view while a **From Selection** is on, and follows the four boxes.
+    effect: Shows the rectangle as a thin dashed frame on the reference's view, or on the canvas when the reference is the target, while a **From Selection** is on, and follows the four boxes.
     scope: The view only. It changes no sample.
   - name: Drag on the image
     kind: action
@@ -456,14 +455,14 @@ controls:
 
 ## How it works
 
-1. **Apply** reads the window, both references as their views show them and the mask on the target's view.
+1. **Apply** reads the task, both references as their views show them and the mask on the target's view.
 2. Every sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), in a 32-bit
    floating-point copy, or a 64-bit one for a 64-bit floating-point or 32-bit integer image.
 3. Each channel's background level is the median of every valid, finite sample of the background rectangle. Its white
    level is the mean of the valid, finite samples of the white rectangle between the white limits.
 4. Every valid sample of the target is scaled about its channel's background by the channel's gain, held between 0
    and 1, and written back in the image's pixel type, rounded to the nearest value. The mask on the view then blends
-   the result with the image, as on every process window.
+   the result with the image, as in every task.
 5. The result replaces the target with one history step, and the masks asked for open beside it. The header, the
    acquisition data, the [plate solution](../../reference/glossary.md#plate-solution), which samples are valid and
    what the image states it is are kept. The [lineage](../../reference/glossary.md#lineage) gains an entry with the detail
@@ -500,7 +499,7 @@ brought together. The lineage records the offset \(B_c\,(1 - K_c)\) that equatio
   History". The image stays as it was and no mask opens.
 - When the target changes while a single image's run works, the result is dropped without a message.
 - A single image's run cannot be stopped. A sequence's run stopped with **Cancel** changes nothing, records nothing
-  and opens no mask. In these cases the window stays open.
+  and opens no mask. In these cases the task stays open.
 
 ### Worked example
 
@@ -529,9 +528,6 @@ caption: >-
   display.
 ```
 
-With the defaults, the whole frame is both references, and the nebula's light counts as white. The gaps become
-0.00248, 0.00217 and 0.00348, and the gains 1.400, 1.603 and 1: red is lifted far less than the stars ask for.
-
 ## Starting points
 
 | Situation | Start | Then adjust |
@@ -548,7 +544,7 @@ With the defaults, the whole frame is both references, and the nebula's light co
     counts as white. Choose a field of stars and its sky before you apply.
 
 !!! warning "There is no preview"
-    **Apply** replaces the image and the window closes. Try the references on a duplicate or on one frame of a long
+    **Apply** replaces the image and the task closes. Try the references on a duplicate or on one frame of a long
     sequence, and use the image's history to go back.
 
 "The selected white reference image is no longer available."
@@ -597,4 +593,4 @@ A reference mask is empty or sparse, or the white mask does not open
   [Spectrophotometric Color Calibration](spectrophotometric-cc.md), to calibrate against a star catalog.
 - [Histogram Transformation](../stretching/histogram-transformation.md), once the linear color work is done.
 - [Image Viewer](../../interface/image-viewer.md), for **Linked channels**.
-- [Process Windows](../../interface/process-windows.md), for the mask, the progress window and the rest.
+- [Tasks](../../interface/tasks.md), for the mask, the run and the rest.

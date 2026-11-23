@@ -12,8 +12,10 @@ menu:
 
 Three windows show what an image carries beside its pixels. **FITS Header** lists its
 [header cards](../reference/glossary.md#header-card) as the file stated them, **EXIF Viewer** the fields a camera or a
-raster file wrote, and **Astrometry Info** sums up its [plate solution](../reference/glossary.md#plate-solution). They
-read what AfterNight keeps in memory, which the file's reader stored when it opened the file. None of them edits a
+raster file wrote, and **Astrometry Info** sums up its [plate solution](../reference/glossary.md#plate-solution). The
+[readout](../reference/glossary.md#readout) opens them: the first two from the header of its Image card, the third by
+**Info** in its Astrometry card. They read what AfterNight keeps in memory, which the file's reader stored when it
+opened the file. None of them edits a
 card, a field, the pixels or the [history](../reference/glossary.md#history), and none of them marks the image as
 changed. For the image's size and format, open [Image and Sequence Summary](image-summary.md) instead.
 
@@ -21,24 +23,25 @@ changed. For the image's size and format, open [Image and Sequence Summary](imag
 owed: true
 image: ../assets/images/interface/fits-header-viewer.webp
 alt: >-
-  The FITS Header Viewer window. Under the title bar, the heading FITS Header and a line about keyword, value and
-  comment records. A card titled Header Keywords holds a table with the columns Key, Value and Comment: SIMPLE, T and C#
-  FITS on the first row, then BITPIX 16, NAXIS 2, NAXIS1 5544, NAXIS2 3684, BZERO 32768, EXTEND, IMAGETYP with the
-  quoted value LIGHT, EXPOSURE 180.0 with its comment in seconds, and more rows below. Close stands at the bottom
-  right.
+  The FITS Header Viewer window of a raw NGC 253 light frame. Its heading reads INFORMATION and the frame's name over
+  FITS Header and a line about keyword, value and comment records. A card titled Header Keywords holds a table with the
+  columns KEY, VALUE and COMMENT: SIMPLE, T and C# FITS on the first row, then BITPIX 16, NAXIS 2 with
+  Dimensionality, NAXIS1 5544, NAXIS2 3684, BZERO 32768, EXTEND T, IMAGETYP with the quoted value 'LIGHT', EXPOSURE
+  180.0 with its comment in seconds, and more rows below. Close stands at the bottom right.
 caption: >-
-  The FITS header of a raw NGC 253 light frame, as the file states it.
+  The FITS header of a raw NGC 253 light frame, as the file states it, opened from the readout's Image card.
 pins:
-  - {n: 1, x: 63.0, y: 3.0}
-  - {n: 2, x: 14.0, y: 29.0}
-  - {n: 3, x: 33.0, y: 29.0}
-  - {n: 4, x: 65.0, y: 29.0}
-  - {n: 5, x: 81.0, y: 93.5}
+  - {n: 1, x: 2.0, y: 11.4}
+  - {n: 2, x: 7.0, y: 33.0}
+  - {n: 3, x: 21.0, y: 33.0}
+  - {n: 4, x: 55.5, y: 33.0}
+  - {n: 5, x: 82.2, y: 92.8}
 ```
 
 ## What you see
 
-1. **The title.** It names the view, as `FITS Header Viewer <M42>`.
+1. **The heading.** INFORMATION and the name of the view, over the window's name. The title bar names the view too,
+   as `FITS Header Viewer <M42>`.
 2. **Key.** Each card's keyword, in the order the file states them.
 3. **Value.** The value as the file stores it. A string keeps its quotes, as `'LIGHT'`.
 4. **Comment.** The text after the value's slash.
@@ -48,9 +51,10 @@ pins:
 
 ### Read the FITS header
 
-1. Make the view active. For a [sequence](../reference/glossary.md#sequence), pause the player on the frame you want.
-2. Choose **Image > Information > FITS Header**, choose **FITS Header** on the view's toolbar, or press
-   ++ctrl+shift+h++ over the view.
+1. Click the view to make its image the [active image](../reference/glossary.md#active-image). For a
+   [sequence](../reference/glossary.md#sequence), pause the player on the frame you want.
+2. Choose **FITS Header** in the header of the readout's Image card, choose **Image > Information > FITS Header**, or
+   press ++ctrl+shift+h++ over the view. The window opens over the main window.
 3. Scroll the table, and drag a heading's edge to widen a column. Click a row to mark it while you compare.
 
 On the NGC 253 [light frame](../reference/glossary.md#light-frame), the table opens on `SIMPLE`, `BITPIX` 16 and
@@ -61,33 +65,34 @@ distortion. Then compare them with **Astrometry Info**.
 
 ### Read the camera's EXIF fields
 
-Choose **Image > Information > EXIF Viewer**, **EXIF Viewer** on the toolbar, or press ++ctrl+shift+x++. The window
-lists the image's [EXIF](../reference/glossary.md#exif) record, one row for each field: its **Tag**, its **Value** and
-its full **Key**, such as `Exif.Photo.ExposureTime`. The window is offered only for a JPEG, TIFF, PNG or camera
-[RAW](../reference/glossary.md#raw) file that stated a field it shows.
+Choose **EXIF Viewer** in the header of the readout's Image card, **Image > Information > EXIF Viewer**, or press
+++ctrl+shift+x++. The window lists the image's [EXIF](../reference/glossary.md#exif) record, one row for each field:
+its **Tag**, its **Value** and its full **Key**, such as `Exif.Photo.ExposureTime`. The menu offers it only for a
+JPEG, TIFF, PNG or camera [RAW](../reference/glossary.md#raw) file that stated a field it shows; the readout's button
+opens it for any image, empty when there is nothing to show.
 
 ### Read the plate solution
 
-Choose **Image > Information > Astrometry Info**, **Astrometry Info** on the toolbar, or press ++ctrl+shift+p++. A
-line says whether the image has a solution, and eleven fields sum it up.
+Choose **Info** in the readout's Astrometry card, **Image > Information > Astrometry Info**, or press
+++ctrl+shift+p++. A line says whether the image has a solution, and eleven fields sum it up.
 
 ```figure
 owed: true
 image: ../assets/images/interface/fits-header-viewer-astrometry-info.webp
 alt: >-
-  The Astrometry Info window. Under its heading and a line of description, the words Astrometric solution available,
-  then a card of eleven rows: Field center RA 10:44:30.67, Field center Dec -59:53:31.7, CRVAL RA 10:44:30.67, CRVAL Dec
+  The Astrometry Info window. Its heading reads ASTROMETRY · RGB over Astrometry Info and a line of description; under
+  it, the words Astrometric solution available, then a card of eleven rows: Field center RA 10:44:30.67, Field center Dec -59:53:31.7, CRVAL RA 10:44:30.67, CRVAL Dec
   -59:53:31.7, Image scale 1.095 arcsec/px, Rotation 107.7° (N through E), Field of view 132.22′ × 99.16′, Projection
   RA---TAN-SIP / DEC--TAN-SIP, Equinox ICRS, SIP distortion A/B 4/4, 14 coeffs, and Solver Unknown. Close stands at the
   bottom right.
 caption: >-
-  Astrometry Info for the plate-solved Carina master.
+  Astrometry Info for the plate-solved Carina master, opened by Info in the readout's Astrometry card.
 ```
 
 **Field center RA** and **Field center Dec** say where the middle of the image points, and **CRVAL RA** and **CRVAL
 Dec** where the solution's reference pixel points. The two differ unless the reference pixel is the middle, as it is
 on the Carina [master](../reference/glossary.md#master). The window follows the
-[active image](../reference/glossary.md#active-image): choose another view and it describes that one.
+active image: choose another view and it describes that one.
 
 ### Keep the metadata when you save
 
@@ -112,9 +117,9 @@ controls:
   - name: Title
     kind: readout
     default: ""
-    effect: Names the view the table belongs to, as `FITS Header Viewer <M42>`, and follows a rename.
-    enabled: The menu entry and the button are enabled while the image carries at least one FITS card, whatever the file's extension. While a window is open, that view's menu entry is disabled until a FITS Header window of it closes. The button is not, so each press opens another window. ++ctrl+shift+h++ opens a window even when the entries are disabled, then empty.
-    tradeoff: While an edit holds the image, the view may find no card and disable the entries until the edit is done. With two windows open, closing either enables the menu entry again.
+    effect: Names the view the table belongs to, as `FITS Header Viewer <M42>`, and follows a rename. The heading inside says INFORMATION and the view's name over **FITS Header**.
+    enabled: The menu entry - in the menu bar, **All menus**, the view's menu or the command palette - is enabled while the image carries at least one FITS card, whatever the file's extension. While a window is open, that view's menu entry is disabled until a FITS Header window of it closes. The readout's **FITS Header** is always enabled, and each press opens another window. It and ++ctrl+shift+h++ open a window even when the menu entry is disabled, then empty.
+    tradeoff: While an edit holds the image, the view may find no card and disable the menu entry until the edit is done. With two windows open, closing either enables the menu entry again.
     persistence: Nothing of the window is kept, neither the column widths nor the row marked.
     note: The window stays open beside your work, and closes with its view. None of the three windows reads the pixels, a catalog or the network.
   - name: Key, Value and Comment
@@ -142,8 +147,8 @@ controls:
   - name: Title
     kind: readout
     default: ""
-    effect: Names the view, as `EXIF Header Viewer <M42>`, and follows a rename. The heading inside reads **EXIF Metadata**.
-    enabled: The menu entry and the button are enabled while the image carries an EXIF field the window shows, from a JPEG, TIFF, PNG or camera raw file. A container's own entries, such as a PNG's bit depth or a JPEG comment, do not count. While a window is open, its menu entry is disabled and its button is not, as for FITS Header. ++ctrl+shift+x++ opens a window even when the entries are disabled, then empty.
+    effect: Names the view, as `EXIF Header Viewer <M42>`, and follows a rename. The heading inside says INFORMATION and the view's name over **EXIF Metadata**.
+    enabled: The menu entry is enabled while the image carries an EXIF field the window shows, from a JPEG, TIFF, PNG or camera raw file. A container's own entries, such as a PNG's bit depth or a JPEG comment, do not count. While a window is open, its menu entry is disabled, as for FITS Header. The readout's **EXIF Viewer** and ++ctrl+shift+x++ open a window even when the menu entry is disabled, then empty.
     range: A camera raw file in a TIFF structure - NEF, DNG, ARW, PEF, SRW, CR2, ORF, RW2 - gives its fields, and a RAF file those of its embedded preview. A CR3, CRW, MRW or X3F file gives none.
     persistence: Nothing of the window is kept.
   - name: Tag, Value and Key
@@ -171,10 +176,10 @@ controls:
     kind: readout
     default: No astrometric solution
     effect: Reads "Astrometric solution available", "No astrometric solution" or, with no image active, "No active image".
-    enabled: The menu entry is enabled for any image, a sequence's frame among them, so it can show an unsolved one. The toolbar button shows for a still image and is enabled when it is solved. ++ctrl+shift+p++ works when the button does and is not in the toolbar's **More** menu.
+    enabled: The menu entry is enabled for any image, a sequence's frame among them, so it can show an unsolved one. The readout's **Info** shows in its Astrometry card for a solved image, and ++ctrl+shift+p++ works over a solved still image.
     tradeoff: '"No astrometric solution" does not say which card is missing or wrong, and "Astrometric solution available" says nothing of how good the solution is.'
-    scope: The active image. The window follows the active view, and its title names it, as `Astrometry Info <M42>`.
-    persistence: There is one window for each view. Asking again through the view it was opened from brings that window forward; asking through another view opens a second one. It closes with the view it was opened from.
+    scope: The active image. The window follows the active view, and its title names it, as `Astrometry Info <M42>`, as does the ASTROMETRY line of its heading.
+    persistence: There is one window for each view. Asking again for the view it was opened from - **Info**, the menu or the shortcut - brings that window forward; asking for another view opens a second one. It closes with the view it was opened from.
     note: The solution is read from the FITS cards by the one reader the overlays and Plate Solve use, and needs the ICRS and a tangent-plane projection. A header that states the J2000 equinox and no frame is taken as the ICRS. FK5 or any other frame, another equinox without `RADESYS = 'ICRS'`, another projection, a missing, malformed or repeated keyword and a singular matrix all leave no solution.
   - name: Field center RA and Field center Dec
     kind: readout
@@ -236,17 +241,18 @@ controls:
 
 ## When it goes wrong
 
-**FITS Header** is greyed
-:   **Cause.** The image carries no FITS card, or an edit held it while the view refreshed its toolbar.
+**FITS Header** is greyed in the menu
+:   **Cause.** The image carries no FITS card, or an edit held it while the view refreshed its entries.
 :   **Fix.** Wait for the edit to finish, or open the image from a FITS or XISF file.
 
-**EXIF Viewer** is greyed
+**EXIF Viewer** is greyed in the menu
 :   **Cause.** The image carries no EXIF field the window shows: none, only hidden ones, or a raw format whose EXIF
     AfterNight does not read.
 :   **Fix.** Open the camera's own JPEG, TIFF or raw file, in a format the window reads.
 
-A shortcut opens an empty window
-:   **Cause.** ++ctrl+shift+h++ and ++ctrl+shift+x++ open their windows even when the image has nothing to show.
+A shortcut or a button of the readout opens an empty window
+:   **Cause.** ++ctrl+shift+h++ and ++ctrl+shift+x++, and **FITS Header** and **EXIF Viewer** in the Image card, open
+    their windows even when the image has nothing to show.
 :   **Fix.** Close it, and trust the menu entry's state.
 
 "No astrometric solution" although the header has WCS cards
@@ -271,7 +277,7 @@ A saved and reopened file lost some cards or fields
 - [Astrometry Overlays](astrometry-overlays.md), to draw the grid, the catalog objects and the stars of a solution.
 - [Saving And Exporting](saving-and-exporting.md), for the formats and the **Embed EXIF** setting.
 - [File Formats](../reference/file-formats.md), for what each format keeps of the cards and fields.
-- [Image Statistics](image-statistics.md), for what the pixels measure rather than what the file claims.
+- [Readout](readout.md), for the Image and Astrometry cards that open these windows.
 
 ## Credits
 

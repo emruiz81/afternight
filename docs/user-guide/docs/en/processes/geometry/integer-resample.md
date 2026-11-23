@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Integer Resample window is open on it yet, and no window that needs the
-    image to itself is open on it.
+    An image or a sequence view is active, no Integer Resample task is open on it yet, and no task that needs the
+    image to itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One image or sequence of any pixel type and any number of channels. A raw color-filter mosaic only after you
     answer Yes to the Integer Resample CFA question.
@@ -34,7 +34,7 @@ factor wide, into one sample, by the average, the median, the maximum or the min
 into such a block, without interpolating. Use it when an exact block rule matters more than a size of your choice.
 
 **OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the resampled
-one, adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+one, adds one step to its [history](../../reference/glossary.md#history) and closes the [task](../../reference/glossary.md#task). The
 [pixel type](../../reference/glossary.md#pixel-type), the channels and the shape of the pixels are kept, and a
 [plate solution](../../reference/glossary.md#plate-solution) is scaled with the pixels, so no new plate solve is
 needed.
@@ -42,18 +42,16 @@ needed.
 ```figure
 image: ../../assets/images/processes/geometry/integer-resample.webp
 alt: >-
-  The Integer Resample window. In the Resample group, Resample Factor at 2, Downsample Mode at Average, and the
-  Downsample and Upsample buttons with Downsample chosen. In the New Size group, Original Px reads 7246 and 5429 and
-  Target Px 3623 and 2714, with Current Size at 450.19 MB and New Size at 112.53 MB. Under them Target Image names the
-  master, and Reset, OK and Close run along the bottom.
+  The Integer Resample task. Its header reads Integer Resample on the master. The canvas at the left shows the whole
+  master stretched for the screen, the red nebula among its stars, unchanged. The column at the right, headed Integer
+  Resample, holds Target Image naming the master, then the Resample section with Resample Factor at 2, Downsample
+  Mode at Average on a row of its own and the Downsample and Upsample buttons with Downsample chosen, then the New
+  Size section, where Original Px reads 7246 and 5429 and Target Px 3623 and 2714, with Current Size at 450.19 MB and
+  New Size at 112.53 MB. Reset, Close and OK stand in its footer.
 caption: >-
-  Integer Resample on the linear Carina master, binning by 2 with Average, as the window opens: Target Px and New Size
-  show the result before OK.
-pins:
-  - {n: 2, x: 28.0, y: 35.5}
-  - {n: 3, x: 5.5, y: 28.4}
-  - {n: 5, x: 71.5, y: 58.6}
-  - {n: 6, x: 58.5, y: 94.8}
+  Integer Resample on the linear Carina master, binning by 2 with Average, as the task opens: the canvas shows the
+  image as it is, and Target Px and New Size the result before OK.
+owed: true
 ```
 
 ## Before you start
@@ -72,21 +70,23 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Geometry > Integer Resample**. The window opens ready to bin by 2 with **Average**, so **OK** is
-   enabled at once.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Integer Resample**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image itself, the column at the right holds the controls. It opens ready to bin by 2 with
+   **Average**, so **OK** is enabled at once.
 2. **Choose the direction.** Choose **Downsample** to combine each block into one sample, or **Upsample** to copy each
    sample into a block.
 3. **Set the factor.** Type **Resample Factor**. For **Downsample** it must be no larger than the image's shorter
    side.
 4. **Choose how a block is combined.** For **Downsample**, choose **Downsample Mode**. **Upsample** disables it.
 5. **Check the size.** **Target Px** shows the result's width and height, and **New Size** the memory it will hold.
-6. **Resample.** Choose **OK**. The window closes, the view shows the image at its new size, and its history lists
-   **Integer Resample** with the factor and the size.
+6. **Resample.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The task closes, the image's view
+   shows the image at its new size, and its history lists **Integer Resample** with the factor and the size.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md).
+What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Integer Resample
@@ -96,10 +96,10 @@ controls:
     default: "2"
     widget: {min: 2, max: 100, step: 1}
     effect: Sets the factor. Higher makes the image smaller with **Downsample**, larger with **Upsample**.
-    range: The window lets it exceed a side of the image, and the run then refuses a **Downsample**.
+    range: The box lets it exceed a side of the image, and the run then refuses a **Downsample**.
     tradeoff: A larger **Downsample** factor loses more detail. An **Upsample** factor multiplies the memory by its square.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to 2.
+    persistence: Until the task closes. **Reset** and another target return it to 2.
   - name: Downsample Mode
     kind: combo
     default: Average
@@ -108,7 +108,7 @@ controls:
     enabled: With **Downsample** chosen.
     tradeoff: "**Average** smooths. **Median** removes an isolated outlier, and can soften small stars and peaks. **Maximum** raises the image and **Minimum** lowers it."
     scope: Each channel on its own.
-    persistence: Until the window closes. **Reset** and another target return it to **Average**.
+    persistence: Until the task closes. **Reset** and another target return it to **Average**.
   - name: Downsample / Upsample
     kind: radio
     default: Downsample
@@ -116,7 +116,7 @@ controls:
     effect: "**Downsample** divides both sides by the factor, rounded down, and combines each block by **Downsample Mode**. **Upsample** multiplies both sides by the factor and copies each sample into a block."
     tradeoff: "**Downsample** leaves fewer samples and less work, and what it merges or discards is gone. **Upsample** makes visible blocks and takes the factor's square in memory, with no new detail."
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to **Downsample**.
+    persistence: Until the task closes. **Reset** and another target return it to **Downsample**.
   - name: Original Px
     kind: readout
     default: The image's width and height
@@ -143,25 +143,25 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
-    effect: Chooses the image or sequence OK resamples. Choosing another one returns every control to its default.
+    options: [The active image, Every other open image or sequence the task can work on]
+    effect: Chooses the image or sequence OK resamples. Choosing another one shows it in the canvas and returns every control to its default.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Reads the factor, the direction and the reducer and resamples the image, or every frame of the sequence. The window closes once the view shows the result.
-    enabled: When **Target Px** differs from the image's size, which it does as the window opens. Its tooltip then reads "Apply integer resampling to the target image.", and otherwise "Target dimensions match the current image. Change the resample factor to enable."
+    effect: Reads the factor, the direction and the reducer and resamples the image, or every frame of the sequence. The task closes once the image's view shows the result.
+    enabled: When **Target Px** differs from the image's size, which it does as the task opens. Its tooltip then reads "Apply integer resampling to the target image.", and otherwise "Target dimensions match the current image. Change the resample factor to enable."
     tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the resampled copy.
-    scope: The whole image, on every channel, without the mask. A change made in the window after you press it does not reach the run.
+    scope: The whole image, on every channel, without the mask. A change made after you press it does not reach the run.
     persistence: "The image and its history keep the result, as the step **Integer Resample** with the text `Binning factor: <f>X - New size: <w>x<h> - Binning method: <mode>` for **Downsample** or `Resample factor: <f>X - New size: <w>x<h>` for **Upsample**."
-    note: "For a mosaic the view does not debayer, it first asks \"Integer Resample CFA\" whether to run anyway, and **No** starts nothing. OK, **Close** and **Reset** are disabled while the run works, and the other controls stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open."
+    note: "For a mosaic the view does not debayer, it first asks \"Integer Resample CFA\" whether to run anyway, and **No** starts nothing. While the run works, the column says \"applying\" and its controls, **Close** and **Reset** are disabled. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the task open, with the reason in its message strip."
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without resampling.
+    effect: Closes the task without resampling.
     enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+    note: ++esc++ and the task header's **Close** do the same, and none of them closes the task during a run.
   - name: Reset
     kind: button
     default: ""
@@ -176,14 +176,14 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Integer Resample** and the text `Executing integer resample to sequence <name>`."
+    effect: "Shows the share of the frames done, from 0 to 100 percent, in a window titled **Integer Resample** with the text `Executing integer resample to sequence <name>`. The column's run row shows the same share."
     enabled: Shown only while OK works on a sequence. A single image has no progress window.
     tradeoff: The resampled sequence is written to a temporary file, which needs its disk space until the run ends. An **Upsample** multiplies that space by the factor's square.
   - name: Cancel
     kind: button
     default: ""
     effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
-    note: Closing the Integer Resample window does not stop the run.
+    note: This window's **Cancel** stops the run; the task cannot be closed while it works.
 ```
 
 ## How it works
@@ -235,7 +235,7 @@ for **Upsample**, whatever edge a **Downsample** discards: a frame of 2.315 µm 
 ### Boundaries
 
 - The run refuses a **Downsample** factor larger than either side, and an **Upsample** larger than the engine's
-  limits or the memory, as "Error running integer resample" and in the log. The image, its history and the window
+  limits or the memory, as "Error running integer resample" and in the log. The image, its history and the task
   stay as they were. When the history cannot keep the image, it says so once in a message titled "Image History".
 - A block without a valid sample is left unwritten and marked invalid in the result's mask. Where every block had one,
   the image's rule is kept, and a mask of valid samples is resampled with the samples. Under a rule that calls every
@@ -248,7 +248,7 @@ for **Upsample**, whatever edge a **Downsample** discards: a frame of 2.315 µm 
 ### Worked example
 
 The linear Carina [master](../../reference/glossary.md#master) is 7246 by 5429 pixels, shown in the view's
-[Autostretch](../../reference/glossary.md#autostretch) display. The window opens with **Downsample**, a factor of 2
+[Autostretch](../../reference/glossary.md#autostretch) display. The task opens with **Downsample**, a factor of 2
 and **Average**. **Target Px** reads 3623 by 2714, since 5429 rows leave one over, and **New Size** reads 112.53 MB.
 Each new pixel is the mean of four, so the background keeps its level, near 0.028. By equation (3), its deviation of
 about 0.0026 would fall to 0.0013 if the noise of neighboring pixels were independent. Registration correlates it,
@@ -304,4 +304,4 @@ The astrometry overlay is gone after the resample
 - [Resize](resize.md), for a size of your choice through an interpolation.
 - [CFA Integer Resample](../calibration/cfa-integer-resample.md), to bin or enlarge a mosaic and keep its filters.
 - [Image Statistics](../../interface/image-statistics.md), to measure the noise and the level of the result.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the column and what every task shares.

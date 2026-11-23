@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active. The window opens beside other process windows, and Apply waits for
-    nothing else to be working on the target.
+    An image or a sequence view is active. The task opens as a page of its own, beside other tasks, and Apply waits
+    for nothing else to be working on the target.
   inputs: One grayscale or RGB image or sequence, and an optional mask on its view.
   outputs: >-
     The same view, replaced, with one history step. Its size and pixel type are kept. No file, preset or report is
@@ -41,26 +41,23 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/histogram-transformation.webp
 alt: >-
-  The Histogram Transformation window. On the left, two histograms: the upper one spread into several peaks, the
-  lower one a single spike at the left edge under a steep white curve, with three handles below it. Under them a
-  toolbar, the Channel box with two buttons, the Shadows, Highlights and Midtones boxes with their Clipped fields,
-  Target Image and Preview. On the right, the preview shows a red nebula. Reset, Close and Apply run along the bottom.
+  The Histogram Transformation task. Its header names the process and the linear master. The canvas at the left shows
+  the stretched preview, a red nebula among stars on a dark gray background. The column at the right opens with the
+  compact readout of the preview and the Preview area and Processed toggles, then holds Target Image and two
+  histograms, the upper one spread into several peaks, the lower one a single spike at the left edge under a steep
+  white curve, with three handles below it. Under them a toolbar, the Channel box with two buttons, the Shadows,
+  Highlights and Midtones boxes with their Clipped fields, and Preview. Reset, Close and Apply stand in its footer.
 caption: >-
   Histogram Transformation on a linear master with Shadows and Midtones at 0.02. The lower histogram is the image
-  with the curve over it, the upper one is the result, and the preview shows what Apply writes.
-pins:
-  - {n: 2, x: 10.4, y: 65.4}
-  - {n: 3, x: 10.4, y: 70.8}
-  - {n: 4, x: 10.4, y: 78.5}
-  - {n: 6, x: 70.4, y: 54.0}
-  - {n: 7, x: 90.4, y: 97.0}
+  with the curve over it, the upper one is the result, and the canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
 
 - Finish the work that needs linear data first: gradient removal, color calibration, measurement,
   [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. After **Apply** the image is nonlinear.
-- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse. Stretch once:
+- **Apply** replaces the image. Its history keeps the step before, and this [task](../../reference/glossary.md#task) has no inverse. Stretch once:
   every repeated stretch adds rounding and clipping.
 - The image is grayscale or RGB. A raw color-filter mosaic is stretched as a grayscale image, which breaks the
   relation between its sensor values: [debayer](../../reference/glossary.md#debayer) it first.
@@ -71,10 +68,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
-   Histogram Transformation**. The lower histogram shows the image as a narrow peak at the left, and the preview is
-   nearly black.
+   Histogram Transformation**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The task opens as a page: the canvas at the left shows the preview, nearly black, and the column at the
+   right holds the histograms and the controls. The lower histogram shows the image as a narrow peak at the left.
 2. **Choose the channel.** Leave **Channel** at **RGB** to stretch the three channels with one curve. Choose
    **Red**, **Green** or **Blue** only to correct one channel on purpose.
 3. **Set the black point.** Raise **Shadows** until its handle reaches the foot of the peak. Stop while the
@@ -83,16 +81,17 @@ pins:
    shows where the peak lands.
 5. **Leave the white point.** Keep **Highlights** where it is unless the top of the lower histogram is empty.
    Lowering it sends star cores to white.
-6. **Check the preview at 100 %.** Zoom the preview into the faint areas and the brightest stars, and press
+6. **Check the preview at 100 %.** Zoom the canvas into the faint areas and the brightest stars, and hold
    ++space++ over it to compare with the original.
-7. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists **Histogram
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the
+   stretched one, its history lists **Histogram
    Transformation** with the values you set, and the controls return to their defaults.
 
 ## Controls
 
 The toolbar under the histograms - zoom, grid, curve, scales, areas and **Plot resolution** - changes only how the
-histograms are drawn, and is the same in every window that has one: see
-[Process Windows](../../interface/process-windows.md).
+histograms are drawn, and is the same in every task that has one: see [Tasks](../../interface/tasks.md). The
+column's toggles row has **Preview area** and **Processed**; this task keeps **Preview** among its own controls.
 
 ```controls
 window: The histograms
@@ -104,7 +103,7 @@ controls:
     range: One line for a grayscale image, three for RGB.
     enabled: Always shown. The lines it draws follow the channel the preview displays, not **Channel**.
     tradeoff: It is a prediction from the counted bins. It leaves the mask out and is never counted again from the stretched image.
-    scope: The window only. It is redrawn after every change of a value, of **Channel**, of the Auto-stretch button, of the target and of **Plot resolution**.
+    scope: The task only. It is redrawn after every change of a value, of **Channel**, of the Auto-stretch button, of the target and of **Plot resolution**.
   - name: Lower histogram
     kind: readout
     default: ""
@@ -120,7 +119,7 @@ controls:
     range: The Shadows and Highlights handles cannot cross while you drag them. The Midtones handle keeps its place between the two as they move.
     tradeoff: Handles that lie on top of each other are hard to pick up. Type an exact value in its box instead.
     scope: The same values as the three boxes, on the channels **Channel** selects.
-    persistence: Until **Reset**, **Apply** or the window closes.
+    persistence: Until **Reset**, **Apply** or the task closes.
 ```
 
 ```controls
@@ -134,8 +133,8 @@ controls:
     enabled: A grayscale image shows a disabled **Grayscale** instead.
     tradeoff: Stretching one channel shifts the color balance, and can clip stars and background in that color.
     scope: The preview, Apply and the count of the **Clipped** fields. It does not choose the lines the histograms draw.
-    persistence: Until the window closes. **Reset** and **Apply** return it to **RGB**.
-    note: The window keeps one set of values, not one for each channel. Choosing a channel clears an Auto-stretch.
+    persistence: Until the task closes. **Reset** and **Apply** return it to **RGB**.
+    note: The task keeps one set of values, not one for each channel. Choosing a channel clears an Auto-stretch.
   - name: Auto-stretch linked channels
     kind: toolbutton
     default: ""
@@ -162,7 +161,7 @@ controls:
     range: The box does not keep it below **Highlights**.
     tradeoff: Set too high, it erases faint signal and background for good. Set too low, the image stays dim and the signal stays pressed against the left.
     scope: The preview and Apply, on the channels **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. Apply returns it to its default.
+    persistence: Until the task closes. Apply returns it to its default.
   - name: Clipped
     object: shadowsInfo
     kind: readout
@@ -170,7 +169,7 @@ controls:
     effect: Counts the samples below the black point, and gives them as a share of the image.
     range: A count of whole bins, at the toolbar's **Plot resolution**. The bin the black point falls in is not counted.
     tradeoff: With one color in **Channel** the count is that channel's and the share is of all three channels, so it reads a third of that channel's share.
-    scope: The window only, without the mask. It is counted again after every change of a value, of **Channel**, of the Auto-stretch button, of the target and of **Plot resolution**.
+    scope: The task only, without the mask. It is counted again after every change of a value, of **Channel**, of the Auto-stretch button, of the target and of **Plot resolution**.
     note: For exact counts, use Image Statistics after Apply.
   - name: Highlights
     kind: spinbox
@@ -180,7 +179,7 @@ controls:
     range: The box does not keep it above **Shadows**.
     tradeoff: Lowering it flattens star cores and bright structure, which cannot be brought back.
     scope: The preview and Apply, on the channels **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. Apply returns it to its default.
+    persistence: Until the task closes. Apply returns it to its default.
   - name: Clipped
     object: highlightsInfo
     kind: readout
@@ -188,7 +187,7 @@ controls:
     effect: Counts the samples above the white point, and gives them as a share of the image.
     range: A count of whole bins, at the toolbar's **Plot resolution**. The bin the white point falls in is not counted.
     tradeoff: With one color in **Channel** the share is of all three channels, as for the black point.
-    scope: The window only, without the mask, counted again with the black point's field.
+    scope: The task only, without the mask, counted again with the black point's field.
   - name: Midtones
     kind: spinbox
     default: "0.500000"
@@ -196,58 +195,58 @@ controls:
     effect: Sets the balance between the two points. Below the default it brightens what lies between them, above it darkens. It is the place between the two points that ends at half brightness.
     tradeoff: Near either end of its range almost everything collapses to black or white and the steps between tones show. Small moves change the contrast a lot.
     scope: The preview and Apply, on the channels **Channel** selects, before the mask is blended.
-    persistence: Until the window closes. Apply returns it to its default.
+    persistence: Until the task closes. Apply returns it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply replaces. The histograms, the channels and the preview follow it.
     tradeoff: A larger image or a sequence takes more time, memory and disk.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes it and disables both Auto-stretch buttons. The histograms keep working.
+    effect: Shows the stretched image in the canvas, with the mask blended in. Off removes it and disables both Auto-stretch buttons. The histograms keep working.
     tradeoff: Each change stretches the whole image again. On a large image, turn it off while you adjust and on again for the last check.
-    scope: The window only.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: The channel the preview displays is the one whose lines both histograms draw.
+    scope: The task only.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: The channel the canvas displays is the one whose lines both histograms draw.
   - name: Reset
     kind: button
     default: ""
     effect: Returns the three values and **Channel** to their defaults, clears an Auto-stretch and restores the zoom of both histograms.
     range: It leaves the toolbar's choices, the target and **Preview** as they are.
-    scope: The window only. Apply is disabled afterwards.
+    scope: The task only. Apply is disabled afterwards.
   - name: Apply
     kind: button
     default: ""
     effect: Stretches the image, or every frame of the sequence, with the three values or the Auto-stretch in force, and then returns the controls to their defaults.
-    enabled: When a value is off its default or an Auto-stretch is in force. It is disabled while the window opens.
+    enabled: When a value is off its default or an Auto-stretch is in force. It is disabled when the task opens.
     scope: The whole image or sequence, on the channels **Channel** selects, with the mask blended afterwards.
     persistence: The image and its history keep the result. The history records **Channel** and the three values, and not the toolbar's choices, the mask, the **Clipped** counts or the curve of an Auto-stretch.
-    note: Closing the window instead discards the values. Nothing of the window is saved between sessions.
+    note: Closing the task instead discards the values. Nothing of the task is saved between sessions.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
-    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the frames done and the frame being stretched, each from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. On a single image the row reads "applying". No progress window opens.
     tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    effect: Stands in the footer in place of **Apply**, and asks the run to stop. The temporary sequence is removed and the original stays as it was.
     range: The request is noticed before each frame and at intervals inside one, so the frame being read or written finishes first.
-    note: The window's own **Close** button is disabled while the run lasts.
+    note: The task's **Close** is disabled while the run lasts.
 ```
 
 ## How it works
 
-1. The window counts a histogram of each channel, at the toolbar's **Plot resolution**, and draws it below.
+1. The task counts a histogram of each channel, at the toolbar's **Plot resolution**, and draws it below.
 2. Your three values, or the Auto-stretch button, define one transfer curve for the channels in **Channel**. An
    Auto-stretch measures the median and the deviation of every valid sample of the whole image, once for each state
    of the image.
@@ -294,8 +293,8 @@ is placed 2.8 deviations above the median, and \(m\) is the complement.
   median lies outside 0 to 1. Pixels the image marks as invalid are left unchanged.
 - A 64-bit floating-point or 32-bit integer image is computed in double precision, every other type in single
   precision. In the channels left alone, and in an alpha channel, floating-point samples outside 0 to 1 are kept.
-- The window is made for images of one or three channels.
-- A single image has no progress window and cannot be cancelled once Apply starts.
+- The task is made for images of one or three channels.
+- A run on a single image shows "applying" in the column's run row, and **Cancel** asks it to stop.
 
 ### Worked example
 
@@ -332,7 +331,7 @@ values. A red sample of 0.10 becomes black, one of 0.90 white, and one of 0.42 l
 
 ## When it goes wrong
 
-!!! warning "Apply cannot be taken back from this window"
+!!! warning "Apply cannot be taken back from this task"
     The stretch replaces the image and records it as nonlinear. Finish color calibration and every other linear
     step first, and use the image's history to return to the linear master.
 
@@ -361,8 +360,9 @@ A Clipped count changed when Plot resolution changed
 :   **Fix.** Compare counts at one resolution only.
 
 The histograms still draw three lines while Channel is Red
-:   **Cause.** The lines follow the channel the preview displays, not **Channel**.
-:   **Fix.** Choose the channel to display in the preview's own toolbar, and leave **Channel** at what you stretch.
+:   **Cause.** The lines follow the channel the canvas displays, not **Channel**.
+:   **Fix.** Choose the channel to display in **View Channel** of the canvas's floating toolbar, and leave **Channel**
+    at what you stretch.
 
 The colors shift after the stretch
 :   **Cause.** One channel was stretched alone, or the channels were Auto-stretched independently.
@@ -384,8 +384,7 @@ The preview is slow
 - [Statistical Stretch](statistical-stretch.md), a stretch that places the median where you ask.
 - [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
 - [Image Statistics](../../interface/image-statistics.md), for exact counts of black and white samples after Apply.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the histogram toolbar and what every task shares.
 
 ## Credits
 

@@ -1,0 +1,26 @@
+{
+  "group": "Analysis",
+  "captures": [
+    {
+      "picture": "assets/images/processes/analysis/image-blend.webp",
+      "page": "processes/analysis/image-blend.md",
+      "data": ["linear", "linear"],
+      "shows": "The Image Blend task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with the linear master opened again as the blend image, its Black Point and Midtones at 0.02, Filter Type at High Pass with Radius 10 and Blend mode at Overlay, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\analysis\\image-blend.md", "-Set", "secondImageSelector@50,50;%keys=Home,Down,Return;imageBlendBlackPointValue=0.02;imageBlendMidtonesValue=0.02;filterSelector=High Pass;blendMode=Overlay"]
+    },
+    {
+      "picture": "assets/images/processes/analysis/image-compare.webp",
+      "page": "processes/analysis/image-compare.md",
+      "data": ["linear", "linear"],
+      "shows": "The Image Compare task with the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02 as Image 1 and the linear master opened again as Image 2, split side by side in the Linear display mode",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\analysis\\image-compare.md", "-Set", "secondImageSelector@50,50;%keys=Home,Down,Return;horizontalSplitButton=On"]
+    },
+    {
+      "picture": "assets/images/processes/analysis/range-selection.webp",
+      "page": "processes/analysis/range-selection.md",
+      "data": ["linear"],
+      "shows": "The Range Selection task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Lower limit at 0.45 and Smoothness at 4 on the lightness, the mask previewed in the Linear display mode",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\analysis\\range-selection.md", "-Set", "lowerLimitValue=0.45;smoothnessValue=4"]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "shell.layout-icons",
+  "window": "Layout icons",
+  "controls": [
+    {"label": "Lock layout", "kind": "toolbutton", "object": "layoutLockButton", "group": "", "visible": true, "default": ""},
+    {"label": "Group All Images", "kind": "toolbutton", "object": "layoutGroupButton", "group": "", "visible": true, "default": ""},
+    {"label": "Split All Images", "kind": "toolbutton", "object": "layoutSplitButton", "group": "", "visible": true, "default": ""},
+    {"label": "Fit Images To Window", "kind": "toolbutton", "object": "layoutFitButton", "group": "", "visible": true, "default": ""}
+  ]
+}

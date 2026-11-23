@@ -1565,6 +1565,14 @@ QString an::ui::helpPathFor(const QWidget* widget)
         {
             return window->helpPath();
         }
+        // A window that shows a process's page without being the process - the Observatory window showing a task -
+        // states that page in its `anHelpPath` property, so Help asked from its header or from the window itself
+        // opens it too (ObservatoryWindow keeps it to the task it shows).
+        const QString stated = widget->property("anHelpPath").toString();
+        if (!stated.isEmpty())
+        {
+            return stated;
+        }
     }
     return {};
 }

@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active and no other process window is open on it. Background Extraction needs the
-    image to itself, so no other window opens on it while it is open.
+    An image or a sequence view is active and no other task is open on it. Background Extraction needs the image to
+    itself, so no other task opens on it while it is open. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image, with or without alpha, of any pixel type, or a sequence, and an optional mask on its
     view. Preview and Apply need at least one sample.
@@ -30,7 +30,7 @@ derived: true
 
 Background Extraction removes a smooth gradient, such as light pollution, moonlight or a vignette the flats left,
 from samples of the background that you choose. You place square sample boxes with a grid or by clicking the preview.
-The window measures the median of each box and fits a smooth surface through those medians, one for each channel.
+The [task](../../reference/glossary.md#task) measures the median of each box and fits a smooth surface through those medians, one for each channel.
 It then subtracts the surface from the image, or divides the image by it.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the corrected one, keeps its
@@ -40,23 +40,18 @@ size, channels and [pixel type](../../reference/glossary.md#pixel-type), and add
 ```figure
 image: ../../assets/images/processes/background-extraction/background-extraction.webp
 alt: >-
-  The Background Extraction window. On the left, the Sample generation group with the Samples per Line and Grid
-  Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons. Under it, the Background
-  Extraction group with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing slider,
-  Degree Order at 1, two unticked check boxes, Preview Display at Corrected image and the Preview button. Then the
-  ticked Enable preview box and Target Image. On the right, the preview of a red nebula, with small yellow squares
-  spread over the field. Reset, Close and Apply run along the bottom.
+  The Background Extraction task. Its header reads Background Extraction on the linear master. The canvas at the left
+  shows the corrected preview of a red nebula in the Autostretch display, with small yellow squares spread over the
+  field, and the floating toolbar near its foot. The column at the right opens with the compact readout of the
+  preview and the ticked Enable preview toggle, then Target Image, the Sample generation section with the Samples per
+  Line and Grid Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons, and the
+  Background Extraction section with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing
+  slider, Degree Order at 1, two unticked check boxes, Preview Display at Corrected image and the Preview button.
+  Reset, Close and Apply stand in the footer.
 caption: >-
-  Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples
-  and the corrected image previewed.
-pins:
-  - {n: 1, x: 2.2, y: 88.8}
-  - {n: 2, x: 3.0, y: 30.7}
-  - {n: 3, x: 44.0, y: 55.0}
-  - {n: 4, x: 3.0, y: 42.9}
-  - {n: 5, x: 3.0, y: 69.7}
-  - {n: 6, x: 3.0, y: 64.6}
-  - {n: 7, x: 90.5, y: 91.6}
+  Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples:
+  the samples and the corrected preview in the canvas, the controls in the column.
+owed: true
 ```
 
 ## Before you start
@@ -66,7 +61,7 @@ pins:
 - Keep the image linear: remove the gradient before color calibration and the
   [stretch](../../reference/glossary.md#stretch). The result is not recorded as nonlinear.
 - **Apply** replaces the image. Its history keeps the step before.
-- The window needs the image to itself. Close the other process windows open on it first.
+- The task needs the image to itself. Close the other tasks open on it first.
 - A [mask](../../reference/glossary.md#mask) on the view keeps no pixel out of the fit. It only blends the result with
   the original afterwards, so turn it off while you place samples and judge the model.
 - On a sequence, one set of sample positions serves every frame, and each frame is measured and fitted on its own.
@@ -74,27 +69,28 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the linear [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Background Modelization >
-   Background Extraction**. The preview shows the image as it is, and **Preview** and **Apply** stay disabled until
-   there is a sample.
-2. **Place a grid.** Choose **Generate Samples**. Small yellow squares appear over the preview, except where a box is
+   Background Extraction**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++.
+   The task opens as a page: the canvas at the left shows the image as it is, the column at the right holds the
+   controls. **Preview** and **Apply** stay disabled until there is a sample.
+2. **Place a grid.** Choose **Generate Samples**. Small yellow squares appear over the canvas, except where a box is
    brighter than **Grid Tolerance** allows. If squares sit on the nebula, lower **Grid Tolerance** and generate again.
-3. **Edit the samples.** Click the preview to add a sample where the background has none. Right-click a square on a
+3. **Edit the samples.** Click the canvas to add a sample where the background has none. Right-click a square on a
    star, the nebula or a border to remove it. Edit last: a new grid replaces every sample.
 4. **Choose the surface.** For a smooth tilt, set **Interpolation Method** to **Polynomial**, with a low
    **Degree Order**. For a gradient that bends, keep **RBF** and its **Smoothing**. Keep **Correction** at
    **Subtraction** for sky glow.
-5. **Preview.** Choose **Preview**. When the fit is done, the preview shows the corrected image.
+5. **Preview.** Choose **Preview**. When the fit is done, the canvas shows the corrected image.
 6. **Check the model.** Set **Preview Display** to **Gradient model**. The surface should be smooth, without stars or
    the outline of the nebula. Return to **Corrected image**.
-7. **Apply.** Tick **Output Background Model** to keep the surface, then choose **Apply**. The view shows the corrected
-   image, its history lists **Background Extraction**, and the samples are cleared.
+7. **Apply.** Tick **Output Background Model** to keep the surface, then choose **Apply** in the column's footer. The
+   image shows corrected, its history lists **Background Extraction**, and the samples are cleared.
 
 ## Controls
 
-The window has no histogram and no **Channel**: every channel is fitted and corrected. What every process window
-shares is on [Process Windows](../../interface/process-windows.md).
+The task has no histogram and no **Channel**: every channel is fitted and corrected. What every task shares is on
+[Tasks](../../interface/tasks.md).
 
 ```controls
 window: Background Extraction
@@ -107,7 +103,7 @@ controls:
     range: The row must fit the image, so this number times 25 pixels may not exceed the width less 2 pixels. One grid holds at most 4,096 boxes.
     tradeoff: More boxes follow the background more closely, cost more fitting time and land on more stars and nebula. **RBF** accepts at most 1,024 samples, and a dense spline grid on a large frame takes most of the run.
     scope: "**Generate Samples** only. It moves no sample already placed."
-    persistence: Until the window closes. **Reset** and **Apply** return it to its default. The history records it, also when every sample was placed by hand.
+    persistence: Until the task closes. **Reset** and **Apply** return it to its default. The history records it, also when every sample was placed by hand.
   - name: Grid Tolerance
     kind: spinbox
     default: "2.00"
@@ -116,11 +112,11 @@ controls:
     range: A box at or below zero is always dropped. No limit drops a box for being dark.
     tradeoff: Too low leaves too few samples. Too high keeps boxes on stars and extended signal.
     scope: "**Generate Samples** only. A sample you click is kept whatever its level."
-    persistence: Until the window closes. **Reset** and **Apply** return it to its default. The history records it.
+    persistence: Until the task closes. **Reset** and **Apply** return it to its default. The history records it.
   - name: Generate Samples
     kind: button
     default: ""
-    effect: Places a centered grid of boxes of 25 by 25 pixels and keeps the boxes the tolerance allows. When it is done, they replace every sample the window holds, the ones you clicked meanwhile too.
+    effect: Places a centered grid of boxes of 25 by 25 pixels and keeps the boxes the tolerance allows. When it is done, they replace every sample the task holds, the ones you clicked meanwhile too.
     range: >-
       A grid that does not fit is refused with a message, and the samples stay as they were. A row wider than the
       image says "this many boxes of this size do not fit across the picture", more than 4,096 boxes "this grid holds
@@ -150,7 +146,7 @@ controls:
       pixel of every channel. **Polynomial** has at most 15 terms, so it is cheaper, can miss a local change, and at a
       high degree can bend through the nebula.
     scope: Every channel, fitted on its own, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and **Apply** return it to **RBF**. A change does not run the preview again.
+    persistence: Until the task closes. **Reset** and **Apply** return it to **RBF**. A change does not run the preview again.
     note: Both surfaces measure the image from -1 to 1 along each side, so on an image that is not square a pixel along the longer side counts for less of a spline's distance than one along the shorter side.
   - name: Correction
     kind: combo
@@ -163,7 +159,7 @@ controls:
       **Subtraction** suits an added glow, **Division** a dimming such as a vignette. **Division** raises the noise
       where the surface is low, and divides by 0.000001 where the surface is lower still.
     scope: Every channel, in the preview and Apply, before the mask is blended. Both hold the result between 0 and 1.
-    persistence: Until the window closes. **Reset** and **Apply** return it to **Subtraction**. A change does not run the preview again.
+    persistence: Until the task closes. **Reset** and **Apply** return it to **Subtraction**. A change does not run the preview again.
   - name: Smoothing
     kind: spinbox
     default: "0.50"
@@ -173,7 +169,7 @@ controls:
     enabled: With **Interpolation Method** at **RBF**.
     tradeoff: Higher resists noisy samples and can miss a real bend of the background. Lower follows every sample, one on a star too.
     scope: The spline, in every channel.
-    persistence: Until the window closes. **Reset** and **Apply** return it to its default. A change does not run the preview again.
+    persistence: Until the task closes. **Reset** and **Apply** return it to its default. A change does not run the preview again.
   - name: Degree Order
     kind: spinbox
     default: "4"
@@ -184,7 +180,7 @@ controls:
     tradeoff: A higher degree needs more samples spread over the frame, and can bend through real structure.
     scope: The polynomial, in every channel.
     persistence: >-
-      **Reset** and **Apply** leave it as it is, and a new window opens at 4. After a change, switching **Preview
+      **Reset** and **Apply** leave it as it is, and a new task opens at 4. After a change, switching **Preview
       Display** computes the preview again with the new degree.
   - name: Output Background Model
     kind: check
@@ -193,7 +189,7 @@ controls:
     range: For a still image only. A preview and a sequence open no model.
     tradeoff: The new image has the target's size, channels and pixel type, and the run holds the surface beside it, a 32-bit floating-point plane for each channel.
     scope: The new image is not blended through the mask, and its values are held between 0 and 1.
-    persistence: Until the window closes. **Reset** and **Apply** turn it off.
+    persistence: Until the task closes. **Reset** and **Apply** turn it off.
     note: >-
       Its history starts with the step `BackgroundExtractionProcess: Image gradient created from <target>`. It keeps
       the target's acquisition record, plate solution and lineage, and none of its header cards. Its own processing
@@ -205,19 +201,19 @@ controls:
     range: The noise spans 0.0001 around zero, so no sample moves by more than 0.00005. It depends only on the pixel's position, so every run gives the same result.
     tradeoff: Leave it off unless banding shows. It changes every corrected sample a little.
     scope: The corrected image, in every channel, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and **Apply** turn it off. After a change, switching **Preview Display** computes the preview again with it.
+    persistence: Until the task closes. **Reset** and **Apply** turn it off. After a change, switching **Preview Display** computes the preview again with it.
   - name: Preview Display
     kind: combo
     default: Corrected image
     options: [Corrected image, Gradient model]
     effect: Chooses what a computed preview shows, the corrected image or the fitted surface. Switching it after **Preview** fits the samples again and shows the other.
     enabled: >-
-      With **Enable preview** on. Until **Preview** is pressed, the pane shows the image as it is, whichever is chosen.
+      With **Enable preview** on. Until **Preview** is pressed, the canvas shows the image as it is, whichever is chosen.
       After a change of the samples, **Interpolation Method**, **Smoothing** or **Correction**, switching it changes
       nothing until **Preview** is pressed again.
     tradeoff: The model shows a surface that follows stars or nebula without opening an image. Showing it holds a 32-bit floating-point plane for each channel. An enabled mask blends the model with the image too.
     scope: The preview only, and **Take snapshot**, which keeps what the preview shows. Apply writes the corrected image.
-    persistence: Until the window closes. **Reset** and **Apply** return it to **Corrected image**.
+    persistence: Until the task closes. **Reset** and **Apply** return it to **Corrected image**.
   - name: Preview
     kind: button
     default: ""
@@ -226,22 +222,23 @@ controls:
     tradeoff: Each press is the whole fit and correction of Apply. No waiting indicator turns while it works.
     scope: The preview only. There is no preview area.
     persistence: >-
-      A change of a setting or of the samples leaves the last preview on the pane until you press it again. **Reset**,
-      another target, a finished Apply and turning **Enable preview** off return the pane to the image as it is.
+      A change of a setting or of the samples leaves the last preview on the canvas until you press it again. **Reset**,
+      another target, a finished Apply and turning **Enable preview** off return the canvas to the image as it is.
   - name: Enable preview
     kind: check
     default: "On"
-    effect: Shows the preview pane, where the samples are drawn and clicked. Off hides it with the squares, and drops a computed preview.
+    effect: Shows the preview in the canvas, where the samples are drawn and clicked. Off hides it with the squares, and drops a computed preview.
+    enabled: It stands in the column's toggles row. The task has no **Preview area**.
     tradeoff: Off, you cannot click samples. **Generate Samples** and **Apply** still work.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: Once it has been turned off, **Preview** does nothing, and after you turn it on again **Preview** and **Preview Display** stay disabled. Open the window again to preview.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: Once it has been turned off, **Preview** does nothing, and after you turn it on again **Preview** and **Preview Display** stay disabled. Open the task again to preview.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image Apply corrects. Choosing another clears the samples, and the preview shows the new image as it is.
     tradeoff: On a sequence, one set of positions serves every frame.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Reset
     kind: button
     default: ""
@@ -252,7 +249,7 @@ controls:
     default: ""
     effect: Measures the samples on the image, or on each frame of a sequence, fits, corrects and replaces the image. The samples are then cleared and the controls return to their defaults, except **Degree Order**.
     enabled: With at least one sample, whether or not the preview was computed.
-    tradeoff: A progress window with **Cancel** follows the run, on a single image too. The run works on a copy of the image, and an integer image on a floating-point copy as well.
+    tradeoff: The run shows in the column, and **Cancel** takes the place of **Apply** in the footer, on a single image too; no progress window opens. The run works on a copy of the image, and an integer image on a floating-point copy as well.
     scope: The whole image or sequence, every channel, with the mask blended afterwards.
     persistence: >-
       The history records the grid, the surface and the correction, as `Samples per Line: 20, Grid Tolerance: 2,
@@ -261,15 +258,15 @@ controls:
 ```
 
 ```controls
-window: The samples on the preview
+window: The samples on the canvas
 controls:
   - name: Sample squares
     kind: readout
     default: No square
-    effect: Show each sample as a small yellow square at its place on the preview.
+    effect: Show each sample as a small yellow square at its place on the canvas's preview.
     enabled: While **Enable preview** is on.
-    note: A sample is measured over a box of 25 by 25 pixels around its center, in every channel, at each preview and Apply. The window keeps its position only.
-    persistence: Until **Clear Samples**, **Reset**, another target, a finished Apply or a new grid. Samples are never saved, and closing the window loses them.
+    note: A sample is measured over a box of 25 by 25 pixels around its center, in every channel, at each preview and Apply. The task keeps its position only.
+    persistence: Until **Clear Samples**, **Reset**, another target, a finished Apply or a new grid. Samples are never saved, and closing the task loses them.
   - name: Click
     kind: action
     default: ""
@@ -393,10 +390,8 @@ caption: >-
     [Pixel Math](../pixel-math/pixel-math.md) for example.
 
 **Preview** or **Apply** stays disabled
-:   **Cause.** The window holds no sample. **Preview** also stays disabled once **Enable preview** has been turned
-    off in this window.
-:   **Fix.** Choose **Generate Samples** or click the preview's background. To preview again, close the window and
-    open it again.
+:   **Cause.** The task holds no sample, or **Enable preview** was turned off in it.
+:   **Fix.** Choose **Generate Samples** or click the canvas's background. To preview again, open the task anew.
 
 "this many boxes of this size do not fit across the picture", or "this grid holds more sites than a background fit accepts"
 :   **Cause.** **Samples per Line** times 25 pixels is wider than the image less 2 pixels, or the grid would hold more
@@ -424,8 +419,7 @@ The gradient model shows stars or the nebula
     **Polynomial** at a low degree. Then press **Preview** again.
 
 The preview does not change after a change of a setting
-:   **Cause.** The preview is computed only when you press **Preview**. Until then it keeps the last result, or shows
-    the image as it is.
+:   **Cause.** The preview is computed only when you press **Preview**.
 :   **Fix.** Press **Preview** after each change.
 
 **Division** leaves black, white or noisy areas
@@ -443,8 +437,7 @@ The preview does not change after a change of a setting
   background is flat.
 - [Image Statistics](../../interface/image-statistics.md), to compare the background's levels before and after.
 - [Masks](../../interface/masks.md), for the mask the result is blended through.
-- [Process Windows](../../interface/process-windows.md), for the preview pane, Apply and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the canvas, Apply and what every task shares.
 
 ## Credits
 

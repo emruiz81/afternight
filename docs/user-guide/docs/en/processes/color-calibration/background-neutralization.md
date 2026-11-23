@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An RGB image or sequence view is active, and no other process window is open on it: Background Neutralization
-    needs the image to itself.
+    An RGB image or sequence view is active, and no other task is open on it: Background Neutralization needs the image
+    to itself. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One RGB image or sequence, a background reference of three channels - the image itself or another open RGB image
     of any size - and an optional mask on the view.
@@ -33,45 +33,45 @@ a reference - the image itself, another open RGB image, or a rectangle of either
 between two limits. Then it adds to each channel the constant that brings its level to the mean of the three.
 
 **OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), adds one step to its
-[history](../../reference/glossary.md#history) and closes the window. The size, the
-[pixel type](../../reference/glossary.md#pixel-type) and the header are kept. The window has no preview: what you set
-reaches the image only when you press **OK**.
+[history](../../reference/glossary.md#history) and closes the [task](../../reference/glossary.md#task). The size, the
+[pixel type](../../reference/glossary.md#pixel-type) and the header are kept. The task has no preview: its canvas
+shows the image itself, and what you set reaches the image only when you press **OK**.
 
 ```figure
 image: ../../assets/images/processes/color-calibration/background-neutralization.webp
 alt: >-
-  The Background Neutralization window. Under the title, Reference image reads TARGET IMAGE between arrows. Lower Limit
-  reads 0.000000 and Upper Limit 0.200000, each with a slider. The Region of interest group is unticked, with its
-  Left, Top, Width and Height boxes dimmed at 0 and its From Selection button. Target Image names the composed image,
-  and Reset, OK and Cancel run along the bottom.
+  The Background Neutralization task. Its header reads Background Neutralization on the master, with Float as window
+  and Close at its right. The canvas at the left shows the linear master itself, stretched for the screen with its
+  channels linked: pink clouds of nebula and many stars on a gray sky. The column at the right holds Target Image
+  naming the master, Reference image reading TARGET IMAGE between arrows, Lower Limit at 0.000000 and Upper Limit at
+  0.200000, each with a slider, and the unticked Region of interest group with its Left, Top, Width and Height boxes
+  dimmed at 0 and its From Selection button. Reset, Cancel and OK stand in its footer.
 caption: >-
-  Background Neutralization on an RGB image composed from the red, green and blue masters, with Upper Limit raised to
-  0.2 so that every channel's background lies between the limits.
-pins:
-  - {n: 3, x: 2.2, y: 22.0}
-  - {n: 4, x: 2.2, y: 37.1}
-  - {n: 5, x: 28.5, y: 43.6}
-  - {n: 6, x: 65.0, y: 94.3}
+  Background Neutralization on the linear Carina master with Upper Limit raised to 0.2, the limit of the worked
+  example: the canvas shows the image as it is, in the Autostretch display with Linked channels on.
+owed: true
 ```
 
 ## Before you start
 
 - Work on a [linear image](../../reference/glossary.md#linear-image), before the
   [stretch](../../reference/glossary.md#stretch): an offset per channel means what it should only on linear data. The
-  window does not check.
+  task does not check.
 - Remove gradients first, with Background Extraction or Auto Gradient Removal. One constant per channel corrects no
   gradient, no vignetting and no difference of gain between the channels.
 - **OK** replaces the image, and there is no preview. The image's history keeps the step before. When unsure, try
   the settings on a duplicate.
-- The window needs the image to itself: close the other process windows open on it first.
+- The task needs the image to itself: close the other tasks open on it first.
 - A [mask](../../reference/glossary.md#mask) on the view blends the result with the original afterwards. The
   measurement leaves it out.
 - On a sequence, the reference is measured once and every frame gets the same offsets.
 
 ## Steps
 
-1. **Open the window.** Make the RGB image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Color Calibration > Background Neutralization**.
+1. **Open the task.** Make the RGB image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Calibration > Background Neutralization**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image itself, the column at the right holds its controls.
 2. **Read the backgrounds.** Choose **Image > Information > Statistics** and note each channel's median. The limits
    must hold the background of every channel.
 3. **Choose the reference.** Leave **Reference image** at `<--TARGET IMAGE-->` to measure the image itself. Choose
@@ -79,13 +79,14 @@ pins:
 4. **Set the limits.** Keep **Lower Limit** below the darkest channel's background and above any black border. Set
    **Upper Limit** above the brightest channel's background and below the stars and the bright nebula.
 5. **Choose the area, if the frame is crowded.** Tick **Region of interest** and type the rectangle, or press **From
-   Selection** and drag a rectangle of clean sky on the reference's view.
-6. **Neutralize.** Choose **OK**. The window closes, the three channels share one background level, and the history
-   lists **Background Neutralization** with the reference and its rectangle.
+   Selection** and drag a rectangle of clean sky on the canvas, or on the reference's view when it is another image.
+6. **Neutralize.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The task closes, the three channels
+   share one background level, and the history lists **Background Neutralization** with the reference and its
+   rectangle.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md).
+What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Background Neutralization
@@ -99,7 +100,7 @@ controls:
     enabled: Closing the view chosen here returns it to `<--TARGET IMAGE-->`.
     tradeoff: A reference whose background does not stand for the target's passes its offsets on unchanged, and gives the target a new cast.
     scope: Measured once, when you press OK. Every frame of a sequence gets the same offsets. With `<--TARGET IMAGE-->`, a sequence is measured on the frame its view shows.
-    persistence: Until the window closes. **Reset** and another target return it to `<--TARGET IMAGE-->`.
+    persistence: Until the task closes. **Reset** and another target return it to `<--TARGET IMAGE-->`.
     note: The reference is never changed.
   - name: Lower Limit
     kind: spinbox
@@ -109,7 +110,7 @@ controls:
     range: The slider moves in thousandths. Nothing keeps it below **Upper Limit**, and above it no sample is kept and the run is refused. A signed integer image reads its zero code near 0.5, counted from its smallest value, so the default limits keep nothing in it.
     tradeoff: Set too high, it leaves a channel without a sample, and the run is refused.
     scope: The measurement only, in all three channels. It does not choose which samples change.
-    persistence: Until the window closes. **Reset** and another target return it to its default.
+    persistence: Until the task closes. **Reset** and another target return it to its default.
   - name: Upper Limit
     kind: spinbox
     default: "0.100000"
@@ -118,7 +119,7 @@ controls:
     range: The slider moves in thousandths. It must lie above the background of every channel, or that channel is measured on its darkest samples only.
     tradeoff: Too high lets stars and bright structure into the median. Too low cuts a channel's background, or leaves it without a sample.
     scope: The measurement only, in all three channels.
-    persistence: Until the window closes. **Reset** and another target return it to its default.
+    persistence: Until the task closes. **Reset** and another target return it to its default.
   - name: Region of interest
     kind: check
     default: "Off"
@@ -126,7 +127,7 @@ controls:
     range: Ticking it sets the rectangle to the whole reference. Unticking it returns the four boxes to 0 and stops **From Selection**. Choosing another reference while it is ticked sets the rectangle to the whole new reference.
     tradeoff: A small rectangle of clean sky keeps stars and nebula out, and holds fewer samples.
     scope: The reference only. OK changes the whole target whatever the rectangle.
-    persistence: Until the window closes. **Reset** and another target untick it.
+    persistence: Until the task closes. **Reset** and another target untick it.
   - name: Left
     kind: spinbox
     default: "0"
@@ -135,7 +136,7 @@ controls:
     range: The 99 the box opens with becomes the reference's width less 1 when you tick **Region of interest**. The maximum of **Width** follows, as the reference's width less **Left**.
     enabled: With **Region of interest** ticked.
     scope: The measurement. While **From Selection** is on, a change moves the rectangle on the reference's view.
-    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+    persistence: Until the task closes. **Reset** and unticking **Region of interest** return it to 0.
   - name: Top
     kind: spinbox
     default: "0"
@@ -144,7 +145,7 @@ controls:
     range: The 99 the box opens with becomes the reference's height less 1 when you tick **Region of interest**. The maximum of **Height** follows, as the reference's height less **Top**.
     enabled: With **Region of interest** ticked.
     scope: The measurement. While **From Selection** is on, a change moves the rectangle on the reference's view.
-    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+    persistence: Until the task closes. **Reset** and unticking **Region of interest** return it to 0.
   - name: Width
     kind: spinbox
     default: "0"
@@ -152,7 +153,7 @@ controls:
     effect: Sets the rectangle's width. A narrow rectangle holds fewer samples.
     range: Ticking **Region of interest** sets it, and its maximum, to the reference's width. OK refuses 0 and a rectangle that leaves the reference.
     enabled: With **Region of interest** ticked.
-    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+    persistence: Until the task closes. **Reset** and unticking **Region of interest** return it to 0.
   - name: Height
     kind: spinbox
     default: "0"
@@ -160,7 +161,7 @@ controls:
     effect: Sets the rectangle's height. A short rectangle holds fewer samples.
     range: Ticking **Region of interest** sets it, and its maximum, to the reference's height. OK refuses 0 and a rectangle that leaves the reference.
     enabled: With **Region of interest** ticked.
-    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+    persistence: Until the task closes. **Reset** and unticking **Region of interest** return it to 0.
   - name: From Selection
     kind: button
     default: "Off"
@@ -168,30 +169,29 @@ controls:
     range: Turning it on clears the four boxes until you drag. Turning it off while **Width** or **Height** is 0 returns the rectangle to the whole reference.
     enabled: With **Region of interest** ticked. Choosing another reference stops it.
     tradeoff: It places the rectangle and changes no sample.
-    scope: The reference's view. The target's view is drawn on only when it is the reference.
-    persistence: "**Reset**, unticking **Region of interest** and closing the window stop it."
+    scope: The reference's view. When the target is the reference, the rectangle is drawn on the canvas.
+    persistence: "**Reset**, unticking **Region of interest** and closing the task stop it."
   - name: Target Image
     kind: combo
     default: The active image
     options: [The active image, Every other open RGB image or sequence]
-    effect: Chooses the image or sequence OK replaces. Choosing another one returns every other control to its default.
+    effect: Chooses the image or sequence OK replaces, which the canvas and the task header then show. Choosing another one returns every other control to its default.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Measures the reference and changes the whole image, or every frame of the sequence. The window closes once the view shows the result.
-    enabled: At once, whatever the values. While the run works, OK, **Cancel** and **Reset** are disabled. The other controls stay editable, and a change does not reach the run.
-    tradeoff: The run holds floating-point working copies of the reference and of the image. A single image shows no progress window, and its run cannot be stopped once it starts. A sequence needs the disk space of a second copy.
+    effect: Measures the reference and changes the whole image, or every frame of the sequence. The task closes once the view shows the result.
+    enabled: At once, whatever the values. While the run works, the controls, **Cancel** and **Reset** are disabled, and the run's row in the column says how far it has come.
+    tradeoff: The run holds floating-point working copies of the reference and of the image. A single image's run cannot be stopped once it starts, though a second **Cancel** stands in the place of OK. A sequence needs the disk space of a second copy.
     scope: Every channel, through the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
     persistence: "The image and its history keep the result, as the step **Background Neutralization** with the text `Reference image '<name>' (ROI X:<x>, Y:<y>, W:<width>, H:<height>)`. The name is the target's own when it is its own reference, and the rectangle is the whole reference while **Region of interest** is off. The limits are not recorded."
-    note: "A refused or failed run leaves the window open, and the image and its history as they were. A failure shows \"Error running background neutralization\" with \"An error occurred when executing the background neutralization process:\" and the reason, and writes them to the log. While another run holds a sequence, the busy message comes under the title Background Neutralization and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
+    note: "A refused or failed run leaves the task open, and the image and its history as they were. A refusal or a failure is said in the column's message strip: a failure as \"Error running background neutralization: An error occurred when executing the background neutralization process:\" and the reason, which the log gets too. While another run holds a sequence, the busy message comes under the title Background Neutralization and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
   - name: Cancel
     kind: button
     default: ""
-    effect: Closes the window without changing the image.
-    enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run goes on, on a sequence until the progress window's **Cancel** stops it.
+    effect: Closes the task without changing the image, as ++esc++ does.
+    enabled: Disabled while a run works. The task cannot be closed until the run has ended.
   - name: Reset
     kind: button
     default: ""
@@ -206,13 +206,13 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, under the title **Background Neutralization** and the text `Executing background neutralization to sequence <name>`."
+    effect: "Shows the share of the frames done, in a progress window over the main window under the title **Background Neutralization** and the text `Executing background neutralization to sequence <name>`. The column's run row shows the same share."
     enabled: Only while OK works on a sequence. A single image has no progress window.
     tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
+    effect: The progress window's **Cancel** stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
 ```
 
 ## How it works
@@ -299,7 +299,7 @@ caption: >-
 ## When it goes wrong
 
 !!! warning "OK changes the image without a preview"
-    The window shows no result before **OK**, and the step replaces the image. Read the channels' medians first, and
+    The task shows no result before **OK**, and the step replaces the image. Read the channels' medians first, and
     use the image's history to return to the image before the step.
 
 "Error running background neutralization", with "No red sample of the background reference lies between the limits"
@@ -320,7 +320,7 @@ One channel still sits above the other two after OK
 :   **Fix.** Choose an open RGB image, or `<--TARGET IMAGE-->`, and press **OK** again.
 
 The background is neutral, but the nebula's colors are wrong
-:   **Cause.** The window adds an offset to each channel and changes no gain.
+:   **Cause.** The task adds an offset to each channel and changes no gain.
 :   **Fix.** Balance the gains next, with Color Calibration, Photometric Color Calibration or Spectrophotometric Color
     Calibration.
 
@@ -345,4 +345,4 @@ A signed integer image is refused with the default limits
 - [Linear Match](linear-match.md), which matches each channel's level and spread to another image's.
 - [Channel Composition](../color-composition/channel-composition.md), which composes an RGB image from mono masters.
 - [Image Statistics](../../interface/image-statistics.md), to read each channel's median before and after.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.

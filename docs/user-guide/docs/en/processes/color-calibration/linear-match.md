@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active. OK waits until Reference Image names another open image with the same
-    number of channels.
+    An image or a sequence view is active. The task opens as a page of its own, beside other tasks. OK waits until
+    Reference Image names another open image with the same number of channels.
   inputs: >-
     One image or sequence of one to four channels, and a reference image of the same number of channels, of any size
     and pixel type.
@@ -34,29 +34,29 @@ the offset that moves the image's median onto the reference's. Images of one siz
 keep, and images of two sizes each on its own.
 
 **OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), adds one step to its
-[history](../../reference/glossary.md#history) and closes the window. The size, the
-[pixel type](../../reference/glossary.md#pixel-type) and the header are kept, and the result is not clamped. The window
-has no preview.
+[history](../../reference/glossary.md#history) and closes the [task](../../reference/glossary.md#task). The size, the
+[pixel type](../../reference/glossary.md#pixel-type) and the header are kept, and the result is not clamped. The task
+has no preview: its canvas shows the target itself.
 
 ```figure
 image: ../../assets/images/processes/color-calibration/linear-match.webp
 alt: >-
-  The Linear Match window. Reference Image names the red master. Reject low reads 0.000 with its slider at the left,
-  and Reject high 0.920 with its slider near the right. Target Image names the green master, and OK and Close sit at
-  the bottom.
+  The Linear Match task. Its header reads Linear Match on the blue channel of the master, with Float as window and
+  Close at its right. The canvas at the left shows that channel itself, stretched for the screen: the nebula in gray
+  among many stars. The column at the right, headed Linear Match, holds Target Image naming the blue channel, Reference
+  Image naming the red channel, Reject low at 0.000 with its slider at the left and Reject high at 0.920 with its
+  slider near the right. Close and OK stand in its footer.
 caption: >-
-  Linear Match on the night's green master, with the red master as its reference and the default limits.
-pins:
-  - {n: 2, x: 3.0, y: 33.8}
-  - {n: 3, x: 3.0, y: 59.2}
-  - {n: 4, x: 50.0, y: 91.3}
+  Linear Match on the blue channel extracted from the linear Carina master, with its red channel as the reference and
+  the default limits, as the worked example sets them: the canvas shows the target as it is.
+owed: true
 ```
 
 ## Before you start
 
 - Decide which image sets the level. Linear Match changes **Target Image** to resemble **Reference Image**, never the
   reverse, and never changes the reference.
-- Use [linear images](../../reference/glossary.md#linear-image). The window checks neither the images' linearity nor
+- Use [linear images](../../reference/glossary.md#linear-image). The task checks neither the images' linearity nor
   their [processing state](../../reference/glossary.md#processing-state).
 - Images of one width and height are paired by position: register and crop them alike. Images of two sizes are matched
   by each channel's median and spread alone, and one pixel of difference switches between the two measurements.
@@ -69,19 +69,22 @@ pins:
 
 ## Steps
 
-1. **Open both images.** Open the target and the reference, make the target the
-   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Calibration > Linear Match**.
+1. **Open the task.** Open the target and the reference, make the target the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Calibration > Linear Match**,
+   or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page:
+   the canvas at the left shows the target itself, the column at the right holds its controls.
 2. **Choose the reference.** In **Reference Image**, choose the image whose level and spread the target should take.
    Until you do, it reads `<--NO IMAGE-->` and **OK** is disabled.
 3. **Set the limits.** Keep **Reject high** below the brightest stars and clipped cores, so that they stay out of the
    measurement. Raise **Reject low** only to leave dark artifacts above zero out.
-4. **Match.** Choose **OK**. The window closes, and the history lists **Linear Match** with both images and the limits.
+4. **Match.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The task closes, and the history lists
+   **Linear Match** with both images and the limits.
 5. **Check.** Choose **Image > Information > Statistics** and compare each channel's median with the reference's. They
    now agree closely.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md).
+What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Linear Match
@@ -95,7 +98,7 @@ controls:
     enabled: The list follows the views as they open, change, are renamed or close. Closing the chosen view returns it to `<--NO IMAGE-->`, and **OK** is disabled while it reads so.
     tradeoff: A reference of another field or another state passes its level and spread on. Images of one size that are not registered alike pair unrelated samples, and give a meaningless scale. Each channel of a color image is matched on its own, so a color cast of the reference passes on too. An encoded hue or chroma component has no level or spread to match.
     scope: OK, on every channel. Every frame of a sequence is matched to the same reference.
-    persistence: Until the window closes. Choosing another target returns it to `<--NO IMAGE-->`.
+    persistence: Until the task closes. Choosing another target returns it to `<--NO IMAGE-->`.
     note: The reference is never changed.
   - name: Reject low
     kind: spinbox
@@ -105,7 +108,7 @@ controls:
     range: Its three decimals hold every position of the slider, which moves in thousandths. Nothing keeps it below **Reject high**, and limits that keep no sample are refused when the run measures.
     tradeoff: Too high leaves too few samples. It never chooses which samples change.
     scope: The measurement only, in every channel. For images of one size it holds the reference's samples only, and a position is left out of both images where the reference's sample is. For images of two sizes it holds each image's samples.
-    persistence: Until the window closes. The window has no **Reset**.
+    persistence: Until the task closes. The task has no **Reset**.
   - name: Reject high
     kind: spinbox
     default: "0.920"
@@ -114,29 +117,28 @@ controls:
     range: Its three decimals hold every position of the slider, which moves in thousandths.
     tradeoff: Lower keeps stars and clipping out. Too low leaves too few samples, or a nearly flat set that no longer stands for the spread.
     scope: The measurement only, in every channel, held to the same images as **Reject low**.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Target Image
     kind: combo
     default: The active image
     options: [The active image, Every other open image or sequence]
-    effect: Chooses the image or sequence OK replaces. Choosing another one lists the references of its number of channels, and returns **Reference Image** to `<--NO IMAGE-->`.
+    effect: Chooses the image or sequence OK replaces, which the canvas and the task header then show. Choosing another one lists the references of its number of channels, and returns **Reference Image** to `<--NO IMAGE-->`.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: OK
     kind: button
     default: ""
-    effect: Measures the target against the reference and changes the whole image, or every frame of the sequence. The window closes once the view shows the result.
-    enabled: While **Reference Image** names an image. While the run works, OK and **Close** are disabled. The other controls stay editable, and a change does not reach the run.
-    tradeoff: The run holds floating-point working copies of both images, and a bit a sample for those it measures. A single image shows no progress window, and its run cannot be stopped once it starts. A sequence measures every frame against the reference again, and needs the disk space of a second copy.
+    effect: Measures the target against the reference and changes the whole image, or every frame of the sequence. The task closes once the view shows the result.
+    enabled: While **Reference Image** names an image. While the run works, the controls and **Close** are disabled, and the run's row in the column says how far it has come.
+    tradeoff: The run holds floating-point working copies of both images, and a bit a sample for those it measures. A single image's run cannot be stopped once it starts, though **Cancel** stands in the place of OK. A sequence measures every frame against the reference again, and needs the disk space of a second copy.
     scope: Every channel, without the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
     persistence: "The image and its history keep the result, as the step **Linear Match** with the text `Target image '<target>', Reference image '<reference>', Reject Low: 0, Reject High: 0.92` for the default limits. Over a sequence it begins `Target sequence`."
-    note: "A reference view that holds no image when you press OK is refused with \"The selected reference image is no longer available.\", under the title Linear Match, and nothing runs. A failure shows \"Error running linear match\" with \"An error occurred when executing the linear match process:\" and the reason, writes them to the log, and leaves the image, its history and the window as they were. While another run holds a sequence, the busy message comes under the title Linear Match and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
+    note: "A reference view that holds no image when you press OK is refused with \"Linear Match: The selected reference image is no longer available.\" in the column's message strip, and nothing runs. A failure shows \"Error running linear match: An error occurred when executing the linear match process:\" and the reason there, writes them to the log, and leaves the image, its history and the task as they were. While another run holds a sequence, the busy message comes under the title Linear Match and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without applying.
-    enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run goes on, on a sequence until the progress window's **Cancel** stops it.
+    effect: Closes the task without applying, as ++esc++ does.
+    enabled: Disabled while a run works. The task cannot be closed until the run has ended.
 ```
 
 ```controls
@@ -145,13 +147,13 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, under the title **Linear Match** and the text `Executing linear match to sequence <name>`."
+    effect: "Shows the share of the frames done, in a progress window over the main window under the title **Linear Match** and the text `Executing linear match to sequence <name>`. The column's run row shows the same share."
     enabled: Only while OK works on a sequence. A single image has no progress window.
     tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed. The Linear Match window stays open.
+    effect: The progress window's **Cancel** stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed. The Linear Match task stays open.
 ```
 
 ## How it works
@@ -291,4 +293,4 @@ The mask on the view had no effect
 - [Color Calibration](color-calibration.md), [Photometric Color Calibration](photometric-cc.md) and
   [Spectrophotometric Color Calibration](spectrophotometric-cc.md), which balance color rather than match a reference.
 - [Image Statistics](../../interface/image-statistics.md), to compare the medians and deviations before and after.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.

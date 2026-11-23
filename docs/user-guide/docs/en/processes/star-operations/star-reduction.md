@@ -14,8 +14,9 @@ masks: post-blend
 external: Optional StarNet2 2.5.3 or newer, to generate the starless image
 glance:
   enabled: >-
-    An image or a sequence view is active, no Star Reduction window is open on it yet, and no window that needs the
-    image for itself is open on it. OK waits for a starless image to be chosen in the window.
+    An image or a sequence view is active, no Star Reduction task is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks. OK waits for a starless
+    image to be chosen in the task.
   inputs: >-
     One grayscale or RGB image or sequence, a starless image of the same width, height, channels and color layout in
     any pixel type, and an optional mask on the target's view.
@@ -32,7 +33,7 @@ Star Reduction makes the stars of a stretched image smaller and fainter. It comp
 [starless image](../../reference/glossary.md#starless-image) of it and pulls each star toward the background the
 starless image holds there. Where the two agree, as on the sky and the nebula, nothing changes. Two of its four
 methods work through the [midtones transfer function](../../reference/glossary.md#midtones-transfer-function). A
-[mask](../../reference/glossary.md#mask) on the image's view, such as the small-star protection mask the window
+[mask](../../reference/glossary.md#mask) on the image's view, such as the small-star protection mask the [task](../../reference/glossary.md#task)
 builds, keeps faint stars from vanishing.
 
 **OK** opens the result as a new image, or replaces the image or
@@ -42,29 +43,23 @@ their own. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/star-reduction.webp
 alt: >-
-  The Star Reduction window. On the left, the Views group with Target image, Starless image, Generator and the
-  Generate starless view button; the Small star protection group with its button and check box; the Star reduction
-  parameters group with Reduction method at Star Method, a dimmed Stretch factor, Mode at Strong and Iterations at 2;
-  the Output options group with its check boxes and name fields; and Show preview. On the right, the preview of a
-  stretched nebula with a framed area in its middle. Reset runs along the bottom on the left, OK and Close on the
-  right.
+  The Star Reduction task. Its header names the process and the stretched Carina master. The canvas at the left shows
+  the stretched nebula with a framed area in its middle, the word PREVIEW in its corner. The column at the right opens
+  with the compact readout of the preview, then the Show preview and Preview area toggles ticked, Target image, and
+  the sections of the process: Views with Starless image, Generator and the Generate starless view button; Small star
+  protection with its button and check box; Star reduction parameters with Reduction method at Star Method, a dimmed
+  Stretch factor, Mode at Strong and Iterations at 2; and Output options with its check boxes and name fields. Reset,
+  Close and OK stand in its footer.
 caption: >-
   Star Reduction on the stretched Carina master against its starless image, with Star Method, Strong and Iterations
-  at 2. The framed area in the preview shows the reduced stars.
-pins:
-  - {n: 2, x: 2.0, y: 21.1}
-  - {n: 3, x: 2.0, y: 47.9}
-  - {n: 4, x: 2.0, y: 58.4}
-  - {n: 5, x: 2.0, y: 36.5}
-  - {n: 6, x: 23.5, y: 66.5}
-  - {n: 7, x: 36.6, y: 15.7}
-  - {n: 8, x: 78.8, y: 96.5}
+  at 2. The framed area in the canvas shows the reduced stars.
+owed: true
 ```
 
 ## Before you start
 
 - Make the starless image from this image after its [stretch](../../reference/glossary.md#stretch), at the same
-  stage, with the same size, channels and alignment. [Starnet++](starnet.md) makes one, and the window can start it.
+  stage, with the same size, channels and alignment. [Starnet++](starnet.md) makes one, and the task can start it.
 - Check the starless image at 100 % for nebula or galaxy detail it removed. What it lacks there is reduced as if it
   were a star.
 - [Debayer](../../reference/glossary.md#debayer) a raw color-filter image first: a mosaic is refused.
@@ -74,9 +69,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the [active image](../../reference/glossary.md#active-image) and
-   choose **Process > Star Processing > Star Reduction**. The preview shows the image unchanged, with the frame of a
-   [preview area](../../reference/glossary.md#preview-area) in its middle.
+1. **Open the task.** Make the stretched image the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Star Processing > Star Reduction**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the image unchanged, with the frame of a [preview area](../../reference/glossary.md#preview-area) in its
+   middle, and the column at the right holds its controls.
 2. **Choose the starless image.** Pick it in **Starless image**, which lists only the open images that match the
    target. Without one, choose a **Generator**, press **Generate starless view** and run it: the image it makes is
    selected when it opens.
@@ -85,19 +82,19 @@ pins:
 4. **Set the strength.** With Star or Lightness, raise **Iterations** for more, or choose **Moderate** or **Soft** in
    **Mode** for less. With Transfer or Halo, lower **Stretch factor** for more.
 5. **Protect the small stars.** If faint stars vanish in the preview, press **Initialise small star protection** and
-   keep the window open until the mask opens as a new image. It becomes the image's mask, and **Enable small star
+   keep the task open until the mask opens as a new image. It becomes the image's mask, and **Enable small star
    protection** is ticked.
 6. **Choose what OK makes.** Leave **Create new star-reduced image** on, or tick **Reduce stars on target image** to
    replace the image. **Create reduced-stars-only image** adds an image of the stars taken away.
-7. **Check at 100 %.** Zoom the preview into the stars and the faint nebula, and hold ++space++ over it to compare
+7. **Check at 100 %.** Zoom the canvas into the stars and the faint nebula, and hold ++space++ over it to compare
    with the target image.
-8. **Choose OK.** The reduced image opens beside the target, or replaces it, and the reduced stars open as a second
-   image. The controls return to their defaults.
+8. **Run it.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The reduced image opens beside the
+   target, or replaces it, and the reduced stars open as a second image.
 
 ## Controls
 
-The preview, its toolbar and the progress window of a sequence are those of every process window: see
-[Process Windows](../../interface/process-windows.md). The preview names its two images PREVIEW and TARGET IMAGE.
+The canvas, its floating toolbar and the run of a sequence in the column are those of every task: see
+[Tasks](../../interface/tasks.md). The canvas names its two images PREVIEW and TARGET IMAGE.
 
 ```controls
 window: Star Reduction
@@ -105,10 +102,10 @@ controls:
   - name: Target image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image whose stars are reduced. It names the new image, carries the mask, and is the image OK replaces when you ask.
-    tradeoff: The target and the starless image must show the same scene, aligned pixel for pixel. The window cannot check that.
-    persistence: Until the window closes. Choosing another target lists the starless images again, and keeps the chosen one when it still matches.
+    tradeoff: The target and the starless image must show the same scene, aligned pixel for pixel. The task cannot check that.
+    persistence: Until the task closes. Choosing another target lists the starless images again, and keeps the chosen one when it still matches.
   - name: Starless image
     kind: combo
     default: "<--NO IMAGE-->"
@@ -118,7 +115,7 @@ controls:
     enabled: OK and **Initialise small star protection** wait for a choice here. Closing the chosen image returns the box to `<--NO IMAGE-->`.
     tradeoff: A starless image that is not aligned, or that lost nebula or galaxy detail, reduces that detail as if it were stars.
     scope: The preview, a snapshot and OK, cropped with the target to a preview area. Every frame of a sequence is reduced against this one image, as it is when you press OK.
-    persistence: Until the window closes. **Reset** and a finished OK leave it as it is.
+    persistence: Until the task closes. **Reset** and a finished OK leave it as it is.
     note: It is read in its own pixel type as fractions of full scale and brought to the target's working precision, never to the target's pixel type, so an integer target does not round a floating-point starless image.
   - name: Generator
     kind: combo
@@ -128,7 +125,7 @@ controls:
     range: Each item is a generator's name, as **Starnet++**. The tooltip of an item that cannot run gives the reason.
     enabled: When at least one generator is registered. It opens on the first one ready to run.
     tradeoff: How long the generator takes, and how good its starless image is, are the generator's.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Generate starless view
     kind: button
     default: ""
@@ -145,7 +142,7 @@ controls:
     effect: Builds a protection mask from the whole target and starless image, dark on the small stars and light elsewhere. When it is ready it opens as `<target> - star reduced mask`, becomes the target's mask, enabled, not inverted and hidden, and ticks **Enable small star protection**.
     range: The mask does not depend on the method, the strength or the preview area. It averages the channels of each image, spreads each over its own minimum and maximum, takes where the target rises above the starless image, keeps the small structures an 11-pixel median misses, widens them with a cross-shaped dilation, smooths them over 7 by 7 pixels and inverts the result.
     enabled: With a starless image chosen. It is disabled while a mask is built, and does nothing while OK runs.
-    tradeoff: It works in the background over the whole image, with no progress window and no Cancel. It costs more than a reduction, with copies of both images and three 32-bit planes of the image's size. Closing the window before the mask is ready discards it.
+    tradeoff: It works in the background over the whole image, with no progress shown and no Cancel. It costs more than a reduction, with copies of both images and three 32-bit planes of the image's size. Closing the task before the mask is ready discards it.
     scope: Through the target's mask, the preview, a snapshot and OK, as every mask on a view. Black keeps the target, white takes the reduction.
     persistence: >-
       The mask image stays open. It is a one-channel floating-point image, 64-bit for a 64-bit or 32-bit integer
@@ -157,9 +154,9 @@ controls:
     kind: check
     default: "Off"
     effect: Enables or disables the target's mask, and so the protection, for the preview and OK.
-    enabled: It acts on any mask the target has until the window builds its own. After that it acts only on the mask the window built, while that mask is the target's.
+    enabled: It acts on any mask the target has until the task builds its own. After that it acts only on the mask the task built, while that mask is the target's.
     tradeoff: Protected stars keep more of the target. Too wide a protection leaves stars unreduced.
-    persistence: It changes the target's mask, which stays as you leave it. The window keeps no setting of its own.
+    persistence: It changes the target's mask, which stays as you leave it. The task keeps no setting of its own.
   - name: Reduction method
     kind: combo
     default: Star Method
@@ -167,7 +164,7 @@ controls:
     effect: Chooses the equation. **Star Method** is the general one. **Halo Method** aims at the glow around stars. **Lightness Method** weighs the reduction by the pixel's lightness, gentler on bright structures. **Transfer Method** reduces through a midtones transfer.
     enabled: Transfer and Halo enable **Stretch factor**. Star and Lightness enable **Mode** and **Iterations**.
     scope: Every channel of the target, in the preview, a snapshot and OK.
-    persistence: Until the window closes. **Reset** and a finished OK return it to **Star Method**.
+    persistence: Until the task closes. **Reset** and a finished OK return it to **Star Method**.
   - name: Stretch factor
     kind: spinbox
     default: "0.20"
@@ -176,14 +173,14 @@ controls:
     range: The midtones balance of equations (5) and (6) is one minus this value, which must lie strictly between 0 and 1.
     enabled: With Transfer or Halo. Its value is also used by **Enable reverse stretch**, with any method, even while the box is disabled.
     tradeoff: Near either end of its range the curve is steep and the change is strong. Every result is held between 0 and 1.
-    persistence: Until the window closes. **Reset** and a finished OK return it to its default.
+    persistence: Until the task closes. **Reset** and a finished OK return it to its default.
   - name: Mode
     kind: combo
     default: Strong
     options: [Strong, Moderate, Soft]
     effect: Chooses how much of the iterative result is kept. **Strong** keeps it all. **Moderate** gives back some of each star, and **Soft** gives back the most, keeping more of its color and core.
     enabled: With Star or Lightness.
-    persistence: Until the window closes. **Reset** and a finished OK return it to **Strong**.
+    persistence: Until the task closes. **Reset** and a finished OK return it to **Strong**.
   - name: Iterations
     kind: spinbox
     default: "1"
@@ -191,28 +188,28 @@ controls:
     effect: Repeats the Star or Lightness step. More reduces more.
     enabled: With Star or Lightness.
     tradeoff: Too many can flatten the cores of bright stars.
-    persistence: Until the window closes. **Reset** and a finished OK return it to 1.
+    persistence: Until the task closes. **Reset** and a finished OK return it to 1.
   - name: Reduce stars on target image
     kind: check
     default: "Off"
     effect: On, OK replaces the image or the sequence with the reduced one. Ticking it clears **Create new star-reduced image**.
     tradeoff: It changes the target, and only its history gives the image back.
     scope: OK only. The preview and a snapshot never change the target.
-    persistence: Until the window closes. **Reset** and a finished OK turn it off.
+    persistence: Until the task closes. **Reset** and a finished OK turn it off.
   - name: Create new star-reduced image
     kind: check
     default: "On"
     effect: On, OK opens the result as a new image, or a new sequence, and leaves the target as it is.
     range: One of the two outputs is always chosen. Clearing both ticks this one again.
     tradeoff: The new image or sequence takes memory, and a sequence disk space.
-    persistence: Until the window closes. **Reset** and a finished OK turn it on.
+    persistence: Until the task closes. **Reset** and a finished OK turn it on.
   - name: Image id
     kind: field
     default: "<Auto>"
     effect: Names the new image. `<Auto>`, or nothing, names it after the target with ` - star reduced`. Other text is used as typed, without leading and trailing spaces.
     enabled: With **Create new star-reduced image**.
     range: A name already in use is made unique.
-    persistence: Until the window closes. **Reset** and a finished OK return it to `<Auto>`.
+    persistence: Until the task closes. **Reset** and a finished OK return it to `<Auto>`.
   - name: Create reduced-stars-only image
     kind: check
     default: "On"
@@ -230,43 +227,45 @@ controls:
     effect: Extracts the stars through the midtones transfer of **Stretch factor**, its inverse after, instead of directly.
     enabled: With **Create reduced-stars-only image**.
     tradeoff: It gives another stars image, meant to follow a Transfer or Halo reduction. It uses **Stretch factor** with every method.
-    persistence: Until the window closes. **Reset** and a finished OK turn it off.
+    persistence: Until the task closes. **Reset** and a finished OK turn it off.
   - name: Stars id
     kind: field
     default: "<Auto>"
     effect: Names the stars image. `<Auto>`, or nothing, names it after the target with ` - reduced stars`.
     enabled: With **Create reduced-stars-only image**.
     range: A name already in use is made unique.
-    persistence: Until the window closes. **Reset** and a finished OK return it to `<Auto>`.
+    persistence: Until the task closes. **Reset** and a finished OK return it to `<Auto>`.
   - name: Show preview
     kind: check
     default: "On"
-    effect: Shows the preview pane, as **Preview** does in every process window. It shows the target unchanged until a starless image is chosen.
-    scope: The window only. The preview area, which opens on, crops the target, the starless image and the mask alike. OK always works on the whole image.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    effect: Shows the preview in the canvas, as **Preview** does in every task. It shows the target unchanged until a starless image is chosen.
+    enabled: It stands in the column's toggles row, beside **Preview area**, and is disabled while OK runs.
+    scope: The task only. The preview area, which opens on, crops the target, the starless image and the mask alike. OK always works on the whole image.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: OK
     kind: button
     default: ""
-    effect: Reduces the whole image, or every frame of the sequence, with the values, the starless image and the mask as they are when you press it, makes the outputs you chose, and returns the controls to their defaults. The window stays open.
-    enabled: While a starless image is chosen and no run works.
+    effect: Reduces the whole image, or every frame of the sequence, with the values, the starless image and the mask as they are when you press it, makes the outputs you chose, and returns the controls to their defaults. The task stays open.
+    enabled: While a starless image is chosen. While a run works **Cancel** stands in its place.
     tradeoff: Each run makes floating-point working copies of the target and of the starless image, and its time grows with the pixels, the channels and **Iterations**.
     persistence: In place, the history gets one step, **Star Reduction**, described as `Star reduction using <starless image>`. A new image or sequence starts its history with that step, and the target and its history stay as they were.
     note: The starless image, the generator and the masks stay as they are.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without a run, as in every process window.
-    note: The images the window made stay open. A protection mask still being built is discarded.
+    effect: Closes the task without a run, as in every task. ++esc++ does the same.
+    enabled: Disabled while OK runs.
+    note: The images the task made stay open. A protection mask still being built is discarded.
   - name: Reset
     kind: button
     default: ""
     effect: Returns the method, the strength and the four output options and two names to their defaults.
-    range: It leaves the target, the starless image, the generator, **Enable small star protection**, the masks and the images the window made as they are.
+    range: It leaves the target, the starless image, the generator, **Enable small star protection**, the masks and the images the task made as they are.
 ```
 
 ## How it works
 
-1. When a run is asked for, the window takes the starless image, the mask enabled on the target's view and, for a
+1. When a run is asked for, the task takes the starless image, the mask enabled on the target's view and, for a
    preview, the preview area, to which it crops both images alike.
 2. Both images are read as [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale) in floating
    point, 64-bit for a 64-bit or 32-bit integer target and 32-bit otherwise. A sample that is not a number becomes 0,
@@ -331,7 +330,7 @@ or 0 where \(s = 1\). With **Enable reverse stretch** it is instead, the ratio h
   Lightness Method on an image with an alpha channel with "a lightness reduction is defined for monochrome or RGB
   samples".
 - A sample that is not a number, or one outside 0 to 1, does not stop the run: it is read as 0, or as the nearer end.
-- A run stopped by **Cancel**, or by closing the window, stops between blocks of rows. It writes nothing, opens no
+- A run stopped by **Cancel** in the column's footer stops between blocks of rows. It writes nothing, opens no
   image and shows no error, and its [temporary sequence](../../reference/glossary.md#temporary-sequence) is removed. A
   run refused for lack of memory, for example, writes nothing and says why.
 - When the starless image is renamed, closed or changed, the list follows it. A run already started keeps the image
@@ -374,7 +373,7 @@ caption: >-
 ## When it goes wrong
 
 !!! danger "A starless image of another state gives a wrong result without a warning"
-    The window checks the size, the channels and the color layout, not that the two images show the same thing.
+    The task checks the size, the channels and the color layout, not that the two images show the same thing.
     A starless image that is shifted, cropped differently, stretched differently or missing nebula detail is reduced
     against all the same. Make it from this image, at this stage, and check it at 100 %.
 
@@ -386,7 +385,7 @@ OK is disabled
 :   **Fix.** Choose a starless image, or wait for the run to end.
 
 Generate starless view is disabled, and its tooltip reads "Configure StarNet2 CLI 2.5.3 or newer in Settings > External Tools to generate a starless view."
-:   **Cause.** StarNet2 is not set, or not in a version the window can use, and no other generator is ready.
+:   **Cause.** StarNet2 is not set, or not in a version the task can use, and no other generator is ready.
 :   **Fix.** Set StarNet2 on the **External Tools** page of the settings, or make the starless image another way.
 
 The starless image is not in the list
@@ -406,8 +405,8 @@ Faint small stars disappear
 :   **Fix.** Look at the target's mask, keep it enabled and not inverted, or build it again.
 
 The protection mask never appears
-:   **Cause.** The window closed before the mask was ready, or building it failed and said so.
-:   **Fix.** Press the button again and keep the window open until the mask opens.
+:   **Cause.** The task closed before the mask was ready, or building it failed and said so.
+:   **Fix.** Press the button again and keep the task open until the mask opens.
 
 The reduced-stars image is missing
 :   **Cause.** The option was off, the target is a sequence, or the run was a preview, a snapshot or a stopped one.
@@ -415,12 +414,12 @@ The reduced-stars image is missing
 
 ## Related
 
-- [Starnet++](starnet.md), to make the starless image this window needs.
+- [Starnet++](starnet.md), to make the starless image this task needs.
 - [Starmask Recombination](starmask-recombination.md), to put a stars image back on a starless image.
 - [Star Mask](star-mask.md) and [Starnet++ Star Mask](starnet-star-mask.md), to make a star mask of your own.
 - [Masks](../../interface/masks.md), to see, invert or remove the protection mask.
 - [Image History](../../interface/image-history.md), to undo a reduction made on the target.
-- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview and what every task shares.
 
 ## Credits
 

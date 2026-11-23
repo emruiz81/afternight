@@ -14,8 +14,8 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no High Pass Filter window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no High Pass task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence with finite samples between 0 and 1, and an optional mask of the image's
     size on its view.
@@ -41,20 +41,16 @@ layer is made for a blend you make afterwards. The menu names the process **High
 ```figure
 image: ../../assets/images/processes/sharpening/high-pass-filter.webp
 alt: >-
-  The High Pass Filter window. On the left, a histogram with one narrow peak in the middle and the lines Clipping Low
-  and Clipping High in its corner, a row of toolbar buttons with a Plot resolution box, the Radius box with its
-  slider, then Target Image and the Preview check box. On the right, a toolbar of zoom buttons, a channel box, a
-  switch, the Preview area check box and a camera button over a gray preview in which the stars and the edges of the
-  nebula stand out lighter and darker. Reset, Close and Apply run along the bottom.
+  The High Pass task. Its header names the process and the stretched master, and the column's header reads High Pass
+  Filter. The canvas at the left shows a gray preview in which the stars and the edges of the nebula stand out
+  lighter and darker, with its floating toolbar near the foot. The column at the right opens with the compact
+  readout of the preview, then the Preview, Preview area and Processed toggles, Target Image, a histogram with one
+  narrow peak in the middle and the lines Clipping Low and Clipping High in its corner, a row of toolbar buttons with
+  a Plot resolution box, and the Radius box with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
-  High Pass Filter on the stretched master with Radius at 5.00. The histogram gathers at 0.5 and the preview shows the
+  High Pass Filter on the stretched master with Radius at 5.00. The histogram gathers at 0.5 and the canvas shows the
   layer Apply writes.
-pins:
-  - {n: 2, x: 2.0, y: 57.2}
-  - {n: 3, x: 40.0, y: 18.0}
-  - {n: 4, x: 73.6, y: 19.8}
-  - {n: 5, x: 91.0, y: 19.8}
-  - {n: 6, x: 91.0, y: 96.0}
+owed: true
 ```
 
 ## Before you start
@@ -65,7 +61,7 @@ pins:
 - [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first. A raw mosaic is
   filtered as one grayscale plane, and the layer holds the sensor pattern. The frames of a sequence are read with the
   automatic debayer setting of its view.
-- The window has no **Channel**: red, green and blue are filtered each on its own. Extract the luminance into an image
+- The [task](../../reference/glossary.md#task) has no **Channel**: red, green and blue are filtered each on its own. Extract the luminance into an image
   of its own first when you want a layer without color.
 - Bring the samples between 0 and 1, and replace any sample that is not a finite number.
 - A [mask](../../reference/glossary.md#mask) on the view mixes the layer with the original image. It does not add
@@ -73,25 +69,26 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the active one and choose **Process > Details > High Pass**. The preview turns
-   gray with the structure of the image in relief, and the histogram gathers in a narrow peak at 0.5.
+1. **Open the task.** Make the image the active one and choose **Process > Details > High Pass**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left turns gray with the structure of the image in relief, and the column at the right, headed **High Pass
+   Filter**, holds its controls, its histogram gathered in a narrow peak at 0.5.
 2. **Set the radius.** Set **Radius** to about the size of the largest structure the layer should hold. Lower keeps
    only the finest detail, higher keeps broader structure too.
 3. **Read the histogram.** Check **Clipping Low** and **Clipping High** in its corner: they give the share of the
    layer cut at black or at white, where the detail was stronger than the gray can hold.
-4. **Check at 100 %.** Zoom the preview into the stars and the background, and hold ++space++ to compare with the
+4. **Check at 100 %.** Zoom the canvas into the stars and the background, and hold ++space++ to compare with the
    original. Tick [**Preview area**](../../reference/glossary.md#preview-area) to work on a part of the image while
    you adjust.
-5. **Keep the original, if you wish.** Choose **Take snapshot** in the preview's toolbar to open the layer as a new
-   image and leave the target as it is.
-6. **Apply.** Or choose **Apply**. The view shows the gray layer, its history lists **High Pass Filter** with the
+5. **Keep the original, if you wish.** Choose **Take snapshot** in the canvas's floating toolbar to open the layer as
+   a new image and leave the target as it is.
+6. **Apply.** Or choose **Apply** in the column's footer, or press ++ctrl+enter++. The view shows the gray layer, its history lists **High Pass Filter** with the
    radius, and **Radius** returns to its default.
 
 ## Controls
 
-The histogram and its toolbar, **Target Image**, **Preview**, the preview pane, **Close** and the progress window of a
-sequence work as in every process window: see [Process Windows](../../interface/process-windows.md). What is
-particular to this window is below.
+The histogram and its toolbar, **Target Image**, **Preview**, the canvas, **Close** and the run of a sequence in the
+column work as in every task: see [Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: High Pass Filter
@@ -109,9 +106,9 @@ controls:
       more than twice the reach. Otherwise several narrower passes add up to the same blur, apart from the small
       tail each pass leaves out, more of them the larger the value, and Apply is slow.
     scope: The preview and Apply, on every channel of the image, before the mask is blended.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: >-
-      While you drag the slider, the preview works on the image reduced to the pane's size, with the radius reduced by
+      While you drag the slider, the preview works on the image reduced to the canvas's size, with the radius reduced by
       the same factor, or on the part shown at 100 % and closer. Above 32, a dragged preview blurs with three box
       passes, whose cost does not grow with the radius and which stay within a few parts in a thousand of the
       Gaussian. The reduced result comes close to a reduction of the layer but is not one, most visibly around bright
@@ -120,19 +117,20 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the layer beside the controls, with the mask blended in. Off removes the pane, and the histogram counts the image as it is.
+    effect: Shows the layer in the canvas, with the mask blended in. Off removes the preview, and the histogram counts the image as it is.
     range: >-
-      The pane opens on the whole image. **Preview area** starts off. Ticked, it is 600 by 600 pixels in the middle
+      The canvas opens on the whole image. **Preview area** starts off. Ticked, it is 600 by 600 pixels in the middle
       of the image, or the whole image when it is smaller, and is labelled "Preview area".
     tradeoff: The area shortens each preview but can hide broad structure that the layer holds at a large radius.
-    scope: The window only. The pane has no **Display Mode** and shows the samples as they are.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    enabled: It stands in the column's toggles row, and is disabled while Apply runs.
+    scope: The task only. The canvas has no **Display Mode** and shows the samples as they are.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -142,8 +140,8 @@ controls:
     kind: button
     default: ""
     effect: Replaces the whole image, or every frame of the sequence, with its layer at **Radius** as it is when you press it, and then returns **Radius** to its default.
-    enabled: Whatever the value. Disabled while a run works, as **Radius**, **Target Image**, **Reset** and **Close** are.
-    tradeoff: A single image shows no progress window, nor does a snapshot, and its run cannot be cancelled once Apply starts. On a sequence, **Cancel** in the progress window is noticed by the blur between two rows. A run the memory limit cannot hold is refused with "An error occurred when running the process:" and the reason, and nothing is written.
+    enabled: Whatever the value. While a run works **Cancel** takes its place, and **Radius**, **Target Image**, **Reset** and **Close** are disabled.
+    tradeoff: A run shows how far it has come in the column's run row, **Overall** and **Processing** over a sequence, and opens no progress window. A snapshot shows no progress. **Cancel** is noticed by the blur between two rows. A run the memory limit cannot hold is refused with "An error occurred when running the process:" and the reason, and nothing is written.
     persistence: "The history step is **High Pass Filter** and reads, for example, `Apply high pass filter with radius 5`. It does not record the gray level of 0.5, the mask or how many passes the blur took. The header cards, the other metadata and the recorded processing state are kept, so the state describes the image the layer came from."
 ```
 
@@ -217,7 +215,7 @@ caption: >-
 | --- | --- | --- |
 | A detail layer to blend with the image | **Radius** at 10, with **Take snapshot** | Lower **Radius** while you watch at 100 % until only the detail you want is left. |
 | The layer is cut at black or white | A smaller **Radius** | Tame the strongest edges of the image before you filter it. |
-| Colored edges in the layer | A luminance image of its own | Check the channels with **View Channel** in the preview's toolbar. |
+| Colored edges in the layer | A luminance image of its own | Check the channels with **View Channel** in the canvas's floating toolbar. |
 | A layer for one region | The layer without a mask | Blend it into that region afterwards, through the mask, with the tool that blends it. |
 
 ## When it goes wrong
@@ -240,7 +238,7 @@ Bright and dark rings surround the stars
 :   **Fix.** Lower **Radius**, and check the rings before you blend the layer.
 
 The layer has colored edges
-:   **Cause.** Red, green and blue are filtered each on its own, and the window has no **Channel**.
+:   **Cause.** Red, green and blue are filtered each on its own, and the task has no **Channel**.
 :   **Fix.** Filter a luminance image of its own instead.
 
 The histogram reaches black or white
@@ -252,7 +250,7 @@ Part of the result looks normal and part gray
 :   **Fix.** Make the layer without the mask, and blend it afterwards.
 
 The preview looks different from the image in its view
-:   **Cause.** The pane shows the samples as they are, and the view may show the image in
+:   **Cause.** The canvas shows the samples as they are, and the view may show the image in
     [Autostretch](../../reference/glossary.md#autostretch).
 :   **Fix.** Compare with the view in its Linear display mode.
 
@@ -271,8 +269,7 @@ Apply, or the preview after you let go of the slider, is slow at a large radius
 - [Gaussian Blur](../noise-reduction/gaussian-blur.md), the blur this process takes away, by the same kernels.
 - [Image History](../../interface/image-history.md) and [Saving and Exporting](../../interface/saving-and-exporting.md),
   to undo the step and to keep the layer as a file of its own.
-- [Process Windows](../../interface/process-windows.md), for the histogram, the preview and what every process window
-  shares.
+- [Tasks](../../interface/tasks.md), for the histogram, the preview and what every task shares.
 
 ## Credits
 

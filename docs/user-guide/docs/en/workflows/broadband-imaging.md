@@ -35,7 +35,7 @@ calibrated, registered and stacked image at the size it is written, from the lig
   gives wrong colors: set it in the registration settings. The steps follow this case, on the guide's data.
 - **A mono camera.** Add the lights of every filter with their flats in one run. Each filter makes a master of its own,
   and the lights of one object share one registration reference, so the masters land on one grid. Tick **Combine RGB
-  images** on the **Stacking** tab before step 4 to get the color master too: the filter names must hold "red",
+  images** on the **Stacking** stage before step 4 to get the color master too: the filter names must hold "red",
   "green" and "blue", and `R` does not count. Or compose the three masters with
   [Channel Composition](../processes/color-composition/channel-composition.md), **Linear Match** off. Take the
   luminance master through steps 5, 6 and 8 with the color image's settings, and add it in step 10.
@@ -46,36 +46,41 @@ calibrated, registered and stacked image at the size it is written, from the lig
 owed: true
 image: ../assets/images/workflows/broadband-imaging.webp
 alt: >-
-  The Image Integration window on the Lights tab of Frame Sources. Under the menus Frames, Project, Edit, Run, Navigate
-  and Help, the tabs Frame Sources and Workflow, and the tabs Bias, Darks, Flats and Lights. Below the Add Files, Add
-  Folder, Remove Selected and Remove All buttons, the list shows two groups of lights, one for the object NGC253 with
-  18 frames and one for the object Target with 17. To the right, the preview of the selected light and the Group By
-  box. Display is set to Hierarchical under the list, and the Output Directory field with its button runs along the
-  bottom.
+  The Image Integration task, a page that fills the centre of the main window. Its header names the job over its count
+  of frames and groups, with the disk space it needs, the Undo and Redo buttons, the button of its menus and Execute
+  Integration at the right. At the left of the page, the stage list headed Run sheet: Bias, Darks, Flats and Lights,
+  each with its count of frames, then Calibration, Registration, Stacking and Summary, with Lights selected, and at its
+  foot the Output Directory field and the Import, Export, Recent, Presets and Reset Settings buttons. Beside it, the
+  Lights page: the Add Files, Add Folder, Remove Selected and Remove All buttons and a search field over a list that
+  shows two groups of lights, one for the object NGC253 with 18 frames and one for the object Target with 17, Display set to Hierarchical
+  under the list, and at the right the preview of the selected light and the Group By box.
 caption: >-
-  Image Integration with a night on NGC 253 added: the Lights tab in its Hierarchical display shows the two groups that
-  the headers make.
+  Image Integration with a night on NGC 253 added: the Lights page in its Hierarchical display shows the two groups
+  that the headers make.
 pins:
-  - {n: 1, x: 44.0, y: 13.8}
-  - {n: 2, x: 16.5, y: 87.8}
-  - {n: 3, x: 70.0, y: 92.2}
-  - {n: 4, x: 20.7, y: 11.4}
+  - {n: 1, x: 23.8, y: 13.2}
+  - {n: 2, x: 19.9, y: 97.1}
+  - {n: 3, x: 0.7, y: 78.1}
+  - {n: 4, x: 82.8, y: 4.9}
 ```
 
 ### Add the frames to Image Integration
 
-Choose [**Process > Preprocess > Image Integration**](../processes/stacking-integration/image-integration.md). The
-window opens with the project you left: choose **Frames > Remove All Frames...** to start a new one. On each tab of
-**Frame Sources** - **Bias**, **Darks**, **Flats** and **Lights** - choose **Add Folder** and pick the folder that
-holds the frames of that type. Your files are only read.
+Choose **Integration** in the [rail](../reference/glossary.md#rail), then **New integration**, or choose
+[**Process > Preprocess > Image Integration**](../processes/stacking-integration/image-integration.md). It opens as a
+[task](../reference/glossary.md#task) whose page fills the centre, with the last
+[integration job](../reference/glossary.md#integration-job) you left: choose **Frames > Remove All Frames...**, under
+the button of the task header, to start a new one. Select **Bias**, **Darks**, **Flats** and **Lights** in turn in the
+stage list at the page's left, and on each choose **Add Folder** and pick the folder that holds the frames of that
+type. Your files are only read.
 
 [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md), which the
-[Quick Start](../getting-started/quick-start.md) uses, takes the lights of one object name only. The full window can
-join two names, as the guide's data needs.
+[Quick Start](../getting-started/quick-start.md) uses, takes the lights of one object name only. The full process
+can join two names, as the guide's data needs.
 
 !!! see "You should see"
-    An **Importing files...** window reads the headers, then a note says what was added, such as "Imported: 35
-    Lights". On the guide's data the tabs hold 30 bias frames, 20 darks, 40 flats and 35 lights.
+    A band over the stages follows the headers being read, then a note says what was added, such as "Imported: 35
+    Lights". On the guide's data the stage list counts 30 bias frames, 20 darks, 40 flats and 35 lights.
 
 ??? wrong "If it goes wrong: a folder adds nothing"
     "No supported image files found in the selected directory." means the folder holds no still image AfterNight
@@ -84,7 +89,7 @@ join two names, as the guide's data needs.
 
 ### Put the lights of one target in one group
 
-On the **Lights** tab, choose **Hierarchical** under the list. Each group names what its frames share, and each group
+On the **Lights** page, choose **Hierarchical** under the list. Each group names what its frames share, and each group
 of lights becomes a master of its own. Lights whose headers write the object, the filter or the night differently
 land in different groups.
 
@@ -93,19 +98,19 @@ other group's object and choose **OK**. Your files are not changed.
 
 !!! see "You should see"
     On the guide's data the capture program wrote `NGC253` in the first 18 lights and `Target` in the other 17, so the
-    tab shows two groups. After **Set Object...** with `NGC253` on the **Target** group, one group holds the 35
+    page shows two groups. After **Set Object...** with `NGC253` on the **Target** group, one group holds the 35
     lights.
 
-??? wrong "If it goes wrong: a frame sits on the wrong tab"
+??? wrong "If it goes wrong: a frame sits under the wrong type"
     Its header names another type. Right-click it and choose **Change Type**: this changes how the run uses the file,
     never the file.
 
 ### Check the calibration and the output folder
 
-Type the new folder in **Output Directory** at the bottom, or choose **...** beside it. Open **Workflow >
-Calibration** and read the **Bias**, **Dark** and **Flat** cells of the light group. A green check is an exact match,
+Type the new folder in **Output Directory** at the foot of the stage list, or choose **...** beside it. Select
+**Calibration** in the stage list and read the **Bias**, **Dark** and **Flat** cells of the light group. A green check is an exact match,
 and `-` under **Bias** means the dark, which holds the bias, takes its place. Leave the registration and the stacking
-at their defaults, and open **Summary**.
+at their defaults, and select **Summary**.
 
 !!! see "You should see"
     The light group takes the master dark and the master flat. The flat group finds no dark of its exposures, so its
@@ -118,20 +123,21 @@ at their defaults, and open **Summary**.
 
 ### Run the integration
 
-Choose **Execute Integration** on **Summary**, or press ++ctrl+num-enter++ with the keypad's Enter. The **Execution Plan** lists each stage with
+Choose **Execute Integration** on **Summary** or in the task header, or press ++ctrl+enter++. The **Execution Plan**
+lists each stage with
 **Recompute**, **Reuse** or **Skip**. Choose **Run**, and keep the frames and the output folder where they are until
 the run ends. **Cancel** stops at the next safe point, and the groups finished by then keep their masters.
 
 !!! see "You should see"
-    The **Image Integration - Processing** window marks each stage from **Bias** to **Stacking**, then a box reads
-    "Workflow completed successfully." The master `stacked_5544x3684_NGC253.fit` opens in its own view. It is a
-    [linear image](../reference/glossary.md#linear-image), nearly black: choose
-    [Autostretch](../reference/glossary.md#autostretch) in **Display Mode** on its toolbar, which changes the display
-    only.
+    The run's view takes the place of the stage's page, marks each stage from **Bias** to **Stacking**, and reads
+    "Workflow Completed Successfully" at the end. The master `stacked_5544x3684_NGC253.fit` opens in its own view in a
+    [workspace](../reference/glossary.md#workspace). It is a [linear image](../reference/glossary.md#linear-image),
+    nearly black: choose [Autostretch](../reference/glossary.md#autostretch) in the floating toolbar of its view,
+    which changes the display only.
 
 ??? wrong "If it goes wrong: lights stay unregistered"
-    The log says "star pairs matched" and how many were needed: too few stars matched the reference. On
-    **Registration**, choose a reference with more stars, lower **Threshold** or raise **Maximum Stars per Frame**,
+    The log says "star pairs matched" and how many were needed: too few stars matched the reference. On the
+    **Registration** stage, choose a reference with more stars, lower **Threshold** or raise **Maximum Stars per Frame**,
     and run again: the plan reuses the calibration masters.
 
 ### Crop the stacking edges
@@ -168,7 +174,8 @@ galaxy or its stars. Choose **Apply**.
 First bring the three backgrounds to one level. Choose
 [**Process > Color Calibration > Background Neutralization**](../processes/color-calibration/background-neutralization.md),
 keep **Reference image** at `<--TARGET IMAGE-->` and choose **OK**. **Upper Limit** must lie above each channel's
-background, whose median [Image Statistics](../interface/image-statistics.md) gives.
+background, whose median the Statistics card of the [readout](../reference/glossary.md#readout) gives, as
+[Image Statistics](../interface/image-statistics.md) does.
 
 Then choose
 [**Process > Color Calibration > Color Calibration**](../processes/color-calibration/color-calibration.md).
@@ -191,7 +198,7 @@ the stars' spectra instead.
 ### Reduce the noise
 
 Choose [**Process > Noise Reduction > Wavelet Denoise Filter**](../processes/noise-reduction/wavelet-denoise.md).
-The preview shows the result inside a framed
+The task's canvas shows the result inside a framed
 [preview area](../reference/glossary.md#preview-area): move it over the galaxy's faint arms and the sky beside them.
 Raise **Threshold** while grain remains, and lower it when small stars turn soft. Choose **Apply**.
 
@@ -213,8 +220,8 @@ stays near zero. Lower **Midtones** until the faint arms show in the preview. Ch
 
 !!! see "You should see"
     On the guide's data, **Shadows** and **Midtones** at 0.02 bring the background to about 0.2, a dark gray, with
-    the galaxy spread above it, and the **Clipped** fields stay near zero. Choose **Linear** in **Display Mode**: the
-    picture is now in the image itself.
+    the galaxy spread above it, and the **Clipped** fields stay near zero. Choose **Linear** in the floating toolbar:
+    the picture is now in the image itself.
 
 ??? wrong "If it goes wrong: the colors shift"
     One channel was stretched alone. Undo the step in the history and stretch again with **Channel** at **RGB**.
@@ -282,7 +289,7 @@ image: ../assets/images/workflows/broadband-imaging-result.webp
 alt: >-
   The AfterNight main window with one image open, in a tab named stacked_5544x3684_NGC253: the galaxy NGC 253 seen
   almost edge-on across the middle of the picture, its dust lanes dark against its disc, in a field of white stars on
-  an even dark gray background. The Display Mode box in the view's toolbar reads Linear.
+  an even dark gray background. The floating toolbar near the foot of the view shows Linear selected.
 caption: >-
   NGC 253 after the steps on this page, shown in the Linear display mode: the picture is in the image itself.
 ```

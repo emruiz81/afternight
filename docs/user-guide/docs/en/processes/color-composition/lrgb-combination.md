@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An RGB image or sequence view is active, no LRGB Combination window is open on it yet, and no window that needs
-    the image for itself is open on it. Apply waits for a luminance image.
+    An RGB image or sequence view is active, no LRGB Combination task is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks. Apply waits for a
+    luminance image.
   inputs: >-
     One RGB image or sequence, a grayscale luminance image of exactly its width and height in any pixel type, and an
     optional mask on the color image's view.
@@ -43,20 +44,16 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/color-composition/lrgb-combination.webp
 alt: >-
-  The LRGB Combination window. On the left, a histogram of three colored peaks over its toolbar, then Luminance naming
-  the stretched luminance master and RGB naming the color image, the Channel Weights group with Lightness, Red, Green
-  and Blue at 1.00, and the Transfer Functions group with Lightness at 0.50 and Saturation at 0.40. On the right, the
-  preview shows the red and white clouds of the nebula. Reset, Close and Apply run along the bottom.
+  The LRGB Combination task. Its header reads LRGB Combination on a stretched copy of the master. The canvas at the left shows
+  the preview, the red and white clouds of the nebula among its stars, with the word PREVIEW in its corner and the
+  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
+  Preview area and Processed toggles, RGB naming the color image, a histogram of three colored peaks over its toolbar,
+  Luminance naming a grayscale lightness image, the Channel Weights group with Lightness, Red, Green and Blue at 1.00, and the
+  Transfer Functions group with Lightness at 0.50 and Saturation at 0.40. Reset, Close and Apply stand in its footer.
 caption: >-
-  LRGB Combination on the stretched Carina master, with the luminance master stretched to the same background as its
-  Luminance and Saturation at 0.40. The preview shows what Apply writes.
-pins:
-  - {n: 2, x: 36.0, y: 44.1}
-  - {n: 3, x: 26.0, y: 77.3}
-  - {n: 4, x: 25.0, y: 56.3}
-  - {n: 5, x: 34.0, y: 81.0}
-  - {n: 6, x: 25.0, y: 63.6}
-  - {n: 7, x: 62.0, y: 21.0}
+  LRGB Combination on the stretched Carina master, with the master's own CIE lightness as its Luminance and
+  Saturation at 0.40. The canvas shows what Apply writes.
+owed: true
 ```
 
 ## Before you start
@@ -76,29 +73,31 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched color image the
-   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Spaces > LRGB Combination**.
-   **RGB** names it, **Luminance** reads `<--NO IMAGE-->`, and **Apply** is dimmed.
-2. **Choose the luminance.** Pick the luminance image in **Luminance**. **Apply** enables, and the preview shows the
+1. **Open the task.** Make the stretched color image the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Spaces > LRGB Combination**,
+   or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page:
+   the canvas at the left shows the color image, the column at the right holds the controls. **RGB** names the image,
+   **Luminance** reads `<--NO IMAGE-->`, and **Apply** is dimmed.
+2. **Choose the luminance.** Pick the luminance image in **Luminance**. **Apply** enables, and the canvas shows the
    color image with the luminance's lightness.
-3. **Match the lightness.** Hold ++space++ over the preview to compare its background with the original. If it is
+3. **Match the lightness.** Hold ++space++ over the canvas to compare its background with the original. If it is
    darker, lower **Lightness** under **Transfer Functions**. If it is paler, raise it.
 4. **Blend, if you want.** Lower **Lightness** under **Channel Weights** to keep part of the color image's own
    lightness.
 5. **Set the color.** Lower **Saturation** below 0.5 for stronger colors, or raise it for weaker ones. Gray stays
    gray.
 6. **Trim a channel.** Lower **Red**, **Green** or **Blue** only to take some of one color out at the end.
-7. **Check at 100 %.** Zoom the preview into stars and edges, or draw a
-   [preview area](../../reference/glossary.md#preview-area) there, which crops both images alike and shortens each
-   preview. Doubled stars or colored fringes mean the two images are not registered.
-8. **Apply.** Choose **Apply**. The image in its view has the luminance's detail, its history lists **LRGB
+7. **Check at 100 %.** Zoom the canvas into stars and edges, or tick **Preview area** and move its frame there: a
+   [preview area](../../reference/glossary.md#preview-area) crops both images alike and shortens each preview. Doubled stars or colored fringes mean the two images are not registered.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view has the
+   luminance's detail, its history lists **LRGB
    Combination** with the luminance's name and the six values, and the values return to their defaults.
 
 ## Controls
 
-The window has no **Preview** check box: the preview is always on. Its histogram, the histogram's toolbar, the
-preview's toolbar and the progress window of a sequence are those of every process window: see
-[Process Windows](../../interface/process-windows.md). The sliders change their value when you let them go.
+The task has no **Preview** toggle: the preview is always on. Its histogram, the histogram's toolbar, the canvas's
+floating toolbar and the run over a sequence are those of every task: see [Tasks](../../interface/tasks.md). The
+sliders change their value when you let them go.
 
 ```controls
 window: LRGB Combination
@@ -118,9 +117,9 @@ controls:
     default: The active image
     options: [The active image, Every other open RGB image or sequence]
     effect: Chooses the color image, which gives the hue and the chroma, the mask, the header and the pixel grid, and which **Apply** replaces.
-    range: It lists the open views with three channels, never a grayscale one.
-    tradeoff: The image chosen here is replaced. Check it, and the window's title, before you apply.
-    persistence: Until the window closes. **Reset** leaves it. Choosing another fills the luminance list again.
+    range: It lists the open views with three channels, never a grayscale one. It stands at the head of the column's body, above the histogram and **Luminance**.
+    tradeoff: The image chosen here is replaced. Check it, and the task header, before you apply.
+    persistence: Until the task closes. **Reset** leaves it. Choosing another fills the luminance list again.
   - name: Lightness
     object: lightnessWeightValue
     kind: spinbox
@@ -129,7 +128,7 @@ controls:
     effect: Sets how much of the lightness the luminance supplies, by equation (2). At 1 it replaces the color image's lightness, at 0 the color image keeps its own, and between them the two are mixed in proportion.
     tradeoff: Higher brings more of the luminance's detail and contrast, and more of any difference between the two backgrounds.
     scope: The lightness only, after the luminance's transfer, before the channel weights and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Red
     kind: spinbox
     default: "1.00"
@@ -137,7 +136,7 @@ controls:
     effect: Multiplies the red of the result after the conversion back. Lower takes red out, and 0 removes it. It cannot raise a channel above its value at 1.
     tradeoff: A strong cut shifts the color and sends faint red detail to black.
     scope: The red channel of the result, held between 0 and 1 again afterwards, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Green
     kind: spinbox
     default: "1.00"
@@ -145,7 +144,7 @@ controls:
     effect: Multiplies the green of the result after the conversion back. Lower takes green out, and 0 removes it.
     tradeoff: A strong cut shifts the color and darkens the image most, since green carries most of the lightness.
     scope: The green channel of the result, held between 0 and 1 again afterwards, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Blue
     kind: spinbox
     default: "1.00"
@@ -153,7 +152,7 @@ controls:
     effect: Multiplies the blue of the result after the conversion back. Lower takes blue out, and 0 removes it.
     tradeoff: A strong cut shifts the color and can hide faint blue structure.
     scope: The blue channel of the result, held between 0 and 1 again afterwards, before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.
   - name: Lightness
     object: lightnessMTFValue
     kind: spinbox
@@ -163,7 +162,7 @@ controls:
     range: Black and white stay where they are. At 0 every sample between them turns white, and at 1 black.
     tradeoff: It reshapes all the luminance's tones, not only its background. Near either end small moves change the lightness a lot.
     scope: The luminance only, before **Lightness** of **Channel Weights** blends it.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.5.
     note: Any value but 0.5 records the operation as `lrgb-mtf-combination`.
   - name: Saturation
     kind: spinbox
@@ -173,7 +172,7 @@ controls:
     range: It acts on the CIE chroma, not on the saturation of HSL or HSV, and keeps each pixel's hue. A gray pixel stays gray.
     tradeoff: Strong values distort colors and push them out of the range, where the conversion back clips them.
     scope: The chroma of the color image, before the conversion back, the channel weights and the mask. The luminance has no color and plays no part.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.5.
     note: Any value but 0.5 records the operation as `lrgb-mtf-combination`.
   - name: Reset
     kind: button
@@ -183,8 +182,8 @@ controls:
   - name: Apply
     kind: button
     default: ""
-    effect: Combines the color image, or every frame of its sequence, with the luminance as the window stands, replaces it and returns the six values to their defaults. **Luminance** stays chosen.
-    enabled: While **RGB** and **Luminance** both name an image, at any values. While the run works, **Luminance**, **RGB**, the six values, **Apply**, **Reset** and **Close** are disabled.
+    effect: Combines the color image, or every frame of its sequence, with the luminance as the task stands, replaces it and returns the six values to their defaults. **Luminance** stays chosen.
+    enabled: While **RGB** and **Luminance** both name an image, at any values. While the run works **Cancel** takes its place in the footer, and **Luminance**, **RGB**, the six values, the toggles, **Reset** and **Close** are disabled.
     tradeoff: Every pixel is converted to CIE Lab and back, in one pass spread over the processor's threads, and a transfer other than 0.5 adds work to each pixel but no image. An integer image, the color image or the luminance, is worked on a 32-bit floating-point copy, or 64-bit for a 32-bit integer. On a large image, try the settings on aligned crops of both images first.
     scope: The whole image, through the mask on its view. A preview area does not limit it.
     persistence: "The history step is **LRGB Combination** and reads like `Luminance: '<name>', lightness weight 1.00, channel weights R 1.00 G 1.00 B 1.00, lightness midtones 0.50, saturation midtones 0.40`, every value with two decimals. The result is recorded as nonlinear with the operation `lrgb-combination`, or `lrgb-mtf-combination` when a transfer is not 0.5, whatever the two images stated."
@@ -321,8 +320,7 @@ Every frame of a sequence has the same detail
 - [Image Registration](../registration-alignment/image-registration.md), to put both images on one grid.
 - [Color Saturation](../color-adjustment/color-saturation.md), to adjust the color afterwards.
 - [Image Statistics](../../interface/image-statistics.md), to read the medians the two stretches are matched by.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the histogram toolbar and what every task shares.
 
 ## Credits
 

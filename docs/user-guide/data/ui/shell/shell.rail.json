@@ -1,0 +1,11 @@
+{
+  "id": "shell.rail",
+  "window": "Rail",
+  "controls": [
+    {"label": "Home", "kind": "button", "object": "home", "group": "Places", "visible": true, "default": ""},
+    {"label": "Workspace 1", "kind": "button", "object": "workspace.1", "group": "Places", "visible": true, "default": ""},
+    {"label": "Integration", "kind": "button", "object": "integration", "group": "Places", "visible": true, "default": ""},
+    {"label": "Session Console", "kind": "button", "object": "console", "group": "Foot", "visible": true, "default": ""},
+    {"label": "Settings", "kind": "button", "object": "settings", "group": "Foot", "visible": true, "default": ""}
+  ]
+}

@@ -7,7 +7,7 @@ needs: [the package for your system, from the Releases page]
 ---
 # Installation
 
-You start with a 64-bit x86 computer running Windows or Linux. You end with AfterNight started on its Dashboard and
+You start with a 64-bit x86 computer running Windows or Linux. You end with AfterNight started on Home and
 this guide open from the copy installed with it. Windows takes an installer. Linux takes an AppImage, one file that
 runs without being installed. Follow the first step, the steps for your system, then the last step.
 
@@ -20,7 +20,7 @@ runs without being installed. Follow the first step, the steps for your system, 
 - [ ] A folder for your images and results outside the folder AfterNight is installed in
 
 The installers check only that the computer is 64-bit x86. They check no memory, disk or graphics card: the System
-Requirements page says what a large project needs.
+Requirements page says what a large set of frames needs.
 
 ## Steps
 
@@ -73,7 +73,7 @@ Keep the folder setup proposes unless you have a reason to change it. The instal
 `AfterNight` under `%LOCALAPPDATA%\Programs`. The installer for every user proposes `AfterNight` under
 `C:\Program Files`.
 
-Keep no images, projects or results in that folder. Uninstalling AfterNight deletes the folder and everything in it.
+Keep no images, [projects](../reference/glossary.md#project) or results in that folder. Uninstalling AfterNight deletes the folder and everything in it.
 For that reason setup takes only a new folder, an empty one or the folder of an installed AfterNight. For any other
 it reads "The folder … already holds other files." and stays on the page. When AfterNight is already installed,
 setup does not show this page and installs into the same folder.
@@ -96,7 +96,7 @@ the Start menu also holds **AfterNight User Guide**. It opens this guide in your
 AfterNight.
 
 !!! see "You should see"
-    The AfterNight window, open on its Dashboard. [First Launch](first-launch.md) describes what is on it.
+    The AfterNight main window, open on Home. [First Launch](first-launch.md) describes what is on it.
 
 ### Make the AppImage executable on Linux
 
@@ -128,7 +128,7 @@ It runs from the one file. It installs nothing in your system and adds no entry 
 to its own libraries are set for its run only.
 
 !!! see "You should see"
-    The AfterNight window, open on its Dashboard. [First Launch](first-launch.md) describes what is on it.
+    The AfterNight main window, open on Home. [First Launch](first-launch.md) describes what is on it.
 
 ??? wrong "If it goes wrong: nothing starts, or a library is reported missing"
     Most systems need FUSE to run an AppImage: [System Requirements](../reference/system-requirements.md) says which
@@ -137,7 +137,7 @@ to its own libraries are set for its run only.
 
 ### Open the user guide
 
-In AfterNight, press ++f1++, or choose **Help > User Guide**. The guide opens in your web browser from the copy
+In AfterNight, press ++f1++, or choose **User Guide**, the question mark in the top bar. The guide opens in your web browser from the copy
 installed with AfterNight: the `docs` folder of the installation on Windows, or the inside of the AppImage on Linux.
 It needs no network connection. Only when no copy can be opened does AfterNight open the guide online, at
 `https://docs.afternightastro.org/`. To keep it from going online, set the environment variable
@@ -181,7 +181,8 @@ the program, which sets the paths to its libraries.
 ## Next
 
 - [First Launch](first-launch.md) shows what AfterNight shows on its first start, and opens a first image.
+- [Coming from 1.1](coming-from-1-1.md) says where each part of AfterNight 1.1's window went.
 - [Quick Start](quick-start.md) takes the frames of one night to a stacked
   [master](../reference/glossary.md#master).
-- [System Requirements](../reference/system-requirements.md) says how much memory and disk a large project takes.
+- [System Requirements](../reference/system-requirements.md) says how much memory and disk a large set of frames takes.
 - [Supported Formats](supported-formats.md) lists the files AfterNight opens and writes.

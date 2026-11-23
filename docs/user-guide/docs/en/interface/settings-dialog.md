@@ -2,43 +2,47 @@
 kind: interface
 menu: Edit > Settings...
 summary: >-
-  The Settings dialog: nine pages of preferences for the whole application, from temporary files, camera raw files and
-  saving to processing limits, logging, catalogs, external tools and plate solving.
+  The Settings dialog: ten pages of preferences for the whole application, from temporary files, projects and the
+  window's look to processing limits, camera raw files, plate solving, catalogs, saving, external tools and logging.
 ---
 # Settings
 
-Settings holds the preferences that apply to the whole application rather than to one image. Open it with
-**Edit > Settings...**, ++ctrl+comma++ or the Settings button of the [Dashboard](dashboard.md). Some windows open it on
-the page they need: Plate Solve and Photometric Color Calibration on **Plate Solving**, Spectrophotometric Color
-Calibration on **Catalogs & Data**, and DeepSNR and the two Starnet++ windows on **External Tools**. The rest of
-AfterNight waits while the dialog is open. No page needs an open image, and saving a page never changes one: a setting
-reaches the next file you open, save or process. Only the catalog buttons act at once, because they download and delete
-files on disk.
+Settings holds the preferences that apply to the whole application rather than to one image. Open it with **Settings**
+at the foot of the [rail](rail-and-places.md), **Edit > Settings...** or ++ctrl+comma++. The
+[command palette](command-palette.md) finds each page and each row by its name, such as `Projects > Default location`,
+and opens the dialog on that page. Some [tasks](../reference/glossary.md#task) and windows open it on the page they need: Plate Solve and Photometric
+Color Calibration on **Plate Solving**, Spectrophotometric Color Calibration on **Catalogs & Data**, DeepSNR and the
+two Starnet++ tasks on **External Tools**, and **File > Project Settings...** on **Projects**. The rest of AfterNight
+waits while the dialog is open. No page needs an open image, and saving a page never changes one: a setting reaches
+the next file you open, save or process. The catalog buttons act at once, because they download and delete files on
+disk, and so do the rows of the Interface page's **Colours and Size**, which [Appearance](appearance.md) describes.
 
 ```figure
 owed: true
 image: ../assets/images/interface/settings-dialog.webp
 alt: >-
-  The Settings dialog on its General page. On the left, a search box over a list of nine pages with icons, General
-  highlighted. On the right, the title General with a Reset Page button at the far right, then boxes of settings: Basic
-  Settings with a greyed Language box, a framed note that localization is not implemented, Default Save Format at TIFF,
-  Recent Files Limit at 20 files and Recent Processes Limit at 10 processes, then Behavior with two ticked boxes, and
-  Updates. Reset All to Defaults sits at the bottom left, and Apply, Cancel and OK at the bottom right.
+  The Settings dialog on its General page. On the left, a search box over a list of ten pages with icons: General,
+  highlighted, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export, External Tools and
+  Logging. On the right, the title General with Reset Page at the far right, then boxes of settings: Basic Settings
+  with a greyed Language box, a framed note that localization is not implemented, Default Save Format at TIFF, Recent
+  Files Limit at 20 files and Recent Processes Limit at 10 processes, then Behavior with two ticked boxes, and Updates
+  with a greyed box and a ticked one. Reset All to Defaults sits at the bottom left, and a greyed Apply, Cancel and OK
+  at the bottom right.
 caption: The Settings dialog as it opens, on the General page of a new profile.
 pins:
-  - {n: 1, x: 19.0, y: 10.8}
-  - {n: 2, x: 19.0, y: 33.0}
-  - {n: 3, x: 40.0, y: 10.9}
-  - {n: 4, x: 40.0, y: 15.4}
-  - {n: 5, x: 21.0, y: 93.5}
-  - {n: 6, x: 64.5, y: 93.5}
+  - {n: 1, x: 3.6, y: 11.5}
+  - {n: 2, x: 3.6, y: 40.0}
+  - {n: 3, x: 27.0, y: 11.5}
+  - {n: 4, x: 27.0, y: 22.0}
+  - {n: 5, x: 3.6, y: 92.9}
+  - {n: 6, x: 73.2, y: 92.9}
 ```
 
 ## What you see
 
 1. **Search settings...** Narrows the list to the pages whose title or keywords hold what you type.
-2. **The pages.** General, Raw Images, External Tools, Interface, Export, Processing, Logging, Catalogs & Data and
-   Plate Solving. The dialog opens on General, unless a window opened it on another page.
+2. **The pages.** General, [Projects](../reference/glossary.md#project), Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export,
+   External Tools and Logging. The dialog opens on General, unless it was opened on another page.
 3. **The page's title and Reset Page.** **Reset Page** returns the settings of the page shown to their defaults.
 4. **The page's settings.** Grouped in boxes, with notes in framed panels. A page longer than the dialog scrolls.
 5. **Reset All to Defaults.** Returns every page to its defaults.
@@ -64,9 +68,9 @@ each one takes effect.
 
 ### Find a page
 
-Type a word in **Search settings...**: part of a page's title, or a word such as `Gaia`, `Threads`, `EXIF` or `Theme`.
-The list keeps the pages that match, and moves to the first of them when the page shown no longer matches. Clear the
-box to see all nine again.
+Type a word in **Search settings...**: part of a page's title, a row's label, or a word such as `Gaia`, `Threads`,
+`EXIF` or `Theme`. The list keeps the pages that match, and moves to the first of them when the page shown no longer
+matches. Clear the box to see all ten again.
 
 ### Set up StarNet2 and DeepSNR
 
@@ -76,7 +80,7 @@ Install each tool first, with all the files its installer provides.
    yourself. The line under the path reads "Checking StarNet2 version...", then "✓ StarNet2 2.5.3 detected" or what is
    wrong.
 2. Do the same beside **DeepSNR:**.
-3. Choose **OK**. The windows of [Starnet++](../processes/star-operations/starnet.md),
+3. Choose **OK**. The tasks of [Starnet++](../processes/star-operations/starnet.md),
    [Starnet++ Star Mask](../processes/star-operations/starnet-star-mask.md) and DeepSNR check the saved program again
    before they run.
 
@@ -87,9 +91,10 @@ version.
 owed: true
 image: ../assets/images/interface/settings-dialog-external-tools.webp
 alt: >-
-  The External Tools page. Under the title AI Star Removal and Noise Reduction, a StarNet2 path ending in starnet2.exe
-  with a folder button and a Detect button, a green line reading StarNet2 2.5.3 detected and a framed note on the
-  version required, then the same for DeepSNR, with a green line reading DeepSNR 1.2.2 detected.
+  The Settings dialog on its External Tools page, chosen in the list of pages at the left. Under the title AI Star
+  Removal and Noise Reduction, a StarNet2 path ending in starnet2.exe with a folder button and a Detect button, a green
+  line reading StarNet2 2.5.3 detected and a framed note on the version required, then the same for DeepSNR, with a
+  green line reading DeepSNR 1.2.2 detected.
 caption: External Tools with StarNet2 and DeepSNR found and their versions supported.
 ```
 
@@ -119,10 +124,11 @@ Calibration opens the dialog on **Plate Solving**: the packs are on **Catalogs &
 owed: true
 image: ../assets/images/interface/settings-dialog-catalogs.webp
 alt: >-
-  The Catalogs and Data page. Under Gaia DR3 Astrometric Catalogs, a Catalog root path ending in catalogs, a green line
-  naming the selected Gaia catalog G<=14, a Catalog pack box, Download Catalog and Evict buttons and a framed note.
-  Under SPCC Calibration Data, a second Catalog root path with an amber line saying the SPCC catalog cache is empty, a
-  Catalog pack box, four buttons in two rows and a framed note about on-demand catalog fetches.
+  The Settings dialog on its Catalogs and Data page, chosen in the list of pages at the left. Under Gaia DR3
+  Astrometric Catalogs, a Catalog root path ending in catalogs, a green line naming the selected Gaia catalog G<=14, a
+  Catalog pack box, Download Catalog and Evict buttons and a framed note. Under SPCC Calibration Data, a second Catalog
+  root path with an amber line saying the SPCC catalog cache is empty, a Catalog pack box, four buttons in two rows and
+  a framed note about on-demand catalog fetches.
 caption: Catalogs & Data with the Gaia DR3 G<=14 pack installed and nothing downloaded for SPCC yet.
 ```
 
@@ -178,8 +184,8 @@ controls:
     kind: field
     default: ""
     effect: >-
-      Shows only the pages whose title, or one of whose keywords, holds what you type, in any case. When the page shown
-      is hidden, the dialog moves to the first page left.
+      Shows only the pages whose title, one of whose keywords, or one of whose rows - a label or the title of its group
+      - holds what you type, in any case. When the page shown is hidden, the dialog moves to the first page left.
     range: >-
       Each page has keywords of its own: **General** answers to `Temp`, `Import` or `Startup`, **Raw Images** to
       `Debayer` or `White Balance`, **External Tools** to `StarNet` or `Noise Reduction`, **Processing** to `Threads`,
@@ -192,11 +198,11 @@ controls:
   - name: Pages
     kind: radio
     default: General
-    options: [General, Raw Images, External Tools, Interface, Export, Processing, Logging, Catalogs & Data, Plate Solving]
+    options: [General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export, External Tools, Logging]
     effect: >-
       Shows a page. A page reads its stored values the first time you open it, and again each time you return to it
       while it holds no unsaved change. A page with unsaved changes keeps them while you visit others.
-    enabled: The dialog opens on **General**, or on the page the window that opened it asks for.
+    enabled: The dialog opens on **General**, or on the page the task, window or command that opened it asks for.
     tradeoff: Every page you open is written when you save, as it shows, even when you changed nothing on it.
     persistence: The dialog does not remember the last page it showed.
   - name: Reset Page
@@ -212,11 +218,11 @@ controls:
     kind: button
     default: ""
     effect: >-
-      Asks "Are you sure you want to reset ALL settings to their default values?" and, on **Yes**, fills all nine pages
+      Asks "Are you sure you want to reset ALL settings to their default values?" and, on **Yes**, fills all ten pages
       with their defaults, the pages you have not opened as well.
     tradeoff: >-
       The question adds "This action cannot be undone.", but nothing is stored until **Apply** or **OK**, and **Cancel**
-      still discards it all. Saving then writes all nine pages.
+      still discards it all. Saving then writes all ten pages.
     note: >-
       **No** is the default answer. Catalogs already on disk stay there, and the catalog folders return to AfterNight's
       own `catalogs` folder.
@@ -224,8 +230,8 @@ controls:
     kind: button
     default: ""
     effect: >-
-      Saves every page you opened and keeps the dialog open. The theme, the animations and the wheel zoom of open views
-      change at once, and a lower **Recent Files Limit:** trims the list at once.
+      Saves every page you opened and keeps the dialog open. The wheel zoom of open views changes at once, the
+      appearance you chose is kept, and a lower **Recent Files Limit:** trims the list at once.
     enabled: While a page holds an unsaved change.
     tradeoff: >-
       It skips the checks of **OK**, so it can store a temporary or log folder that does not exist or cannot be
@@ -240,14 +246,16 @@ controls:
     range: ++esc++ and the window's close button do the same.
     tradeoff: >-
       What a page did at once stays done: a catalog downloaded or deleted, the logging values of an imported file, a
-      log folder **Open Log Directory** created.
+      log folder **Open Log Directory** created. The appearance the Interface page showed goes back to what was in
+      force.
   - name: OK
     kind: button
     default: ""
     effect: Checks every page you opened, saves them all and closes the dialog.
     range: >-
-      General checks the temporary folder, Logging the log folder, Processing the memory limit and Raw Images the custom
-      gains. The first page that fails is shown, with "Validation Error" and the reason, and nothing is saved.
+      General checks the temporary folder, Projects the default location, Logging the log folder, Processing the memory
+      limit and Raw Images the custom gains. The first page that fails is shown, with "Validation Error" and the reason,
+      and nothing is saved.
     enabled: Always. It is the default button, which ++enter++ presses.
     tradeoff: The folder checks create a folder that does not exist yet.
   - name: Settings
@@ -283,10 +291,10 @@ controls:
     kind: spinbox
     default: "20"
     widget: {min: 1, max: 100, step: 1}
-    effect: How many files **File > Open Recent** and the Dashboard keep, with the suffix `files`.
+    effect: How many files **File > Open Recent** and Home keep, with the suffix `files`.
     tradeoff: >-
       Saving a lower limit drops the oldest files from the list, with their thumbnails, at once, and refreshes the
-      menu and the Dashboard. The files stay on disk.
+      menu and Home. The files stay on disk.
     persistence: Stored as `general/recentFilesLimit`.
   - name: "Recent Processes Limit:"
     kind: spinbox
@@ -383,11 +391,62 @@ controls:
       configuration, the recent and favorite processes and the Gaia catalog's folder and pack among them. Unsaved
       changes of the other pages are not in it.
     tradeoff: >-
-      It is no complete backup: it leaves out the SPCC catalog, its pending region and response data, the extensions'
-      settings and the Dashboard's choices. It holds your folders and the web API key in plain text.
+      It is no complete backup: it leaves out the Projects page, the SPCC catalog, its pending region and response data,
+      the extensions' settings and Home's choices. It holds your folders and the web API key in plain text.
     persistence: >-
       The file is written whole or not at all. A file that cannot be written gives "Export Failed" with "Could not write
       the settings file: ..." and leaves an earlier file of that name as it was.
+```
+
+### Projects
+
+What a new [project](projects.md) starts from, and how an undo [history](../reference/glossary.md#history) is
+written. A note under **Undo History**
+says what holds without a project: "Without a project, history is kept in the temporary folder and cleared on exit."
+
+```controls
+window: Projects
+controls:
+  - name: "Default location:"
+    kind: field
+    default: AfterNight Projects in your Documents folder
+    effect: >-
+      The folder **New Project...** offers to make a project's folder in, under **New Projects**. Its folder button
+      opens "Select the Default Location of Projects". The note under it reads "A project is a folder there. Images are
+      referenced where they are, not copied."
+    range: >-
+      A folder's full path. **OK** refuses any other with "The default location of projects must be a folder's full
+      path." The folder is made only with the first project made in it.
+    persistence: Stored as `projects/defaultLocation`.
+  - name: Create a project for every integration job
+    kind: check
+    default: "On"
+    effect: >-
+      On, an integration run started with no project open gets a project in its output folder, or opens the one
+      already there. Off, such a run belongs to no project.
+    persistence: Stored as `projects/createForIntegrationJobs`, and read when a run starts.
+  - name: "History compression:"
+    kind: combo
+    default: LZ4 (fast)
+    options: [LZ4 (fast), None, Zstandard (smallest)]
+    effect: >-
+      How the steps of an undo history are written, each as an XISF image, under **Undo History**. A history outside a
+      project takes it from its next step, and **New Project...** starts from it.
+    tradeoff: Zstandard takes the least room and the most time to write, None the most room.
+    scope: A project keeps the compression it was made with.
+    persistence: Stored as `history/compression`.
+  - name: "Ask to compact a history above:"
+    kind: spinbox
+    default: "10"
+    widget: {min: 1, max: 100000, step: 1}
+    effect: >-
+      The size, in GB, above which a project's undo history offers **Compact history...** once, as the project opens.
+    persistence: Stored as `projects/compactAskThresholdGb`.
+  - name: Open the last project on startup
+    kind: check
+    default: "Off"
+    effect: On, AfterNight opens the project used last as it starts, with its workspaces and images, under **Startup**.
+    persistence: Stored as `projects/openLastOnStartup`, and read at the next start.
 ```
 
 ### Raw Images
@@ -559,46 +618,14 @@ controls:
 
 ### Interface
 
+The **Colours and Size** group at the top of the page - the colour preset, the theme, the contrast, the accent, the
+surface tint and its strength, the density, Night, the animations and the menu bar - is described in
+[Appearance](appearance.md). Its rows show what you choose at once, **Apply** or **OK** keeps it, and **Cancel** puts
+back what was in force. A **Shell** row follows the group only while more than one main window is installed.
+
 ```controls
 window: Interface
 controls:
-  - name: "Theme:"
-    kind: combo
-    default: Dark
-    options: [Follow System, Light, Dark]
-    effect: The colours of AfterNight's windows. **Follow System** takes the light or dark choice of your system.
-    scope: The interface only, never an image or what is saved.
-    persistence: Stored as `interface/theme`, and applied when the page saves successfully.
-  - name: "Theme Contrast:"
-    kind: combo
-    default: Balanced (Recommended)
-    options: [Balanced (Recommended), Soft, High, OLED]
-    effect: >-
-      The contrast of the dark theme. **Soft** lowers contrast and saturation, **High** raises both, and **OLED** draws
-      pure black backgrounds for OLED screens.
-    enabled: >-
-      **OLED** is greyed while **Theme:** is **Light**, and choosing **Light** while **OLED** is chosen returns to
-      **Balanced (Recommended)**.
-    persistence: Stored as `interface/themeContrastProfile`.
-  - name: "Accent Family:"
-    kind: combo
-    default: Blue (Default)
-    options: [Blue (Default), Teal, Amber, Amethyst, Rose]
-    effect: The colour of buttons, selections and other interactive parts.
-    persistence: Stored as `interface/themeAccentFamily`.
-  - name: "Card Surface Tint:"
-    kind: combo
-    default: Neutral (Default)
-    options: [Neutral (Default), Ocean, Mint, Amethyst, Rose, Amber]
-    effect: A faint colour on the surface of cards and grouped boxes.
-    persistence: Stored as `interface/themeSurfaceTintFamily`.
-  - name: Enable UI animations
-    kind: check
-    default: "On"
-    effect: >-
-      Small animations, such as the highlight of a card under the pointer and the opening of collapsible sections. Off
-      removes them, for less motion or less work.
-    persistence: Stored as `interface/animationsEnabled`, and applied to open windows when the page saves.
   - name: "Mouse Wheel Zoom Sensitivity:"
     kind: slider
     default: "50"
@@ -623,25 +650,27 @@ controls:
       On Linux some system file windows, of KDE or GTK, have trouble reaching hidden folders, whose names start with a
       dot. Its tooltip says so there.
     persistence: Stored as `interface/useSystemFileBrowser`, and read by the next file window.
+    note: Under Night the open and save windows are AfterNight's own, which Night draws in red, whatever this says.
   - name: Lock dock layout by default
     kind: check
     default: "Off"
-    effect: On, AfterNight starts with its docked panels locked, so they cannot be moved by accident.
-    tradeoff: Saving it does not lock or unlock the panels now. The layout command of the main window does that.
-    persistence: Stored as `interface/lockLayoutByDefault`, and read at the next start.
+    effect: >-
+      On, the workspace AfterNight starts with, and every workspace you make, start with their layout locked, so their
+      images cannot be moved by accident.
+    tradeoff: Saving it does not lock or unlock a workspace now. **Lock layout** in the top bar does that.
+    persistence: Stored as `interface/lockLayoutByDefault`, and read at the next start and when a workspace is made.
   - name: Remember window size and position
     kind: check
     default: "On"
     effect: >-
       On, the main window's size, place and maximized state are kept when AfterNight closes and restored at the next
-      start, and process windows keep their size. Off, the main window starts maximized and process windows open at
-      their own size.
+      start, and a process that opens a window of its own keeps its size. Off, the main window starts maximized.
     range: A kept place that lies on no screen any longer opens the main window maximized.
     tradeoff: After a change of screens, a kept size can suit the new screen badly. Turning the box off starts maximized.
     persistence: Stored as `interface/rememberWindowSize`, beside the kept size and place.
     note: >-
       The note under this group reads "Window layout is automatically saved when closing the application." It means the
-      main window's size and place. The arrangement of the docked panels is not kept between sessions.
+      main window's size and place. Only a project keeps the workspaces and their images from one session to the next.
 ```
 
 ### Export
@@ -748,7 +777,7 @@ controls:
 ### Processing
 
 A note at the top of the page says that the thread and memory limits are fixed while AfterNight runs. Saving stores
-them for the next start, and open images and their [history](../reference/glossary.md#history) are not touched.
+them for the next start, and open images and their history are not touched.
 
 ```controls
 window: Processing
@@ -801,15 +830,15 @@ controls:
     default: "30"
     widget: {min: 5, max: 60, step: 1}
     effect: >-
-      The most previews a process window starts in a second while you drag one of its sliders, under **Real-time
-      Preview**. The previews of a drag run on the threads kept for previews. Letting go, or holding the slider still for
-      a moment, runs one more with every thread a preview may use.
+      The most previews a task starts in a second while you drag one of its sliders, under **Real-time Preview**. The
+      previews of a drag run on the threads kept for previews. Letting go, or holding the slider still for a moment, runs
+      one more with every thread a preview may use.
     tradeoff: >-
       Lower uses less processor and battery while you drag. Higher follows the slider more closely. A slow process shows
       fewer previews than the rate allows.
     persistence: >-
-      Stored as `processing/previewFrameRate`, and read at the next drag once you return to the process window, with no
-      restart. An open extension window of the full kind keeps the rate it opened with.
+      Stored as `processing/previewFrameRate`, and read at the next drag once you return to the task, with no restart.
+      An open extension window of the full kind keeps the rate it opened with.
   - name: Enable GPU Acceleration
     kind: check
     default: "Off"
@@ -881,8 +910,9 @@ controls:
       is not writable: ...".
     tradeoff: >-
       Moving the log splits it between two folders. A log names your folders and what AfterNight did, so mind it before
-      you share one. A folder that cannot be written at the next start, such as one on a disk that is gone, sends the
-      log to the default folder, with a warning that names the folder refused.
+      you share one. A folder that cannot be written when the page is saved leaves the log in the file it was in, and a
+      message titled "Log Folder" says so. One that cannot be written at the next start, such as one on a disk that is
+      gone, sends the log to the default folder, with a warning that names the folder refused.
     persistence: >-
       Stored as `log_directory` in `logging.conf`. An empty box passes **OK** and writes the log to `AfterNight.log` in
       the folder AfterNight was started from. The page then shows the default folder again, and the next save stores it
@@ -1270,7 +1300,7 @@ page opens.
 ## When it goes wrong
 
 A change seems to make no difference
-:   **Cause.** The setting takes effect later: the thread and memory limits and the dock lock at the next start, the
+:   **Cause.** The setting takes effect later: the thread and memory limits and the layout lock at the next start, the
     raw settings at the next file you open, the export settings at the next save.
 :   **Fix.** Restart AfterNight, or open the file again. [Settings Reference](settings-dialog-reference.md) gives each
     setting's moment.
@@ -1301,6 +1331,8 @@ Imported settings are not the ones the file holds
 
 - [Settings Reference](settings-dialog-reference.md), for when each change takes effect, every message of the dialog,
   the settings file and where AfterNight keeps its data.
+- [Appearance](appearance.md) and [Projects](projects.md), for the Colours and Size group of the Interface page and
+  what the Projects page sets.
 - [Plate Solving](../processes/registration-alignment/plate-solving.md), for how each solver uses its settings, and
   [Spectrophotometric Color Calibration](../processes/color-calibration/spectrophotometric-cc.md) and
   [Photometric Color Calibration](../processes/color-calibration/photometric-cc.md), for the catalogs they read.
@@ -1308,9 +1340,8 @@ Imported settings are not the ones the file holds
   processes External Tools sets up.
 - [Supported Formats](../getting-started/supported-formats.md), [Debayer](../processes/calibration/debayer.md) and
   [Saving And Exporting](saving-and-exporting.md), for the files the Raw Images and Export pages concern.
-- [Session Console](log-viewer.md), for the messages the Logging page writes to a file.
-- [Image Viewer](image-viewer.md), [Docking Panels](docking-panels.md) and [Process Windows](process-windows.md), for
-  the zoom, the panels and the window sizes the Interface page sets.
+- [Session Console](log-viewer.md), for the messages the Logging page writes to a file, and
+  [Workspaces](workspaces.md) and [Image Viewer](image-viewer.md), for the layout lock and the wheel zoom.
 
 ## Credits
 

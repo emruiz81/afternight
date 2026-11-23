@@ -8,32 +8,35 @@ menu: Image > Information > Summary
 # Image and Sequence Summary
 
 The summary gathers the facts of the image a view shows, and of the file behind it, into one report you can read and
-copy: its size and format, then what its header says of the camera and the exposure. A [SER](../reference/glossary.md#ser)
-video or an image list gets a report of the whole [sequence](../reference/glossary.md#sequence) instead. The report is built from
-what AfterNight holds in memory and from what the file system says of the file. It never reads the pixels, and it
-changes nothing.
+copy: its size and format, then what its header says of the camera and the exposure. The Image card of the
+[readout](../reference/glossary.md#readout) shows the size, format and memory in short, and opens this window from its
+header. A [SER](../reference/glossary.md#ser) video or an image list gets a report of the whole
+[sequence](../reference/glossary.md#sequence) instead. The report is built from what AfterNight holds in memory and
+from what the file system says of the file. It never reads the pixels, and it changes nothing.
 
 ```figure
 owed: true
 image: ../assets/images/interface/image-summary.webp
 alt: >-
-  The Image Summary Viewer window. Under the title bar, the heading Image and Sequence Summary and a line about
-  acquisition metadata. A card titled Summary Report holds a scrolled list of facts under section titles: the end of
-  Image General Info, with the resolution 5544x3684, one channel, 16 bits unsigned integer, Grayscale, the CFA pattern
-  RGGB and 38.96 MB, then Image Detailed Info, with the camera QHY183C, Gain 11, Offset 30, the date 2023-10-10
-  00:19:34, 180 sec, 21 C and N.I.N.A. as the software. Copy to Clipboard and Close stand at the bottom right.
+  The Image Summary Viewer window for a duplicate of a raw NGC 253 light frame. Its heading reads INFORMATION and the
+  duplicate's name over Image and Sequence Summary and a line about acquisition metadata. A card titled Summary Report
+  holds a scrolled list of facts under section titles: Overview, with the image's name; File Info, whose File Name,
+  File Size, File Creation Time, File Modification Time and File Codec each read a dash; and the title Image General
+  Info at the foot of what shows. Copy to Clipboard and Close stand at the bottom right.
 caption: >-
-  The summary of a duplicate of a raw NGC 253 light frame, scrolled to its acquisition facts.
+  The summary of a duplicate of a raw NGC 253 light frame, opened from the readout: a duplicate has never been a
+  file, so its file facts read a dash.
 pins:
-  - {n: 1, x: 65.0, y: 3.0}
-  - {n: 2, x: 23.0, y: 23.5}
-  - {n: 3, x: 32.0, y: 50.0}
-  - {n: 4, x: 62.0, y: 94.0}
+  - {n: 1, x: 2.0, y: 11.4}
+  - {n: 2, x: 3.0, y: 27.0}
+  - {n: 3, x: 4.4, y: 48.0}
+  - {n: 4, x: 62.2, y: 92.8}
 ```
 
 ## What you see
 
-1. **The title.** It names the view the report describes, as `Image Summary Viewer <M42>`.
+1. **The heading.** INFORMATION and the name of the view the report describes, over the window's name. The title bar
+   names the view too, as `Image Summary Viewer <M42>`.
 2. **The report.** Sections of facts, one under the other. Scroll for the sections below.
 3. **A section.** Its title, then one line for each fact, the label at the left and the value at the right. Select a
    value with the mouse to copy it alone.
@@ -43,9 +46,10 @@ pins:
 
 ### Read an image's facts
 
-1. Make the view active. For a sequence other than a SER or an image list, pause the player on the frame you want.
-2. Choose **Image > Information > Summary**, choose **Summary** on the view's toolbar, or press ++ctrl+shift+m++ over
-   the view.
+1. Click the view to make its image the [active image](../reference/glossary.md#active-image). For a sequence other
+   than a SER or an image list, pause the player on the frame you want.
+2. Choose **Summary** in the header of the readout's Image card, choose **Image > Information > Summary**, or press
+   ++ctrl+shift+m++ over the view. The window opens over the main window.
 3. Check **Image General Info** first: the size, the channels, the [pixel type](../reference/glossary.md#pixel-type),
    the mosaic and the memory. Then read **Image Detailed Info**, which says what the file states of the camera and the
    exposure.
@@ -89,9 +93,8 @@ controls:
   - name: Title
     kind: readout
     default: ""
-    effect: Names the view the report describes, as `Image Summary Viewer <M42>`. A rename changes the title and the name the report starts with.
-    enabled: The window opens from **Image > Information > Summary**, from **Summary** on the view's toolbar, or with ++ctrl+shift+m++ while the view has the focus. While it is open, the menu entry is disabled until the menus are refreshed, as when another view becomes active. The button and the shortcut stay enabled, and each opens another window.
-    tradeoff: The shortcut does nothing while the button sits in the toolbar's **More** menu. Use the menu then.
+    effect: Names the view the report describes, as `Image Summary Viewer <M42>`. A rename changes the title and the name the report starts with. The heading inside says INFORMATION and the view's name over **Image and Sequence Summary**.
+    enabled: The window opens from **Summary** in the readout's Image card, from **Image > Information > Summary** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+shift+m++ while the view has the keyboard focus. While it is open, the menu entry is disabled until the menus are refreshed, as when another view becomes active. The readout's button and the shortcut stay enabled, and each opens another window.
     persistence: Nothing of the window is kept.
     note: It needs no network, no catalog and no other program. It writes no image, file, header card or history step.
   - name: Summary Report
@@ -170,7 +173,7 @@ controls:
 
 **Summary** is greyed in the **Information** menu
 :   **Cause.** A Summary window of this view is open, or the active view has no image.
-:   **Fix.** Use the open window, or choose **Summary** on the view's toolbar, which opens another one.
+:   **Fix.** Use the open window, or choose **Summary** in the readout's Image card, which opens another one.
 
 Every fact of **File Info** reads `-`
 :   **Cause.** The image was never saved, is kept in temporary storage, or its file is gone.
@@ -178,7 +181,7 @@ Every fact of **File Info** reads `-`
 
 A video shows image fields instead of the sequence's
 :   **Cause.** Only a SER video and an image list get a sequence report.
-:   **Fix.** Read the frame count and the rate in the status bar, or convert the video to a SER or an image list.
+:   **Fix.** Read the frame count and the rate in the status line, or convert the video to a SER or an image list.
 
 **Image Creation Date** is hours away from the night you shot
 :   **Cause.** The file states a local time in `DATE-LOC`, which is read as UTC with no offset.
@@ -202,4 +205,4 @@ A card or a field you expected is missing
 - [Histogram Analysis](image-histogram.md), for how the samples spread and how many are clipped.
 - [Sequences](sequences.md), for the player, the kinds of sequence and their conversions.
 - [Saving And Exporting](saving-and-exporting.md), to save the image to a file whose facts the report can show.
-- [Image Viewer](image-viewer.md), for the toolbar that opens the window and the status bar's short summary.
+- [Readout](readout.md), for the Image card that opens the window and states the image's facts in short.

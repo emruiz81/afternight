@@ -14,8 +14,9 @@ masks: post-blend
 external: The G'MIC library, bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no window of this process is open on it yet, and no window that needs the
-    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+    An image or a sequence view is active, no task of this process is open on it yet, and no task that needs the
+    image for itself is open on it. The task opens as a page of its own, beside other tasks. Preview and Apply also
+    need a build that carries G'MIC.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an
     optional mask of the image's size on its view.
@@ -32,8 +33,8 @@ derived: true
 This process sharpens several scales at once. It splits the image into a smooth base and detail layers of growing
 size, makes the finer layers more opaque, and lays them back over the base, so the finest detail gains the most and
 broad structure the least. **Amount** then mixes the result with the original. The work is done by the `sharpen_alpha`
-command of G'MIC, which AfterNight carries. The menu names the process **Multiscale Alpha Sharpen**, and its window is
-titled **Multiscale Sharpen Alpha**.
+command of G'MIC, which AfterNight carries. The menu and the [task](../../reference/glossary.md#task) header name the process **Multiscale Alpha Sharpen**, and
+its column is headed **Multiscale Sharpen Alpha**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the sharpened one, keeps its size
 and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -42,22 +43,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/sharpening/sharpen-alpha.webp
 alt: >-
-  The Multiscale Sharpen Alpha window. On the left, the Amplitude, Number of Scales, Anisotropy and Amount boxes with
-  their sliders, and lower down Target Image, Channel at RGB and the Preview check box. On the right, a toolbar of
-  zoom buttons, a channel box, a switch, the Preview area check box and a camera button over the preview of a red
-  nebula, with the word PREVIEW in its corner and a small framed area in its middle. Reset, Close and Apply run along
-  the bottom.
+  The Multiscale Alpha Sharpen task. Its header names the process and the stretched master, and the column's header
+  reads Multiscale Sharpen Alpha. The canvas at the left shows the preview of a red nebula, with the word PREVIEW in
+  its corner, a small framed area in its middle and its floating toolbar near the foot. The column at the right opens
+  with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel
+  at RGB, and the Amplitude, Number of Scales, Anisotropy and Amount boxes with their sliders. Reset, Close and Apply
+  stand in its footer.
 caption: >-
   Multiscale Sharpen Alpha on the stretched master with Amplitude at 1.00, Number of Scales at 5, Anisotropy at 0.00
-  and Amount at 0.70. The framed area shows what Apply writes there, over the original.
-pins:
-  - {n: 2, x: 2.0, y: 82.7}
-  - {n: 3, x: 2.0, y: 25.1}
-  - {n: 4, x: 2.0, y: 30.2}
-  - {n: 5, x: 2.0, y: 20.1}
-  - {n: 6, x: 2.0, y: 35.2}
-  - {n: 7, x: 59.5, y: 54.6}
-  - {n: 8, x: 89.3, y: 96.0}
+  and Amount at 0.70. The framed area in the canvas shows what Apply writes there, over the original.
+owed: true
 ```
 
 ## Before you start
@@ -76,9 +71,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the stretched image the active one and choose **Process > Details > Multiscale Alpha
-   Sharpen**. The preview shows the sharpened image inside a framed
-   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original.
+1. **Open the task.** Make the stretched image the active one and choose **Process > Details > Multiscale Alpha
+   Sharpen**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens
+   as a page: the canvas at the left shows the sharpened image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original, and the
+   column at the right holds its controls.
 2. **Choose what to sharpen.** Leave **Channel** at **RGB** to sharpen the color image as a whole. Choose **CIE L*
    (Lightness)** or **CIE Y (Luminance)** to sharpen the brightness and leave the colors alone.
 3. **Choose the scales.** Set **Number of Scales**: each scale adds a detail layer twice as broad as the last. Stop at
@@ -89,15 +86,15 @@ pins:
    crunchy.
 6. **Set the strength.** Lower **Amount** to mix the result back toward the original, until the rims and the grain
    are no longer distracting.
-7. **Check at 100 %.** Zoom into the area and hold ++space++ to compare with the original. Then untick **Preview area**
+7. **Check at 100 %.** Zoom the canvas into the area and hold ++space++ to compare with the original. Then untick **Preview area**
    and look at the whole image for broad rims around bright stars.
-8. **Apply.** Choose **Apply**. A progress window with a busy bar follows the run, the view shows the sharpened image,
-   and its history lists **Multiscale Sharpen Alpha** with the four values.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column's run row follows the run,
+   the view shows the sharpened image, and its history lists **Multiscale Sharpen Alpha** with the four values.
 
 ## Controls
 
-**Target Image**, **Preview**, the preview pane, **Close** and the progress window work as in every process window:
-see [Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, **Preview**, the canvas, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: Multiscale Sharpen Alpha
@@ -111,7 +108,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A high value raises the noise and the rims around stars with the detail, and pushes more samples to black or white. It costs no more time.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Number of Scales
     kind: spinbox
     default: "4"
@@ -121,7 +118,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: More scales add broader rims around stars and large edges. Each one adds a wider blur, a layer in memory and one more step of laying the layers back, so the work grows with the count.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Anisotropy
     kind: spinbox
     default: "0.50"
@@ -135,7 +132,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Every value above 0 changes how the scales are made, not only how much, so the result does not move smoothly away from the one at 0. It adds a second blur to every scale. It is no control of halos, and settings taken from G'MIC's own filter do not give the same result here.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The arrows step by one power of ten below the value, which is 0.01 over this range. The slider moves it in 1,000 equal steps. Its tooltip calls it a directional factor, though no direction is chosen.
   - name: Amount
     kind: spinbox
@@ -146,13 +143,13 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: It weakens every scale together, which makes it the safest last control of the strength. At 0 the command still runs in full and costs as much.
     scope: The preview and Apply, after the command and before the mask.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -160,21 +157,22 @@ controls:
     effect: Chooses what is sharpened. **RGB** hands the command the three channels as one color image. **Red**, **Green** or **Blue** sharpens that channel and keeps the other two. Every other choice sharpens one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB** the three channels share the opacity of each detail layer, so a strong edge in one channel limits or shapes the sharpening of the other two there, and colors can change. A component costs two conversions and a working copy. Colors the conversion back puts out of range are cut in an integer image and kept in a floating-point one.
-    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the sharpened image beside the controls, with **Amount** and the mask applied.
+    effect: Shows the sharpened image in the canvas, with **Amount** and the mask applied.
     range: >-
-      The pane opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview:
+      The canvas opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview:
       Multiscale Sharpen Alpha", or the whole image when it is smaller.
     enabled: >-
-      In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
-      G'MIC library, so this process cannot run."
+      It stands in the column's toggles row, beside **Preview area**, and is disabled while Apply runs. In a build
+      without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no G'MIC
+      library, so this process cannot run."
     tradeoff: Without the area, every change runs the command over the whole image, also while you drag a slider. The area is sharpened as an image of its own, so near its edges the broad scales differ from what Apply writes there.
-    scope: The window only. The pane has no **Display Mode** and shows the samples as they are.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    scope: The task only. The canvas has no **Display Mode** and shows the samples as they are.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -184,8 +182,8 @@ controls:
     kind: button
     default: ""
     effect: Sharpens the whole image, or every frame of the sequence, with the four values and **Channel** as they are when you press it, and then returns the four values to their defaults.
-    enabled: Whatever the values, also when they change nothing. It stays enabled while a run works, and a second press is ignored. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: A single image shows a progress window too, with a busy bar and **Cancel**. G'MIC notices **Cancel** at its next check inside the command, so the run can go on for a moment, and a result that arrives after it is dropped.
+    enabled: Whatever the values, also when they change nothing. While a run works **Cancel** takes its place. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: On a single image the column's run row reads "applying" with no share, and **Cancel** stops the run. No progress window opens. G'MIC notices **Cancel** at its next check inside the command, so the run can go on for a moment, and a result that arrives after it is dropped.
     persistence: "The history step is **Multiscale Sharpen Alpha** and reads, for example, `Amplitude: 1.00, Number of Scales: 5, Anisotropy: 0.00, Amount: 0.70 in channel: RGB`. For a grayscale image it ends after the amount. The header cards, the other metadata and the recorded processing state of the image are kept."
 ```
 
@@ -270,7 +268,7 @@ caption: >-
 | --- | --- | --- |
 | A stretched image after noise reduction | **Number of Scales** at 4, **Amplitude** at 1, **Anisotropy** at 0 | Try 5 scales on purpose, then set the strength with **Amount**. |
 | Rims around stars or crunchy contrast | **Amplitude** near 1 and **Amount** below 1 | Lower **Number of Scales** first when the rims are broad. |
-| Colors change at edges | **Channel** at **CIE L* (Lightness)** or **CIE Y (Luminance)** | Compare the channels with **View Channel** in the preview's toolbar, then set the strength again. |
+| Colors change at edges | **Channel** at **CIE L* (Lightness)** or **CIE Y (Luminance)** | Compare the channels with **View Channel** in the canvas's floating toolbar, then set the strength again. |
 | Choosing **Anisotropy** | 0, then 0.5, at a modest **Number of Scales** | Keep the one you prefer, then set **Amplitude** again. |
 
 ## When it goes wrong
@@ -297,7 +295,7 @@ Nothing changes, yet every change is slow
 :   **Fix.** Set a value that sharpens, or turn **Preview** off while you need no sharpening.
 
 The preview looks darker than the image in its view
-:   **Cause.** The pane shows the samples as they are, and the view may show the image in
+:   **Cause.** The canvas shows the samples as they are, and the view may show the image in
     [Autostretch](../../reference/glossary.md#autostretch).
 :   **Fix.** Compare with the view in its Linear display mode, or take a snapshot of the preview.
 
@@ -323,8 +321,7 @@ Another error names G'MIC or the memory budget
 - [Masks](../../interface/masks.md), to sharpen one part of the image and protect the rest.
 - [Image History](../../interface/image-history.md) and [Saving and Exporting](../../interface/saving-and-exporting.md),
   to undo the step and to save the result once it is checked at its final size.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

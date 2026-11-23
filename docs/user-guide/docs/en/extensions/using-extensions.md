@@ -2,14 +2,16 @@
 kind: interface
 summary: >-
   The Installed tab of the Extensions window: whether each installed extension can run, its environment, its
-  settings and its last launch, and how the processes an extension adds open and run.
+  settings and its last launch, and where the processes an extension adds are found and how they run.
 ---
 # Using Extensions
 
 An extension adds processes to AfterNight. Its Python code runs in a program of its own, an
 [extension host](../reference/glossary.md#extension-host), and never inside AfterNight, so an extension that fails
-does not take the application down with it. Each process an extension adds sits in the **Process** menu, after a line
-at the end of the category its package names.
+does not take the application down with it. Its processes, each tagged **extension**, are at the end of their
+category in the **Process** menu, in the extension's menu under **Extensions** and in the
+[command palette](../reference/glossary.md#command-palette). [Extensions in the Window](extension-tasks.md) says how
+they show.
 
 The **Installed** tab of the Extensions window lists the extension packages on this computer: whether each one can
 run, the Python environment it needs, and its settings. You install, update and remove packages on the **Browse**
@@ -19,15 +21,15 @@ tab, which [Extension Marketplace](extension-marketplace.md) describes.
 owed: true
 image: ../assets/images/extensions/using-extensions.webp
 alt: >-
-  The Extensions window on its Installed tab. Under the tabs Browse and Installed, a banner counts the packages found,
-  and a Refresh Status button sits below it. Two package cards follow. Each card shows the package's name with a
-  green Available badge and a version badge, then the buttons Uninstall, Reveal Package and Details on the right, with
-  Settings on the card of a package that has settings, and under the name a line with the source, the host mode and
-  the identifier. The first card is open on its
-  details: the package's folders, its runtime targets, its last check, its last launch and its last stop. Reset Tab
-  and Close run along the bottom.
+  The Extensions window, a window of its own in front of the main window, on its Installed tab. Under its heading,
+  Extensions, the tabs Browse and Installed; under them, a banner counts the packages found, and a Refresh Status
+  button sits below it. Two package cards follow. Each card shows the package's name with a green Available badge and
+  a version badge, then the buttons Uninstall, Reveal Package and Details on the right, with Settings on the card of a
+  package that has settings, and under the name a line with the source, the host mode and the identifier. The first
+  card is open on its details: the package's folders, its runtime targets, its last check, its last launch and its
+  last stop. Reset Tab at the left and Close at the right run along the bottom.
 caption: >-
-  The Installed tab with two packages, one of each host mode, the first open on its details.
+  The Installed tab with two packages installed from the official repository, the first open on its details.
 pins:
   - {n: 1, x: 39.0, y: 4.5}
   - {n: 2, x: 88.0, y: 11.0}
@@ -57,30 +59,28 @@ pins:
 
 ### Open the Installed tab
 
-Choose **Manage...** in an extension's own submenu of the **Extensions** menu, or choose **Extensions > Manage
-Extensions...** and then the **Installed** tab. It shows the status it found last at once, and replaces it when it
-has looked again.
+Choose **Manage...** in an extension's own menu under **Extensions**. **Extensions > Manage Extensions...**, its row
+in the command palette and **More actions > Extension Manager** on [Home](../interface/home.md) open the window on
+**Browse**: then choose **Installed**. The tab shows the status it found last at once, and replaces it when it has
+looked again.
 
 ### Check that an extension can run
 
-1. Find the package's card. **Available** means that its environment is ready and that its processes can open.
+1. Find the package's card. **Available** means that its environment is ready and its processes can open.
 2. For any other state, choose **Details**. **Validation Result**, **Install / Repair** and the banners under them say
    what stands in the way.
-3. Choose **Refresh Status** after a change made outside AfterNight, such as a package folder copied by hand. The
-   cards show the new state.
+3. Choose **Refresh Status** after a change made outside AfterNight, such as a package folder copied by hand.
 
 ### Run an extension's process
 
 1. Make the image you want to process the [active image](../reference/glossary.md#active-image), then choose the
-   process in the **Process** menu.
-2. When the package's environment is not ready yet, a window titled **Preparing** and the process's name shows
-   AfterNight installing, refreshing or repairing it. The process window opens once the environment is ready.
-3. Work in the extension's window. A package of the **Full hosted** kind opens a window built like AfterNight's own
-   [process windows](../interface/process-windows.md), with their preview and **Apply**. A package of the **Lite
-   hosted** kind draws its own window.
+   process in the **Process** menu, in its extension's menu under **Extensions**, or in the command palette.
+2. When the package's environment is not ready yet, AfterNight prepares it first, and says so in the
+   [task](../reference/glossary.md#task)'s column or in a window titled **Preparing** and the process's name.
+3. Work in the task, or in the extension's own window.
 4. Apply the result. It reaches the image, as one step of its [history](../reference/glossary.md#history), only when
    the extension hands it over: a run that is cancelled or fails leaves the image as it was.
-5. Close the window. Its session ends, its host stops, and the extension can be started on the same image again.
+5. Close the task. Its session ends, its host stops, and the extension can be started on the same image again.
 
 ### Change an extension's settings
 
@@ -91,11 +91,11 @@ Change them and choose **Save**. They hold for all its processes and later sessi
 
 AfterNight prepares an environment by itself: in the background after it starts, and when you choose one of the
 package's processes. To do it now, choose **Install Environment** or **Repair Environment** on the card. The summary
-says when it is done, and the card then shows **Available**. When it fails, the summary gives the reason.
+says when it is done, or why it failed.
 
 ### Remove a package
 
-1. Close the extension's windows: uninstalling does not stop a host that is running.
+1. Close the extension's tasks: uninstalling does not stop a host that is running.
 2. Choose **Uninstall** on the card, then **Yes**. The summary reads "Uninstalled" and the package's name, and its
    card and processes go.
 3. Its settings and its environment stay. **More Actions > Clean unused environments** on the **Browse** tab removes
@@ -105,8 +105,8 @@ says when it is done, and the card then shows **Available**. When it fails, the 
 
 Choose **Refresh Status** and open the card's **Details**. **Last Launch** and **Last Crash / Termination** give the
 reason, and the banner under them says whether to relaunch, repair the environment, reinstall the package or ask its
-author. Add the [Session Console](../interface/log-viewer.md)'s lines to a report, once you have read them: they
-name your folders and can hold the package's data.
+author. Read the [Session Console](../interface/log-viewer.md)'s lines before you add them to a report: they name
+your folders and can hold the package's data.
 
 !!! warning "An extension is a program you run"
     A host runs with your user account's rights to your files and the network. Being a separate program protects
@@ -151,8 +151,9 @@ controls:
       AfterNight. **Unavailable** when no environment state was reported.
     range: >-
       A process of a package that shows **Install Needed**, **Repair Needed**, **Validation Failed** or
-      **Bootstrapping** stays available in the menu, and choosing it prepares the environment first. The processes of
-      an **Incompatible** or **Unavailable** package are greyed, with the reason as their tooltip.
+      **Bootstrapping** stays available in the menus and the command palette, and choosing it prepares the environment
+      first. The processes of an **Incompatible** or **Unavailable** package are greyed, with the reason as their
+      tooltip, and dimmed in the palette with the reason beside them.
     note: Its tooltip says what the state means. Using Extensions Reference lists each state's causes.
   - name: Version
     kind: readout
@@ -254,8 +255,8 @@ controls:
       **Exited**, with the reason, the session, the exit code, the time since the last heartbeat and the request in
       progress where known.
     note: >-
-      Closing a full window is recorded as "Disconnected: Extension host native process window closed". With nothing
-      recorded it reads "No crash or forced-termination history is recorded yet."
+      Closing the window a Full hosted extension shows of its own is recorded as "Disconnected: Extension host native
+      process window closed". With nothing recorded it reads "No crash or forced-termination history is recorded yet."
   - name: Diagnostic and recovery banners
     kind: readout
     default: ""
@@ -300,6 +301,9 @@ controls:
       **Save** keeps each field the package marks to keep, except a secret one, in AfterNight's settings database as
       `extension/<extension id>/<field id>`. One value per extension serves all its processes.
     tradeoff: A wrong path or value can keep the package's processes from working.
+    note: >-
+      The window is titled with the extension's name and Settings, under the heading Extensions and the line "The
+      settings this extension states for itself." An extension can open it from its task or its own window too.
   - name: Status and output
     kind: readout
     default: ""
@@ -315,15 +319,15 @@ controls:
       One action at a time. An action can stop after its time limit, 60 seconds unless the package says otherwise,
       and some run by themselves when the window opens.
     persistence: What an action fills in is kept as it arrives, so **Cancel** does not undo it.
-  - name: Save
-    kind: button
-    default: ""
-    effect: Keeps the fields and closes the window.
-    note: When they cannot be kept, a message titled "Error Saving Settings" gives the reason, and the window stays open.
   - name: Cancel
     kind: button
     default: ""
     effect: Closes the window without keeping the fields you changed.
+  - name: Save
+    kind: button
+    default: ""
+    effect: Keeps the fields and closes the window. It stands at the right of the footer, after **Cancel**.
+    note: When they cannot be kept, a message titled "Error Saving Settings" gives the reason, and the window stays open.
 ```
 
 ### Preparing
@@ -338,11 +342,16 @@ controls:
       The step AfterNight is on, with a bar when the step can count its progress. It reads "Waiting for the extension
       environment being prepared" while another preparation of the same environment, such as the one AfterNight
       starts with, finishes first.
-    note: Choosing the process again while it prepares brings this window forward.
+    enabled: >-
+      In a window titled **Preparing** and the process's name, for a process that does not open as a page. A process
+      AfterNight draws as a page opens its task at once instead, and the starting row of its column says the step.
+    note: Choosing the process again while it prepares brings this window, or the task, forward.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the preparation, and the process window does not open. Closing the window does the same.
+    effect: >-
+      Stops the preparation, and the process does not open. Closing the window does the same, and so does closing the
+      task of a process that opens as a page.
     note: >-
       When the environment cannot be made ready, a message titled with the process's name gives the reason and
       "Open Extensions > Manage Extensions... > Installed to install or repair it." The next launch prepares it again.
@@ -353,6 +362,13 @@ controls:
 ```controls
 window: The window of a Full hosted extension
 controls:
+  - name: Window
+    kind: readout
+    default: ""
+    effect: >-
+      A window of the extension host's own, drawn in AfterNight's look, for an extension that shows a window rather
+      than controls AfterNight draws as a page. It is a task in the rail that brings it forward.
+    note: An extension whose controls AfterNight draws opens as a task instead, with the preview and **Apply** of every task.
   - name: Preview
     kind: action
     default: ""
@@ -406,25 +422,26 @@ A message says "The extension's environment could not be made ready."
     **Repair Environment**. Reinstall the package if that fails too.
 
 "This extension already has an active host session for the selected image."
-:   **Cause.** A session of that extension on that image still runs: its window or its own dialog is open, or its run
-    has not finished.
-:   **Fix.** Close the extension's window or dialog, or let its run finish, then choose the process again.
+:   **Cause.** A session of that extension on that image still runs: its task, its window or its own dialog is open,
+    or its run has not finished.
+:   **Fix.** Close it from its item in the [rail](../reference/glossary.md#rail), or let its run finish, then choose
+    the process again.
 
-The extension's window is gone, and a message titled with the process's name gives a reason
+A message titled with the process's name gives a reason, and the extension's task or window stopped
 :   **Cause.** The host crashed, failed or stopped answering, and AfterNight stopped it. **Last Crash / Termination**
     keeps the reason.
 :   **Fix.** Read it there and in the Session Console, repair the environment when it names a missing dependency, and
-    relaunch on a smaller image or preview.
+    choose **Restart** in the task, or start the process again, on a smaller image or preview.
 
 ## Related
 
+- [Extensions in the Window](extension-tasks.md), for an extension's task, a window of its own, the processes it adds
+  and what it may do to the image's view.
 - [Extension Marketplace](extension-marketplace.md), to find, install, update and remove packages.
 - [Using Extensions Reference](using-extensions-reference.md), for the states, host modes, environments, what an
   extension receives, and every message.
-- [Toolbar & Menus](../interface/toolbar-and-menus.md), for the **Extensions** menu and where an extension's processes
-  sit in the **Process** menu.
-- [Process Windows](../interface/process-windows.md), for the preview, **Apply** and the history that a Full hosted
-  extension's window shares.
+- [Top Bar and Menus](../interface/top-bar-and-menus.md), for the **Extensions** menu and where an extension's
+  processes sit in the **Process** menu.
 - [Masks](../interface/masks.md), for the [mask](../reference/glossary.md#mask) an extension receives as it is.
 - [Settings](../interface/settings-dialog.md), for **Updates per second while dragging** and **Check for extension
   updates on startup**.

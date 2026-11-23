@@ -68,6 +68,12 @@ which docs/dev/USER_GUIDE_STYLE.md and docs/dev/USER_GUIDE_AUTHORING.md explain.
       whose `window` is the title of a tab or a group holds that tab's controls; one named for a window the
       inventory does not have - a dialog a button opens - is not held. Controls in another order than the window's
       are a warning.
+      The interface pages say what the main window's own parts hold - the rail, the top bar, the floating toolbar,
+      the readout and the rest - which data/ui/shell/ records as a test of the application reads them from the
+      running window. A `controls` block of an interface page whose `window` is a part's title, or the title of a
+      group in one, is held to that part as a process page's block is to its window; every part is named by some
+      interface page's block, and every control of a part is listed by some interface page's block, or named in the
+      `controls_ignore` of a page that describes the part.
 
   R15 Help pages. Help (F1) in a process window opens that process's page, which the application reads from the
       help table of ProcessRegistryBuiltins.cpp: a row per action, and one page for the non-interactive operations
@@ -1092,6 +1098,9 @@ class _Writing:
         return windows_of(product, inventory, self.model.menu_paths(self.meta), self.check.all_menus().values())
 
     def check_controls(self):
+        if self.kind == 'interface':
+            self.check_shell_controls()
+            return
         if self.kind != 'process':
             return
         windows = self.windows()
@@ -1154,6 +1163,56 @@ class _Writing:
                 self.check.report('R14', self.path, self.front.key_lines.get('controls_ignore', 1), '`controls_ignore` '
                                   'names "%s", which excuses no control: the page\'s windows do not have it, or its '
                                   'blocks list it; remove the entry' % entry.get('label'), 'warning')
+
+    def check_shell_controls(self):
+        """An interface page's blocks against the parts of the shell they name: each control a block lists is in its
+        part as the block says it; which of a part's controls the page lists or excuses is kept, so that the whole
+        guide can be held to every part once every page is read."""
+        parts = list(self.check.shell.values())
+        if not parts:
+            return
+        described = []
+        matched = {part.id: {} for part in parts}
+        spoken_of = {part.id: set() for part in parts}
+        for name, line, source in self.fences:
+            if name != 'controls':
+                continue
+            block = self.model.read_controls(source)
+            if block is None or block['window'] is None:
+                continue  # the build reports a block it cannot read; one that names no part is of another window
+            target = _block_target(block['window'], parts)
+            if target is None:
+                continue  # a window the shell's record does not hold: a dialog, a page of the Settings
+            part, group = target
+            if part not in described:
+                described.append(part)
+            self.check.shell_described.setdefault(part.id, (self.path, line))
+            for entry in block['controls']:
+                if entry['name'] and entry['kind'] != 'readout':
+                    self._check_control(part, group, entry, line + entry['line'], matched[part.id],
+                                        spoken_of[part.id])
+        ignores = [dict(entry, used=False) for entry in self.meta.get('controls_ignore') or []
+                   if isinstance(entry, dict)]
+        for part in described:
+            listed = self.check.shell_listed.setdefault(part.id, set())
+            listed.update(matched[part.id])
+            listed.update(spoken_of[part.id])
+            for control in part.controls:
+                if control.index in matched[part.id]:
+                    continue
+                excuses = [entry for entry in ignores if entry.get('label') == control.label
+                           and entry.get('object', control.object) == control.object]
+                for entry in excuses:
+                    entry['used'] = True
+                if excuses:
+                    listed.add(control.index)
+            self._check_order(part, matched[part.id])
+        for entry in ignores:
+            if not entry['used']:
+                self.check.report('R14', self.path, self.front.key_lines.get('controls_ignore', 1), '`controls_ignore` '
+                                  'names "%s", which excuses no control: the parts of the shell the page describes do '
+                                  'not have it, or its blocks list it; remove the entry' % entry.get('label'),
+                                  'warning')
 
     def _check_control(self, window, group, entry, line, matched, spoken_of):
         name = entry['name']
@@ -1309,8 +1368,11 @@ class _GuideCheck:
         self.limits = model.load_limits(guide)
         self.vocabulary = model.load_vocabulary(guide)
         self.inventory = model.load_ui_inventory(guide)
+        self.shell = model.load_shell_inventory(guide)
         self.product = None            # the application's menus, once read
         self.held_windows = set()      # the ids of the windows whose inventory a page was held to
+        self.shell_described = {}      # part id -> (path, line) of the first block of an interface page that names it
+        self.shell_listed = {}         # part id -> the places of its controls some interface page lists or excuses
         self._menus = None
         self.nav = model.nav_entries(self.config)
         self.nav_groups = {entry.path: entry.groups for entry in self.nav}
@@ -1642,6 +1704,23 @@ class _GuideCheck:
                 if relative not in referenced:
                     self.report('R5', full, 1, 'no page, README.md, logo or favicon shows this image', 'warning')
 
+    def check_shell_coverage(self):
+        """R14 over the whole guide: every part of the shell is named by an interface page's block, and every
+        control of it listed or excused by one."""
+        for part in self.shell.values():
+            if part.id not in self.shell_described:
+                self.report('R14', part.path, 1, 'the shell\'s "%s" is described by no interface page; a `controls` '
+                            'block of the page that describes it names it with `window: %s`' % (part.name, part.name))
+                continue
+            path, line = self.shell_described[part.id]
+            listed = self.shell_listed.get(part.id, set())
+            for control in part.controls:
+                if control.index in listed or control.shared:
+                    continue
+                self.report('R14', path, line, 'the shell\'s "%s" has the %s "%s"%s, which no `controls` block of an '
+                            'interface page lists; document it, or name it in `controls_ignore` with the reason' %
+                            (part.name, _KIND_WORDS[control.kind], control.label, _whereabouts(part, control)))
+
     def run(self, selected=None):
         """R2-R15 over every page, or R2-R14 over the pages selected; returns what the summary reports."""
         try:
@@ -1661,6 +1740,7 @@ class _GuideCheck:
         self.check_exemptions(set(pages), selected is None)
         coverage = None
         if selected is None:
+            self.check_shell_coverage()
             self.check_nav()
             if product is not None:
                 coverage = self.check_coverage(product)
@@ -1688,6 +1768,9 @@ def _guide_summary(check, pages, coverage):
     if check.inventory:
         lines.append('controls: %d of the %d windows of the inventory described' %
                      (len(check.held_windows), len(check.inventory)))
+    if check.shell:
+        lines.append('shell: %d of the %d parts of the shell described' %
+                     (len(check.shell_described), len(check.shell)))
     if coverage:
         registered, unregistered, covered = coverage
         lines.append('menus: %d of %d registered actions and other Process menu actions on a page\'s `menu`' %

@@ -20,37 +20,43 @@ complete. [Supported Formats](../getting-started/supported-formats.md) compares 
 owed: true
 image: ../assets/images/interface/saving-and-exporting.webp
 alt: >-
-  The Export Sequence dialog. In a dark card: Output Format reading MP4 and Codec reading h264 on the first row; Output
-  File Name ending in saturn.mp4, a button with three dots and FPS at 34.26 on the second; Autostretch and Debayer CFA,
-  both ticked, on the third. Below, the Resize group, unticked, with a box reading Preserve Ratio, two greyed boxes at
-  448 and a greyed box reading Fit. Reset at the bottom left, OK and Cancel at the bottom right.
+  The Export Sequence dialog, under the heading SEQUENCE, Export Sequence and a line about writing the sequence's
+  frames. In a dark card: Output Format reading MP4 and Codec reading h264 on the first row; an empty Output File Name,
+  a button with three dots and FPS at 60.00 on the second; then the Autostretch check box, ticked, and Resize,
+  unticked, over a greyed box reading Preserve Ratio, two greyed boxes at 448 and a greyed box reading Fit. Reset at
+  the bottom left, Cancel and a greyed OK at the bottom right.
 caption: >-
-  Export Sequence for a 16-bit SER video of Saturn, set to write a debayered and stretched H.264 video.
+  Export Sequence for an 8-bit SER video of Jupiter, set to write an MP4 video stretched by its view's Autostretch.
 pins:
-  - {n: 1, x: 4.0, y: 25.7}
-  - {n: 2, x: 4.0, y: 34.0}
-  - {n: 3, x: 95.0, y: 34.0}
-  - {n: 4, x: 4.0, y: 41.7}
-  - {n: 5, x: 8.0, y: 48.0}
-  - {n: 6, x: 52.0, y: 89.0}
+  - {n: 1, x: 2.4, y: 12.3}
+  - {n: 2, x: 6.0, y: 36.8}
+  - {n: 3, x: 6.0, y: 44.8}
+  - {n: 4, x: 69.3, y: 44.8}
+  - {n: 5, x: 6.6, y: 51.7}
+  - {n: 6, x: 8.4, y: 57.0}
+  - {n: 7, x: 60.0, y: 91.3}
 ```
 
 ## What you see
 
-1. **Output Format and Codec.** The kind of file the export writes, and the coding of a video.
-2. **Output File Name.** The file the export writes, which the **...** button chooses.
-3. **FPS.** The frame rate written into an AVI or a video.
-4. **Autostretch and Debayer CFA.** Two changes to every frame: the
+1. **The heading.** SEQUENCE over the dialog's name, and what it does.
+2. **Output Format and Codec.** The kind of file the export writes, and the coding of a video.
+3. **Output File Name.** The file the export writes, which the **...** button chooses.
+4. **FPS.** The frame rate written into an AVI or a video.
+5. **Autostretch and Debayer CFA.** Two changes to every frame: the
    [display stretch](../reference/glossary.md#display-stretch) of the sequence's view, and color from a mosaic.
-5. **Resize.** A new size for every frame, with its preset and how a frame fills it.
-6. **Reset, OK and Cancel.** They return the size to the frame's own, start the export, and close the dialog.
+   **Debayer CFA** shows only for a mosaic.
+6. **Resize.** A new size for every frame, with its preset and how a frame fills it.
+7. **Reset, Cancel and OK.** They return the size to the frame's own, close the dialog, and start the export. **OK**
+   waits for a file name.
 
 ## What you can do
 
 ### Save an image
 
-1. Click the image's view, then choose **File > Save as...**, ++ctrl+shift+s++, the save button of the toolbar or
-   **Image > Actions > Save File...**. All four do the same: no command writes back to the file without asking.
+1. Click the image's view, then choose **File > Save as...** or press ++ctrl+shift+s++. **Save File...**, in the menu
+   of the view's tab and under **Image > Actions** in the view's menu, does the same: no command writes back to the
+   file without asking.
 2. The window proposes the view's name in the folder you last opened from or saved to. Type the name with the
    extension of the format you want: `.fits`, `.xisf`, `.tif`, `.png` or `.jpg` for
    [FITS](../reference/glossary.md#fits), [XISF](../reference/glossary.md#xisf), TIFF, PNG or JPEG.
@@ -74,7 +80,9 @@ process first for color frames, or use **Debayer CFA** of the export.
 
 ### Export a sequence
 
-1. Make the sequence's view active and choose **Image > Sequence > Export...**.
+1. Make the sequence's view active and choose **Image > Sequence > Export...**, in the menu bar or the view's menu, or
+   find **Export...** in the [command palette](../reference/glossary.md#command-palette). The dialog opens over the
+   main window.
 2. Choose the **Output Format** and, for MP4, the **Codec**.
 3. Choose **...** and name the file. **OK** becomes available.
 4. Set **FPS**. Turn on **Debayer CFA**, **Autostretch** or **Resize** only for a copy to watch, not to process.
@@ -87,7 +95,7 @@ The sequence in the view, and its unsaved state, do not change.
 
 AfterNight does not open a file again to check it. Before you delete a [master](../reference/glossary.md#master) or a
 source, open the file you wrote. Read its size, channels and [pixel type](../reference/glossary.md#pixel-type) in the
-status bar and [Image Summary](image-summary.md), and its [header cards](../reference/glossary.md#header-card) in the
+status line, the [readout](../reference/glossary.md#readout)'s Image card and [Image Summary](image-summary.md), and its [header cards](../reference/glossary.md#header-card) in the
 FITS Header window. For a sequence, check the frame count, the rate and the first and last frames, and for a list,
 that its frames folder is beside it.
 
@@ -98,6 +106,11 @@ that its frames folder is beside it.
 ```controls
 window: Export Sequence
 controls:
+  - name: Heading
+    kind: readout
+    default: ""
+    effect: Reads SEQUENCE over **Export Sequence** and "Write the sequence's frames to a file of the format, the codec and the size chosen."
+    enabled: The dialog opens from **Image > Sequence > Export...** - in the menu bar, **All menus**, the view's menu or the command palette - for a sequence's view. Each choice opens another dialog.
   - name: Output Format
     kind: combo
     default: SER
@@ -382,5 +395,5 @@ An exported video is one pixel narrower, or has black bars
   encoders, the GNU GPL 2 or later, writes the MP4, Matroska and WebM files, as the
   [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html) describes them.
 - [x264](https://code.videolan.org/videolan/x264) and [x265](https://bitbucket.org/multicoreware/x265_git/), by their
-  project authors, under GPL-2.0-or-later, code H.264 and H.265, and
-  [libvpx](https://chromium.googlesource.com/webm/libvpx/), by the WebM project authors, under BSD-3-Clause, codes VP9.
+  authors, under GPL-2.0-or-later, code H.264 and H.265, and
+  [libvpx](https://chromium.googlesource.com/webm/libvpx/), by the WebM authors, under BSD-3-Clause, codes VP9.

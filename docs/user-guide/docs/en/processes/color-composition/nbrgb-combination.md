@@ -14,8 +14,9 @@ masks: post-blend
 external: none
 glance:
   enabled: >-
-    An RGB still image is active, no NBRGB Combination window is open on it yet, and no window that needs the image
-    for itself is open on it. Apply waits for a narrowband image.
+    An RGB still image is active, no NBRGB Combination task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks. Apply waits for a narrowband
+    image.
   inputs: >-
     One RGB still image, up to three grayscale still images of exactly its width and height in any pixel type, and an
     optional mask on the color image's view.
@@ -41,22 +42,17 @@ straight line fitted from it to that sum gives a second answer, and each pixel k
 ```figure
 image: ../../assets/images/processes/color-composition/nbrgb-combination.webp
 alt: >-
-  The NBRGB Combination window. On the left, a histogram over its toolbar, then the Sources group with RGB naming the
-  color image and RGB bandwidth at 100.00, the Narrowband Channels group with the Ha master in Red at 7.00 and 1.20 and
-  no image in Green and Blue, and the Options group with Reject low, Reject high, Non Linear rescale and Preview at
-  NBRGB. On the right, the preview shows the field in gray with a faint teal glow and many stars, and a small framed
-  area labelled NBRGB preview at its middle. Reset, Close
-  and Apply run along the bottom.
+  The NBRGB Combination task. Its header reads NBRGB Combination on RGB. The canvas at the left shows the field in gray
+  with a faint teal glow and many stars, and a small framed area labelled NBRGB preview at its middle, where the
+  pillars show in red; the floating toolbar lies near its foot. The column at the right opens with the compact readout
+  of the preview, then the Preview area and Processed toggles, RGB naming the color image, a histogram over its
+  toolbar, and the sections Sources with RGB bandwidth at 100.00, Narrowband Channels with the Ha master in Red at 7.00
+  and 1.20 and no image in Green and Blue, and Options with Reject low, Reject high, Non Linear rescale and Preview at
+  NBRGB. Reset, Close and Apply stand in its footer.
 caption: >-
   NBRGB Combination on a color image made from the SII and OIII masters, with the Ha master in Red at the default
-  bandwidths and scale: the framed area in the middle of the preview shows the line signal of Ha added to red.
-pins:
-  - {n: 1, x: 9.5, y: 43.9}
-  - {n: 2, x: 2.6, y: 58.8}
-  - {n: 3, x: 2.6, y: 47.3}
-  - {n: 4, x: 37.9, y: 55.9}
-  - {n: 5, x: 2.6, y: 84.3}
-  - {n: 6, x: 58.5, y: 19.1}
+  bandwidths and scale: the framed area in the middle of the canvas shows the line signal of Ha added to red.
+owed: true
 ```
 
 ## Before you start
@@ -65,7 +61,7 @@ pins:
   only: nothing matches stars, world coordinates, scale, rotation or star profiles.
 - Work on [linear images](../../reference/glossary.md#linear-image) with their gradients removed and their levels
   brought together. Equation (1) means something only while every sample is proportional to light.
-- Know your filters' effective widths in nanometres. The window reads none from the files, takes one width for the
+- Know your filters' effective widths in nanometres. The [task](../../reference/glossary.md#task) reads none from the files, takes one width for the
   three broadband filters, and needs each narrowband width below it.
 - The color image is an RGB still image, and each narrowband image a grayscale still image of its width and height,
   in any pixel type. The menu command is greyed while a grayscale image is active, and a
@@ -77,28 +73,30 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the color image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Color Spaces > NBRGB Combination**. **RGB** names it, the three image boxes read `<--NO IMAGE-->`, and
-   **Apply** is dimmed.
+1. **Open the task.** Make the color image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Spaces > NBRGB Combination**, or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
+   left shows the color image, the column at the right holds the controls. **RGB** names the image, the three image
+   boxes read `<--NO IMAGE-->`, and **Apply** is dimmed.
 2. **Choose the narrowband masters.** Choose the Ha master in **Red**, and an OIII master in **Green** or **Blue** if
-   you have one. **Apply** enables, and the framed area in the middle of the preview shows the combination.
+   you have one. **Apply** enables, and the framed area in the middle of the canvas shows the combination.
 3. **Enter the bandwidths.** Type the width of the broadband filters in **RGB bandwidth**, and the width of each
    narrowband filter in its row's **Bandwidth**.
 4. **Set the scale.** Raise a row's **Scale** for more of its line signal, or lower it for less, one channel at a
    time.
-5. **Check the inputs.** Choose **NBr**, **NBg** or **NBb** in **Preview** to see a narrowband master in the preview,
-   and hold ++space++ to compare it with the color image. Return to **NBRGB**.
-6. **Check the whole image.** Untick **Preview area** in the preview's toolbar, or move the frame over background,
+5. **Check the inputs.** Choose **NBr**, **NBg** or **NBb** in **Preview** to see a narrowband master in the canvas,
+   and hold ++space++ over it to compare it with the color image. Return to **NBRGB**.
+6. **Check the whole image.** Untick **Preview area** in the column's toggles row, or move the frame over background,
    nebula and stars. The median and the fit are measured on what the preview computes.
-7. **Apply.** Choose **Apply**. A new image, `<color image> - NBRGB`, opens as a tab beside the color image, with the
-   line signal in its channels.
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. A new image,
+   `<color image> - NBRGB`, opens beside the color image, with the line signal in its channels, and the task stays
+   open.
 
 ## Controls
 
-The window has no **Preview** check box: the preview is always on, and opens with a 512 × 512
+The task has no **Preview** toggle: the preview is always on, and opens with a 512 × 512
 [preview area](../../reference/glossary.md#preview-area) in the middle of the image. Its histogram, the histogram's
-toolbar and the preview's toolbar are those of every process window: see
-[Process Windows](../../interface/process-windows.md).
+toolbar and the canvas's floating toolbar are those of every task: see [Tasks](../../interface/tasks.md).
 
 ```controls
 window: NBRGB Combination
@@ -108,10 +106,10 @@ controls:
     default: The active image
     options: [The active image, Every other open RGB still image]
     effect: Chooses the color image, which gives the channels the narrowband images are added to, the size, pixel type, name and header of the result, and the mask. It is never changed.
-    range: It lists the open still images of three color channels, never a grayscale image or a sequence.
+    range: It lists the open still images of three color channels, never a grayscale image or a sequence. It stands at the head of the column's body, out of the **Sources** group.
     enabled: Disabled while a run works.
     tradeoff: Nothing checks that the narrowband images are registered to it.
-    persistence: Until the window closes. **Reset** leaves it. Choosing another returns the three image boxes to `<--NO IMAGE-->` and fills their lists again.
+    persistence: Until the task closes. **Reset** leaves it. Choosing another returns the three image boxes to `<--NO IMAGE-->` and fills their lists again.
   - name: RGB bandwidth
     kind: spinbox
     default: "100.00"
@@ -120,7 +118,7 @@ controls:
     range: It must exceed the **Bandwidth** of every row that names an image, or **Apply** stays dimmed and the preview shows the color image unchanged.
     tradeoff: A wrong width biases every selected channel. A width close to a narrowband width divides by a small number, which multiplies noise and gradients.
     scope: The preview and Apply, for every channel with a narrowband image.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 100.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 100.
   - name: Red
     object: redImageSelector
     kind: combo
@@ -131,7 +129,7 @@ controls:
     enabled: The list follows the views as they open, close, change or are renamed. A view that closes or no longer qualifies returns the box to `<--NO IMAGE-->`.
     tradeoff: Nothing checks its registration, filter, exposure or star size. A master off by a pixel gives red halos and doubled stars. Each image chosen adds a working copy of its size.
     scope: The image its view shows when the preview or **Apply** asks for it, read as a fraction of its own full scale, and cropped to a preview area as the color image is.
-    persistence: Kept by **Reset** and **Apply** while the image stays open and qualifies. Nothing is kept after the window closes.
+    persistence: Kept by **Reset** and **Apply** while the image stays open and qualifies. Nothing is kept after the task closes.
   - name: Red
     object: redBandwidth
     kind: spinbox
@@ -141,7 +139,7 @@ controls:
     range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
     tradeoff: Near **RGB bandwidth** the small denominator of equation (1) amplifies noise.
     scope: The preview and Apply, red only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 7.
   - name: Red
     object: redScale
     kind: spinbox
@@ -151,7 +149,7 @@ controls:
     range: It is read only while the row names an image.
     tradeoff: High values clip highlights and amplify noise and registration errors.
     scope: The preview and Apply, red only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.20.
   - name: Green
     object: greenImageSelector
     kind: combo
@@ -172,7 +170,7 @@ controls:
     range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
     tradeoff: Near **RGB bandwidth** it amplifies noise.
     scope: The preview and Apply, green only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 8.50.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 8.50.
   - name: Green
     object: greenScale
     kind: spinbox
@@ -182,7 +180,7 @@ controls:
     range: It is read only while the row names an image.
     tradeoff: High values clip highlights and shift the color.
     scope: The preview and Apply, green only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.20.
   - name: Blue
     object: blueImageSelector
     kind: combo
@@ -203,7 +201,7 @@ controls:
     range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
     tradeoff: Near **RGB bandwidth** it amplifies noise.
     scope: The preview and Apply, blue only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 8.50.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 8.50.
   - name: Blue
     object: blueScale
     kind: spinbox
@@ -213,7 +211,7 @@ controls:
     range: It is read only while the row names an image.
     tradeoff: High values clip highlights and amplify the noise of blue.
     scope: The preview and Apply, blue only.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 1.20.
   - name: Reject low
     kind: spinbox
     default: "0.000"
@@ -222,7 +220,7 @@ controls:
     range: It must stay below **Reject high**, or **Apply** stays dimmed. A pixel whose line or boosted value is 0 never takes part.
     tradeoff: Set too high, it leaves fewer than three pixels, and the fit is dropped without a message.
     scope: The fit of every selected channel, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.
   - name: Reject high
     kind: spinbox
     default: "0.920"
@@ -231,7 +229,7 @@ controls:
     range: It must stay above **Reject low**, or **Apply** stays dimmed.
     tradeoff: Too low leaves out structure the fit should follow. Too high lets clipped pixels pull it.
     scope: The fit of every selected channel, in the preview and Apply.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.92.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to 0.92.
   - name: Non Linear rescale
     kind: check
     default: "Off"
@@ -239,7 +237,7 @@ controls:
     range: It does not make nonlinear data linear, and it is not a display stretch.
     tradeoff: It loses the levels of the channel and of the line, lets one outlier set the scale, and changes the color balance. It adds three passes over each selected channel.
     scope: Every selected channel, in the preview and Apply, before the mask. Not the previews of **NBr**, **NBg** and **NBb**.
-    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `, rescaled` while it is on, and it does not change what the result is recorded as.
+    persistence: Until the task closes. **Reset** and a finished Apply turn it off. The history adds `, rescaled` while it is on, and it does not change what the result is recorded as.
   - name: Preview
     kind: combo
     default: NBRGB
@@ -248,7 +246,7 @@ controls:
     range: A row that names no image shows the color image instead.
     tradeoff: A mask on the view still blends the input shown with the color image, so it can look mixed.
     scope: The preview and **Take snapshot** only. **Apply** always writes the combination.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to **NBRGB**.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to **NBRGB**.
   - name: Reset
     kind: button
     default: ""
@@ -258,9 +256,9 @@ controls:
   - name: Apply
     kind: button
     default: ""
-    effect: Combines the color image with the chosen narrowband images as the window stands, and opens the result as a new image, a tab beside the color image named `<color image> - NBRGB`. The values then return to their defaults, and the image boxes keep their choices.
-    enabled: While **RGB** names an RGB still image, a row names an image of its size, every such row's bandwidth is below **RGB bandwidth**, and **Reject high** is above **Reject low**. During a run **RGB**, **Preview area** and **Take snapshot** are disabled, the other controls, **Reset** and **Close** are not, and a second press does nothing.
-    tradeoff: There is no progress window and no **Cancel**. The line, its median, the boost and the fit run on one thread, and only the copy and the final write are spread over the processor's threads. The run holds five working planes of the image's size, a copy of each narrowband image and the new image.
+    effect: Combines the color image with the chosen narrowband images as the task stands, and opens the result as a new image beside the color image, named `<color image> - NBRGB`. A message at the foot of the centre names the workspace it opened in, with **Show**, and the task stays open. The values then return to their defaults, and the image boxes keep their choices.
+    enabled: While **RGB** names an RGB still image, a row names an image of its size, every such row's bandwidth is below **RGB bandwidth**, and **Reject high** is above **Reject low**. During a run **Cancel** takes its place in the footer, and the column's controls, the toggles, **Reset**, **Close** and **Take snapshot** are disabled.
+    tradeoff: There is no progress window; the column's run row reads "applying". The line, its median, the boost and the fit run on one thread, and only the copy and the final write are spread over the processor's threads. The run holds five working planes of the image's size, a copy of each narrowband image and the new image.
     scope: The whole image, through the mask on the color image's view. A preview area does not limit it.
     persistence: "The new image's history starts with a step that reads like `Created NBRGB combination from RGB (100.0 nm) and narrowband channels R: 'Ha' 7.0 nm x1.20; fit 0.000 to 0.920`, and shows the color image's steps above it as inherited lineage. The result is recorded as linear when the color image and every chosen narrowband image are declared linear, as nonlinear when one is declared nonlinear, and otherwise its state is not stated, with the operation `nbrgb-combination`. No continuum image, fit coefficients, mask, preset, report or file is written."
     note: "The header is built from the color image and the chosen narrowband images. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Images that state the same exposure start are one acquisition and count once, with the largest integration and frame count any of them states. An image that states no start counts on its own. Their `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when an image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when an image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every image states the same, and so is every other card the color image shares with all of them. The color image's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC`, its WCS cards and its plate solution are kept, without a check that the narrowband images share its grid. No processing-state or file identity card of an image is kept."
@@ -351,17 +349,13 @@ the fit, so \(M = C\), and red becomes 0.34, 0.58 and 0.888.
 
 ## When it goes wrong
 
-!!! warning "The window reads no filter widths"
-    The bandwidths are yours. The window cannot tell which filter a master was taken through, nor whether it sits in
+!!! warning "The task reads no filter widths"
+    The bandwidths are yours. The task cannot tell which filter a master was taken through, nor whether it sits in
     the right row.
 
 !!! warning "Non Linear rescale changes the data three times"
     It spreads the line, the boosted channel and the result each by its own minimum and maximum. It changes the
     samples themselves, and does more than prevent clipping. Leave it off for linear masters.
-
-!!! warning "Apply shows no progress and has no Cancel"
-    The run works in the background. Closing the window stops it and nothing opens, so wait for the new image. A
-    change made during the run reaches the next one only.
 
 Apply stays dimmed
 :   **Cause.** No row names an image, a chosen row's **Bandwidth** is not below **RGB bandwidth**, **Reject high** is
@@ -407,5 +401,4 @@ A snapshot, or the result of Apply, differs from the preview
 - [Linear Match](../color-calibration/linear-match.md), to bring the levels of the masters together before.
 - [NB Color Mapper](nb-color-mapper.md), to give narrowband masters hues of your choice and blend them.
 - [Narrowband Palette Composer](narrowband-palette-composer.md), to map narrowband masters to fixed palettes.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the histogram toolbar and what every task shares.

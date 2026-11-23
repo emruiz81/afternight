@@ -14,8 +14,9 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window opens without an image and chooses its files itself. Its list actions wait for a first file,
-    and each choice of the menu opens another window.
+    Always, from the menu, the command palette or the Image List Analyzer card of the Integration hub. The task opens
+    as a page of its own that it fills whole, without an image, and chooses its files itself. Its list actions wait
+    for a first file, and each choice of the menu opens another task.
   inputs: >-
     Still image files of the formats AfterNight opens, chosen one by one or from a folder. No open image, no mask and
     no sequence file.
@@ -34,28 +35,23 @@ session before you stack it. The table gives each file's header facts and sorts 
 file, or plays the list as a [sequence](../../reference/glossary.md#sequence) at the rate you set, with the file's
 histogram and statistics beside it.
 
-The window changes no file and measures no stars. You thin the list out by hand. **Export Sequence** writes the files
+The [task](../../reference/glossary.md#task) changes no file and measures no stars. You thin the list out by hand. **Export Sequence** writes the files
 that are left, in the table's order, as one [SER](../../reference/glossary.md#ser), AVI, MP4 or WebM file.
 
 ```figure
 owed: true
 image: ../../assets/images/processes/stacking-integration/image-list-analyzer.webp
 alt: >-
-  The Image List Analyzer window. On the left, the preview of a color frame of a galaxy among stars, with a card of
-  statistics in its corner and a player under it. On the right, the summary of the file, a histogram with three narrow
-  peaks near its left edge, the Optimize For Fast Play button, the status Images Already Optimized and the Export
-  Sequence button. Below, a table of files with the columns File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA
-  and Depth, its first row selected, then Add Files, Add Folder, Remove Selected, Current Image 1, Total Images 35 and
-  Clear All. Reset and Close run along the bottom.
+  The Image List Analyzer task, a page that fills the centre of the main window under a header naming Image List
+  Analyzer. On the left of the page, the preview of a color frame of a galaxy among stars, with a card of statistics
+  in its corner and a player under it. On the right, the summary of the file, a histogram with three narrow peaks near
+  its left edge, the Optimize For Fast Play button, the status Images Already Optimized and the Export Sequence
+  button. Below, a table of files with the columns File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA and Depth,
+  its first row selected, then Add Files, Add Folder, Remove Selected, Current Image 1, Total Images 35 and Clear All.
+  Reset and Close stand at the page's foot.
 caption: >-
   Image List Analyzer with 35 raw color-filter lights of NGC 253, in Date order and optimized for playback, showing the
   first of them.
-pins:
-  - {n: 2, x: 2.3, y: 92.1}
-  - {n: 3, x: 2.3, y: 67.1}
-  - {n: 4, x: 35.0, y: 11.7}
-  - {n: 6, x: 69.5, y: 55.5}
-  - {n: 8, x: 69.5, y: 62.6}
 ```
 
 ## Before you start
@@ -63,7 +59,7 @@ pins:
 - To choose frames by their stars, [FWHM](../../reference/glossary.md#fwhm),
   [SNR](../../reference/glossary.md#snr) and eccentricity, register them in
   [Image Registration](../registration-alignment/image-registration.md), whose table lists those figures.
-- Leave the files where they are while the window is open. The preview, **Open In Editor**, **Export Sequence** and
+- Leave the files where they are while the task is open. The preview, **Open In Editor**, **Export Sequence** and
   **Delete From Disk** all work on the files at their paths.
 - A list you play or export should hold files of one size, channel count and
   [pixel type](../../reference/glossary.md#pixel-type). Nothing compares them: the list is described by its first
@@ -75,8 +71,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Utilities > Image List Analyzer**. No image needs to be open. The summary
-   reads "The image list is empty" and the status under **Optimize For Fast Play** reads "No Optimization Needed".
+1. **Open the task.** Choose **Process > Utilities > Image List Analyzer**, find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++, or choose **Image List Analyzer** under
+   **Single steps** in the [Integration hub](../../interface/integration-hub.md). The task opens as a page that fills
+   the centre. The summary reads "The image list is empty" and the status under **Optimize For Fast Play** reads "No
+   Optimization Needed".
 2. **Add the files.** Choose **Add Files** and select them, or choose **Add Folder**, pick a folder and set
    **Add Folder Options**. The table fills as the headers are read, in **Date** order, and the first row is selected.
 3. **Put the list in order.** Click a column's header to sort by it, and click it again to reverse the order. The
@@ -85,8 +84,8 @@ pins:
    once, and the histogram and the statistics card follow when the file has been measured.
 5. **Leave files out.** Select a row and choose **Remove Selected**, or right-click it for **Remove** or
    **Delete From Disk**. **Total Images** counts the files that are left.
-6. **Prepare fast playback.** With **Display Mode** at **Autostretch**, choose **Optimize For Fast Play**. A progress
-   window follows the files, then the status reads "Images Already Optimized".
+6. **Prepare fast playback.** With **Display Mode** at **Autostretch**, choose **Optimize For Fast Play**, or press
+   ++ctrl+enter++. The head of the page follows the files, then the status reads "Images Already Optimized".
 7. **Play the list.** Type a rate in the player's **FPS** box and press its play button. The table's selection follows
    the frame shown.
 8. **Export the list.** Choose **Export Sequence**, choose the format and the file in its dialog, then **OK**. A
@@ -94,9 +93,8 @@ pins:
 
 ## Controls
 
-The preview's zoom and channel work as in [Process Windows](../../interface/process-windows.md), which also says what
-++esc++ and the window's kept size do. This window has no **Apply**: it changes no file, and its runs are the
-optimization and the export.
+The preview's zoom and channel work as in [Tasks](../../interface/tasks.md), which also says what ++esc++ does. This
+task has no **Apply**: it changes no file, and its runs are the optimization and the export.
 
 ```controls
 window: The preview
@@ -114,7 +112,7 @@ controls:
     tradeoff: >-
       A frame is read in full when it is shown. A large camera raw or FITS file, or a file on a network drive, makes
       stepping and playing slower.
-    scope: The window only. Nothing it shows changes a file or ranks one.
+    scope: The task only. Nothing it shows changes a file or ranks one.
   - name: Display Mode
     kind: combo
     default: Autostretch
@@ -187,7 +185,7 @@ controls:
     widget: {min: 1, max: 60, step: 1}
     effect: Sets the playback rate in frames per second. A change while the list plays applies at once.
     persistence: >-
-      The window keeps it when files are added, removed, sorted, optimized or cleared, and for the next window, also
+      The task keeps it when files are added, removed, sorted, optimized or cleared, and for the next task, also
       in a later session. **Reset** returns it to 1. **Export Sequence** opens with it.
     note: Its tooltip reads "Frames per second".
 ```
@@ -217,7 +215,7 @@ controls:
       whenever its frame is. Nothing shows while the file is being measured.
     enabled: The clipping shares in its corner appear once the list holds a file.
     tradeoff: It shows how the samples spread, not how good the frame is.
-    note: It has no toolbar. Its zoom, panning and coordinates work as in the histogram of a process window.
+    note: It has no toolbar. Its zoom, panning and coordinates work as in the histogram of a task.
   - name: Optimize For Fast Play
     kind: button
     default: ""
@@ -243,7 +241,7 @@ controls:
       The proxies are temporary, in a folder `ImageListAnalyzer_<id>` of the session's temporary folder, one folder for
       each set of settings. Each is named after its file with 16 hexadecimal digits of a hash of the file's path, so
       that files of one name in two folders keep apart. A proxy goes with its row, with **Clear All** and when the
-      window closes, and never joins the recent files.
+      task closes, and never joins the recent files.
   - name: Optimization status
     object: showInfoLabel
     kind: readout
@@ -266,12 +264,12 @@ controls:
     default: ""
     effect: >-
       Opens **Select Files** and adds the files you choose. Only their headers are read, in the background, so the
-      window stays free. The pixels are read when a frame is shown, measured or optimized.
+      page stays free. The pixels are read when a frame is shown, measured or optimized.
     range: >-
       A path listed already is passed over. A path that is no file, or a file whose header cannot be read, is skipped,
       and the log names it.
     tradeoff: Reading headers takes longer with many files and on slow or network storage.
-    persistence: The dialog opens in the folder that **Add Files** or **Add Folder** of an Image List Analyzer used last. The list lasts until the window closes.
+    persistence: The dialog opens in the folder that **Add Files** or **Add Folder** of an Image List Analyzer used last. The list lasts until the task closes.
     note: >-
       When an import does not add every file, a message says how many it added, passed over and could not read:
       "Some files were passed over" when it passed some over, "Some files were skipped", with the first reason, when it
@@ -283,7 +281,7 @@ controls:
     range: >-
       It takes the files whose extension is one of the still-image formats AfterNight opens, in the subfolders too
       when asked, then reads their headers and keeps those that pass. The folder is listed before the import starts,
-      and the window waits while a large tree is listed.
+      and the task waits while a large tree is listed.
     persistence: The folder is remembered for the next time. The options apply to this import only.
     note: A folder without such files shows "No Files Found" with "No supported image files found in the selected folder."
   - name: Remove Selected
@@ -313,17 +311,17 @@ controls:
     kind: button
     default: ""
     effect: >-
-      Closes the window at once. An import, a measurement or an optimization under way stops, and the window waits for
-      none of them.
+      Closes the task at once. An import, a measurement or an optimization under way stops, and the task waits for
+      none of them. ++esc++ and the task header's **Close** do the same while no optimization works.
     range: >-
-      The list, its order, the measurements and the proxies are discarded. An Export Sequence dialog the window opened
+      The list, its order, the measurements and the proxies are discarded. An Export Sequence dialog the task opened
       closes with it, and its export stops without leaving a file.
     enabled: Also while the optimization works.
-    persistence: The playback rate is kept for the next window.
+    persistence: The playback rate is kept for the next task.
   - name: Reset
     kind: button
     default: ""
-    effect: Returns the playback rate to 1 frame per second, the window's one setting.
+    effect: Returns the playback rate to 1 frame per second, the task's one setting.
     range: It leaves the list, its order, the selection and the preview's display as they are.
 ```
 
@@ -391,7 +389,7 @@ controls:
       new list is in **Date** order, from the earliest.
     enabled: Not while the optimization works.
     scope: The preview, playback and an export follow the order. The selection stays on its file.
-    persistence: Until the window closes. **Clear All** returns it to **Date**.
+    persistence: Until the task closes. **Clear All** returns it to **Date**.
   - name: Rows
     kind: action
     default: ""
@@ -467,16 +465,16 @@ controls:
 ```
 
 ```controls
-window: Optimization progress
+window: The run at the head of the page
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Titled "Optimizing image list", it reads "Optimizing N images" and runs from 0 to 100 percent, a step for each file.
+    effect: Reads "optimizing" and runs from 0 to 100 percent, a step for each file, with "The task keeps running if you leave this page." under it. No progress window opens, and the task header and its item in the rail show the run too.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the optimization before the next file. The text reads "Canceling execution...".
+    effect: Stops the optimization before the next file. Its tooltip reads "Stop the run".
     range: >-
       The proxies finished so far are kept and serve the next optimization, but the list is not optimized, so
       **Autostretch** plays the files themselves.
@@ -618,7 +616,7 @@ controls:
 
 1. An import reads the header of each new file in the background, without its pixels, and adds the files that pass
    in the order of the table's sorted column.
-2. The table and the preview share one list. The window writes it as a temporary image list of the files, or of their
+2. The table and the preview share one list. The task writes it as a temporary image list of the files, or of their
    proxies, which the preview plays as a sequence described by its first file. Every sort, addition or removal writes
    it again.
 3. The first time a file's frame is shown, the file is read and measured in the background, one file at a time, for the
@@ -673,8 +671,8 @@ stretched and scaled to 1625 x 1080 pixels between black bars of 147 and 148 pix
     It deletes the file itself, with no recycle bin. Use **Remove** to take a frame out of the list and leave the file.
 
 !!! warning "The list is not kept"
-    Closing the window discards the list, its order and the proxies at once. Add the files you keep to the stacking
-    window, or export them, before you close it.
+    Closing the task discards the list, its order and the proxies at once. Add the files you keep to the stacking
+    task, or export them, before you close it.
 
 !!! warning "An export is for watching"
     An MP4, a WebM or a stretched export loses samples, [header cards](../../reference/glossary.md#header-card) and
@@ -684,7 +682,7 @@ stretched and scaled to 1625 x 1080 pixels between black bars of 147 and 148 pix
 :   **Cause.** Their extension is not a still format, **Include subfolders (recursive)** was off, **Frame Type** or
     **Filter Name** kept them out, they were listed already, or their header could not be read.
 :   **Fix.** Import again with **All**, an empty **Filter Name** and subfolders on. The message and the log name the
-    files that could not be read. The window cannot correct a header.
+    files that could not be read. The task cannot correct a header.
 
 The Date order does not match the capture order
 :   **Cause.** Some headers give no time, so their files show their modification time, or a header gives a local time.
@@ -727,7 +725,7 @@ The preview or the export fails on one file
   for the Export Sequence dialog a sequence's view opens too, and the formats it writes.
 - [Image Statistics](../../interface/image-statistics.md) and [Histogram Analysis](../../interface/image-histogram.md),
   for exact figures of a file opened with **Open In Editor**.
-- [Process Windows](../../interface/process-windows.md), for the preview's zoom, ++esc++ and the window's kept size.
+- [Tasks](../../interface/tasks.md), for the preview's zoom, ++esc++ and what every task shares.
 
 ## Credits
 
@@ -737,7 +735,7 @@ The preview or the export fails on one file
 - [FFmpeg](https://ffmpeg.org), by the FFmpeg developers, under the GNU LGPL 2.1 or later and, as built with its GPL
   encoders, the GNU GPL 2 or later, writes the MP4 and WebM files.
 - [x264](https://code.videolan.org/videolan/x264) and [x265](https://bitbucket.org/multicoreware/x265_git/), by their
-  project authors, under GPL-2.0-or-later, code H.264 and H.265, and [libvpx](https://chromium.googlesource.com/webm/libvpx/),
-  by the WebM project authors, under BSD-3-Clause, codes VP9.
+  authors, under GPL-2.0-or-later, code H.264 and H.265, and [libvpx](https://chromium.googlesource.com/webm/libvpx/),
+  by "The WebM Project Authors", under BSD-3-Clause, codes VP9.
 - [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), for the SER container and
   its timestamp trailer.

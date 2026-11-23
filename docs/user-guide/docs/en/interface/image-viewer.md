@@ -1,61 +1,66 @@
 ---
 kind: interface
 summary: >-
-  An image view shows one open image or sequence with a toolbar for zoom, channel, display mode, history, analysis
-  and astrometry. What it shows never changes the image.
+  An image view shows one open image or sequence, with a floating toolbar for its zoom, channel and display mode. What
+  it shows never changes the image.
 menu: Image > View
 ---
 # Image Viewer
 
-Every image or [sequence](../reference/glossary.md#sequence) you open gets a view: a tab in the workspace with a
-toolbar above the picture. The view decides how you see the image - how large, which channel, linear or stretched -
-and none of that changes the image, its [history](../reference/glossary.md#history) or whether it needs saving. A process window shows its preview in the same kind of view, with a shorter
-toolbar.
+Every image or [sequence](../reference/glossary.md#sequence) you open gets a view: a tab of a
+[workspace](workspaces.md), with a floating toolbar over the bottom of the picture and the strip of its
+[history](../reference/glossary.md#history) under it. The view decides how you see the image - how large, which
+channel, linear or stretched - and none of that changes the image, its history or whether it needs saving. A [task](../reference/glossary.md#task)'s canvas shows its preview
+in the same kind of view.
 
 ```figure
+owed: true
 image: ../assets/images/interface/image-viewer.webp
 alt: >-
-  The AfterNight main window with one image view. Its tab is named after the Carina Nebula master. Under the tab, a
-  toolbar of icons: four zoom buttons and a maximize button, a box reading RGB, a box reading Autostretch with a gear
-  beside it, undo, redo and history arrows, five analysis icons and five astrometry icons. Below, the whole nebula fills
-  the view, red and white clouds and dark lanes among many stars, with the word AUTOSTRETCH in a dark box at the top
-  left. The status bar at the bottom shows the image's name, its size, color, sample type and memory, the zoom, and
-  the sky coordinates under the pointer.
+  The centre of the main window with one image view, its tab named RGB. The whole Carina Nebula fills the view, red
+  and white clouds and dark lanes among many stars, with the word AUTOSTRETCH in a dark box at the top left. A dark
+  floating toolbar near the bottom holds a fit button, a zoom-out button, 13.24 %, a zoom-in button, a 100 % button
+  and a maximize button, a box reading RGB, the segments Linear and Autostretch with Autostretch selected, a gear, a
+  star and three dots. Under the view, the history strip reads HISTORY and Initial state, with undo, redo and history
+  buttons at its right.
 caption: >-
-  The linear Carina master in its view, fitted to the window and shown in the Autostretch display mode.
+  The linear Carina master in its view, fitted to the workspace and shown in the Autostretch display mode.
 pins:
-  - {n: 1, x: 6.5, y: 9.8}
-  - {n: 2, x: 4.5, y: 12.6}
-  - {n: 3, x: 9.8, y: 12.6}
-  - {n: 4, x: 23.8, y: 12.6}
-  - {n: 5, x: 34.6, y: 12.6}
-  - {n: 6, x: 40.5, y: 12.6}
-  - {n: 7, x: 49.9, y: 12.6}
-  - {n: 8, x: 12.5, y: 17.9}
-  - {n: 9, x: 16.2, y: 97.6}
+  - {n: 1, x: 1.2, y: 2.0}
+  - {n: 2, x: 1.4, y: 9.7}
+  - {n: 3, x: 3.6, y: 40.0}
+  - {n: 4, x: 20.8, y: 91.7}
+  - {n: 5, x: 42.8, y: 91.7}
+  - {n: 6, x: 53.5, y: 91.7}
+  - {n: 7, x: 68.1, y: 91.7}
+  - {n: 8, x: 72.4, y: 91.7}
+  - {n: 9, x: 76.6, y: 91.7}
+  - {n: 10, x: 1.2, y: 97.9}
 ```
 
 ## What you see
 
 1. **The tab.** The image's name: its file's name without the extension, with `_1`, `_2` added when another view
    has that name already, and an asterisk while it has unsaved changes. Drag the tab to move the view, as
-   [Docking Panels](docking-panels.md) shows.
-2. **The zoom buttons.** **Fit To Window**, **Zoom In**, **Zoom Out**, **Zoom 100%** and **Maximize image view**.
-3. **View Channel.** What the view shows of a color image: all of it, one color, or a component such as CIE L\* or
+   [Docking Images](docking-panels.md) shows.
+2. **The AUTOSTRETCH banner.** It stands in the corner while the view shows the image stretched.
+3. **The picture.** The image at the view's zoom. A sequence adds its player under the picture: see
+   [Sequences](sequences.md).
+4. **The zoom.** **Fit To Window**, **Zoom Out**, the zoom in percent, **Zoom In**, **Zoom 100%** and
+   **Maximize image view**.
+5. **View Channel.** What the view shows of a color image: all of it, one color, or a component such as CIE L\* or
    [HSV](../reference/glossary.md#hsv) Hue.
-4. **Display Mode.** **Linear** shows the samples as they are, and [**Autostretch**](../reference/glossary.md#autostretch)
-   [stretches](../reference/glossary.md#stretch) what you see. The gear beside it opens **Autostretch Settings**.
-5. **The history buttons.** **Undo**, **Redo** and **Image History**, which move the image back or forward through
-   its steps.
-6. **The analysis buttons.** Windows about the image: its statistics, its histogram, its
-   [EXIF](../reference/glossary.md#exif) record, its [FITS](../reference/glossary.md#fits) header and a summary. They
-   open from **Statistics**, **Histogram**, **EXIF Viewer**, **FITS Header** and **Summary**.
-7. **The astrometry buttons.** The overlays, the solution and an annotated picture of a plate-solved image, and
-   **Plate Solve** for an image you want to solve.
-8. **The picture.** The image at the view's zoom. In Autostretch, the word AUTOSTRETCH stands in its corner. A
-   sequence adds its player under the picture: see [Sequences](sequences.md).
-9. **The status bar.** The active view's size, color, sample type, memory and zoom, and on a solved image the sky
-   coordinates under the pointer.
+6. **Display Mode.** **Linear** shows the samples as they are, and [**Autostretch**](../reference/glossary.md#autostretch)
+   [stretches](../reference/glossary.md#stretch) what you see.
+7. **Autostretch Settings.** The gear opens the settings of the stretch.
+8. **Show Astrometry.** It shows the overlays of a plate-solved image. The [readout](readout.md) holds the rest of the
+   astrometry, and the windows about the image.
+9. **More.** It opens the image's menu, as a right-click on the picture does.
+10. **The history strip.** The steps of the image, with **Undo**, **Redo** and **Image History**: see
+    [Image History](image-history.md).
+
+The floating toolbar acts on the [workspace](../reference/glossary.md#workspace)'s [active image](../reference/glossary.md#active-image). With more than
+one image docked in the workspace, it starts with that image's name.
 
 ## What you can do
 
@@ -64,26 +69,32 @@ pins:
 - Choose **Fit To Window** to see the whole image. A new view opens fitted.
 - Turn the mouse wheel to zoom around the pointer. The toolbar's buttons zoom around the middle of the view.
 - Drag with the middle button to move a picture larger than the view.
-- Press ++f11++ to give the view the whole workspace, and again to return.
-- Right-click the picture for the **Image** menu's submenus, **Process** among them.
+- Press ++f11++, or choose **Maximize image view**, to give the image its workspace's whole page. The tab strips are
+  hidden, and the floating toolbar and the history strip stay. Press ++f11++ or ++esc++ to put it back.
+- Right-click the picture, or choose **More**, for the image's menu: the **Actions**, **Process**,
+  **Convert Format**, **Extract Channel**, **Fast Geometry**, **Information**, **Mask**, **Sequence** and **View**
+  menus, then **Current Window** and **Show in File Browser**.
 
 ### See a linear image
 
 A linear [master](../reference/glossary.md#master) looks nearly black, because its signal sits near the bottom of the
-range. Choose **Autostretch** in **Display Mode**. The view measures the image and stretches what you see until the
-background is a dark gray and the faint signal shows. The image, its history and the asterisk on its tab stay as
+range. Choose **Autostretch** on the floating toolbar. The view measures the image and stretches what you see until
+the background is a dark gray and the faint signal shows. The image, its history and the asterisk on its tab stay as
 they were.
 
-To tune the stretch, choose the gear beside **Display Mode**. The settings change the view only, and the picture
+To tune the stretch, choose the gear beside the display mode. The settings change the view only, and the picture
 follows each change.
 
 ```figure
+owed: true
 image: ../assets/images/interface/image-viewer-autostretch-settings.webp
 alt: >-
-  The Autostretch Settings window. A Pre Processing group holds Target Background and Shadows Clipping, each a value
-  box and a slider, and the Linked channels, Neutralize Background and Color Calibration check boxes. A Post Processing
-  group holds Saturation, Sat Bg., Brightness and Contrast. Under them, the Print Autostretch Banner check box and the
-  Apply Stretch button, and Reset and Close at the bottom.
+  The Autostretch Settings window, titled Autostretch Settings and RGB. Under the eyebrow DISPLAY and RGB, the heading
+  Autostretch Settings and a line saying that the image is not changed until the stretch is applied. A Pre Processing
+  group holds Target Background at 0.25 and Shadows Clipping at -2.80, each a value box and a slider, then the Linked
+  channels check box, off, and the greyed Neutralize Background and Color Calibration check boxes. A Post Processing
+  group holds Saturation, Sat Bg., Brightness and Contrast. At the foot, the Print Autostretch Banner check box, on,
+  the Apply Stretch button, Reset, and a Close button.
 caption: >-
   Autostretch Settings for the Carina master's view, at its defaults.
 ```
@@ -111,36 +122,45 @@ image and shown, the lens shows the mask's value too.
 
 ### Use a preview
 
-A process window's [real-time preview](../reference/glossary.md#real-time-preview) is a view without the history,
-analysis and astrometry buttons. Its own buttons compare the result with the original, limit the preview to an area
-and make a snapshot: [Process Windows](process-windows.md) describes them. Some windows, such as Image Integration's
-list of frames, show a still preview of a file instead, whose buttons are in the last block below.
+A task's canvas shows its [real-time preview](../reference/glossary.md#real-time-preview) in a view, with a floating
+toolbar of its own: the zoom, the channel, **Take snapshot** and **More**, and the display mode where the task offers
+it. The toggles of its column compare the result with the original and limit the preview to an area:
+[Tasks](tasks.md) describes them. Some tasks, such as Image Integration's list of frames, show a still preview of a
+file instead, whose buttons are in the last block below.
 
 ## Controls
 
-### The view's toolbar
+### Floating toolbar
 
 ```controls
-window: The view's toolbar
+window: Floating toolbar
 controls:
+  - name: Image name
+    kind: readout
+    default: ""
+    effect: With more than one image docked in the workspace, the toolbar starts with the name of the image it acts on, shortened in the middle. Its tooltip gives the whole name.
   - name: Fit To Window
     kind: toolbutton
     default: ""
     effect: Scales the image to fit the view and centers it. A small image is enlarged.
     enabled: With an image. ++ctrl+shift+f++ does the same, and **Image > View > Fit To Window** too.
     persistence: Zoom and position last while the view is open.
-  - name: Zoom In
-    kind: toolbutton
-    default: ""
-    effect: Enlarges the picture by a quarter, around the middle of the view.
-    range: Up to 6400 %.
-    enabled: With an image. **Image > View > Zoom In**, ++ctrl+plus++, does the same.
   - name: Zoom Out
     kind: toolbutton
     default: ""
     effect: Reduces the picture to four fifths, around the middle of the view.
     range: Down to 1 %.
     enabled: With an image. **Image > View > Zoom Out**, ++ctrl+minus++, does the same.
+  - name: Zoom
+    kind: readout
+    default: ""
+    effect: The view's zoom with two decimals, such as `13.24 %`, as the status line writes it.
+  - name: Zoom In
+    kind: toolbutton
+    default: ""
+    effect: Enlarges the picture by a quarter, around the middle of the view.
+    range: Up to 6400 %.
+    enabled: With an image. **Image > View > Zoom In**, ++ctrl+plus++, does the same.
   - name: Zoom 100%
     kind: toolbutton
     default: ""
@@ -148,10 +168,10 @@ controls:
     enabled: With an image. **Image > View > Zoom 100%**, ++ctrl+0++, does the same.
   - name: Maximize image view
     kind: toolbutton
-    default: "Off"
-    effect: Gives the view the whole workspace and hides the rest of it. On, its tooltip reads **Restore image view**, and choosing it again puts the view back in its place.
-    enabled: In a docked view of the workspace, not in a floating one. ++f11++ does the same, and **Image > View > Maximize View**.
-    note: Docking Panels says what a maximized view locks.
+    default: ""
+    effect: Gives the image its workspace's whole page. While it is maximized, its tooltip reads **Restore image view**, and choosing it again puts the image back in its place.
+    enabled: For an image docked in a workspace. ++f11++ does the same, and **Image > View > Maximize View**.
+    note: The **Maximize View** block below says what a maximized image locks.
   - name: View Channel
     kind: combo
     default: RGB
@@ -162,96 +182,38 @@ controls:
     tradeoff: Each choice presents the image again, and measures it again in Autostretch.
     persistence: Kept while the view is open, and after a change to the image when the entry still applies. Otherwise the view returns to RGB or Grayscale.
   - name: Display Mode
-    kind: combo
+    kind: radio
     default: Linear
     options: [Linear, Autostretch]
-    effect: "**Linear** shows each sample as a fraction of full scale. **Autostretch** places the black point below each channel's median, by **Shadows Clipping** times its normalized median absolute deviation, and brings the median to **Target Background** with a midtones transfer. The AUTOSTRETCH banner appears on the picture."
+    effect: "Two segments. **Linear** shows each sample as a fraction of full scale. **Autostretch** places the black point below each channel's median, by **Shadows Clipping** times its normalized median absolute deviation, and brings the median to **Target Background** with a midtones transfer. The AUTOSTRETCH banner appears on the picture."
     range: Every sample is held to the range 0 to 1 before anything else, so a signed integer below zero, and anything below zero, is black. A sample that is not a number, or that the image marks as invalid, is shown black and left out of the measure. The screen gets 8 bits per channel, each rounded to the nearest code.
     enabled: Disabled while the view's Autostretch Settings window is open.
     tradeoff: Autostretch measures the median and the deviation of every valid sample of the whole image, at full resolution, never of the reduced copy the view paints. The measure is kept for the image as it stands and its channel, and reused while you zoom, pan or change most of the settings. A change of the image, of **View Channel**, of **Neutralize Background** or of **Color Calibration** measures again.
     scope: The view only. The image, its history, its header and the asterisk on the tab are never changed.
     persistence: Every view opens in Linear and keeps its mode while it is open.
     note: The view paints what fits on the screen. Zoomed out, it presents a copy reduced by averaging blocks of pixels to about the size shown. When only part of the image shows, it presents that part with a margin, and panning presents the rest. Each presentation is computed in the background, a newer request replaces one still being computed, and the view keeps its picture until the new one is ready.
+  - name: Display mode
+    kind: button
+    default: "Off"
+    effect: "The display mode as one button, on the small floating toolbar of an image that floats in a window of its own. On shows the image in Autostretch, off in Linear, and its tooltip names the mode, as `Display mode: Linear`."
+    enabled: Shown only on a floating image.
   - name: Autostretch Settings
     kind: toolbutton
     default: ""
     effect: Opens the Autostretch Settings window of this view.
     enabled: In Autostretch, while no Autostretch Settings window of this view is open. ++ctrl+shift+a++ does the same, and does nothing in Linear.
-  - name: Undo
-    kind: toolbutton
-    default: ""
-    effect: Takes the image back one step of its history. Its tooltip names the step.
-    enabled: When the image has a step to take back. ++ctrl+z++ in the view does the same.
-    note: Zoom, channel, display mode, overlays and the lens make no step, so Undo never takes them back.
-  - name: Redo
-    kind: toolbutton
-    default: ""
-    effect: Does again the step Undo took back. Its tooltip names the step.
-    enabled: After an Undo. ++ctrl+y++ does the same.
-  - name: Image History
-    kind: toolbutton
-    default: ""
-    effect: Opens the image's history, with every step and the image it came from. See Image History.
-    enabled: With an image. ++ctrl+shift+z++ does the same.
-  - name: Statistics
-    kind: toolbutton
-    default: ""
-    effect: Opens Image Statistics for the image. ++ctrl+shift+t++ does the same.
-    note: Statistics, Histogram, EXIF Viewer, FITS Header and Summary open a new window at each choice.
-  - name: Histogram
-    kind: toolbutton
-    default: ""
-    effect: Opens Histogram Analysis for the image. ++ctrl+h++ does the same.
-  - name: EXIF Viewer
-    kind: toolbutton
-    default: ""
-    effect: Opens the camera fields the image's file stated.
-    enabled: When the file stated an EXIF field. ++ctrl+shift+x++ opens the window even when the button is disabled, then empty.
-  - name: FITS Header
-    kind: toolbutton
-    default: ""
-    effect: Opens the FITS header of the image, keyword, value and comment.
-    enabled: When the image carries FITS cards. ++ctrl+shift+h++ opens the window even when the button is disabled, then empty.
-  - name: Summary
-    kind: toolbutton
-    default: ""
-    effect: Opens the summary of the image, or of the sequence. ++ctrl+shift+m++ does the same.
   - name: Show Astrometry
     kind: toolbutton
     default: "Off"
-    effect: Shows the overlays Astrometry Settings selects over a plate-solved image, or hides them all.
+    effect: Shows the overlays chosen in the Astrometry card of the readout over a plate-solved image, or hides them all.
     enabled: Shown only for a solved still image, never for a sequence. ++ctrl+shift+w++ does the same.
     persistence: Off in every new view.
-  - name: Astrometry Settings
-    kind: toolbutton
-    default: ""
-    effect: "Opens the overlays' menu: **Equatorial Grid** (++ctrl+1++), **Deep-Sky Annotations** (++ctrl+2++), **Star Labels** (++ctrl+3++), **SIP Distortion Map** (++ctrl+5++) and **Detected Stars** (++ctrl+4++), then **Level of Detail**, **Labels**, **Palette** and **Text Size** for the annotations."
-    enabled: While **Show Astrometry** is on. The shortcuts work only then.
-    persistence: Every choice of the menu is kept between sessions for every view. The grid is on and the other four overlays off on a new profile.
-    note: Detected Stars marks stars; they are not a selection you can edit. Astrometry Overlays describes each overlay.
-  - name: Astrometry Info
-    kind: toolbutton
-    default: ""
-    effect: Opens the solution's details. One window per view; choosing it again brings that window forward.
-    enabled: Shown for a still image, enabled when it is solved. ++ctrl+shift+p++ does the same. **Image > Information > Astrometry Info** is enabled for any image, and says "No astrometric solution" for one not solved.
-  - name: Annotate Image
-    kind: toolbutton
-    default: ""
-    effect: Opens Annotate Image, to export a picture of the solved image with its objects, stars and coordinates named. One window per view.
-    enabled: Shown for a solved still image. ++ctrl+shift+l++ does the same.
-  - name: Plate Solve
-    kind: toolbutton
-    default: ""
-    effect: Opens Plate Solve for this image. One window per view.
-    enabled: Shown for every still image, never for a sequence. ++ctrl+p++ does the same.
+    note: Turning an overlay on in the readout turns **Show Astrometry** on too. Astrometry Overlays describes each overlay.
   - name: More
-    kind: toolbutton
+    kind: button
     default: ""
-    effect: Holds the buttons that no longer fit when the view is narrow, rightmost first. Its tooltip reads **More tools**.
-    enabled: Shown only while some buttons do not fit.
-    note: >-
-      A button or box in the menu keeps its state and works as on the toolbar when you choose it. Its keyboard
-      shortcut does nothing while it is in the menu: widen the view to use it.
+    effect: Opens the image's menu over the button, the menu a right-click on the picture opens. Its tooltip reads **The image's menu**.
+    note: The menu acts on the image the toolbar shows. Choosing another image closes it.
 ```
 
 ### The picture
@@ -285,12 +247,13 @@ controls:
   - name: Right-click
     kind: action
     default: ""
-    effect: Opens the view's menu, with the submenus of **Image**, **Process**, **Current Window** and **Show in File Browser**.
+    effect: Opens the image's menu - **Actions**, **Process**, **Convert Format**, **Extract Channel**, **Fast Geometry**, **Information**, **Mask**, **Sequence** and **View**, then **Current Window** and **Show in File Browser** - where you clicked. **More** on the floating toolbar opens the same menu.
+    scope: The menus are the menu bar's, and act on the active image.
     note: It pauses a playing sequence. In a real-time preview it shows the original instead, while you hold the button.
   - name: Hover
     kind: action
     default: ""
-    effect: Shows the right ascension and declination under the pointer in the status bar, over a plate-solved image.
+    effect: Shows the right ascension and declination under the pointer in the status line, over a plate-solved image.
   - name: Selection rectangles
     kind: readout
     default: ""
@@ -305,6 +268,22 @@ controls:
     note: Showing the mask does not make a process use it. Masks describes both.
 ```
 
+### Maximize View
+
+```controls
+window: Maximize View
+controls:
+  - name: Maximize View
+    kind: action
+    default: "Off"
+    effect: "**Image > View > Maximize View**, **Maximize image view** on the floating toolbar and ++f11++ give the active image its workspace's whole page. The tab strips are hidden, and the floating toolbar and the history strip stay. The entry then reads **Restore View**, the button **Restore image view**, and both put the image back in its group, as ++f11++ and ++esc++ do."
+    enabled: For an image docked in a workspace. Disabled for an image in a floating window, and on a task's page.
+    tradeoff: While an image is maximized, **Lock layout**, **Group All Images** and **Split All Images** are disabled for its workspace. **Fit Images To Window** stays enabled.
+    scope: The view only. Nothing is copied or written, and the image, its history and its header stay as they were.
+    persistence: An unlocked layout is locked while the image is maximized and unlocked when it is restored. A locked layout stays locked.
+    note: Opening another image in the workspace, or moving the maximized one to another workspace, restores it first. ++f11++ works while the view has the keyboard focus.
+```
+
 ### Autostretch Settings
 
 ```controls
@@ -317,7 +296,7 @@ controls:
     effect: Sets where the median lands. Higher brightens the background and everything above it, lower darkens them.
     scope: The view only, as every setting of this window.
     persistence: Kept by the view while it is open, and shown again when the window reopens. Nothing is kept between sessions.
-    note: The window's title names the view, `Autostretch Settings <name>`. Its first group is **Pre Processing**.
+    note: The window's title names the view, `Autostretch Settings <name>`, and its heading says that the image is not changed until the stretch is applied. Its first group is **Pre Processing**.
   - name: Shadows Clipping
     kind: spinbox
     default: "-2.80"
@@ -372,7 +351,7 @@ controls:
     kind: button
     default: ""
     effect: Asks "Do you want to apply the current autostretch preview settings to this image permanently?" and, on Yes, writes the stretch shown into the image. The image keeps its type, size, FITS header and plate solution, and is recorded as nonlinear with the operation `autostretch`.
-    enabled: In a standard view only. A preview's window has no such button.
+    enabled: In an image's own view only. The window of a task's preview has no such button.
     tradeoff: It is computed in the background on a copy, recorded in the history as **Autostretch**, and only then shown. When the history cannot keep it, nothing changes, a message says why and the window stays open.
     scope: A still image, or the frame of a sequence shown, never the whole sequence.
     persistence: After it, the view returns to Linear, the settings to their defaults, and the window closes. Undo takes the step back.
@@ -386,15 +365,15 @@ controls:
     effect: Closes the window and keeps the settings in the view. Nothing is written to the image.
 ```
 
-### The status bar
+### The status line
 
 ```controls
-window: The status bar
+window: The status line
 controls:
   - name: Image information
     kind: readout
     default: ""
-    effect: Shows the active image's width and height, RGB or Grayscale, sample type, and memory, such as `[7246x5429 (RGB)] - [32 bit floating point] - [450.19 MB]`.
+    effect: Shows the active image's width and height, RGB or Grayscale, sample type, and memory, such as `[7246x5429 (RGB)] - [32 bit floating point] - [450.19 MB]`. The Main Window describes the rest of the status line.
     range: A sequence shows its kind first, such as `SER SEQUENCE`, then the frame's size, the frame shown and their count, the frame rate, the sample type and the memory of every frame together.
     note: The sample types read 8, 16 or 32 bit signed or unsigned integer, and 32 or 64 bit floating point.
   - name: Zoom
@@ -405,7 +384,7 @@ controls:
     kind: readout
     default: ""
     effect: Shows the sky coordinates under the pointer in hours and degrees. Their tooltips give them in degrees with six decimals.
-    enabled: Over a plate-solved image in a standard view. They disappear when the pointer leaves it.
+    enabled: Over a plate-solved image in its own view. They read `RA -` and `Dec -` when the pointer leaves it.
 ```
 
 ### Still preview
@@ -417,18 +396,18 @@ controls:
     kind: check
     default: "Off"
     effect: Shows the light frame calibrated by its masters instead of as it was recorded. Its tooltip names the masters and says whether it is on.
-    enabled: Shown only in a window that offers it, and enabled when the window found masters for the frame.
+    enabled: Shown only in a task that offers it, and enabled when the task found masters for the frame.
   - name: Display Mode
     kind: combo
     default: Linear
     options: [Linear, Autostretch]
     effect: As in a view, with its Autostretch Settings beside it.
-    enabled: Unless the window hides it, as it may hide **Show statistics**. The window chooses the mode it starts in.
+    enabled: Unless the task hides it, as it may hide **Show statistics**. The task chooses the mode it starts in.
   - name: Show statistics
     kind: toolbutton
     default: "On"
     effect: Shows or hides the overlay of the picture's minimum, maximum, mean, median and standard deviation.
-    note: The window reads a file into its preview when you choose one in its list. A newer choice replaces a file still being read, and a file that cannot be read is reported and shows nothing. A mosaic is demosaiced by the fast method, without a question, when the window shows color.
+    note: The task reads a file into its preview when you choose one in its list. A newer choice replaces a file still being read, and a file that cannot be read is reported and shows nothing. A mosaic is demosaiced by the fast method, without a question, when the task shows color.
 ```
 
 ## When it goes wrong
@@ -449,20 +428,20 @@ The mouse wheel scrolls instead of zooming
 :   **Cause.** The image is grayscale, the view shows a sequence, or **Linked channels** is off.
 :   **Fix.** Turn **Linked channels** on for an RGB image. Leave both off for a sequence.
 
-The astrometry buttons are missing
+**Show Astrometry** is missing from the floating toolbar
 :   **Cause.** The image is not plate-solved, or it is a sequence.
-:   **Fix.** Solve a still image with **Plate Solve**, then turn **Show Astrometry** on before you open its settings.
-    An image mirrored or turned has lost its solution: solve it again.
+:   **Fix.** Solve a still image with **Plate Solve** in the [readout](../reference/glossary.md#readout)'s Astrometry card. An image mirrored or turned
+    has lost its solution: solve it again.
 
-Buttons disappear from the toolbar
-:   **Cause.** The view is too narrow, and they moved into **More**.
-:   **Fix.** Open **More**, or widen the view.
+++f11++ does nothing, and **Maximize image view** is greyed
+:   **Cause.** The image floats in a window of its own, or a task's page is shown.
+:   **Fix.** Dock the image in its workspace, or go back to the workspace.
 
 ## Related
 
-- [Interface Overview](overview.md), for the main window around the views.
-- [Process Windows](process-windows.md), for the real-time preview at work and what Apply does.
+- [Workspaces](workspaces.md), for the place the views sit in and its layout icons.
+- [Readout](readout.md), for the histogram, statistics, astrometry and facts of the active image.
+- [Image History](image-history.md), for the history strip under the view.
+- [Tasks](tasks.md), for a task's canvas, its real-time preview and what Apply does.
 - [Astrometry Overlays](astrometry-overlays.md), for the grid, the annotations and the stars a solved image shows.
-- [Masks](masks.md), for the mask shown over a view and the way it renders.
-- [Image History](image-history.md), for the steps Undo and Redo move through.
 - [Histogram Transformation](../processes/stretching/histogram-transformation.md), to stretch the image itself.

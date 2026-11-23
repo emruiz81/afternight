@@ -1084,7 +1084,9 @@ image operations' non-interactive half is `nonInteractiveImageOperations`, besid
 binds Export to `ExportSequenceControl::openFor`. A descriptor also states the user guide's page of its process
 (`helpPath`, from the help table beside the registrations), and the launcher states it on the window a launch shows -
 the process window shown after the launch that was not shown before it, since an entry point hands its window to
-nobody - so that Help, asked from that window, opens the page; `docs/dev/USER_GUIDE_AUTHORING.md` says how the table
+nobody - so that Help, asked from that window, opens the page; a process shown as a task's page is inside the
+Observatory window, which states the page of the task it shows (its `anHelpPath` property, read by `helpPathFor`), so
+Help asked from the task's header, its canvas or the window opens it too; `docs/dev/USER_GUIDE_AUTHORING.md` says how the table
 is held to the guide. `Test_ProcessesShared`, an isolated suite, holds the helpers, the
 launcher and the registry: every registered action opens its real window, or runs its real channel action, through
 the library's entry points; a process family's suite (`Test_Processes<Family>`) holds its own processes the same way.

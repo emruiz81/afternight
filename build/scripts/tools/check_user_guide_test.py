@@ -1893,6 +1893,87 @@ class ControlsRuleTests(WritingCase):
         self.assertIn('an inventory states `id`, `window` and `controls`', output)
 
 
+# The rail of the Observatory window, as the application's test records the shell's parts.
+RAIL_PART = [ui_control('Home', 'button', 'home', 'Places'), ui_control('Settings', 'button', 'settings', 'Foot')]
+
+RAIL_BLOCK = """\
+```controls
+window: Rail
+controls:
+  - name: Home
+    kind: button
+    default: ""
+    effect: Shows Home.
+  - name: Settings
+    kind: button
+    default: ""
+    effect: Opens the Settings dialog.
+```
+"""
+
+
+class ShellControlsRuleTests(WritingCase):
+    """The interface page of the writing cases and the rail of the Observatory window, which the application's test
+    records under data/ui/shell."""
+
+    def setUp(self):
+        super().setUp()
+        self.part('shell.rail', 'Rail', RAIL_PART)
+
+    def part(self, identifier, title, controls):
+        """Plants the record of a part of the shell: the file the application's test writes for it."""
+        return self.write('docs/user-guide/data/ui/shell/%s.json' % identifier,
+                          json.dumps({'id': identifier, 'window': title, 'controls': controls}, indent=2) + '\n')
+
+    def describe(self, block, ignore=''):
+        """The interface page with a `Controls` section that holds `block`, and `ignore` in its front matter."""
+        text = WRITING_PAGES['interface/viewer.md']
+        text = text.replace('## When it goes wrong', '## Controls\n\n' + block + '\n## When it goes wrong', 1)
+        self.page('interface/viewer.md', text.replace('menu: Image > Zoom In\n', 'menu: Image > Zoom In\n' + ignore, 1))
+
+    def test_an_interface_page_is_held_to_the_part_its_block_names(self):
+        self.describe(RAIL_BLOCK)
+        self.assertPasses()
+        code, output = self.run_main()
+        self.assertIn('shell: 1 of the 1 parts of the shell described', output)
+
+    def test_a_part_no_interface_page_describes_fails(self):
+        self.assertFails('R14', 'shell.rail.json:1: R14 the shell\'s "Rail" is described by no interface page; a '
+                         '`controls` block of the page that describes it names it with `window: Rail`')
+
+    def test_a_control_of_a_part_no_block_lists_fails_unless_the_page_says_why(self):
+        self.describe(RAIL_BLOCK[:RAIL_BLOCK.index('  - name: Settings')] + '```\n')
+        self.assertFails('R14', 'viewer.md:', 'the shell\'s "Rail" has the button "Settings" (under "Foot"), which no '
+                         '`controls` block of an interface page lists')
+        self.describe(RAIL_BLOCK[:RAIL_BLOCK.index('  - name: Settings')] + '```\n',
+                      'controls_ignore:\n  - {label: Settings, reason: The Settings dialog has a page of its own.}\n')
+        self.assertPasses()
+
+    def test_a_control_the_part_lacks_fails_on_its_line(self):
+        self.describe(RAIL_BLOCK.replace('- name: Home', '- name: home'))
+        self.assertFails('R14', 'viewer.md:', '"home" is no control of the window "Rail"; the window labels it "Home"')
+
+    def test_a_block_of_a_window_the_shell_does_not_record_is_not_held(self):
+        self.describe(RAIL_BLOCK + '\n```controls\nwindow: Rename Workspace\ncontrols:\n  - name: Name\n    kind: '
+                      'field\n    default: ""\n    effect: The workspace\'s name.\n```\n')
+        self.assertPasses()
+
+    def test_a_page_checked_by_name_is_held_to_its_parts_and_not_to_the_rest(self):
+        self.describe(RAIL_BLOCK.replace('- name: Home', '- name: home'))
+        code, found = self.findings('R14', '--page', 'interface/viewer.md')
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('"home" is no control of the window "Rail"', found[0])
+        self.restore()
+        code, found = self.findings('R14', '--page', 'interface/viewer.md')
+        self.assertEqual(found, [])
+
+    def test_a_record_that_cannot_be_read_stops_the_check(self):
+        self.write('docs/user-guide/data/ui/shell/shell.rail.json', '{"id": "shell.rail"}\n')
+        code, output = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertIn('an inventory states `id`, `window` and `controls`', output)
+
+
 class WritingDataTests(WritingCase):
     def test_limits_that_cannot_be_read_stop_the_check(self):
         self.write('docs/user-guide/data/limits.yml', REAL_DATA['limits.yml'].replace('    steps: 9', '    stepz: 9'))

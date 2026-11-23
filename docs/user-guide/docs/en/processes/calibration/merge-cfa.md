@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    Always. The window chooses its images itself and opens without an active image. OK is enabled once each of the
-    four plane boxes names an open image.
+    Always. The task chooses its images itself and opens as a page of its own without an active image, its canvas
+    naming the planes still to choose. OK is enabled once each of the four plane boxes names an open image.
   inputs: >-
     Four one-channel images of one width and height, or four one-channel sequences of one size and frame count, in any
     pixel types.
@@ -36,22 +36,19 @@ their order. The [Bayer pattern](../../reference/glossary.md#bayer-pattern) you 
 holds. It moves no plane.
 
 **OK** opens the new mosaic, `CFA MERGED`, in a view beside the first plane's, or as a new
-[sequence](../../reference/glossary.md#sequence) for four sequences, and closes the window. The planes are not
+[sequence](../../reference/glossary.md#sequence) for four sequences, and closes the [task](../../reference/glossary.md#task). The planes are not
 changed.
 
 ```figure
 owed: true
 image: ../../assets/images/processes/calibration/merge-cfa.webp
 alt: >-
-  The Merge CFA window. Under the title, the process name and the line Merge four monochrome CFA quadrants into a
-  single Bayer-pattern image. Below, CFA Pattern at RGGB, then the CFA0, CFA1, CFA2 and CFA3 boxes, each naming one
-  plane of the light, from CFA0 - Red to CFA3 - Blue. OK and Close run along the bottom.
+  The Merge CFA task. Its header names Merge CFA, and the canvas at the left shows the merged mosaic, a gray image
+  with a fine checkered texture. The column at the right holds CFA Pattern at RGGB, then the CFA0, CFA1, CFA2 and
+  CFA3 boxes, each naming one plane of the light, from CFA0 - Red to CFA3 - Blue, with Close and OK in its footer.
 caption: >-
-  Merge CFA with CFA Pattern at RGGB and the four planes Split CFA made of a raw NGC 253 light in CFA0 to CFA3.
-pins:
-  - {n: 2, x: 20.5, y: 32.7}
-  - {n: 3, x: 20.5, y: 43.6}
-  - {n: 5, x: 54.7, y: 91.6}
+  Merge CFA with CFA Pattern at RGGB and the four planes Split CFA made of a raw NGC 253 light in CFA0 to CFA3, the
+  merged mosaic in the canvas.
 ```
 
 ## Before you start
@@ -66,23 +63,24 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Color Spaces > Merge CFA**, with or without an
-   [active image](../../reference/glossary.md#active-image). The four plane boxes read `<--NO IMAGE-->` and **OK** is
-   disabled.
+1. **Open the task.** Choose **Process > Color Spaces > Merge CFA**, with or without an
+   [active image](../../reference/glossary.md#active-image), or find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the column at the
+   right holds the four plane boxes, which read `<--NO IMAGE-->`, and the canvas at the left reads "Still to choose:
+   CFA0, CFA1, CFA2, CFA3". **OK** is disabled.
 2. **Choose the pattern.** Set **CFA Pattern** to the pattern of the original mosaic.
 3. **Choose the planes by position.** Choose the plane named CFA0 in **CFA0**, and so on to **CFA3**: the top-left,
    top-right, bottom-left and bottom-right sites of each cell.
 4. **Check the planes.** Rest the pointer on a plane in a box: its tooltip gives its size and
    [pixel type](../../reference/glossary.md#pixel-type). The four must have one width and height, and be all images
    or all sequences.
-5. **Merge.** Choose **OK**. The window closes, and `CFA MERGED` opens beside the view of the **CFA0** plane, twice
-   as wide and twice as high.
+5. **Merge.** Choose **OK** in the column's footer. The task closes, and `CFA MERGED` opens beside the view of the
+   **CFA0** plane, twice as wide and twice as high.
 
 ## Controls
 
-The window has no **Target Image** and no **Reset**. Its preview shows the merged mosaic once the four plane boxes
-name images. What every process window shares is on
-[Process Windows](../../interface/process-windows.md).
+The task has no **Target Image** and no **Reset**. Its canvas shows the merged mosaic once the four plane boxes
+name images. What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Merge CFA
@@ -92,20 +90,20 @@ controls:
     default: RGGB
     options: [RGGB, BGGR, GBRG, GRBG]
     effect: States the pattern of the new mosaic at zero phase, which says the color of each position of the cell. It moves no plane. **CFA0** is the top-left site whatever its color.
-    enabled: Always, also while a run works. A change made during a run does not reach it.
+    enabled: Always, but for the time a run works, when the column's controls wait.
     tradeoff: A wrong pattern makes a later debayer read each color at the wrong sites, without a warning.
     scope: The new mosaic's description, on an image or on every frame of a sequence.
-    persistence: Until the window closes. The next window opens at **RGGB**.
+    persistence: Until the task closes. The next task opens at **RGGB**.
   - name: CFA0
     kind: combo
     default: "<--NO IMAGE-->"
     options: ["<--NO IMAGE-->"]
     effect: Chooses the plane placed at the top-left site of every cell. The new mosaic takes its metadata from this plane.
     range: "It lists `<--NO IMAGE-->` and every open view whose image has one channel: a grayscale image, a sequence of them, or a mosaic. It follows views as they open, close, change or are renamed. The tooltip of each item gives its source file, size, channels, pixel type and memory."
-    enabled: Stays enabled while a run works, and a change does not reach the run.
+    enabled: Disabled while a run works, with every control of the column.
     tradeoff: A wrong plane is joined into the mosaic without a warning. The same view may be chosen in several boxes.
     scope: "OK. On sequences, the new sequence takes the container of this plane's sequence."
-    persistence: Until the window closes. A box whose view closes returns to `<--NO IMAGE-->`.
+    persistence: Until the task closes. A box whose view closes returns to `<--NO IMAGE-->`.
   - name: CFA1
     kind: combo
     default: "<--NO IMAGE-->"
@@ -114,7 +112,7 @@ controls:
     range: The same list as **CFA0**.
     tradeoff: A wrong plane is joined into the mosaic without a warning.
     scope: OK.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: CFA2
     kind: combo
     default: "<--NO IMAGE-->"
@@ -123,7 +121,7 @@ controls:
     range: The same list as **CFA0**.
     tradeoff: A wrong plane is joined into the mosaic without a warning.
     scope: OK.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: CFA3
     kind: combo
     default: "<--NO IMAGE-->"
@@ -132,46 +130,46 @@ controls:
     range: The same list as **CFA0**.
     tradeoff: A wrong plane is joined into the mosaic without a warning.
     scope: OK.
-    persistence: Until the window closes.
+    persistence: Until the task closes.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the merged mosaic beside the controls, as **OK** makes it, once the four plane boxes name images. A change of a box or of **CFA Pattern** shows it again.
+    effect: Shows the merged mosaic in the canvas, as **OK** makes it, once the four plane boxes name images. A change of a box or of **CFA Pattern** shows it again.
     enabled: Disabled until the four plane boxes name images.
     tradeoff: The preview joins the whole of the four planes at each change, as **OK** does, and holds a mosaic four times a plane.
-    scope: "The window only. It offers no **Preview area**: the mosaic is twice as wide and twice as high as a plane. Four sequences show the mosaic of the frames their views show."
-    persistence: Until the window closes.
+    scope: "The canvas only. It offers no **Preview area**: the mosaic is twice as wide and twice as high as a plane. Four sequences show the mosaic of the frames their views show."
+    persistence: Until the task closes.
   - name: OK
     kind: button
     default: ""
-    effect: Checks the four planes, joins them away from the window and opens `CFA MERGED` in a new view beside the view of **CFA0**, or where new views open when that view has closed. The window then closes.
+    effect: Checks the four planes, joins them on the thread pool and opens `CFA MERGED` in a new view beside the view of **CFA0**, or where new views open when that view has closed. The task then closes.
     range: The four must be all images or all sequences, of one width and height, and sequences of one frame count.
-    enabled: Disabled when the window opens, and until none of the four plane boxes reads `<--NO IMAGE-->`. Disabled while a run works, with **Close**. **CFA Pattern** and the plane boxes stay enabled.
-    tradeoff: The time grows with the mosaic's pixels, and with its frames for sequences. A merge of images holds a copy of each plane of a lower pixel type, the four planes together and the new mosaic, which is four times a plane. It shows no progress window.
+    enabled: Disabled when the task opens, and until none of the four plane boxes reads `<--NO IMAGE-->`. While a run works, **Cancel** stands in its place and the column's controls are disabled.
+    tradeoff: The time grows with the mosaic's pixels, and with its frames for sequences. A merge of images holds a copy of each plane of a lower pixel type, the four planes together and the new mosaic, which is four times a plane. It shows no progress window, and the column shows the run.
     scope: The four planes, without a mask.
     persistence: "The new view is unsaved, and its history starts with `MergeCFA: created 'RGGB' pattern from image channels CFA0:'<a>' CFA1:'<b>' CFA2:'<c> CFA3:'<d>'`, with the pattern and the planes' names, `sequence channels` for sequences, and no closing quote after the third name. The planes and their histories are not changed."
-    note: A run that fails leaves the window open with its controls enabled.
+    note: A run that fails leaves the task open with its controls enabled.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without merging.
+    effect: Closes the task without merging. ++esc++ does the same.
     enabled: Disabled while a run works.
-    note: Closing the window another way while a run works, with ++esc++ or its own close button, stops the run. Nothing opens, and a sequence being written is removed.
+    note: The task cannot be closed while a run works. **Cancel** in the footer stops a run over sequences, which then opens nothing and removes the sequence being written.
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames joined, from 0 to 100 percent, under the title **Merge CFA** and the text `Executing Merge CFA`."
+    effect: "Shows the share of the frames joined in the column's run row, with an **Overall** and a **Processing** bar, from 0 to 100 percent. The task header and its item in the rail show the run too."
     enabled: Shown only while OK works on sequences.
     tradeoff: The new sequence is written to a temporary file as large as the four plane sequences together, until the run ends. Try a short sequence first.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run before the next frame. Nothing opens, the temporary sequence is removed, and the Merge CFA window stays open, with no message.
+    effect: Stands in the footer in place of **OK**, and stops the run before the next frame. Nothing opens, the temporary sequence is removed, and the Merge CFA task stays open, with no message.
 ```
 
 ## How it works
@@ -221,9 +219,9 @@ X-Trans or four-color mosaic cannot be joined.
 - A frame of another size, or a sequence that ends first, stops the run with what is wrong. A plane whose
   [validity rule](../../reference/glossary.md#validity-rule) lists its valid samples one by one is refused.
 - A refusal or a failure is reported in a message box titled "Error running Merge CFA", which starts "An error
-  occurred when executing the Merge CFA process:", and in the log, not in the window's message strip. Nothing opens.
-- A merge of images cannot be stopped once it starts, except by closing the window. A run whose window closed, or
-  whose view could not be made, opens nothing and leaves no sequence behind.
+  occurred when executing the Merge CFA process:", and in the log, not in the column's banner. Nothing opens.
+- A merge of images cannot be stopped once it starts. A run that is stopped, or whose view could not be made,
+  opens nothing and leaves no sequence behind.
 
 ### Worked example
 
@@ -286,4 +284,4 @@ The merged mosaic has no plate solution
 - [CFA Integer Resample](cfa-integer-resample.md), to change a mosaic's size and keep its filters, with no split.
 - [Plate Solving](../registration-alignment/plate-solving.md), to solve the merged mosaic.
 - [Sequences](../../interface/sequences.md), for the player and to save the new temporary sequence.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.

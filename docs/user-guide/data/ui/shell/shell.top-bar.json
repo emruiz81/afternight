@@ -1,0 +1,12 @@
+{
+  "id": "shell.top-bar",
+  "window": "Top bar",
+  "controls": [
+    {"label": "No project", "kind": "button", "object": "observatoryProjectSwitcher", "group": "", "visible": true, "default": ""},
+    {"label": "Night", "kind": "toolbutton", "object": "topBarNightButton", "group": "", "visible": true, "default": "Off"},
+    {"label": "User Guide", "kind": "toolbutton", "object": "topBarHelpButton", "group": "", "visible": true, "default": ""},
+    {"label": "Information", "kind": "toolbutton", "object": "topBarInformationButton", "group": "", "visible": true, "default": ""},
+    {"label": "All menus", "kind": "toolbutton", "object": "topBarMoreButton", "group": "", "visible": true, "default": ""},
+    {"label": "Search or run a command", "kind": "button", "object": "observatoryPaletteField", "group": "", "visible": true, "default": ""}
+  ]
+}

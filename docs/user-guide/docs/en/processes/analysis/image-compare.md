@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Image Compare window is open on it yet, and no window that needs the
-    image for itself is open on it.
+    An image or a sequence view is active, no Image Compare task is open on it yet, and no task that needs the image
+    for itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     The active image as Image 1, and another open image of exactly its width and height as Image 2. Their pixel types,
     channels, states and headers may differ. A sequence takes part through the frame its view shows.
@@ -30,35 +30,32 @@ derived: false
 
 Image Compare shows two open images of the same size at the same pixel positions, so you can see what a process
 changed or whether two frames line up. One mode shows one image at a time and switches to the other. Two split modes
-show Image 1 on one side of a divider and Image 2 on the other, and you drag the divider across the preview. Each
-image has its own histogram, counted from its samples. The window computes no difference and no score, and aligns or
+show Image 1 on one side of a divider and Image 2 on the other, and you drag the divider across the canvas. Each
+image has its own histogram, counted from its samples. The [task](../../reference/glossary.md#task) computes no difference and no score, and aligns or
 matches nothing.
 
-The window has no **Apply**. It changes neither image, adds no step to a
+The task has no **Apply**. It changes neither image, adds no step to a
 [history](../../reference/glossary.md#history) and writes no file.
 
 ```figure
 image: ../../assets/images/processes/analysis/image-compare.webp
 alt: >-
-  The Image Compare window. On the left, two histograms one above the other, captioned Image 1 and Image 2: the upper
-  one a peak a little way in from its left edge, the lower one a spike at the edge. Under them the histogram toolbar,
-  the Mode row of three buttons with the second one pressed, and the Image 1 and Image 2 boxes, each naming an image.
-  On the right, an upright line with a round handle cuts the preview in two: the left half, labelled IMAGE 1, shows a
-  red nebula, and the right half, labelled IMAGE 2, is nearly black. Close sits at the bottom right.
+  The Image Compare task. Its header reads Image Compare on the stretched master. In the canvas at the left an upright
+  line with a round handle cuts the picture in two: the left half, labelled IMAGE 1, shows a red nebula, and the right
+  half, labelled IMAGE 2, is nearly black. The floating toolbar lies near the canvas's foot. The column at the right
+  opens with the compact readout, then Preview area and the Image 1 toggle, the Image 1 box naming the stretched
+  master, and two histograms one above the other, captioned Image 1 and Image 2: the upper one a peak a little way in
+  from its left edge, the lower one a spike at the edge. Under them the histogram toolbar, the Mode row of three
+  buttons with the second one pressed, and the Image 2 box naming the linear master. Close stands alone in the footer.
 caption: >-
   Image Compare with the Carina master after Histogram Transformation as Image 1 and the linear master as Image 2,
-  side by side in the Linear display mode.
-pins:
-  - {n: 2, x: 35.0, y: 87.5}
-  - {n: 4, x: 17.1, y: 54.1}
-  - {n: 5, x: 75.0, y: 55.3}
-  - {n: 7, x: 35.0, y: 24.0}
-  - {n: 8, x: 89.3, y: 96.0}
+  side by side in the canvas in the Linear display mode.
+owed: true
 ```
 
 ## Before you start
 
-- Bring the two images onto one pixel grid first: register them and crop them alike. The window offers only images
+- Bring the two images onto one pixel grid first: register them and crop them alike. The task offers only images
   of the same width and height, and checks nothing else: not the registration, the
   [WCS](../../reference/glossary.md#wcs), the crop, the channels, the exposure or the background.
 - Compare like with like: the same [processing state](../../reference/glossary.md#processing-state), the same
@@ -73,30 +70,32 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the first image the [active image](../../reference/glossary.md#active-image) and
-   choose **Process > Utilities > Image Compare**. **Image 1** names it, **Image 2** reads `<--NO IMAGE-->`, and the
-   preview shows the image labelled IMAGE 1.
+1. **Open the task.** Make the first image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Utilities > Image Compare**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows the image labelled IMAGE 1, the column at
+   the right holds the controls. **Image 1** names it and **Image 2** reads `<--NO IMAGE-->`.
 2. **Choose the second image.** Pick it in **Image 2**. The list holds only the open images of exactly Image 1's
    width and height.
 3. **Blink the two.** With **Toggle mode (click to switch between images)** pressed, the first button of the
-   **Mode** row, choose **Switch image** in the preview's toolbar, or hold ++space++ over the preview. The preview
-   and the histogram turn to IMAGE 2, and back.
-4. **Split the preview.** Press **Horizontal split (side by side with draggable divider)** to put Image 1 on the left
+   **Mode** row, choose the **Image 1** toggle beside **Preview area**, or hold ++space++ over the canvas. The canvas
+   and the histogram turn to IMAGE 2, and back. The toggle reads **Image 2** while it stays on the second image.
+4. **Split the canvas.** Press **Horizontal split (side by side with draggable divider)** to put Image 1 on the left
    and Image 2 on the right, or **Vertical split (top/bottom with draggable divider)** to put Image 1 on top. A second
    histogram opens under the first.
 5. **Move the divider.** Drag the line across stars, background and nebula, and double-click it to center it again.
-   Right-click the preview to swap the two sides.
+   Right-click the canvas to swap the two sides.
 6. **Look at 100 %.** Choose **Zoom 100%** and hold the left button over either side: the lens magnifies the image of
    that side.
-7. **Read the histograms.** Each counts the samples of its own image as they are stored, whatever the preview's
+7. **Read the histograms.** Each counts the samples of its own image as they are stored, whatever the canvas's
    display does with them.
-8. **Close.** Choose **Close**. Both images, their histories and their files are as they were.
+8. **Close.** Choose **Close** in the column's footer, or press ++esc++. Both images, their histories and their files
+   are as they were.
 
 ## Controls
 
-The histogram toolbar is the one every window shares, without **Show histogram**: see
-[Process Windows](../../interface/process-windows.md). Here each of its buttons, and **Plot resolution**, acts on
-both histograms at once. The window has no **Preview** check box: its preview is always shown.
+The histogram toolbar is the one every task shares, without **Show histogram**: see [Tasks](../../interface/tasks.md).
+Here each of its buttons, and **Plot resolution**, acts on both histograms at once. The task has no **Preview** toggle:
+its canvas always shows the images.
 
 ```controls
 window: The histograms
@@ -104,11 +103,11 @@ controls:
   - name: Histogram of Image 1
     kind: readout
     default: ""
-    effect: Shows how the samples of Image 1 are spread between 0 and 1, with Clipping Low and Clipping High in its corner. In Toggle mode it counts the image the preview shows, which is Image 2 while you have switched to it.
+    effect: Shows how the samples of Image 1 are spread between 0 and 1, with Clipping Low and Clipping High in its corner. In Toggle mode it counts the image the canvas shows, which is Image 2 while you have switched to it.
     range: Counted from the stored samples, never from the screen. The display mode, the stretch and the balance do not change it, and the clipping shares count stored samples at or below 0 and at or above 1, not what the screen clips.
     enabled: >-
       Always shown. In a split with an image in **Image 2**, a caption over it names the image, as `Image 1: M42`.
-    scope: The window only. Its lines follow the **View Channel** of the preview's toolbar, as in every window.
+    scope: The task only. Its lines follow the **View Channel** of the canvas's toolbar, as in every task.
   - name: Histogram of Image 2
     kind: readout
     default: ""
@@ -116,7 +115,7 @@ controls:
       Shows how the samples of Image 2 are spread, counted as the first one is, under a caption that names the image,
       as `Image 2: M42 stretched`.
     enabled: Shown only in a split, and only while **Image 2** names an image.
-    scope: The window only.
+    scope: The task only.
 ```
 
 ```controls
@@ -129,19 +128,19 @@ controls:
     effect: Dragging the line moves the border between the two images across the picture. In a horizontal split, Image 2 is right of the line and Image 1 left of it. In a vertical split, Image 2 is below it.
     range: The value is the share of the picture's width, or height, on the first side, held between 0 and 1. The line is picked up within 6 pixels of the screen on either side of it, where the pointer turns into a double arrow.
     enabled: Drawn only in a split, and only once Image 2 has been presented beside Image 1.
-    persistence: Until the window closes. A double-click on the line returns it to the middle.
+    persistence: Until the task closes. A double-click on the line returns it to the middle.
     note: A round handle with two arrows sits on the line, in the middle of the pane.
   - name: IMAGE 1 and IMAGE 2
     kind: readout
     default: ""
     effect: Name the image on each side. In a horizontal split IMAGE 1 is at the top left and IMAGE 2 at the top right. In a vertical split IMAGE 2 is at the bottom left.
-    enabled: In Toggle mode one label, in the preview's top left corner, names the image shown.
+    enabled: In Toggle mode one label, in the canvas's top left corner, names the image shown.
   - name: Swap
     kind: action
     default: ""
-    effect: A right click on the preview, **Switch image** or ++space++ swaps the two sides of a split. The labels move with their images.
-    range: A right click and **Switch image** swap until you swap again. ++space++ swaps while you hold it.
-    persistence: Until the window closes, or until Toggle mode, which puts the sides back in their order.
+    effect: A right click on the canvas, the **Image 1** toggle or ++space++ swaps the two sides of a split. The labels move with their images.
+    range: A right click and the toggle swap until you swap again. ++space++ swaps while you hold it.
+    persistence: Until the task closes, or until Toggle mode, which puts the sides back in their order.
   - name: Lens
     kind: readout
     default: ""
@@ -155,20 +154,20 @@ controls:
   - name: Toggle mode (click to switch between images)
     kind: toolbutton
     default: "On"
-    effect: Shows one image at a time. **Switch image**, or ++space++ or the right button held over the preview, turns it from Image 1 to Image 2 and back.
+    effect: Shows one image at a time. The **Image 1** toggle, or ++space++ or the right button held over the canvas, turns it from Image 1 to Image 2 and back.
     enabled: The three **Mode** buttons are exclusive, so one of them is always pressed.
     tradeoff: The quickest way to see a small shift or a small local change, because what moves blinks.
-    scope: The preview and the histogram, which counts the image shown. The second image is shown in the channel **View Channel** names.
-    persistence: Until the window closes.
+    scope: The canvas and the histogram, which counts the image shown. The second image is shown in the channel **View Channel** names.
+    persistence: Until the task closes.
     note: With **Image 2** at `<--NO IMAGE-->`, the switch shows Image 1 again under the label IMAGE 2.
   - name: Horizontal split (side by side with draggable divider)
     kind: toolbutton
     default: "Off"
     effect: Shows Image 1 left of an upright divider and Image 2 right of it, and adds the histogram of Image 2.
-    enabled: Needs an image in **Image 2**. Without one the preview shows Image 1 alone, with no divider and no label.
+    enabled: Needs an image in **Image 2**. Without one the canvas shows Image 1 alone, with no divider and no label.
     tradeoff: Image 2's side is a picture made for the screen, in 8-bit gray or color, at the image's full size, in the background, and shown when it is ready. It is made again when the display mode or Image 2 changes, and in **Autostretch** that measures Image 2 again. A change of the Autostretch settings alone does not make it again. It shows what the display shows, not the precision of the samples.
-    scope: The preview and the histograms. Image 2's side is presented with the preview's display mode, stretch settings and balance, and shows the whole image whatever **View Channel** shows of Image 1.
-    persistence: Until the window closes.
+    scope: The canvas and the histograms. Image 2's side is presented with the canvas's display mode, stretch settings and balance, and shows the whole image whatever **View Channel** shows of Image 1.
+    persistence: Until the task closes.
   - name: Vertical split (top/bottom with draggable divider)
     kind: toolbutton
     default: "Off"
@@ -177,10 +176,10 @@ controls:
   - name: Image 1
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
-    effect: Chooses the first image, which the preview shows, the first histogram counts and **Take snapshot** copies.
+    options: [The active image, Every other open image or sequence the task can work on]
+    effect: Chooses the first image, which the canvas shows, the first histogram counts and **Take snapshot** copies.
     range: Any size, channels, pixel type or state.
-    persistence: Until the window closes. Choosing another fills **Image 2** again with the images of the new size and returns it to `<--NO IMAGE-->`.
+    persistence: Until the task closes. Choosing another fills **Image 2** again with the images of the new size and returns it to `<--NO IMAGE-->`.
   - name: Image 2
     kind: combo
     default: "<--NO IMAGE-->"
@@ -190,50 +189,52 @@ controls:
     enabled: The list follows the views as they open, close, change or are renamed. When the image chosen closes, or changes to another size, the box returns to `<--NO IMAGE-->` without a message.
     tradeoff: Nothing else is checked, neither the registration nor the channels, the pixel type, the world coordinates or the brightness. A pair off by a pixel shows as a doubled edge at the divider, or as a jump when you switch.
     scope: The image its view shows, which is the current frame of a sequence. Its mask plays no part.
-    persistence: Until the window closes or **Image 1** changes.
+    persistence: Until the task closes or **Image 1** changes.
 ```
 
 ```controls
-window: The preview pane
+window: The canvas
 controls:
   - name: Display Mode
-    kind: combo
-    default: The mode of the view of Image 1
-    options: [The mode of the view of Image 1, Linear, Autostretch]
+    kind: radio
+    default: Linear
+    options: [Linear, Autostretch]
+    range: It opens in the mode of the view of Image 1.
     effect: "**Linear** shows both images as their samples are. **Autostretch** stretches each one by its own median and deviation, with the same settings."
     tradeoff: In **Autostretch** two images of different levels can look alike, because each gets the stretch of its own statistics. Judge brightness in **Linear**.
     scope: The display only. The histograms and the images do not change.
   - name: Preview area
     kind: check
     default: "Off"
-    effect: Changes nothing you see here. The preview is a copy of Image 1, and an area of it is still Image 1.
+    effect: Changes nothing you see here. The canvas shows a copy of Image 1, and an area of it is still Image 1.
+    enabled: It stands in the column's toggles row.
     range: Ticked, it is 600 by 600 pixels in the middle of the image, or the image's size when that is smaller.
-    scope: The preview only. The split and the histograms keep showing the whole images, and there is no comparison of an area alone.
+    scope: The canvas only. The split and the histograms keep showing the whole images, and there is no comparison of an area alone.
   - name: Take snapshot
     kind: toolbutton
     default: ""
     effect: Opens a new image named `<Image 1> - Image Compare - SNAPSHOT`, a copy of the samples, channels, pixel type and header of Image 1.
     range: It holds neither the split nor Image 2 nor the display stretch. A mask on Image 1 changes nothing in it.
     scope: The images compared stay as they were. The new image's history starts with an Image Compare step that has no description.
-    persistence: Each press opens another image. Closing the window leaves them open.
+    persistence: Each press opens another image. Closing the task leaves them open.
 ```
 
 ## How it works
 
-1. The window opens on the active image as Image 1, and lists for Image 2 every other open view of exactly its width
+1. The task opens on the active image as Image 1, and lists for Image 2 every other open view of exactly its width
    and height.
-2. The preview shows a copy of Image 1. In Toggle mode, Image 2 is the image the preview's switch turns to.
-3. In a split, Image 2 is presented for the screen in the background, as the preview presents Image 1, and drawn on
+2. The canvas shows a copy of Image 1. In Toggle mode, Image 2 is the image the toggle turns to.
+3. In a split, Image 2 is presented for the screen in the background, as the canvas presents Image 1, and drawn on
    one side of the divider over the picture of Image 1. No arithmetic joins the two: there is no difference, ratio or
    score.
 4. Each image is counted into its own histogram from its stored samples. In **Autostretch**, each is stretched by the
    median and deviation of its own samples, then given the saturation, brightness and contrast of the settings.
-5. Neither image, nor its header, history or file, is changed. **Take snapshot** runs the window's process, which
+5. Neither image, nor its header, history or file, is changed. **Take snapshot** runs the task's process, which
    copies Image 1, and opens the copy.
 
 ### Boundaries
 
-- An image of another size is left out of **Image 2**, never resampled or cropped. The window corrects no shift,
+- An image of another size is left out of **Image 2**, never resampled or cropped. The task corrects no shift,
   rotation, distortion, background or color, so a seam or a registration error of a mosaic shows, and stays.
 - The channels, the [pixel type](../../reference/glossary.md#pixel-type), the world coordinates, the crop origin and the scale of the samples are not checked.
   A grayscale Image 2 is shown gray beside a color Image 1.
@@ -241,7 +242,7 @@ controls:
   with the lens on Image 1, not from that side.
 - When Image 2 closes or changes to another size, the box returns to `<--NO IMAGE-->` and a split shows Image 1
   alone. No message is shown.
-- Nothing is applied, so nothing can be undone. Closing the window leaves the snapshots you took open.
+- Nothing is applied, so nothing can be undone. Closing the task leaves the snapshots you took open.
 
 ### Worked example
 
@@ -293,8 +294,8 @@ Image 2's side shows all channels while View Channel shows one, or keeps its old
 :   **Fix.** Use Toggle mode to compare one channel of each. After new Autostretch settings, switch **Display Mode**
     to **Linear** and back.
 
-Nothing is left after you close the window
-:   **Cause.** The window changes nothing and makes no comparison image.
+Nothing is left after you close the task
+:   **Cause.** The task changes nothing and makes no comparison image.
 :   **Fix.** Use **Take snapshot** for a copy of Image 1 before you close. For an image of the difference, use Image
     Blend's **Difference** mode or Pixel Math.
 
@@ -310,6 +311,5 @@ The snapshot holds neither the split nor Image 2
 - [Pixel Math](../pixel-math/pixel-math.md), for a difference, a ratio or any other image made from the two.
 - [Image Statistics](../../interface/image-statistics.md), for numbers in place of a picture.
 - [Image Viewer](../../interface/image-viewer.md), for the zoom, the display channel, the lens and the Autostretch
-  the preview shares.
-- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
-  process window shares.
+  the canvas shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the histogram toolbar and what every task shares.

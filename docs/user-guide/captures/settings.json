@@ -1,0 +1,21 @@
+{
+  "group": "Settings",
+  "captures": [
+    {
+      "picture": "assets/images/interface/settings-dialog-external-tools.webp",
+      "page": "interface/settings-dialog.md",
+      "data": [],
+      "note": "tools-profile is a kept profile whose External Tools page names StarNet2 2.5.3 or newer and DeepSNR 1.2.0 or newer (tools/starnetPath, tools/deepsnrPath), installed in folders whose paths name nothing personal. The keys reach the ninth page of the list: Tab from the search field to the list, then Down once a page.",
+      "shows": "The Settings dialog on its External Tools page, with StarNet2 and DeepSNR found and their versions supported",
+      "options": ["-Storage", "{tools}", "-ReuseStorage", "-Capture", "settings-dialog-external-tools=Edit > Settings...", "-Set", "%keys=Tab,Down,Down,Down,Down,Down,Down,Down,Down"]
+    },
+    {
+      "picture": "assets/images/interface/settings-dialog-catalogs.webp",
+      "page": "interface/settings-dialog.md",
+      "data": [],
+      "note": "gaia-profile is a kept profile with the Gaia DR3 G<=14 pack installed and saved on Catalogs & Data, and no SPCC chunk downloaded. The keys reach the seventh page of the list: Tab from the search field to the list, then Down once a page.",
+      "shows": "The Settings dialog on its Catalogs & Data page, with the Gaia DR3 G<=14 pack installed and nothing downloaded for SPCC yet",
+      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Capture", "settings-dialog-catalogs=Edit > Settings...", "-Set", "%keys=Tab,Down,Down,Down,Down,Down,Down"]
+    }
+  ]
+}

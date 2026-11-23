@@ -1,0 +1,33 @@
+{
+  "group": "Geometry",
+  "captures": [
+    {
+      "picture": "assets/images/processes/geometry/crop.webp",
+      "page": "processes/geometry/crop.md",
+      "data": ["linear"],
+      "shows": "The Crop task on the linear Carina master in the Autostretch display mode, with Pos X at 1623, Pos Y at 1214, Width at 4000 and Height at 3000: the canvas shows the whole master with the crop frame at its middle",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\geometry\\crop.md", "-Set", "targetPosX=1623;targetPosY=1214;targetWidth=4000;targetHeight=3000"]
+    },
+    {
+      "picture": "assets/images/processes/geometry/integer-resample.webp",
+      "page": "processes/geometry/integer-resample.md",
+      "data": ["linear"],
+      "shows": "The Integer Resample task as it opens on the linear Carina master in the Autostretch display mode: Downsample by 2 with Average, Target Px 3623 by 2714",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\geometry\\integer-resample.md"]
+    },
+    {
+      "picture": "assets/images/processes/geometry/resize.webp",
+      "page": "processes/geometry/resize.md",
+      "data": ["linear"],
+      "shows": "The Resize task on the linear Carina master in the Autostretch display mode, with Width at 50 % and Keep aspect ratio on: Target Px 3623 by 2714",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\geometry\\resize.md", "-Set", "targetWidthPercent=50"]
+    },
+    {
+      "picture": "assets/images/processes/geometry/rotate.webp",
+      "page": "processes/geometry/rotate.md",
+      "data": ["linear"],
+      "shows": "The Rotate task on the linear Carina master in the Autostretch display mode, turned 10 degrees with Resize image on and Crop on at Pos X 1040, Pos Y 1102, Width 6000 and Height 4400: the canvas shows the turn and the crop frame",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\geometry\\rotate.md", "-Set", "rotationAngle=10;resizeImage=On;groupBox=On;targetPosX=1040;targetPosY=1102;targetWidth=6000;targetHeight=4400"]
+    }
+  ]
+}

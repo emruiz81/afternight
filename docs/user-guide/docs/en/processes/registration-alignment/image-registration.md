@@ -16,7 +16,8 @@ external: >-
   Enrich with Gaia catalog
 glance:
   enabled: >-
-    Always. The window opens without an image and chooses its frames itself. Register needs two frames and an output
+    Always, from the menu or from the Image Registration card of the Integration hub. The task opens as a page of its
+    own that it fills whole, without an image, and chooses its frames itself. Register needs two frames and an output
     directory. Align needs a registration that answers the frames and settings as they are, and two included,
     registered frames.
   inputs: >-
@@ -36,46 +37,38 @@ Image Registration finds where each frame of a set lies on a
 stack can add them. **Register** detects the stars of every frame, pairs them with the reference's stars and fits a
 transform to the pairs. It records the transforms and each frame's figures in the output directory and lists them in
 the table. **Align** writes each included, registered frame onto the reference's grid as a new 32-bit floating-point
-[FITS](../../reference/glossary.md#fits) file. The source files are never changed. Use the window to choose the
+[FITS](../../reference/glossary.md#fits) file. The source files are never changed. Use the [task](../../reference/glossary.md#task) to choose the
 reference and the transform yourself, look at each frame's figures and leave out weak frames, without the whole
 Image Integration workflow.
 
 ```figure
 image: ../../assets/images/processes/registration-alignment/image-registration.webp
 alt: >-
-  The Image Registration window. On the left, a preview of one frame above the Frame List, a table of the 35 frames, five of them in view, with the
-  columns File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point and RMS, and under it a row of buttons
-  from Add to Clear All with the Current, Registered and Reference counts. On the right, the Registration card with
-  Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star Pairs, Max Stars per
+  The Image Registration task, a page that fills the centre of the main window under a header naming Image
+  Registration. On the left of the page, a preview of one frame above the Frame List, a table of the 35 frames with
+  the columns File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point and RMS, and under it a row of
+  buttons from Add to Clear All with the Current, Registered and Reference counts. On the right, the Registration card
+  with Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star Pairs, Max Stars per
   Frame, three check boxes, Skip already-registered frames ticked and the Register button; the Alignment card with
   Standard chosen, Interpolation at Auto and the Align button; Extended Settings and the Output Directory with its
-  path. Reset and Close run along the bottom.
+  path. Reset and Close stand at the page's foot.
 caption: >-
   Image Registration after Register and Align on 35 calibrated lights of NGC 253, every setting at its default: the
   table holds each frame's figures, and the first frame is the reference.
-pins:
-  - {n: 2, x: 9.6, y: 62.8}
-  - {n: 3, x: 70.9, y: 55.8}
-  - {n: 4, x: 69.1, y: 10.3}
-  - {n: 5, x: 71.1, y: 19.8}
-  - {n: 6, x: 68.2, y: 51.7}
-  - {n: 7, x: 69.8, y: 29.7}
-  - {n: 8, x: 58.5, y: 82.7}
-  - {n: 9, x: 68.4, y: 35.8}
-  - {n: 10, x: 69.8, y: 45.8}
+owed: true
 ```
 
 ## Before you start
 
-- Calibrate the frames first and keep them linear: this window applies no bias, dark, flat, cosmetic correction or
-  normalization. Leave color-filter frames as mosaics. The window
+- Calibrate the frames first and keep them linear: this task applies no bias, dark, flat, cosmetic correction or
+  normalization. Leave color-filter frames as mosaics. The task
   [debayers](../../reference/glossary.md#debayer) each one as it reads it, the aligned files are RGB, and the mosaics
   stay on disk for any step that needs them.
 - Every frame must have the width, height, [pixel type](../../reference/glossary.md#pixel-type) and channel count of
   the others. Gain, offset, exposure, filter, camera, [CFA](../../reference/glossary.md#cfa) pattern and session are
   not compared.
 - Give each set an empty output directory of its own: it holds the registration and the aligned files.
-- For a mosaic, choose **Mosaic** in **Extended Settings...** before you register. The window's own **Alignment** card
+- For a mosaic, choose **Mosaic** in **Extended Settings...** before you register. The task's own **Alignment** card
   stays disabled until a registration is recorded, and a switch to or from **Mosaic** needs a new one.
 - **Auto-solve unsolved frames** needs a plate solver set up in [Settings](../../interface/settings-dialog.md), and
   **Enrich with Gaia catalog** an installed [Gaia](../../reference/glossary.md#gaia) catalog. A frame's
@@ -86,8 +79,11 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Preprocess > Image Registration**. No image needs to be open. The window
-   opens with an empty **Frame List**, and its **Registration** card stays disabled until it lists two frames.
+1. **Open the task.** Choose **Process > Preprocess > Image Registration**, find it in the
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++, or choose **Image Registration** under
+   **Single steps** in the [Integration hub](../../interface/integration-hub.md). No image needs to be open. The task
+   opens as a page that fills the centre, with an empty **Frame List**, and its **Registration** card stays disabled
+   until it lists two frames.
 2. **Add the frames.** Choose **Add** and pick the calibrated lights, or **Add Folder** to take a folder's images. The
    table lists each file with its filter and exposure, **Status** reads "Not registered", and an arrow marks the first
    row as the reference.
@@ -101,23 +97,24 @@ pins:
 6. **Check the extended settings.** For color-filter frames, open **Extended Settings... > Advanced Settings...** and
    check **CFA Pattern** and **Method**. For a mosaic, choose **Mosaic** there now. Choose **OK** in each dialog to
    keep the values.
-7. **Register.** Choose **Register**. A progress window follows the frames, then each row reads **Registered** or
-   **Failed** with its **Stars**, **FWHM**, **SNR**, **Ecc.** and **RMS**, and the line under the output directory
-   says how many registered.
+7. **Register.** Choose **Register**, or press ++ctrl+enter++. The head of the page follows the frames, then each
+   row reads **Registered** or **Failed** with its **Stars**, **FWHM**, **SNR**, **Ecc.** and **RMS**, and the line
+   under the output directory says how many registered.
 8. **Look at the frames.** Sort by **File**, **Filter** or **Exposure**, step through failures with **Next Failed**,
    and select two rows or more for **Blink Compare...**. Exclude a weak frame from its row's menu, or set limits under
    **Quality Thresholds** and choose **Apply Thresholds**. Excluded rows are marked, and need no new registration.
 9. **Choose the canvas.** Under **Alignment**, keep **Standard**, or choose **Intersection** to keep only the part
    every frame covers. Leave **Interpolation** at **Auto**. Neither choice needs a new registration.
-10. **Align.** Choose **Align**. A progress window follows the frames. The output directory then holds one
+10. **Align.** Choose **Align**, or press ++ctrl+enter++ once the registration is current. The head of the page
+    follows the frames. The output directory then holds one
     `<name>_reg.fits` for each included, registered frame, and the line under it reads "Registration and alignment
     completed successfully".
 
 ## Controls
 
-The preview pane's zoom, channel and display mode work as in [Process Windows](../../interface/process-windows.md),
-which also says what ++esc++, the window's kept size and its kept values do. This window has no **Apply**:
-**Register** and **Align** are its runs, and each works on files.
+The preview pane's zoom, channel and display mode work as in [Tasks](../../interface/tasks.md), which also says what
+++esc++ and the task's kept values do. This task has no **Apply**: **Register** and **Align** are its runs, and each
+works on files.
 
 ### Image Registration
 
@@ -141,7 +138,7 @@ controls:
       correlation suits frames that differ by a shift only, and judges no answer, so any shift it measures is taken.
       Comet tracking needs a `DATE-OBS` card on every frame and two marked positions of the object.
     scope: The whole list. Phase correlation still detects every frame's stars first, though its shift does not use them.
-    persistence: Kept for the next window. **Reset** returns **Star Matching**.
+    persistence: Kept for the next task. **Reset** returns **Star Matching**.
   - name: Transformation
     kind: combo
     default: Homography
@@ -158,7 +155,7 @@ controls:
       With **Star Matching**. **Phase Correlation** disables it. It stays enabled for **Comet / Asteroid Tracking**,
       which does not read it.
     tradeoff: More freedom needs more well-spread pairs, and on few or poor pairs it can bend the frame where it should not.
-    persistence: Kept for the next window. **Reset** returns **Homography**.
+    persistence: Kept for the next task. **Reset** returns **Homography**.
   - name: Reference
     object: referenceModeSelector
     kind: combo
@@ -174,7 +171,7 @@ controls:
     scope: >-
       Choosing **Auto** picks a frame at once from the figures the table holds, and **Register** picks again from the
       figures of its own detection. The row it chose is the reference afterwards.
-    persistence: Kept for the next window. **Reset** returns **Manual**.
+    persistence: Kept for the next task. **Reset** returns **Manual**.
   - name: Reference
     object: referenceImageValue
     kind: spinbox
@@ -186,7 +183,7 @@ controls:
     tradeoff: >-
       The reference fixes the grid **Standard** writes onto, its framing and its size. A frame near the middle of the
       session and free of trailing serves best.
-    persistence: The reference file is kept for the next window and recorded with the registration. Choosing another makes a recorded registration out of date.
+    persistence: The reference file is kept for the next task and recorded with the registration. Choosing another makes a recorded registration out of date.
   - name: Min Star Pairs
     kind: spinbox
     default: "10"
@@ -199,7 +196,7 @@ controls:
       frame holds 1,000 stars or more.
     enabled: Read by **Star Matching**. It stays enabled for the other methods, which do not read it.
     tradeoff: Higher refuses sparse fields and narrowband frames. Lower accepts weaker matches.
-    persistence: Kept for the next window. **Reset** returns 10.
+    persistence: Kept for the next task. **Reset** returns 10.
   - name: Max Stars per Frame
     kind: spinbox
     default: "2000"
@@ -209,7 +206,7 @@ controls:
       detects the frames again.
     tradeoff: Higher helps a crowded field and costs detection and matching time. Lower can leave parts of the field without stars.
     scope: Every method's detection, though only **Star Matching** pairs the stars.
-    persistence: Kept for the next window. **Reset** returns 2000.
+    persistence: Kept for the next task. **Reset** returns 2000.
   - name: Auto-solve unsolved frames
     kind: check
     default: "Off"
@@ -223,7 +220,7 @@ controls:
       Each solve adds time, and an online solver needs the network. A frame that fails to solve is logged as a warning,
       and the registration goes on.
     scope: A solution serves **Enrich with Gaia catalog** and the arcsecond **RMS** only. It never places a frame, and it is not written to the file.
-    persistence: Kept for the next window. **Reset** returns off. The solver's own settings are the application's.
+    persistence: Kept for the next task. **Reset** returns off. The solver's own settings are the application's.
   - name: Enrich with Gaia catalog
     kind: check
     default: "Off"
@@ -238,7 +235,7 @@ controls:
     scope: >-
       The frames whose stars this run detected. A frame whose stars are reused but has no catalog figures is detected
       again. Stars are placed in the catalog at the frame's date of observation.
-    persistence: Kept for the next window. **Reset** turns it on, shown ticked while a catalog is ready.
+    persistence: Kept for the next task. **Reset** turns it on, shown ticked while a catalog is ready.
   - name: Chromatic aberration correction
     kind: check
     default: "Off"
@@ -249,7 +246,7 @@ controls:
     tradeoff: >-
       Stars are detected in the green channel, which the correction does not move, and **Align** reads the original
       files. So the correction changes neither the transforms nor the aligned files, and only adds time.
-    persistence: Kept for the next window with its settings. **Reset** returns off.
+    persistence: Kept for the next task with its settings. **Reset** returns off.
   - name: Skip already-registered frames
     kind: check
     default: "On"
@@ -259,7 +256,7 @@ controls:
       the files have not changed. Off detects and matches every frame again.
     tradeoff: On saves most of the time of a second run. A record that does not answer the frames and settings is not used.
     scope: The registration database in the output directory. Excluded frames that failed do not stand in the way of a reuse.
-    persistence: Kept for the next window. **Reset** turns it on.
+    persistence: Kept for the next task. **Reset** turns it on.
   - name: Clear Registered Data
     kind: button
     default: ""
@@ -299,7 +296,7 @@ controls:
       **Standard** gives a predictable size, and a frame's shifted part falls outside it. **Mosaic** keeps everything
       at the largest size, time and disk. **Intersection** gives clean edges and drops the strips some frames miss.
     persistence: >-
-      Kept for the next window. **Reset** returns **Standard**. A change between **Standard** and **Intersection** keeps
+      Kept for the next task. **Reset** returns **Standard**. A change between **Standard** and **Intersection** keeps
       the registration. A switch to or from **Mosaic** makes it out of date, and disables this card until you register
       again.
   - name: Interpolation
@@ -313,7 +310,7 @@ controls:
       detail and can ring beside bright stars. **Pixel Area Relation** averages, and the two **Bit Exact** choices give
       the same result on every computer.
     scope: Every channel of every aligned frame. A change keeps the registration.
-    persistence: Kept for the next window. **Reset** returns **Auto**.
+    persistence: Kept for the next task. **Reset** returns **Auto**.
   - name: Align
     kind: button
     default: ""
@@ -327,19 +324,19 @@ controls:
       Time and memory grow with the canvas and the interpolation. Each file holds three channels for a color or
       debayered frame. A stopped or failed run keeps the files it finished, and the frame it was writing leaves no file.
     scope: The included, registered frames, in the list's order. Failed and excluded frames are left out.
-    persistence: Replaces a file of the same name without asking. Nothing of the window's settings changes.
+    persistence: Replaces a file of the same name without asking. Nothing of the task's settings changes.
   - name: Extended Settings...
     kind: button
     default: ""
     effect: Opens **Registration Settings**, the full settings of the registration and the alignment, and the detection, color-filter and comet settings behind them.
     enabled: With a frame in the list and no run working.
-    persistence: The values you accept with **OK** replace the window's.
+    persistence: The values you accept with **OK** replace the task's.
   - name: Output Directory
     kind: readout
     default: ""
     effect: Shows the folder that holds the registration database and the aligned files. You cannot type in it.
     range: A folder that no longer exists is made again by the next **Register** or **Align**.
-    persistence: Kept for the next window. **Reset** leaves it.
+    persistence: Kept for the next task. **Reset** leaves it.
   - name: Browse
     kind: button
     default: ""
@@ -374,13 +371,13 @@ controls:
       Selecting a row shows its frame in the preview. ++ctrl++ and ++shift++ select several. Clicking **File**,
       **Filter** or **Exposure** sorts the list by it in descending order, and a second click reverses the order. The
       other columns do not sort.
-    persistence: The frames and their order are kept for the next window, which reads their headers again. The figures come from the database.
+    persistence: The frames and their order are kept for the next task, which reads their headers again. The figures come from the database.
     note: Hover over a file name to see its full path.
   - name: Add
     kind: button
     default: ""
     effect: >-
-      Opens a file dialog and adds the image files you choose. Their headers are read away from the window, which stays
+      Opens a file dialog and adds the image files you choose. Their headers are read on the thread pool, and the page stays
       responsive.
     range: A file already listed is passed over. A message says how many were added, passed over and could not be read, when any were not added.
     enabled: While no run works.
@@ -435,9 +432,9 @@ controls:
     default: ""
     effect: >-
       Empties the list, the preview and the counts, stops the files still being read, and forgets the exclusions and
-      the registration the window holds.
+      the registration the task holds.
     enabled: With a frame in the list. It does nothing while a run works.
-    scope: The window only. No file is deleted, and a registration recorded in the output directory is read back when you list the frames again.
+    scope: The task only. No file is deleted, and a registration recorded in the output directory is read back when you list the frames again.
 ```
 
 ```controls
@@ -452,21 +449,21 @@ controls:
       When every listed frame has a current registration. The **Quality Thresholds** section opens and closes with its
       title, and opens closed.
     tradeoff: High values drop sparse fields and narrowband frames that registered well.
-    persistence: Kept for the next window, and applied when it opens.
+    persistence: Kept for the next task, and applied when it opens.
   - name: Max FWHM
     kind: spinbox
     default: "0.000"
     widget: {min: 0, max: 999, step: 0.1, decimals: 3}
     effect: Excludes every frame whose FWHM, in pixels, is larger, the reference too. 0 sets no limit.
     tradeoff: Lower keeps sharper frames, and can drop the frames of another filter or a night of other seeing.
-    persistence: Kept for the next window, and applied when it opens.
+    persistence: Kept for the next task, and applied when it opens.
   - name: Max Eccentricity
     kind: spinbox
     default: "0.000"
     widget: {min: 0, max: 1, step: 0.01, decimals: 3}
     effect: Excludes every frame whose **Ecc.** is larger, the reference too. 0 sets no limit.
     tradeoff: Lower keeps rounder stars and can exclude more frames than you meant.
-    persistence: Kept for the next window, and applied when it opens.
+    persistence: Kept for the next task, and applied when it opens.
   - name: Apply Thresholds
     kind: button
     default: ""
@@ -496,14 +493,14 @@ controls:
       positions are cleared, and the quality thresholds are cleared.
     range: It leaves the list, the reference, the output directory and the frames you excluded yourself.
     enabled: While no run works.
-    persistence: The new values are kept for the next window.
+    persistence: The new values are kept for the next task.
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window at once. A run that works is stopped, and the window does not wait for it.
-    enabled: Also while a run works. ++esc++ does the same.
+    effect: Closes the task at once. A run that works is stopped, and the task does not wait for it.
+    enabled: Also while a run works. ++esc++ and the task header's **Close** do the same while no run works.
     tradeoff: A stopped registration records nothing. A stopped alignment keeps the files it finished, and the frame it was writing leaves no file.
-    persistence: The window's values, its list and its output directory are kept for the next window.
+    persistence: The task's values, its list and its output directory are kept for the next task.
 ```
 
 ```controls
@@ -539,8 +536,8 @@ controls:
     effect: >-
       Marks the selected rows "Excluded manually". **Align** leaves them out, and **Auto** does not choose them. The
       **Blink Comparator** excludes the same way.
-    scope: The window only. No registration is needed again, and the files stay.
-    persistence: Until the window closes. Exclusions are not kept for the next window.
+    scope: The task only. No registration is needed again, and the files stay.
+    persistence: Until the task closes. Exclusions are not kept for the next task.
   - name: Include selected frames
     kind: action
     default: ""
@@ -553,7 +550,7 @@ controls:
       Shows the frame in the preview and opens Plate Solving over it, which runs the solver set up in the settings.
       When that window closes, the solution it applied is kept for this frame.
     scope: The solution serves the catalog figures only. The file is not changed.
-    persistence: Until this window closes.
+    persistence: Until this task closes.
   - name: Blink Compare...
     kind: action
     default: ""
@@ -582,15 +579,16 @@ controls:
 ```
 
 ```controls
-window: Progress
+window: The run at the head of the page
 controls:
   - name: Progress
     kind: readout
     default: ""
     effect: >-
-      Follows a run from 0 to 100 percent, in a window titled "Registration" or "Image Alignment". It names what is
-      being done, as `Plate-solving <file>`, `Detecting stars on <file>`, `Computing transformations...` and `Aligning
-      image 3/35: <file>`.
+      Follows a run from 0 to 100 percent at the head of the page, in the banner's place, from "registering" or
+      "aligning". It names what is being done, as `Plate-solving <file>`, `Detecting stars on <file>`, `Computing
+      transformations...` and `Aligning image 3/35: <file>`, with "The task keeps running if you leave this page."
+      under it. No progress window opens; the task header and its item in the rail show the run too.
     range: In a registration, detection fills the bar to 75 percent and matching the rest.
     enabled: >-
       While **Register** or **Align** works. The cards, **Add**, **Add Folder**, **Extended Settings...** and **Reset**
@@ -598,14 +596,14 @@ controls:
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop. The window closes when the run reaches a point where it can stop.
+    effect: Stands at the end of the run's row, and asks the run to stop. The row goes when the run reaches a point where it can stop.
     tradeoff: A cancelled registration records nothing and leaves an earlier record in place. A cancelled alignment keeps the files it finished.
 ```
 
 ### Registration Settings
 
-**Extended Settings...** opens this dialog. It shows the window's values and the ones only it holds. **OK** gives
-them to the window, and **Cancel** discards them.
+**Extended Settings...** opens this dialog. It shows the task's values and the ones only it holds. **OK** gives
+them to the task, and **Cancel** discards them.
 
 ```controls
 window: Registration Settings
@@ -613,44 +611,44 @@ controls:
   - name: Auto-solve unsolved frames during Registration
     kind: check
     default: "Off"
-    effect: The window's **Auto-solve unsolved frames**.
+    effect: The task's **Auto-solve unsolved frames**.
     enabled: When a plate solver is set up.
     note: >-
-      Here **Mosaic** does not turn it on. This window solves a frame only while it is on, and the **Mosaic** tooltip
+      Here **Mosaic** does not turn it on. This task solves a frame only while it is on, and the **Mosaic** tooltip
       says so.
   - name: Enrich with Gaia catalog
     kind: check
     default: "On"
-    effect: The window's **Enrich with Gaia catalog**.
-    enabled: Always, so you can turn it off without a catalog. The window's own box shows it off while no catalog is ready.
+    effect: The task's **Enrich with Gaia catalog**.
+    enabled: Always, so you can turn it off without a catalog. The task's own box shows it off while no catalog is ready.
   - name: Minimum Star Pairs
     kind: spinbox
     default: "10"
     widget: {min: 5, max: 10000, step: 1}
-    effect: The window's **Min Star Pairs**.
+    effect: The task's **Min Star Pairs**.
     enabled: Shown for **Star Matching** only.
   - name: Maximum Stars per Frame
     kind: spinbox
     default: "2000"
     widget: {min: 10, max: 20000, step: 1}
-    effect: The window's **Max Stars per Frame**.
+    effect: The task's **Max Stars per Frame**.
     enabled: Shown for **Star Matching** only.
   - name: Reference Image
     kind: combo
-    default: The window's reference
-    options: [The window's reference, Every listed frame by its full path]
+    default: The task's reference
+    options: [The task's reference, Every listed frame by its full path]
     effect: Chooses the reference by its file. You can type part of a path, and the list offers the frames that hold it.
     enabled: While **Auto-select** is off.
   - name: Auto-select
     kind: check
     default: "Off"
-    effect: The window's **Reference** at **Auto**.
+    effect: The task's **Reference** at **Auto**.
     enabled: Disabled for **Phase Correlation** and **Comet Tracking**.
   - name: Best
     kind: button
     default: ""
     effect: >-
-      Chooses the reference as **Auto** would and puts it in **Reference Image**. It reads the figures the window
+      Chooses the reference as **Auto** would and puts it in **Reference Image**. It reads the figures the task
       holds, and detects the stars of any frame without them, away from the dialog.
     enabled: While **Auto-select** is off, and not for **Comet Tracking**.
     tradeoff: Nothing is recorded. When no frame can be chosen, the box stays as it was and nothing says why.
@@ -658,13 +656,13 @@ controls:
     kind: combo
     default: Star Matching
     options: [Star Matching, Phase Correlation, Comet Tracking]
-    effect: The window's **Method**. Each method shows only the settings it reads.
+    effect: The task's **Method**. Each method shows only the settings it reads.
     note: Image Integration's **Manual Points** is not offered here.
   - name: Transform Model
     kind: combo
     default: Homography
     options: [Similarity, Affine, Homography, Polynomial 2, Polynomial 3, Polynomial 4, Auto]
-    effect: The window's **Transformation**. A line under it says what the choice does.
+    effect: The task's **Transformation**. A line under it says what the choice does.
     enabled: Shown for **Star Matching** only.
   - name: Comet Output
     kind: combo
@@ -680,7 +678,7 @@ controls:
   - name: Correct chromatic aberration before registration
     kind: check
     default: "Off"
-    effect: The window's **Chromatic aberration correction**, and enables the four values under it. A line under them says what the correction will do.
+    effect: The task's **Chromatic aberration correction**, and enables the four values under it. A line under them says what the correction will do.
   - name: Edge Fraction
     kind: spinbox
     default: "0.55"
@@ -710,12 +708,12 @@ controls:
     kind: radio
     default: Standard
     options: [Standard, Mosaic, Intersection]
-    effect: The window's canvas choice. Here it can be changed before a registration, when the window's card is disabled.
+    effect: The task's canvas choice. Here it can be changed before a registration, when the task's card is disabled.
   - name: Interpolation
     kind: combo
     default: Auto
     options: [Auto, Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
-    effect: The window's **Interpolation**.
+    effect: The task's **Interpolation**.
   - name: Advanced Settings...
     kind: button
     default: ""
@@ -725,21 +723,21 @@ controls:
     default: ""
     effect: Returns the dialog's values to their defaults. The dialog stays open, and nothing changes until **OK**.
     note: >-
-      It sets **Transform Model** to **Auto** and ticks **Auto-select**, where the window's **Reset** returns
+      It sets **Transform Model** to **Auto** and ticks **Auto-select**, where the task's **Reset** returns
       **Homography** and **Manual**.
   - name: Apply to All Groups
     kind: button
     default: ""
-    effect: Does nothing in this window. It belongs to Image Integration, which has several groups.
+    effect: Does nothing in this task. It belongs to Image Integration, which has several groups.
     enabled: Disabled for **Comet Tracking**.
   - name: Cancel
     kind: button
     default: ""
-    effect: Closes the dialog and keeps the window's values.
+    effect: Closes the dialog and keeps the task's values.
   - name: OK
     kind: button
     default: ""
-    effect: Gives the dialog's values to the window and closes it.
+    effect: Gives the dialog's values to the task and closes it.
 ```
 
 ### Advanced Registration Settings
@@ -850,7 +848,7 @@ controls:
 
 ### Track Comet
 
-**Track Comet...** in **Registration Settings** opens this dialog. In this window you mark the comet by hand: the
+**Track Comet...** in **Registration Settings** opens this dialog. In this task you mark the comet by hand: the
 automatic tools stay disabled.
 
 ```controls
@@ -878,15 +876,15 @@ controls:
   - name: Refine
     kind: button
     default: ""
-    effect: Does nothing in this window. It stays disabled.
+    effect: Does nothing in this task. It stays disabled.
   - name: Auto Track
     kind: button
     default: ""
-    effect: Disabled in this window, which offers no automatic tracking.
+    effect: Disabled in this task, which offers no automatic tracking.
   - name: Find Moving Object
     kind: button
     default: ""
-    effect: Disabled in this window, which offers no search.
+    effect: Disabled in this task, which offers no search.
   - name: Observations
     kind: readout
     default: ""
@@ -897,7 +895,7 @@ controls:
   - name: Diagnostics
     kind: readout
     default: ""
-    effect: Lists candidate positions with **Accept** to take one. In this window nothing fills it.
+    effect: Lists candidate positions with **Accept** to take one. In this task nothing fills it.
   - name: Clear
     kind: button
     default: ""
@@ -917,7 +915,7 @@ controls:
     kind: spinbox
     default: "8"
     widget: {min: 0, max: 4096, step: 1}
-    effect: Serves **Auto Track** only, which this window does not offer.
+    effect: Serves **Auto Track** only, which this task does not offer.
   - name: Track model
     kind: combo
     default: Linear
@@ -987,7 +985,7 @@ controls:
       excludes the frame shown.
     tradeoff: Each frame is read whole, which costs time and memory.
     persistence: >-
-      When it closes, the frames you excluded are excluded in the window. Ratings you give with ++1++ to ++9++ stay in
+      When it closes, the frames you excluded are excluded in the task. Ratings you give with ++1++ to ++9++ stay in
       the comparator. It opens at the size you left it.
 ```
 
@@ -1156,15 +1154,15 @@ The aligned frames have black edges
 
 ## Related
 
-- [Image Calibration](../calibration/image-calibration.md), which makes the calibrated lights this window takes.
+- [Image Calibration](../calibration/image-calibration.md), which makes the calibrated lights this task takes.
 - [Image Stacking](../stacking-integration/image-stacking.md), which stacks the aligned files and reads the database
-  this window writes.
+  this task writes.
 - [Image Integration](../stacking-integration/image-integration.md), which calibrates, registers and stacks in one
   workflow, and shares the registration database.
 - [Plate Solving](plate-solving.md), to solve a frame for **Solve...**, or the stack for sky coordinates.
 - [Image Registration Reference](image-registration-reference.md), for the matching, the database, the files Align
   writes, the comet run and every message.
-- [Process Windows](../../interface/process-windows.md), for the preview pane and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the preview pane and what every task shares.
 
 ## Credits
 

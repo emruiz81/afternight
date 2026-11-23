@@ -14,9 +14,9 @@ masks: none
 external: The DeepSNR command-line tool, 1.2.0 or newer, with its ONNX models, installed separately
 glance:
   enabled: >-
-    An image or a sequence view is active, no DeepSNR window is open on it yet, and no window that needs the image for
-    itself is open on it. The window opens whether or not DeepSNR is installed, and OK waits until the window says the
-    program is ready.
+    An image or a sequence view is active, no DeepSNR task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks, whether or not DeepSNR is installed,
+    and OK waits until the task says the program is ready and nothing else is working on the target.
   inputs: >-
     One grayscale or RGB image or sequence of any pixel type, at least 512 by 512 pixels and not a raw color-filter
     mosaic.
@@ -36,27 +36,20 @@ and [pixel type](../../reference/glossary.md#pixel-type). The program works in w
 noise that changes from one pixel to the next. There is no preview and no strength control.
 
 **OK** replaces the image or [sequence](../../reference/glossary.md#sequence) with the denoised one, keeps its size,
-channels and header, and adds one step to its [history](../../reference/glossary.md#history). The window stays open.
+channels and header, and adds one step to its [history](../../reference/glossary.md#history). The [task](../../reference/glossary.md#task) stays open.
 
 ```figure
 image: ../../assets/images/processes/noise-reduction/deepsnr.webp
 alt: >-
-  The DeepSNR window. Under the title bar, the process name and a line that says it reduces high-frequency noise with
-  the DeepSNR command-line tool. In a card below, the Pre-Stretch linear image check box, ticked; Stride, with a box
-  reading Default (480) and a greyed box reading 480 beside it; Weights, an empty field showing Default
-  DeepSNR_weights_v2.onnx in grey, with a Browse button; Target Image reading RGB; the line DeepSNR is configured and
-  ready to use; and a Configure button. OK and Close run along the bottom.
+  The DeepSNR task. Its header names DeepSNR and the master. The canvas at the left shows the master itself, with no
+  preview, and a floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds
+  Target Image and the process's controls: the Pre-Stretch linear image check box, ticked; Stride, with a box reading Default (480) and a greyed box reading 480
+  beside it; Weights, an empty field showing Default DeepSNR_weights_v2.onnx in grey, with a Browse button; the line
+  DeepSNR is configured and ready to use; and a Configure button. Close and OK stand in its footer.
 caption: >-
   DeepSNR on the linear Carina master with Pre-Stretch linear image ticked, Stride at Default (480) and Weights empty,
-  once AfterNight knows where the program is.
-pins:
-  - {n: 1, x: 75.0, y: 71.0}
-  - {n: 2, x: 33.0, y: 79.8}
-  - {n: 3, x: 97.3, y: 62.1}
-  - {n: 4, x: 3.0, y: 32.8}
-  - {n: 5, x: 97.3, y: 41.8}
-  - {n: 6, x: 97.3, y: 51.5}
-  - {n: 7, x: 44.0, y: 92.4}
+  once AfterNight knows where the program is. The canvas shows the target, since the task has no preview.
+owed: true
 ```
 
 ## Before you start
@@ -73,13 +66,13 @@ pins:
   [debayer](../../reference/glossary.md#debayer) one first.
 - **OK** replaces the image, and its history keeps the step before. A [mask](../../reference/glossary.md#mask) on the
   view is not used, and nothing sets the strength: keep a duplicate to compare or blend.
-- The temporary files location, on the **General** page of the settings, needs room for a 16-bit copy of the image
-  and the program's answer.
 
 ## Steps
 
-1. **Open the window.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Noise Reduction > DeepSNR**. The line above **Configure** says whether the program is ready.
+1. **Open the task.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Noise Reduction > DeepSNR**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows the master, and the column at the right
+   holds its controls. The line above **Configure** says whether the program is ready.
 2. **Point AfterNight at DeepSNR.** When the line names a problem, click **Configure**, then **Detect** beside
    **DeepSNR:** and the settings' **OK**. The line reads "DeepSNR is configured and ready to use."
 3. **Check the target.** **Target Image** names the image or sequence **OK** replaces.
@@ -88,15 +81,15 @@ pins:
    stretched one.
 5. **Leave the stride.** Keep **Stride** at **Default (480)** for the first run.
 6. **Leave the weights.** Keep **Weights** empty, so the program runs its own model.
-7. **Run.** Click **OK**. A progress window follows the program, and its **Cancel** stops it. The view shows the
-   denoised image, and its history lists **DeepSNR** with the stride and the pre-stretch.
+7. **Run.** Click **OK** in the column's footer. The column follows the program, the view then shows the denoised
+   image, and its history lists **DeepSNR** with the stride and the pre-stretch.
 8. **Check at 100 %.** Zoom the view to 100 % over faint nebula, small stars and the background, and compare with the
    step before in the image's history, in the same display mode. The grain is gone, and faint structure and small
    stars are as they were.
 
 ## Controls
 
-What every process window shares is on [Process Windows](../../interface/process-windows.md).
+What every task shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: DeepSNR
@@ -112,8 +105,8 @@ controls:
       restore what the 16-bit hand-off rounded or what the model changed, so the round trip is close, not exact. A
       stretched image stretched again can come back with wrong tones. It adds a measurement of the whole image and two
       passes over it.
-    scope: The whole image, or every frame of a sequence, each channel on its own. The window does not look at whether the image is linear, so the choice is yours.
-    persistence: Until the window closes. The history records it as enabled or disabled.
+    scope: The whole image, or every frame of a sequence, each channel on its own. The task does not look at whether the image is linear, so the choice is yours.
+    persistence: Until the task closes. The history records it as enabled or disabled.
   - name: Stride
     object: stridePreset
     kind: combo
@@ -123,7 +116,7 @@ controls:
     enabled: Once the line above **Configure** says DeepSNR is ready. Disabled while a run works.
     tradeoff: More overlap can hide the seams between windows, and repeats work. **Conservative (256)** evaluates more than three times as many windows as **Default (480)**. Less overlap is faster and leaves the program fewer shared pixels where it merges the windows.
     scope: The whole image, or every frame of a sequence, all channels together. The program receives it as `--stride`.
-    persistence: Until the window closes. The history records the stride that ran.
+    persistence: Until the task closes. The history records the stride that ran.
   - name: Stride
     object: customStrideValue
     kind: spinbox
@@ -133,7 +126,7 @@ controls:
     range: Even values only. An odd value you type is lowered to the even value below it.
     enabled: With **Custom** chosen, once the line above **Configure** says DeepSNR is ready. Disabled while a run works.
     tradeoff: Halving the stride roughly quadruples the windows the model evaluates, and the time with them, and a very small stride need not look better. 512 does the least work and gives the merge no shared pixels.
-    persistence: Until the window closes. It keeps its value while the list shows another choice.
+    persistence: Until the task closes. It keeps its value while the list shows another choice.
   - name: Weights
     kind: field
     default: ""
@@ -148,7 +141,7 @@ controls:
       use makes the run fail, and another model gives another result. Weights are no strength control. A larger model
       takes longer to load and more memory.
     scope: The whole image, or every frame of a sequence, with the channels the model takes.
-    persistence: Until the window closes. It is not saved, and the history step leaves it out. The lineage keeps it among the program's arguments.
+    persistence: Until the task closes. It is not saved, and the history step leaves it out. The lineage keeps it among the program's arguments.
     note: The package's folder of models holds `DeepSNR_weights_v1.onnx` and `DeepSNR_weights_v2.onnx`. Model 1 is the older model and takes RGB images only. Change the weights only after a run with the default model to compare with, and with a model whose origin, channels and licence you know.
   - name: Browse
     kind: button
@@ -160,7 +153,7 @@ controls:
       is one, such as `C:\Program Files\DeepSNR\lib\deepsnr`, and in the program's own folder otherwise.
     enabled: Once the line above **Configure** says DeepSNR is ready. Disabled while a run works.
     tradeoff: A model of unknown origin can fail, give an unsuitable result or come under another licence.
-    persistence: The dialog's folder is remembered for the next time. The path stays in **Weights** until the window closes.
+    persistence: The dialog's folder is remembered for the next time. The path stays in **Weights** until the task closes.
   - name: Target Image
     kind: combo
     default: The active image
@@ -172,7 +165,7 @@ controls:
       A larger image needs more disk, memory and time, and a sequence runs the program once for each frame. A crop to
       try settings on must be 512 pixels a side or more, and shows neither the seams nor how the model suits the rest
       of the field: try them on a duplicate of the whole image.
-    persistence: Until the window closes. A run keeps the view that was chosen when you pressed **OK**.
+    persistence: Until the task closes. A run keeps the view that was chosen when you pressed **OK**.
   - name: Status line
     kind: readout
     default: DeepSNR executable path is empty.
@@ -183,15 +176,15 @@ controls:
       "Could not detect DeepSNR version. DeepSNR 1.2.0 or newer is required." and "DeepSNR 1.1.0 detected. DeepSNR
       1.2.0 or newer is required.", with the version the program gave.
     enabled: >-
-      Worked out when the window opens and when the settings close after **Configure**. The program is asked
+      Worked out when the task opens and when the settings close after **Configure**. The program is asked
       `--machine-info` first, and its version, and whether it reports its progress for machines, are read from that
       answer. A program that gives no such answer is asked `--version`. Both answers must come within 3 seconds, which
-      the window can wait for while it opens.
+      the task can wait for while it opens.
     tradeoff: >-
       Ready means the program answered a version of 1.2.0 or newer, not that its models and runtime can complete a
       run. AfterNight checks no newest version and no package hash, and a package can change without AfterNight.
-    scope: The window, and every run, which asks the program again before it writes anything.
-    persistence: The program's path is kept in the settings, as `tools/deepsnrPath`, for every session and every DeepSNR window. The line is worked out again each time. After a run it reads ready again without asking the program.
+    scope: The task, and every run, which asks the program again before it writes anything.
+    persistence: The program's path is kept in the settings, as `tools/deepsnrPath`, for every session and every DeepSNR task. The line is worked out again each time. After a run it reads ready again without asking the program.
     note: >-
       For a path that is not found or not executable, click **Configure** and choose the program itself. Keep the
       program, its runtime files, its models, its README and its licence where its installer or archive put them, and
@@ -200,7 +193,7 @@ controls:
   - name: Configure
     kind: button
     default: ""
-    effect: Opens the settings at **External Tools**, whose **DeepSNR:** holds the program's path. When the settings close, the window reads the saved path and asks the program again.
+    effect: Opens the settings at **External Tools**, whose **DeepSNR:** holds the program's path. When the settings close, the task reads the saved path and asks the program again.
     range: >-
       **Detect** there looks for `deepsnr.exe` on the system's `PATH`, then in `C:\Program Files\DeepSNR\bin`,
       `C:\Program Files\DeepSNR`, and `DeepSNR`, `AppData\Local\DeepSNR\bin` and `AppData\Local\DeepSNR` in your home
@@ -208,16 +201,17 @@ controls:
       `/usr/bin`, `/opt/DeepSNR/bin` and `/opt/deepsnr/bin` on Linux and `/opt/homebrew/bin` on macOS. It accepts only
       a supported version. The page then shows "✓ DeepSNR 1.2.2 detected", with the version found.
     enabled: Whether or not DeepSNR is ready. Disabled while a run works.
-    tradeoff: The check starts the program and sends it no image. A path that fails the check can still be saved, and the window then stays disabled and says why.
-    persistence: The path is kept for every session. The window's own values are not saved.
+    tradeoff: The check starts the program and sends it no image. A path that fails the check can still be saved, and the task's controls then stay disabled and the line says why.
+    persistence: The path is kept for every session. The task's own values are not saved.
   - name: OK
     kind: button
     default: ""
-    effect: Runs DeepSNR over the target with the values as they are when you press it, and replaces the image, or every frame of the sequence, with the answer. The window stays open with its values for another run.
-    enabled: Once the line above **Configure** says DeepSNR is ready. It is disabled, with every control but **Close**, until the run has ended.
+    effect: Runs DeepSNR over the target with the values as they are when you press it, and replaces the image, or every frame of the sequence, with the answer. The task stays open with its values for another run.
+    enabled: Once the line above **Configure** says DeepSNR is ready. During the run **Cancel** takes its place, and every other control is disabled until the run has ended.
     tradeoff: >-
       The run holds the image, its result and the program's working memory, and writes a 16-bit copy of the image and
-      the program's answer to disk. It can take minutes on a large master, and loading the model, the two files and
+      the program's answer to the temporary files location, on the **General** page of the settings, which needs room
+      for both. It can take minutes on a large master, and loading the model, the two files and
       the conversions add to the program's own time. The program chooses its own device: on Windows it tries CUDA when
       a CUDA runtime was put beside it, then DirectML on the graphics card, then the processor. Its packages for Linux
       and Intel macOS run ONNX Runtime, and those for Apple silicon CoreML. A runtime replaced by hand can keep it from
@@ -231,8 +225,8 @@ controls:
       enabled`. It records neither the weights nor the program's version, which the lineage keeps. The view keeps its
       name, and nothing is saved to a file.
     note: >-
-      A failed run says why in a message titled "Error running DeepSNR", whose text starts "An error occurred when
-      running DeepSNR process:", and in the log, and the image stays as it was. "Could NOT set temporary dir for
+      A failed run says why in the column's message strip, in a message that starts "Error running DeepSNR: An error
+      occurred when running DeepSNR process:", and in the log, and the image stays as it was. "Could NOT set temporary dir for
       DeepSNR execution" means the temporary files location cannot hold a new folder: check its place, its permissions
       and its free space on the General page of the settings. "the tool wrote no image file" and "the tool's image is
       ... where the image is ..." mean the program ended well but left no answer, or one of another size: restore the
@@ -242,31 +236,37 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window. Its values are discarded.
-    enabled: Always, also while a run works.
-    note: Closing the window while a run works hides it, and it closes when the run has ended. It does not stop the run, which the progress window's **Cancel** does.
+    effect: Closes the task. Its values are discarded.
+    enabled: Disabled while a run works, as every other way to close the task is.
+    note: To stop a run, choose **Cancel**, in OK's place while the run works, or the one of the progress window of a sequence.
 ```
 
 ```controls
-window: Progress
+window: The run
 controls:
-  - name: Progress
+  - name: Run
     kind: readout
     default: ""
     effect: >-
-      Follows the run, under the title `DeepSNR <name>`, for an image and for a sequence. On an image, the text names
-      each stage, "Preparing DeepSNR execution...", "Executing DeepSNR..." and "Processing output...", and the bar
-      follows the program's own percentages from 10 to 90 percent. On a sequence, the text reads
-      `Executing DeepSNR on <name>` and the bar counts the frames.
+      Follows the run in the column, in the message strip's place, for an image and for a sequence: "applying", how far
+      the run has come and a thin bar. On an image the bar follows the program's own percentages, from 10 to 90
+      percent.
     tradeoff: The bar moves forward only. A program that does not report its progress for machines has its printed percentages read instead.
     note: >-
       The log keeps the line `Executing <program> <arguments>`. The program's other lines go to the log at the Debug
       level, set on the Logging page of the settings, where its line "Backend: ONNX Runtime (DirectML execution
       provider)" or the like names the device it chose. When the program fails, its lines follow the error message.
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: >-
+      On a sequence, a progress window titled `DeepSNR <name>` also opens over the main window. It reads
+      `Executing DeepSNR on <name>` and its bar counts the frames.
+    enabled: Only while **OK** works on a sequence.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. The program is ended within about a second, and the progress window closes without a result and without a message.
+    effect: Stops the run. On an image it stands in OK's place while the run works, and on a sequence in the progress window. The program is ended within about a second, and the run ends without a result and without an error.
     tradeoff: The program is ended at once, with no chance to finish what it was doing. Its temporary files are removed. When the time was the reason, a larger stride shortens the next run.
     persistence: The image or sequence and its history stay as they were.
 ```
@@ -399,7 +399,7 @@ The result shows a pattern of squares
 
 Faint structure, small stars or the tones changed
 :   **Cause.** The model smoothed what it took for noise, or the pre-stretch ran on a stretched image, which the
-    window does not check.
+    task does not check.
 :   **Fix.** Undo the step, tick the pre-stretch only for a linear image, and blend the result with a duplicate of the
     original to keep part of it.
 
@@ -414,7 +414,7 @@ Faint structure, small stars or the tones changed
 - [Banding Reduction](banding-reduction.md), for patterned noise.
 - [Settings](../../interface/settings-dialog.md), whose **External Tools** page holds the program's path.
 - [Image History](../../interface/image-history.md), to compare with the step before and undo it.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 

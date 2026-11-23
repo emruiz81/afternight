@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Star Mask window is open on it yet, and no window that needs the image
-    for itself is open on it.
+    An image or a sequence view is active, no Star Mask task is open on it yet, and no task that needs the image for
+    itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One grayscale or RGB image or sequence, with or without alpha, of any pixel type, that is not a raw color-filter
     mosaic. A mask on its view is not used.
@@ -29,35 +29,31 @@ derived: true
 ---
 # Star Mask
 
-This window finds the stars of an image and paints them into a new grayscale
+This [task](../../reference/glossary.md#task) finds the stars of an image and paints them into a new grayscale
 [mask](../../reference/glossary.md#mask). A detector fits a profile to each star, and each star it accepts becomes a
 soft disc, whose size follows the star's width, or a solid ellipse. Attach the mask to an image through
 [Masks](../../interface/masks.md), and a later process, such as a noise reduction or Star Reduction, works on the stars
 alone or, inverted, around them.
 
 **Apply** opens the mask as a new image named `<target> - STARMASK`, of the target's size and
-[pixel type](../../reference/glossary.md#pixel-type), and closes the window. The target is not changed, and the mask is
+[pixel type](../../reference/glossary.md#pixel-type), and closes the task. The target is not changed, and the mask is
 recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/star-operations/star-mask.webp
 alt: >-
-  The Star Mask window. On the left, the Detection group with Radius at 5 and Threshold at 1.00, the grayed Amplitude
-  Range group, Roundness Threshold at 0.50, the grayed Roundness Range group, Convergence at 1, Relax PSF Checks,
-  Profile Type at Gaussian, a grayed Minimum Beta and Use Lightness. Under it the ticked Shaped Areas group with
-  Percent Increase at 1.00, Pixel Increase at 0, Min Size at 2, Max Size at 25 and Star Shape at Truncated Bell, then
-  Target Image and Preview. On the right, the preview's toolbar with Display Mode at Linear over the whole mask, small
-  white dots of stars on black. Reset, Close and Apply run along the bottom.
+  The Star Mask task. Its header names the process and the linear Carina master. The canvas at the left shows the
+  whole mask, small white dots of stars on black, with its floating toolbar at Linear near the foot. The column at
+  the right opens with the compact readout of the preview, then the Preview toggle ticked and Preview area unticked,
+  Target Image, the Detection section with Radius at 5 and Threshold at 1.00, the grayed Amplitude Range group,
+  Roundness Threshold at 0.50, the grayed Roundness Range group, Convergence at 1, Relax PSF Checks, Profile Type at
+  Gaussian, a grayed Minimum Beta and Use Lightness, and the ticked Shaped Areas section with Percent Increase at
+  1.00, Pixel Increase at 0, Min Size at 2, Max Size at 25 and Star Shape at Truncated Bell. Reset, Close and Apply
+  stand in its footer.
 caption: >-
   Star Mask on the linear Carina master with Percent Increase at 1.00. With the preview area off and the Linear
-  display mode, the preview shows the whole mask Apply makes.
-pins:
-  - {n: 2, x: 66.0, y: 16.0}
-  - {n: 3, x: 2.7, y: 16.6}
-  - {n: 4, x: 2.7, y: 34.5}
-  - {n: 5, x: 2.7, y: 57.4}
-  - {n: 6, x: 2.7, y: 61.4}
-  - {n: 7, x: 91.0, y: 12.9}
+  display mode, the canvas shows the whole mask Apply makes.
+owed: true
 ```
 
 ## Before you start
@@ -76,10 +72,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Mask Generation > Star Mask**. The preview shows the mask of a square
-   [preview area](../../reference/glossary.md#preview-area) in the middle, over the rest of the image in gray.
-2. **See the mask as it is.** Choose **Linear** in the pane's **Display Mode**, and zoom in on the area. In
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Mask Generation > Star Mask**, or find it in the [command palette](../../interface/command-palette.md)
+   with ++ctrl+k++. The task opens as a page: the canvas at the left shows the mask of a square
+   [preview area](../../reference/glossary.md#preview-area) in the middle, over the rest of the image in gray, and the
+   column at the right holds its controls.
+2. **See the mask as it is.** Choose **Linear** in the canvas's **Display Mode**, and zoom in on the area. In
    **Autostretch** the mask's soft edges look brighter than they are.
 3. **Find the stars.** Match **Radius** to the size of the stars. Lower **Threshold** to find fainter stars, or raise
    it to leave out noise.
@@ -89,15 +87,15 @@ pins:
    ellipses.
 6. **Size the discs.** Raise **Percent Increase** to cover each star, add **Pixel Increase** for its halo, and choose
    a **Star Shape**.
-7. **Check the whole image.** Untick **Preview area** in the pane's toolbar, and hold ++space++ over the preview to
-   compare with the original.
-8. **Apply.** Choose **Apply**. A progress window shows while the run works, then the mask opens as
-   `<target> - STARMASK` at the right of the workspace, and the window closes.
+7. **Check the whole image.** Untick **Preview area** in the column's toggles row, and hold ++space++ over the canvas
+   to compare with the original.
+8. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The column's run row shows while the
+   run works, then the mask opens as `<target> - STARMASK` in a [workspace](../../reference/glossary.md#workspace), and the task closes.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). The window has no histogram and no **Channel**. What is
+**Target Image**, the canvas, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). The task has no histogram and no **Channel**. What is
 particular to it is below.
 
 ```controls
@@ -112,7 +110,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Higher costs more work and loses a fainter star within **Radius** of a brighter one. Too low splits broad stars or cuts them short.
     scope: The detection, in the preview, a snapshot and Apply, on every frame of a sequence.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Threshold
     kind: spinbox
     default: "1.00"
@@ -122,7 +120,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: A low value turns noise peaks into candidates, and every candidate is fitted, which costs time. A high value misses faint stars.
     scope: The plane the stars are searched in, by equation (1).
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
     note: A fit is also refused when its residual, times this value, is more than a fifth of its peak, unless the star is saturated. A higher value asks for a closer fit too.
   - name: Amplitude Range
     kind: check
@@ -131,14 +129,14 @@ controls:
     enabled: Its two boxes are disabled while it is unticked. Disabled while Apply runs.
     tradeoff: It can leave out faint fits on noise, or saturated stars. A narrow window can leave no star. On a linear image whose brightest stars peak above 1, those stars are above any **Maximum**.
     scope: Every fit, after it is made.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Minimum
     kind: spinbox
     default: "0.00"
     widget: {min: 0, max: 0.99, step: 0.05, decimals: 2}
     effect: Sets the smallest fitted peak a star may have. Higher leaves out the fainter stars, and the noise fitted as stars.
     enabled: With **Amplitude Range** ticked.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Maximum
     object: amplitudeMaximumValue
     kind: spinbox
@@ -147,7 +145,7 @@ controls:
     effect: Sets the largest fitted peak a star may have. Lower leaves out the brighter stars.
     range: Below **Minimum**, the run is refused with the reason.
     enabled: With **Amplitude Range** ticked.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Roundness Threshold
     kind: spinbox
     default: "0.50"
@@ -156,14 +154,14 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: On trailed or distorted stars, a high value leaves many real stars out.
     scope: Every fit, after it is made.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Roundness Range
     kind: check
     default: "Off"
     effect: Ticked, sets an upper limit on the same ratio with its **Maximum**. Unticked, the limit is 1, a perfectly round star.
     enabled: Its box is disabled while it is unticked. Disabled while Apply runs.
     tradeoff: It keeps the elongated stars and leaves out the round ones, which is rarely wanted. A narrow band can leave no star.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Maximum
     object: roundnessMaximumValue
     kind: spinbox
@@ -172,7 +170,7 @@ controls:
     effect: Sets the largest ratio of the two widths a star may have. Lower leaves out the roundest stars.
     range: Below **Roundness Threshold**, the run is refused with the reason.
     enabled: With **Roundness Range** ticked.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Convergence
     kind: spinbox
     default: "1"
@@ -180,7 +178,7 @@ controls:
     effect: Allows each fit more iterations to settle, 20 for each unit with **Gaussian**, twice as many with **Moffat**, and three times as many again for a star with saturated pixels. A fit that does not settle is not accepted.
     enabled: Disabled while Apply runs.
     tradeoff: Higher can rescue difficult stars, at the cost of time.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Relax PSF Checks
     kind: check
     default: "Off"
@@ -188,7 +186,7 @@ controls:
     range: The roundness and amplitude windows, **Minimum Beta**, and the tests of a finite position and width and a positive brightness still apply.
     enabled: Disabled while Apply runs.
     tradeoff: It keeps more of the difficult stars, and also pairs of stars, edges and poor fits. More candidates reach the fit, which costs time.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
   - name: Profile Type
     kind: combo
     default: Gaussian
@@ -196,7 +194,7 @@ controls:
     effect: Chooses the profile each candidate is fitted with, an elliptical Gaussian or an elliptical Moffat profile, whose exponent beta is fitted with the rest and shapes its wings.
     enabled: "**Moffat** enables **Minimum Beta**. Disabled while Apply runs."
     tradeoff: "**Moffat** follows broad wings more closely, costs more time and can accept far fewer stars, when its fits fail or its beta falls below **Minimum Beta**. Start with **Gaussian**."
-    persistence: Until the window closes. **Reset** returns it to **Gaussian**.
+    persistence: Until the task closes. **Reset** returns it to **Gaussian**.
   - name: Minimum Beta
     kind: spinbox
     default: "1.50"
@@ -205,7 +203,7 @@ controls:
     range: Beta is fitted between 0 and 10.
     enabled: With **Profile Type** at **Moffat**.
     tradeoff: Too high refuses real stars with wide wings. Too low admits fits that are not stable.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Use Lightness
     kind: check
     default: "Off"
@@ -213,7 +211,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The lightness costs a conversion and a plane of its own. It is not proportional to the light, so on a linear image it compresses the cores of bright stars, which then measure wider. Green is often the sharpest channel of a one-shot-color camera, which samples it twice.
     scope: Only the plane the stars are searched in. The mask has one channel either way.
-    persistence: Until the window closes. **Reset** unticks it.
+    persistence: Until the task closes. **Reset** unticks it.
     note: Searched in green, a star fitted 1 pixel wide or less on either axis is not accepted. Searched in the lightness, or in a grayscale image, it can be. In the lightness, a pixel the image marks as invalid reads as black instead of taking the sky's value. The red, green and blue are read as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. On a grayscale image the box only adds `, on the lightness` to the history text.
   - name: Shaped Areas
     kind: check
@@ -222,7 +220,7 @@ controls:
     enabled: Unticked, the five controls of the group are disabled and have no effect. Disabled while Apply runs.
     tradeoff: A disc is round even for an elongated star, since its radius comes from the wider width. An ellipse keeps the star's shape and angle, but its edges are hard and no control here grows or softens it.
     scope: The painting only. The same stars are found either way.
-    persistence: Until the window closes. **Reset** ticks it.
+    persistence: Until the task closes. **Reset** ticks it.
   - name: Percent Increase
     kind: spinbox
     default: "0.50"
@@ -231,7 +229,7 @@ controls:
     range: It is a factor, not a percentage added, whatever its label and its tooltip suggest. The box's step grows and shrinks with the value.
     enabled: With **Shaped Areas** ticked.
     tradeoff: Low values cover only the cores. High values on a dense field merge the discs.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Pixel Increase
     kind: spinbox
     default: "0"
@@ -239,7 +237,7 @@ controls:
     effect: Adds this many pixels to every disc's radius, after **Percent Increase**.
     enabled: With **Shaped Areas** ticked.
     tradeoff: It is the same for every star, so it matters most for the small ones, and it merges neighbouring discs sooner.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Min Size
     kind: spinbox
     default: "2"
@@ -247,7 +245,7 @@ controls:
     effect: Leaves out every star whose wider fitted width, doubled, is below this number of pixels. Higher leaves out small stars and hot pixels.
     range: It tests twice the width, not the radius its tooltip names. Above **Max Size**, the run is refused with the reason.
     enabled: With **Shaped Areas** ticked. Solid ellipses are painted whatever their size.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Max Size
     kind: spinbox
     default: "25"
@@ -256,7 +254,7 @@ controls:
     range: It tests twice the width, not the radius its tooltip names.
     enabled: With **Shaped Areas** ticked.
     tradeoff: High values keep large, saturated stars, and any broad structure the detector took for a star.
-    persistence: Until the window closes. **Reset** returns it to its default.
+    persistence: Until the task closes. **Reset** returns it to its default.
   - name: Star Shape
     kind: combo
     default: Truncated Bell
@@ -265,38 +263,37 @@ controls:
     range: "**Quadratic** uses a fourth power, despite its name."
     enabled: With **Shaped Areas** ticked.
     tradeoff: The two bells still hold a little value where the disc ends, which leaves a faint square step around a large star. The truncated shapes cover the star's core fully and leave a narrower soft edge.
-    persistence: Until the window closes. **Reset** returns it to **Truncated Bell**.
+    persistence: Until the task closes. **Reset** returns it to **Truncated Bell**.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image the stars are found in, which the mask is named after and takes its size and pixel type from.
     tradeoff: The wrong image gives a mask of the wrong stars, which may not even fit the image you mean to mask.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the mask beside the controls.
+    effect: Shows the mask in the canvas.
     range: >-
-      The pane opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview: Star
-      Mask", or the image's size when it is smaller. When the toolbar has no room for them - at the window's default
-      size with **Display Mode** at Autostretch - **Preview area** and **Take snapshot** are in the menu at its end.
-    enabled: It stays enabled while Apply runs.
+      The canvas opens with a **Preview area** of 600 by 600 pixels in the middle of the image, labelled "Preview: Star
+      Mask", or the image's size when it is smaller.
+    enabled: It stands in the column's toggles row, beside **Preview area**, and is disabled while Apply runs.
     tradeoff: Every change runs the whole detection again over the area, or over the whole image, never over a reduced copy, since the sky and the ranking of the stars are measured on all of it. A preview of the whole image does the work of an Apply, and holds a copy of the image, the mask and the detector's working planes while it runs.
-    scope: The window only. The area is searched as an image of its own, with its own sky, noise and edges, so the stars near its edges, and the faintest ones, can differ from what Apply finds there.
-    persistence: Until the window closes. **Reset** leaves it as it is.
-    note: A color image shows the mask of the area over the rest of the image in gray, and the pane's **View Channel** shows a disabled **Grayscale**. In **Autostretch** the mask is stretched for the screen, which brightens its soft edges. A snapshot holds the mask's samples, area included, and gains no lineage entry.
+    scope: The task only. The area is searched as an image of its own, with its own sky, noise and edges, so the stars near its edges, and the faintest ones, can differ from what Apply finds there.
+    persistence: Until the task closes. **Reset** leaves it as it is.
+    note: A color image shows the mask of the area over the rest of the image in gray, and the canvas's **View Channel** shows a disabled **Grayscale**. In **Autostretch** the mask is stretched for the screen, which brightens its soft edges. A snapshot holds the mask's samples, area included, and gains no lineage entry.
   - name: Reset
     kind: button
     default: ""
     effect: Returns every control of the **Detection** and **Shaped Areas** groups to its default, unticks the two range groups and ticks **Shaped Areas**. One preview follows.
-    range: It leaves **Target Image**, **Preview**, the preview area and the pane's toolbar as they are.
+    range: It leaves **Target Image**, **Preview**, the preview area and the canvas's floating toolbar as they are.
     enabled: Disabled while Apply runs.
   - name: Apply
     kind: button
     default: ""
-    effect: Finds the stars of the whole image, or of each frame of a sequence, paints the mask, opens it as `<target> - STARMASK` at the right of the workspace and closes the window.
-    enabled: From the moment the window opens, at any values. While the run works, **Reset**, **Close** and every control of the two groups are disabled.
+    effect: Finds the stars of the whole image, or of each frame of a sequence, paints the mask, opens it as `<target> - STARMASK` in a workspace and closes the task.
+    enabled: From the moment the task opens, at any values. While the run works, **Cancel** takes its place, and **Reset**, **Close** and every control of the two groups are disabled.
     tradeoff: The run holds a copy of the image, a floating-point copy of an integer image, the lightness when asked for, and the mask with a floating-point copy for an integer target. Painting checks every star on every row, so many stars with large discs take longer. A sequence adds the disk space of a new temporary sequence.
     scope: The whole image. A preview area does not limit it, and the target's mask is not used. Each frame of a sequence gets the mask of its own stars.
     persistence: "The new image's history starts with **Star Mask** and the values, as `Created in shaped areas mode. Radius: 5, Threshold: 1.00, Profile: Gaussian. Percent Increase: 0.50, Pixel Increase: 0, Min Size: 2, Max Size: 25, Star Shape: Truncated Bell`. Without **Shaped Areas** it reads `binary areas mode`, and with **Use Lightness** `, on the lightness` follows the profile. The amplitude and roundness windows, **Convergence**, **Relax PSF Checks** and **Minimum Beta** are not recorded. The history does not list the target's steps as inherited lineage. The target and its history are not changed."
@@ -304,17 +301,17 @@ controls:
 ```
 
 ```controls
-window: Progress
+window: The run in the column
 controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: Shows a busy indicator, without a share done, while the image is searched and painted. On a sequence it adds the frame being processed and the share of frames done.
-    enabled: For every Apply, on a single image too.
+    effect: Shows the run in the column's run row, "applying" without a share done, while the image is searched and painted. On a sequence, **Overall** gives the share of frames done and **Processing** the frame being processed.
+    enabled: For every Apply, on a single image too. No progress window opens.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run at its next stop point, between bands of rows of the search, between the stars it fits, between painted rows and between frames.
+    effect: Stands in the footer in place of **Apply**, and stops the run at its next stop point, between bands of rows of the search, between the stars it fits, between painted rows and between frames.
     persistence: A stopped run opens no image, leaves no part of a sequence and shows no error.
 ```
 
@@ -472,10 +469,10 @@ The mask Apply made differs from the preview
 - [Masks](../../interface/masks.md), to attach the new mask to an image, enable it, invert it and show it.
 - [Morphological Transformation](../masking/morphological-transformation.md), to grow, shrink or soften the mask.
 - [Star Profiler](../registration-alignment/star-profiler.md), for a list of stars you can inspect and keep, which
-  this window does not read.
+  this task does not read.
 - [StarNet++ Star Mask](starnet-star-mask.md), for a star mask made by the StarNet2 tool instead of a detector.
 - [Range Selection](../analysis/range-selection.md), for a mask of the image's brightness instead of its stars.
-- [Process Windows](../../interface/process-windows.md), for the preview pane and what every process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas and what every task shares.
 
 ## Credits
 

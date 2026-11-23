@@ -14,8 +14,9 @@ masks: post-blend
 external: The G'MIC library, bundled with AfterNight
 glance:
   enabled: >-
-    An image or a sequence view is active, no GRAYCstoration window is open on it yet, and no window that needs the
-    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+    An image or a sequence view is active, no GRAYCstoration task is open on it yet, and no task that needs the image
+    to itself is open on it. The task opens as a page of its own, beside other tasks, and Apply runs only while nothing
+    else is working on the target. Preview and Apply also need a build that carries G'MIC.
   inputs: >-
     One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an
     optional mask of the image's size on its view.
@@ -41,23 +42,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/graycstoration.webp
 alt: >-
-  The GRAYCstoration window. On the left, ten boxes with sliders from Iterations to Amount, the Interpolation box at
-  Nearest Neighbor and the ticked Fast Approximation box, and lower down Target Image, Channel at RGB and the Preview
-  check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch over
-  the preview of a red nebula, with the word PREVIEW in its corner and a small framed area in its middle. Reset, Close
-  and Apply run along the bottom.
+  The GRAYCstoration task. Its header names GRAYCstoration and the master. The canvas at the left shows the preview of
+  a red nebula, the word PREVIEW in its corner and a small framed area in its middle, with a floating toolbar of zoom
+  buttons, a channel box and the display mode at Autostretch near its foot. The column at the right holds the
+  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
+  at RGB, then ten boxes with sliders from Iterations to Amount, Amplitude at 5, the Interpolation box at Nearest
+  Neighbor and the ticked Fast Approximation box, in a body that scrolls. Reset, Close and Apply stand in its footer.
 caption: >-
-  GRAYCstoration on the linear master with Amplitude at 5 and the other values at their defaults. The framed area
-  shows what Apply writes there, in the Autostretch display mode.
-pins:
-  - {n: 1, x: 64.2, y: 54.4}
-  - {n: 2, x: 2.8, y: 85.3}
-  - {n: 3, x: 2.8, y: 21.3}
-  - {n: 4, x: 2.8, y: 25.6}
-  - {n: 5, x: 2.8, y: 34.1}
-  - {n: 6, x: 2.8, y: 42.7}
-  - {n: 7, x: 2.8, y: 55.6}
-  - {n: 9, x: 89.4, y: 96.6}
+  GRAYCstoration on the linear master with Amplitude at 5 and the other values at their defaults. The framed area of
+  the canvas shows what Apply writes there, in the Autostretch display mode.
+owed: true
 ```
 
 ## Before you start
@@ -76,10 +70,12 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the [master](../../reference/glossary.md#master) the
+1. **Open the task.** Make the [master](../../reference/glossary.md#master) the
    [active image](../../reference/glossary.md#active-image) and choose **Process > Noise Reduction > GRAYCstoration
-   Filter**. The preview shows the smoothed image inside a framed
-   [preview area](../../reference/glossary.md#preview-area): move it over background, faint nebula and small stars.
+   Filter**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens
+   as a page: the canvas at the left shows the smoothed image inside a framed
+   [preview area](../../reference/glossary.md#preview-area), and the column at the right holds its controls. Move the
+   area over background, faint nebula and stars.
 2. **Choose what to smooth.** Leave **Channel** at **RGB** to smooth the three channels along shared paths. Choose
    **CIE L* (Lightness)** to smooth the brightness alone, or a chroma component for color noise.
 3. **Set the reach.** On a [linear image](../../reference/glossary.md#linear-image), start with **Amplitude** near 5.
@@ -89,17 +85,17 @@ pins:
 5. **Keep the noise from steering.** Raise **Noise Scale**, then **Regularity**, when the background turns into
    streaks or worms.
 6. **Leave the sampling.** Keep **Spatial Step Size**, **Angular Step Size**, **Precision**, **Interpolation**,
-   **Fast Approximation** and **Iterations** at their defaults until the rest looks right.
+   **Fast Approximation** and **Iterations** at their defaults.
 7. **Set the strength.** Lower **Amount** to bring back part of the original when the result looks painted.
 8. **Check at 100 %.** Zoom into the area and hold ++space++ to compare with the original. Then untick **Preview
    area** and look at the whole image, its stars and its edges.
-9. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the smoothed image, and its history
-   lists **GRAYCstoration** with the values.
+9. **Apply.** Choose **Apply**, or press ++ctrl+enter++. The column follows the run, the view shows the smoothed
+   image, and its history lists **GRAYCstoration** with the values.
 
 ## Controls
 
-**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
-[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
+**Target Image**, the canvas, the toggles row, **Close** and the run in the column work as in every task: see
+[Tasks](../../interface/tasks.md). What is particular to this task is below.
 
 ```controls
 window: GRAYCstoration
@@ -112,7 +108,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The time grows in proportion to it. Repeated passes flatten areas and can draw flowing, painted textures. They are not one pass at a higher **Amplitude**.
     scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. Each pass holds its result within the lowest and highest samples it was given.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Amplitude
     kind: spinbox
     default: "60"
@@ -122,7 +118,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The time grows with the length of the paths. Long paths carry the smoothing along faint filaments and across weak edges.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Sharpness
     kind: spinbox
     default: "0.70"
@@ -132,7 +128,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Set high, it counts the noise as structure too, and the background keeps its grain.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Anisotropy
     kind: spinbox
     default: "0.30"
@@ -142,7 +138,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: High values extend thin features and draw streaks that follow the noise, the more so with a high **Sharpness**.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Noise Scale
     kind: spinbox
     default: "0.60"
@@ -152,7 +148,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Set high, small stars and fine structure no longer steer the paths either, and are smoothed like the noise.
     scope: The preview and Apply, on what **Channel** selects. It changes only how the paths run, not the samples they average.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The reference of G'MIC calls it `alpha`.
   - name: Regularity
     kind: spinbox
@@ -163,7 +159,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Set high, the direction of one structure spreads over its neighbours and bends paths across them. With a high **Noise Scale** too, broad structure steers the paths around small stars and fine texture.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The reference of G'MIC calls it `sigma`.
   - name: Spatial Step Size
     kind: spinbox
@@ -174,18 +170,18 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: The time grows in inverse proportion to it. Larger steps are coarser and can cut the turns of a curved path.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The reference of G'MIC calls it `dl`.
   - name: Angular Step Size
     kind: spinbox
     default: "30"
     widget: {min: 1, max: 90, step: 1}
     effect: Sets the angle, in degrees, between the directions in which paths start from each pixel. Smaller uses more directions.
-    range: The number of directions is 360 divided by it, rounded up, 12 at the default. Even at 1 the command smooths along paths, so the window never reaches the command's other mode, which iterates a diffusion with a time step instead.
+    range: The number of directions is 360 divided by it, rounded up, 12 at the default. Even at 1 the command smooths along paths, so the task never reaches the command's other mode, which iterates a diffusion with a time step instead.
     enabled: Disabled while Apply runs.
     tradeoff: The time grows with the number of directions. Large steps leave few directions, which can show as a bias toward some of them.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The reference of G'MIC calls it `da`.
   - name: Precision
     kind: spinbox
@@ -196,7 +192,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: Longer paths cost time. With **Fast Approximation** on, every added sample weighs as much as the first. Off, they weigh less and less, and past 3 they add almost nothing.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
     note: The reference of G'MIC calls it `gauss_prec`.
   - name: Amount
     kind: spinbox
@@ -207,7 +203,7 @@ controls:
     enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
     tradeoff: It brings back noise and detail together. The command runs in full at any value, and below 1 the mix adds one pass over the image. At 0 even samples outside 0 to 1 come back, and between 0 and 1 they are mixed with the held result.
     scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask. It mixes once, after the last iteration.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Interpolation
     kind: combo
     default: Nearest Neighbor
@@ -216,7 +212,7 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: "**Linear** and **Runge-Kutta** follow curves without the small stair steps of **Nearest Neighbor**, and cost more time. **Nearest Neighbor** with a coarse **Spatial Step Size** is the fastest and the most likely to show steps."
     scope: The preview and Apply, on what **Channel** selects. The pixel type of the result does not change.
-    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    persistence: Until the task closes. **Reset** and a finished Apply return it to its default.
   - name: Fast Approximation
     kind: check
     default: "On"
@@ -224,13 +220,13 @@ controls:
     enabled: Disabled while Apply runs.
     tradeoff: It changes the result, not only the time. Off favours the samples near the pixel, so it smooths less at the same **Amplitude**, and it computes an exponential for every sample.
     scope: The preview and Apply, on what **Channel** selects.
-    persistence: Until the window closes. **Reset** and a finished Apply tick it. The history does not record it.
+    persistence: Until the task closes. **Reset** and a finished Apply tick it. The history does not record it.
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
+    options: [The active image, Every other open image or sequence the task can work on]
     effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Channel
     kind: combo
     default: RGB
@@ -238,22 +234,22 @@ controls:
     effect: Chooses what is smoothed. **RGB** hands the command the three channels as one color image, whose structure is measured from all three, and averages each channel along the same paths. **Red**, **Green** or **Blue** smooths that channel, along paths of its own, and keeps the other two. Every other choice smooths one component of another color model and converts the image back.
     enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
     tradeoff: With **RGB**, a strong edge or color noise in one channel steers the paths of all three, which can smear colors together. A component costs two conversions and a working copy, and the conversion back can change colors. A hue is smoothed as a line, not as a circle.
-    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
-    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+    scope: The preview and Apply, before **Amount** and the mask. Tasks describes each component.
+    persistence: Until the task closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
   - name: Preview
     kind: check
     default: "On"
-    effect: Shows the smoothed image beside the controls, with **Amount** and the mask applied.
+    effect: Shows the smoothed image in the canvas, with **Amount** and the mask applied.
     range: >-
-      The pane opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
-      GRAYCstoration Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
-      **Take snapshot** are in the menu at the end of the pane's toolbar.
+      The canvas opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
+      GRAYCstoration Filter", or the whole image when it is smaller. **Preview area** is in the column's toggles row,
+      and **Take snapshot** on the canvas's floating toolbar.
     enabled: >-
       In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
       G'MIC library, so this process cannot run."
-    tradeoff: The area is smoothed as an image of its own, with its own range and its own edges, where the paths stop. Every change runs the whole command again. **Apply**, or closing the window, stops a preview on its way inside the command.
-    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
-    persistence: Until the window closes. **Reset** leaves it as it is.
+    tradeoff: The area is smoothed as an image of its own, with its own range and its own edges, where the paths stop. Every change runs the whole command again. **Apply**, or closing the task, stops a preview on its way inside the command.
+    scope: The canvas only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the task closes. **Reset** leaves it as it is.
   - name: Reset
     kind: button
     default: ""
@@ -263,15 +259,14 @@ controls:
     kind: button
     default: ""
     effect: Smooths the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns the twelve values to their defaults.
-    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
-    tradeoff: A single image shows a progress window too, and its **Cancel** stops the run. With one iteration the bar is busy, because the command reports no share done. With more, it shows the share of the passes done. The time grows with the pixels and channels, the iterations, the directions and the samples on each path. The command runs on one thread and holds several working images of the image's size, beside the second copy every run needs. Samples already in 32-bit floating point and tightly packed are handed over as they are, any others as a working copy. G'MIC runs one command at a time in the application, so another G'MIC window's preview or run waits for this one.
+    enabled: From the moment the task opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: The column shows the run of a single image too, and **Cancel**, in Apply's place meanwhile, stops it. With one iteration the run tells no share done, because the command reports none. With more, it shows the share of the passes done. The time grows with the pixels and channels, the iterations, the directions and the samples on each path. The command runs on one thread and holds several working images of the image's size, beside the second copy every run needs. Samples already in 32-bit floating point and tightly packed are handed over as they are, any others as a working copy. G'MIC runs one command at a time in the application, so another G'MIC task's preview or run waits for this one.
     persistence: "The history step is **GRAYCstoration** and reads, for example, `Interpolation: Nearest Neighbor, Iterations: 1, Amplitude: 60, Sharpness: 0.70, Anisotropy: 0.30, Noise Scale: 0.60, Regularity: 1.10, Spatial Step Size: 0.80, Angular Step Size: 30, Precision: 2.00, Amount: 0.50 in channel: RGB`. For a grayscale image it ends after the amount. **Fast Approximation**, the mask and the G'MIC version are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
 ## How it works
 
-1. The channels **Channel** selects are checked: an image that holds a sample that is not a finite number is refused.
-   Otherwise they go to G'MIC, in one session for the run, as single-precision
+1. The channels **Channel** selects go to G'MIC, in one session for the run, as single-precision
    [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale).
 2. The command blurs a copy by **Noise Scale**, rescales it from its lowest to its highest sample onto 0 to 255, and
    measures at each pixel how strongly it changes and along which direction it changes least. It blurs that measure
@@ -316,9 +311,8 @@ the value of **Amount**, the result before the mask is
 - The paths stop at the edge of the frame, so the pixels near it are smoothed less, and from one side.
 - An image that holds a sample that is not a finite number is refused with "the image holds a sample that is not a
   finite number, which G'MIC cannot process", and left unchanged. When G'MIC itself fails, on memory for example, the
-  run reports its message and writes nothing.
-- **Cancel**, or closing the window, asks G'MIC to stop, and it stops at its next check inside the command. A stopped
-  run writes nothing.
+  run says why and writes nothing.
+- **Cancel** asks G'MIC to stop, and it stops at its next check inside the command. A stopped run writes nothing.
 
 ### Worked example
 
@@ -419,8 +413,7 @@ The preview area differs from the result of Apply
 - [Masks](../../interface/masks.md), to smooth the background and protect the stars.
 - [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
   undo the step and to compare the noise before and after.
-- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
-  window shares.
+- [Tasks](../../interface/tasks.md), for the preview, the preview area and what every task shares.
 
 ## Credits
 

@@ -9,49 +9,54 @@ menu: Image > Information > Histogram
 
 Histogram Analysis draws the histogram of the [active image](../reference/glossary.md#active-image), or of the frame
 of a [sequence](../reference/glossary.md#sequence) its view shows: how many samples lie at each level, from black at
-the left to white at the right. Use it to see clipping, how the channels sit against each other, where the tones
-gather and what a step did to them. It counts the stored samples, never what the view displays, and it changes nothing
-in the image, its header or its [history](../reference/glossary.md#history).
+the left to white at the right. The Histogram card of the [readout](../reference/glossary.md#readout) shows the same
+counts in its column; this window, which opens from that card's header, gives them room, and a resolution and a
+channel choice of their own. Use it to see clipping, how the channels sit against each other, where the tones gather
+and what a step did to them. It counts the stored samples, never what the view displays, and it changes nothing in
+the image, its header or its [history](../reference/glossary.md#history).
 
 ```figure
 owed: true
 image: ../assets/images/interface/image-histogram.webp
 alt: >-
-  The Histogram Analysis window. Under the title bar, the heading Histogram Analysis and a line about channel
-  distributions. A card titled Histogram Plot and Controls holds a dark plot with a dotted grid, where red, green and
-  blue filled areas rise together to sharp peaks a quarter of the way from the left and fall in a long low tail toward
-  the right. Two lines in the top left corner read Clipping Low: 0.000% and Clipping High: 0.019%. A strip from black
-  to white runs under the plot. Under it, a row of toolbar buttons, a box reading 8-bit (256), and a Channel box
-  reading RGB. Reset and Close stand at the bottom right.
+  The Histogram Analysis window, titled Histogram <RGB>. Its heading reads ANALYSIS · RGB over Histogram Analysis and
+  a line about channel distributions. A card titled Histogram Plot and Controls holds a dark plot with a dotted grid,
+  where red, green and blue filled areas rise to sharp peaks a quarter of the way from the left, overlapping in white,
+  and fall in a long low tail toward the right. Two lines in the top left corner read Clipping Low: 0.000% and Clipping
+  High: 0.019%. A strip from black to white runs under the plot. Under it, three zoom buttons, four toggle buttons, a
+  box reading 8-bit (256), and a Channel box reading RGB. Reset and Close stand at the bottom right.
 caption: >-
-  Histogram Analysis of the Carina master after Histogram Transformation with Shadows and Midtones at 0.02, at its
-  defaults.
+  Histogram Analysis of the Carina master after Histogram Transformation with Shadows and Midtones at 0.02, opened
+  from the readout at its defaults.
 pins:
-  - {n: 1, x: 85.0, y: 40.0}
-  - {n: 2, x: 10.0, y: 33.0}
-  - {n: 3, x: 2.5, y: 84.0}
-  - {n: 4, x: 55.0, y: 84.0}
-  - {n: 5, x: 70.5, y: 84.0}
-  - {n: 6, x: 72.5, y: 94.0}
+  - {n: 1, x: 1.6, y: 9.7}
+  - {n: 2, x: 85.0, y: 40.0}
+  - {n: 3, x: 4.0, y: 28.8}
+  - {n: 4, x: 3.4, y: 85.1}
+  - {n: 5, x: 34.8, y: 85.1}
+  - {n: 6, x: 74.2, y: 85.1}
+  - {n: 7, x: 77.4, y: 93.9}
 ```
 
 ## What you see
 
-1. **The plot.** One white line or area for a grayscale image, a red, a green and a blue one for color. The height
+1. **The heading.** ANALYSIS and the name of the image the window counts, over the window's name.
+2. **The plot.** One white line or area for a grayscale image, a red, a green and a blue one for color. The height
    at each level is how many samples lie there, against the tallest peak drawn.
-2. **The clipping shares.** The share of all the image's samples at or below black and at or above white.
-3. **The toolbar.** Zoom, grid, clipping shares, scales and areas. It changes how the plot is drawn, never the counts.
-4. **Plot resolution.** How many levels the samples are counted in.
-5. **Channel.** Which lines the plot draws.
-6. **Reset and Close.** **Reset** returns the window to the way it opened, and **Close** closes it.
+3. **The clipping shares.** The share of all the image's samples at or below black and at or above white.
+4. **The toolbar.** Zoom, grid, clipping shares, scales and areas. It changes how the plot is drawn, never the counts.
+5. **Plot resolution.** How many levels the samples are counted in.
+6. **Channel.** Which lines the plot draws.
+7. **Reset and Close.** **Reset** returns the window to the way it opened, and **Close** closes it.
 
 ## What you can do
 
 ### Open the histogram
 
-Make the image the active view, or pause a sequence on the frame you want. Choose **Image > Information > Histogram**,
-choose **Histogram** on the view's toolbar, or press ++ctrl+h++ over the view. The plot appears when the counting is
-done, at **8-bit (256)**, with every channel drawn as a filled area.
+Click the image's view to make it the active image, or pause a sequence on the frame you want. Choose **Open the
+Histogram window** in the header of the readout's Histogram card, choose **Image > Information > Histogram**, or press
+++ctrl+h++ over the view. The window opens over the main window, and the plot appears when the counting is done, at
+**8-bit (256)**, with every channel drawn as a filled area.
 
 ### Read the levels and the clipping
 
@@ -86,8 +91,8 @@ and open the histogram of its new view.
 
 ## Controls
 
-The toolbar's zoom, grid, scales, areas and **Plot resolution** draw the plot as they do in every histogram of a
-process window: see [Process Windows](process-windows.md). This window has no **Show histogram** and no transfer curve.
+The toolbar's zoom, grid, scales, areas and **Plot resolution** draw the plot as they do in the histogram of a
+[task](../reference/glossary.md#task): see [The histogram](tasks.md#the-histogram) in Tasks. This window has no **Show histogram** and no transfer curve.
 What is its own is below.
 
 ```controls
@@ -96,9 +101,8 @@ controls:
   - name: Title
     kind: readout
     default: ""
-    effect: Names the view the window counts, as `Histogram <RGB>`, and follows a rename. A rename changes nothing else.
-    enabled: The window opens from **Image > Information > Histogram**, from **Histogram** on the view's toolbar, or with ++ctrl+h++ while the view has the focus. While it is open, that view's menu entry, button and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open.
-    tradeoff: The shortcut does nothing while the button sits in the toolbar's **More** menu. Use the menu then.
+    effect: Names the view the window counts, as `Histogram <RGB>`, and follows a rename. A rename changes nothing else. The heading inside says ANALYSIS and the view's name over **Histogram Analysis**.
+    enabled: The window opens from **Open the Histogram window** in the readout's Histogram card, from **Image > Information > Histogram** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+h++ while the view has the keyboard focus. While it is open, that view's menu entry and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open. The readout's button stays enabled, and opens another window at each choice.
     persistence: Nothing of the window is kept. Each new window opens at **8-bit (256)** and **RGB**, with the grid, the clipping shares and the areas on, **Absolute scales** off and no zoom.
     note: The window stays open beside your work, and closes with its view. It writes nothing - no image, file, header card, history step or clipboard text, and the plot cannot be exported.
   - name: Plot
@@ -146,9 +150,10 @@ controls:
 
 ## When it goes wrong
 
-**Histogram** is greyed in the menu or on the toolbar
+**Histogram** is greyed in the menu, and ++ctrl+h++ does nothing
 :   **Cause.** A Histogram window of this view is already open, or the active view has no image.
-:   **Fix.** Bring the open window forward or close it, or make a view with an image active.
+:   **Fix.** Bring the open window forward or close it, or choose **Open the Histogram window** in the readout, which
+    opens another one.
 
 One channel's line is much lower than the others
 :   **Cause.** With **Absolute scales** off, every line is drawn against the tallest peak of all.
@@ -174,10 +179,10 @@ The plot changes while a sequence plays
 ## Related
 
 - [Image Statistics](image-statistics.md), for exact counts, levels, spreads and the noise of each channel.
-- [Process Windows](process-windows.md), for the histogram toolbar and the plot's zoom, scales and resolution.
+- [Readout](readout.md), for the Histogram card that counts the image as you work and opens this window.
+- [Tasks](tasks.md), for the histogram toolbar and the plot's zoom, scales and resolution.
 - [Image and Sequence Summary](image-summary.md), for the size, pixel type and acquisition facts of the image.
 - [Histogram Transformation](../processes/stretching/histogram-transformation.md), to stretch the image with the
   histogram in view.
 - [Saving And Exporting](saving-and-exporting.md), to save an image and open it again before you look at what a
   format kept.
-- [Image Viewer](image-viewer.md), for the toolbar that opens the window and the display that does not change it.

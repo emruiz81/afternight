@@ -1,0 +1,9 @@
+{
+  "id": "shell.history-strip",
+  "window": "History strip",
+  "controls": [
+    {"label": "Undo", "kind": "toolbutton", "object": "anHistoryStripUndo", "group": "", "visible": true, "default": ""},
+    {"label": "Redo", "kind": "toolbutton", "object": "anHistoryStripRedo", "group": "", "visible": true, "default": ""},
+    {"label": "Image History", "kind": "toolbutton", "object": "anHistoryStripHistory", "group": "", "visible": true, "default": ""}
+  ]
+}

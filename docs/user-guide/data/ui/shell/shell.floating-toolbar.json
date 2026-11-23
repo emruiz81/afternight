@@ -1,0 +1,17 @@
+{
+  "id": "shell.floating-toolbar",
+  "window": "Floating toolbar",
+  "controls": [
+    {"label": "Fit To Window", "kind": "toolbutton", "object": "anFloatingToolbarFit", "group": "", "visible": true, "default": ""},
+    {"label": "Zoom Out", "kind": "toolbutton", "object": "anFloatingToolbarZoomOut", "group": "", "visible": true, "default": ""},
+    {"label": "Zoom In", "kind": "toolbutton", "object": "anFloatingToolbarZoomIn", "group": "", "visible": true, "default": ""},
+    {"label": "Zoom 100%", "kind": "toolbutton", "object": "anFloatingToolbarZoom100", "group": "", "visible": true, "default": ""},
+    {"label": "Maximize image view", "kind": "toolbutton", "object": "anFloatingToolbarMaximize", "group": "", "visible": true, "default": ""},
+    {"label": "View Channel", "kind": "combo", "object": "anFloatingToolbarChannel", "group": "", "visible": true, "varies": ["default"]},
+    {"label": "Display Mode", "kind": "radio", "object": "anFloatingToolbarDisplayMode", "group": "", "visible": true, "default": "Linear", "options": ["Linear", "Autostretch"]},
+    {"label": "Display mode", "kind": "button", "object": "anFloatingToolbarDisplayModeToggle", "group": "", "visible": false, "default": "Off"},
+    {"label": "Autostretch Settings", "kind": "toolbutton", "object": "anFloatingToolbarAutostretchSettings", "group": "", "visible": true, "default": ""},
+    {"label": "Show Astrometry", "kind": "toolbutton", "object": "anFloatingToolbarShowAstrometry", "group": "", "visible": false, "default": "Off"},
+    {"label": "More", "kind": "button", "object": "anFloatingToolbarMore", "group": "", "visible": true, "default": ""}
+  ]
+}

@@ -14,8 +14,8 @@ masks: none
 external: none
 glance:
   enabled: >-
-    An image or a sequence view is active, no Resize window is open on it yet, and no window that needs the image to
-    itself is open on it.
+    An image or a sequence view is active, no Resize task is open on it yet, and no task that needs the image to
+    itself is open on it. The task opens as a page of its own, beside other tasks.
   inputs: >-
     One image or sequence of any pixel type and any number of channels. A raw color-filter mosaic only after you
     answer Yes to the Resize CFA question.
@@ -34,7 +34,7 @@ choose how each new sample is computed from its neighbors. A resize makes new va
 no signal that the image did not hold.
 
 **OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the resized one,
-adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+adds one step to its [history](../../reference/glossary.md#history) and closes the [task](../../reference/glossary.md#task). The
 [pixel type](../../reference/glossary.md#pixel-type), the channels and the shape of the pixels are kept, and a
 [plate solution](../../reference/glossary.md#plate-solution) is scaled with the pixels, so no new plate solve is
 needed.
@@ -42,18 +42,16 @@ needed.
 ```figure
 image: ../../assets/images/processes/geometry/resize.webp
 alt: >-
-  The Resize window. A grid with the columns Original Px, Target Px and % Adjust and the rows Width and Height: 7246
-  and 5429 under Original Px, 3623 and 2714 under Target Px, 50.00 and 50.00 under % Adjust. Under it Keep aspect
-  ratio is ticked and Interpolation reads Auto. Current Size reads 450.19 MB and New Size 112.53 MB. Target Image
-  names the master, and Reset, OK and Close run along the bottom.
+  The Resize task. Its header reads Resize on the master. The canvas at the left shows the whole master stretched for
+  the screen, the red nebula among its stars, unchanged. The column at the right, headed Resize, holds Target Image
+  naming the master, then a grid with the columns Original Px, Target Px and % Adjust and the rows Width and Height:
+  7246 and 5429 under Original Px, 3623 and 2714 under Target Px, 50.00 and 50.00 under % Adjust. Under it Keep
+  aspect ratio is ticked and Interpolation reads Auto, then Current Size at 450.19 MB with New Size at 112.53 MB under
+  it. Reset, Close and OK stand in its footer.
 caption: >-
-  Resize on the linear Carina master at 50 percent with Keep aspect ratio on: the Target Px column and New Size show
-  the result before OK.
-pins:
-  - {n: 2, x: 2.0, y: 55.5}
-  - {n: 3, x: 2.0, y: 38.6}
-  - {n: 4, x: 2.0, y: 64.0}
-  - {n: 5, x: 51.0, y: 93.0}
+  Resize on the linear Carina master at 50 percent with Keep aspect ratio on: the canvas shows the image as it is, and
+  the Target Px column and New Size the result before OK.
+owed: true
 ```
 
 ## Before you start
@@ -71,24 +69,25 @@ pins:
 
 ## Steps
 
-1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
-   **Process > Geometry > Resize**. **Original Px** shows its size, and **OK** stays disabled while **Target Px** is
-   the same.
+1. **Open the task.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Resize**, or find it in the [command palette](../../interface/command-palette.md) with
+   ++ctrl+k++. The task opens as a page: the canvas at the left shows the image itself, the column at the right holds
+   the controls. **Original Px** shows its size, and **OK** stays disabled while **Target Px** is the same.
 2. **Keep the proportions.** Leave **Keep aspect ratio** ticked, so one percentage sets both sides. Untick it only to
    change one axis on purpose.
 3. **Set the size.** Type the new **Width** or **Height** under **Target Px**, or a percentage under **% Adjust**. The
    other side follows, and **New Size** gives the memory the result will hold.
 4. **Choose the interpolation.** Leave **Interpolation** at Auto, which reduces with **Pixel Area Relation** and
    enlarges with **Lanczos4**, or choose another.
-5. **Resize.** Choose **OK**. The window closes, the view shows the image at its new size, and its history lists
-   **Resize** with both sizes and the interpolation that ran.
+5. **Resize.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The task closes, the image's view shows
+   the image at its new size, and its history lists **Resize** with both sizes and the interpolation that ran.
 6. **Check at 100 %.** Zoom the view to 100 % over bright stars and sharp edges. Blocks or rims around them show what
    the interpolation cost.
 
 ## Controls
 
-**Target Px** and **% Adjust** each have a **Width** and a **Height** box, in the rows of the window. What every
-process window shares is on [Process Windows](../../interface/process-windows.md).
+**Target Px** and **% Adjust** each have a **Width** and a **Height** box, in the rows of the grid. What every task
+shares is on [Tasks](../../interface/tasks.md).
 
 ```controls
 window: Resize
@@ -107,7 +106,7 @@ controls:
     range: With **Keep aspect ratio** ticked, the height takes the same percentage, cut to a whole pixel.
     tradeoff: More pixels take more memory and time, and an enlargement adds no information.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to the image's width.
+    persistence: Until the task closes. **Reset** and another target return it to the image's width.
   - name: Width
     object: targetWidthPercent
     kind: spinbox
@@ -116,7 +115,7 @@ controls:
     effect: Sets the result's width as a percentage of the image's, under **% Adjust**. Below 100 it shrinks the image, above 100 it enlarges it.
     range: The width it gives is the image's width times the percentage, cut to a whole pixel. With **Keep aspect ratio** ticked, it sets the height and its percentage too.
     tradeoff: Above 100 the image takes more memory and time without new detail.
-    persistence: Until the window closes. **Reset** and another target return it to 100.00.
+    persistence: Until the task closes. **Reset** and another target return it to 100.00.
   - name: Height
     object: targetHeight
     kind: spinbox
@@ -126,7 +125,7 @@ controls:
     range: With **Keep aspect ratio** ticked, the width takes the same percentage, cut to a whole pixel.
     tradeoff: A height and a width of different percentages stretch every star and object along one axis.
     scope: OK, on every channel and every frame of a sequence.
-    persistence: Until the window closes. **Reset** and another target return it to the image's height.
+    persistence: Until the task closes. **Reset** and another target return it to the image's height.
   - name: Height
     object: targetHeightPercent
     kind: spinbox
@@ -135,14 +134,14 @@ controls:
     effect: Sets the result's height as a percentage of the image's, under **% Adjust**.
     range: The height it gives is the image's height times the percentage, cut to a whole pixel. With **Keep aspect ratio** ticked, it sets the width and its percentage too.
     tradeoff: Unequal percentages change the shape of every object.
-    persistence: Until the window closes. **Reset** and another target return it to 100.00.
+    persistence: Until the task closes. **Reset** and another target return it to 100.00.
   - name: Keep aspect ratio
     kind: check
     default: "On"
     effect: Ties both sides to one percentage, so a change of either one sets the other.
     range: Ticked again, it keeps the percentage of the side that is larger in pixels and sets the other side to it.
     tradeoff: Whole pixels can leave the two sides scaled by very slightly different amounts. The result's pixels keep their shape all the same, and a plate solution follows the exact scales.
-    persistence: Until the window closes. **Reset** ticks it.
+    persistence: Until the task closes. **Reset** ticks it.
   - name: Interpolation
     kind: combo
     default: "Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)"
@@ -151,7 +150,7 @@ controls:
     range: "**Nearest Neighbor** copies one sample. **Bilinear** weighs the four around, **Bicubic** sixteen and **Lanczos4** sixty-four. **Pixel Area Relation** averages the area each new pixel covers when no side grows, and weighs like **Bilinear** when one does. The two **Bit Exact** choices follow the fixed-point rules of OpenCV's `INTER_LINEAR_EXACT` and `INTER_NEAREST_EXACT`."
     tradeoff: "**Nearest Neighbor** is fast and blocky. **Bilinear**, **Bicubic** and **Lanczos4** smooth across their neighbors. **Bicubic** and **Lanczos4** keep edges sharper and can ring, which a guard against dark rings tempers, and they take longer, the guard included. **Pixel Area Relation** suits a reduction."
     scope: OK, on each channel.
-    persistence: Until the window closes. **Reset** returns it to Auto.
+    persistence: Until the task closes. **Reset** returns it to Auto.
     note: The history names the interpolation that ran, never Auto.
   - name: Current Size
     kind: readout
@@ -169,25 +168,25 @@ controls:
   - name: Target Image
     kind: combo
     default: The active image
-    options: [The active image, Every other open image or sequence the window can work on]
-    effect: Chooses the image or sequence OK resizes. Choosing another one returns every control to its default for that image.
+    options: [The active image, Every other open image or sequence the task can work on]
+    effect: Chooses the image or sequence OK resizes. Choosing another one shows it in the canvas and returns every control to its default for that image.
     tradeoff: The image chosen here is the one replaced.
-    persistence: Until the window closes. **Reset** leaves it as it is. When the image's own size changes, **Original Px** follows, and **Target Px** follows the percentages.
+    persistence: Until the task closes. **Reset** leaves it as it is. When the image's own size changes, **Original Px** follows, and **Target Px** follows the percentages.
   - name: OK
     kind: button
     default: ""
-    effect: Reads the size and the interpolation and resizes the image, or every frame of the sequence. The window closes once the view shows the result.
+    effect: Reads the size and the interpolation and resizes the image, or every frame of the sequence. The task closes once the image's view shows the result.
     enabled: When either **Target Px** value differs from the image's size. Its tooltip then reads "Apply the resize to the target image.", and otherwise "Target dimensions match the current image. Change width or height to enable."
     tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the resized copy.
-    scope: The whole image, on every channel, without the mask. A change made in the window after you press it does not reach the run.
+    scope: The whole image, on every channel, without the mask. A change made after you press it does not reach the run.
     persistence: "The image and its history keep the result, as the step **Resize** with the text `Previous size: <w>x<h> - New size: <w>x<h> - Interpolation: <name>`."
-    note: "For a mosaic the view does not debayer, it first asks \"Resize CFA\" whether to run anyway, and **No** starts nothing. OK, **Close** and **Reset** are disabled while the run works, and the other controls stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open."
+    note: "For a mosaic the view does not debayer, it first asks \"Resize CFA\" whether to run anyway, and **No** starts nothing. While the run works, the column says \"applying\" and its controls, **Close** and **Reset** are disabled. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the task open, with the reason in its message strip."
   - name: Close
     kind: button
     default: ""
-    effect: Closes the window without resizing.
+    effect: Closes the task without resizing.
     enabled: Disabled while a run works.
-    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+    note: ++esc++ and the task header's **Close** do the same, and none of them closes the task during a run.
   - name: Reset
     kind: button
     default: ""
@@ -202,14 +201,14 @@ controls:
   - name: Progress
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Resize** and the text `Executing resize to sequence <name>`."
+    effect: "Shows the share of the frames done, from 0 to 100 percent, in a window titled **Resize** with the text `Executing resize to sequence <name>`. The column's run row shows the same share."
     enabled: Shown only while OK works on a sequence. A single image has no progress window.
     tradeoff: The resized sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
     effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
-    note: Closing the Resize window does not stop the run.
+    note: This window's **Cancel** stops the run; the task cannot be closed while it works.
 ```
 
 ## How it works
@@ -276,7 +275,7 @@ values over more pixels: measure noise and [flux](../../reference/glossary.md#fl
   the image's rule is kept, and a mask of valid samples is resampled with the samples. Under a rule that calls every
   sample valid, a sample that is not a number takes part, and spreads to its neighbors.
 - A rejected size, or a result there is no memory for, is reported as "Error running resize" and in the log, and the
-  image, its history and the window stay as they were. When the history cannot keep the image, it says so once in a
+  image, its history and the task stay as they were. When the history cannot keep the image, it says so once in a
   message titled "Image History", and nothing changes.
 - When another run holds a sequence, Resize shows "Another process is executing for this sequence, please cancel
   that job first before running this process" under its own title, and starts nothing.
@@ -348,4 +347,4 @@ The astrometry overlay is gone after the resize
 - [CFA Integer Resample](../calibration/cfa-integer-resample.md) and [Debayer](../calibration/debayer.md), for a raw
   mosaic.
 - [Plate Solving](../registration-alignment/plate-solving.md), to solve again when a distortion was dropped.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for the canvas, the column and what every task shares.

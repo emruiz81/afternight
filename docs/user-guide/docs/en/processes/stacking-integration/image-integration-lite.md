@@ -15,8 +15,9 @@ external: >-
   Optional: a plate solver set up in the settings, for Plate solve final masters
 glance:
   enabled: >-
-    Always. The window opens without an image and works on the files you add. Run Integration waits for the import to
-    end and for the banner to show no error.
+    Always, from the menu or from New quick integration in the Integration hub. The task opens as a page of its own
+    that it fills whole, without an image, and works on the files you add. Run Integration waits for the import to end
+    and for the banner to show no error.
   inputs: >-
     Still image files of one target as the camera wrote them: lights, and any flats, darks, dark flats and bias
     frames. No open image, mask, sequence or video is used.
@@ -40,22 +41,18 @@ you choose, never changes your frames, and opens the masters when it ends. The
 ```figure
 image: ../../assets/images/processes/stacking-integration/image-integration-lite.png
 alt: >-
-  The Image Integration Lite window. An amber banner at the top reads Ready with 4 warnings. The Dataset card counts
-  64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and the object M 16. The Setup card
-  holds the Output folder with its Browse button, two check boxes, the memory limit and CPU Threads. Processing
-  Settings lists four closed lines: Calibration, Registration, Normalization and Stacking. The Frames card has the Add
-  as box, the Add Files, Add Folder, Change Type and Clear All buttons, and a table of the files with their type,
-  filter, object, exposure and calibration. Run Integration, Open Full Process and Close are at the bottom.
+  The Image Integration Lite task, a page that fills the centre of the main window under a header naming Image
+  Integration Lite. An amber banner at the top of the page reads Ready with 4 warnings. Under it, two columns. At the
+  left, the Dataset card counts 64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and
+  the object M 16, and the Frames card below it has the Add as box, the Add Files, Add Folder, Change Type and Clear
+  All buttons, and a table of the files with their type, filter, object, exposure and calibration. At the right, the
+  Setup card holds the Output folder with its Browse button, two check boxes, the memory limit and CPU Threads, and
+  Processing Settings lists four closed lines: Calibration, Registration, Normalization and Stacking. Run Integration,
+  Open Full Process and Close are at the page's foot.
 caption: >-
   Image Integration Lite after a run on Eagle Nebula narrowband lights and their flats, every setting at its default:
   one master was stacked for each of the three filters.
-pins:
-  - {n: 2, x: 8.9, y: 30.8}
-  - {n: 3, x: 43.6, y: 71.6}
-  - {n: 4, x: 29.4, y: 18.1}
-  - {n: 5, x: 29.4, y: 51.4}
-  - {n: 6, x: 21.4, y: 10.9}
-  - {n: 7, x: 66.0, y: 97.3}
+owed: true
 ```
 
 ## Before you start
@@ -70,13 +67,14 @@ pins:
 - Add [dark-flat](../../reference/glossary.md#dark-flat) frames with **Dark Flat** chosen in **Add as**: **Auto-detect**
   adds them as darks.
 - **Plate solve final masters** needs a plate solver set up in [Settings](../../interface/settings-dialog.md).
-- For several targets, calibration matched by hand, a chosen reference, a comet or a saved project, use
+- For several targets, calibration matched by hand, a chosen reference, a comet or a saved [project](../../reference/glossary.md#project), use
   [Image Integration](image-integration.md). **Open Full Process** takes your frames there.
 
 ## Steps
 
-1. **Open the window.** Choose **Process > Preprocess > Image Integration Lite**. No image needs to be open. The red
-   banner reads "No light frames available.", after "Output directory is required." while **Output** is empty.
+1. **Open the task.** Choose **New quick integration** in the [Integration hub](../../interface/integration-hub.md),
+   or **Process > Preprocess > Image Integration Lite**. It opens as a page. The red banner reads "No light frames
+   available.", after "Output directory is required." while **Output** is empty.
 2. **Choose the output folder.** Choose **Browse** beside **Output** and pick a new, empty folder, or type its path.
 3. **Add the frames.** Leave **Add as** at **Auto-detect**, or choose **Dark Flat** for dark flats, then choose **Add
    Folder** or **Add Files**. The table lists one row for each file.
@@ -86,19 +84,19 @@ pins:
    your choice.
 6. **Read the banner.** Green or amber lets you run, and red names what to correct. Hover over amber to read its
    warnings.
-7. **Run.** Choose **Run Integration**. A progress window names each stage, and a box titled **Complete** reads
-   "Workflow completed successfully." at the end.
-8. **Look at the masters.** Choose **Open Report** in the progress window for the
-   [report](integration-report.md), then **Close**. Each master
+7. **Run.** Choose **Run Integration**. The run's view takes the page's place, names each stage, and reads "Workflow
+   Completed Successfully" at the end.
+8. **Look at the masters.** Choose **Open Report** for the [report](integration-report.md), then **Close**. Each
+   master
    is open in a view of its own, nearly black until you choose
    [**Autostretch**](../../reference/glossary.md#autostretch) in its display mode box. Check stars, corners and dust
    shadows at 100 %.
 
 ## Controls
 
-The window has no preview, target, **Apply** or **Reset**: **Run Integration** runs it, on files. Its header, its
-message strip, ++esc++ and its kept size work as in [Process Windows](../../interface/process-windows.md). Only
-**Output** is kept for the next window, and **Clear All** keeps every value.
+The [task](../../reference/glossary.md#task) has no preview, target, **Apply** or **Reset**: **Run Integration** runs it, on files. Its header, its
+banner and ++esc++ work as in [Tasks](../../interface/tasks.md). Only **Output** is kept for the next task, and
+**Clear All** keeps every value.
 
 ### The banner and Dataset
 
@@ -126,8 +124,8 @@ controls:
       Counted again after every change. "Importing frames...", "Preparing integration...", "Updated 3 frame type(s)
       to Dark Flat." and the like stand until the next change.
     note: >-
-      When a run ends, the banner shows the readiness again, not the result. Read the result in the progress window.
-      The message strip over the window reads "Importing: Reading frame metadata." during an import, and "Preparing:
+      When a run ends, the banner shows the readiness again, not the result. Read the result in the run's view. The
+      banner at the head of the page reads "Importing: Reading frame metadata." during an import, and "Preparing:
       Preparing Image Integration Lite workflow." until a run ends.
   - name: Frames
     kind: readout
@@ -167,7 +165,7 @@ controls:
       replaced, and only the copy in that run's folder under `history` remains.
     scope: The whole run.
     persistence: >-
-      Kept when the window closes, and in the box when the next Lite window opens. Left empty, the next window opens
+      Kept when the task closes, and in the box when the next Lite task opens. Left empty, the next task opens
       with the last folder chosen with **Browse**, if it still exists. **Clear All** keeps it.
     note: >-
       Besides the masters and `registered_lights`, the folder receives `registration_metrics.db`, the folder
@@ -191,14 +189,14 @@ controls:
       frames and settings still match, and computes only what changed or is missing.
     enabled: Disabled while frames are imported.
     tradeoff: On costs the whole run's time again. Turn it on when you want everything computed afresh, as after you edit a file the run wrote.
-    persistence: Off in every new window. **Open Full Process** does not take it.
+    persistence: Off in every new task. **Open Full Process** does not take it.
   - name: Open results when complete
     kind: check
     default: "On"
     effect: On opens each stacked master in a view of its own when the run succeeds. Off leaves them in the folder.
     enabled: Disabled while frames are imported.
     scope: The stacked masters, not the calibration masters. A failed or cancelled run opens none.
-    persistence: On in every new window. **Open Full Process** does not take it.
+    persistence: On in every new task. **Open Full Process** does not take it.
   - name: Limit memory usage
     object: liteLimitMemoryCheck
     kind: check
@@ -223,7 +221,7 @@ controls:
     effect: The most threads the run's stages use at once. Lower leaves more of the computer to other work, and the run takes longer.
     range: Up to the number of threads the computer offers, where it opens.
     enabled: Disabled while frames are imported.
-    persistence: At the computer's count in every new window. **Open Full Process** does not take it.
+    persistence: At the computer's count in every new task. **Open Full Process** does not take it.
 ```
 
 ### Processing Settings
@@ -521,7 +519,7 @@ controls:
       For a light, **Calibration** names the masters it will be calibrated with, as `Flat` or `Dark + Flat`, or
       `None`, and its tooltip names their files. For a calibration frame, it names what calibrates its own master,
       and the tooltip says what the master is used for, as "Used by lights as flat".
-    persistence: The list lasts while the window is open. Closing the window discards it.
+    persistence: The list lasts while the task is open. Closing the task discards it.
     note: Lite cannot leave a row out or remove one. **Clear All** empties the whole list.
 ```
 
@@ -533,14 +531,14 @@ controls:
   - name: Run Integration
     kind: button
     default: ""
-    effect: Starts the run with the list and the settings as they are, in a progress window.
-    enabled: When the banner shows no error and no import is under way. Disabled while a run is prepared.
+    effect: Starts the run with the list and the settings as they are. The run's view takes the page's place until you close it.
+    enabled: When the banner shows no error and no import is under way. Disabled while a run is prepared. ++ctrl+enter++ presses it.
     tradeoff: >-
       A large set takes long and needs much memory and disk space. Try a few frames in a folder of their own first.
       Keep the frames and the folder where they are while the run works.
     scope: >-
-      Every group of the list. The Lite window takes no input until the progress window closes, and the rest of
-      AfterNight stays usable.
+      Every group of the list. The Lite task shows the run, not its list, until the run's view is closed, and the
+      rest of AfterNight stays usable. The run goes on if you leave the page.
     note: >-
       A run is refused before it starts when the folder's `registration_metrics.db` is in a format this version
       does not read: a box titled **Registration Records** says so, and nothing is changed.
@@ -548,13 +546,13 @@ controls:
     kind: button
     default: ""
     effect: >-
-      Opens a new Image Integration window with the frames, their types, the output folder and the settings of each
-      group, as a project named `Lite handoff`.
+      Opens Image Integration with the frames, their types, the output folder and the settings of each group, as a
+      project named `Lite handoff`.
     enabled: Outside an import.
     range: "**Reprocess existing outputs**, **Open results when complete** and **CPU Threads** stay behind."
     scope: >-
-      The Lite window stays open with its list, and its banner reads "Opened the current Lite setup in the full Image
-      Integration process." A change in either window does not reach the other.
+      The Lite task stays open with its list, and its banner reads "Opened the current Lite setup in the full Image
+      Integration process." A change in either task does not reach the other.
     note: >-
       Lite has none of these, which the full process is for: frames left out, groups and calibration chosen by hand,
       pre-calibrated groups, settings for each group, a chosen reference, comets, rejection and quality maps, runs of
@@ -562,29 +560,30 @@ controls:
       project you save.
 ```
 
-### The progress window
+### The run's view
 
 ```controls
-window: Image Integration - Processing
+window: The run's view
 controls:
   - name: Stages
     kind: readout
     default: Preparing
-    effect: Names the run's stages in order, and marks each one done, current or failed.
+    effect: Names the run's stages in order, in a list at the view's left, and marks each one to come, current with how far it has come and the group it is at, done with the time it took, or failed or stopped.
   - name: Current operation
     kind: readout
     default: Initializing...
     effect: >-
-      Says what the run does, with a progress bar and the **Current File** under it. It ends as "Workflow Completed
-      Successfully", "Workflow Completed with Warnings", "Workflow Cancelled" or "Workflow Failed".
+      Says what the run does, with the whole run's bar, which never goes back within a stage, and the **Current
+      File** under it. It ends as "Workflow Completed Successfully", "Workflow Completed with Warnings", "Workflow
+      Cancelled" or "Workflow Failed".
   - name: Process Output
     kind: readout
     default: ""
-    effect: Shows the run's log as it is written, with every warning, and the elapsed time under it.
+    effect: Shows the run's log as it is written, with every warning. The time taken and, once it can tell, the time left are under it.
   - name: Cancel
     kind: button
     default: ""
-    effect: Asks the run to stop at its next stop point, and reads "Cancelling...". Closing the window or ++esc++ does the same.
+    effect: Asks the run to stop at its next stop point, and reads "Cancelling...". The task cannot be closed while the run works.
     persistence: What was finished is kept and reported.
   - name: Open Report
     kind: button
@@ -597,16 +596,11 @@ controls:
   - name: Close
     kind: button
     default: ""
-    effect: Closes the progress window.
+    effect: Puts the run's view away, and the page shows the list again.
     enabled: Once the run has ended. It replaces **Cancel**.
-  - name: Complete
-    kind: readout
-    default: Workflow completed successfully.
-    effect: A box that ends a successful run.
     note: >-
-      A run whose groups partly failed ends with **Completed with Errors**, "Workflow completed, but 1 frame(s)/group(s)
-      had errors:" and the list, a stopped one with **Cancelled**, "Workflow was cancelled.", and a failed one with
-      **Failed**, "Workflow failed:" and the reason.
+      No box ends the run: the view's line and its stages say how it ended. A run that ends while another place is
+      shown says "Image Integration Lite finished", or failed or stopped, at the foot of the centre, with **Show**.
 ```
 
 ## How it works
@@ -716,7 +710,7 @@ caption: >-
 ## When it goes wrong
 
 !!! warning "The list is not saved"
-    Closing the window discards the list, and Lite saves no project. To keep the work, choose **Open Full Process**
+    Closing the task discards the list, and Lite saves no project. To keep the work, choose **Open Full Process**
     and save it there.
 
 "Image Integration Lite expects one target object. Use the full Image Integration process for multi-object projects."
@@ -760,7 +754,7 @@ A master is missing, or there is one too many
 - [Image Stacking](image-stacking.md), for the rejection methods and the stacking of registered lights.
 - [Narrowband Imaging](../../workflows/narrowband-imaging.md), for what to do with Ha, OIII and SII masters.
 - [Image Viewer](../../interface/image-viewer.md), to inspect a master with Autostretch.
-- [Process Windows](../../interface/process-windows.md), for what every process window shares.
+- [Tasks](../../interface/tasks.md), for what every task shares.
 
 ## Credits
 
