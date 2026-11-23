@@ -52,7 +52,8 @@ an::ui::StartedApplication startClassicShell(an::ui::shell::ApplicationCore& cor
     core.setApplicationSession(&session);
     an::ui::shell::ShellRegistry registry;
     EXPECT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-    return an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+    return an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
+                                    QProcessEnvironment(), {});
 }
 
 } // namespace

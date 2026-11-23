@@ -5,11 +5,11 @@
 
 A link in a developer document is a promise that a reader can follow it, and a moved or removed file breaks the
 promise silently - the most common way documentation goes stale. This reads every Markdown document under the roots
-it is given - by default `docs/dev/`, the contributor guides, the repository's root documents and the `.github`
-templates - and every link in them: inline links, images and reference definitions, outside fenced blocks and code
-spans. A link to a web address or to an anchor of the same page is not a file and is not read; any other target, its
-anchor and query dropped and its percent-encoding decoded, must name a file or directory that exists, relative to the
-document or, with a leading `/`, to the repository root.
+it is given - by default `docs/dev/`, the contributor guides, the repository's root documents, the `.github`
+templates and the release notes in `docs/release-notes/` - and every link in them: inline links, images and reference
+definitions, outside fenced blocks and code spans. A link to a web address or to an anchor of the same page is not a
+file and is not read; any other target, its anchor and query dropped and its percent-encoding decoded, must name a
+file or directory that exists, relative to the document or, with a leading `/`, to the repository root.
 
 `check_engine_documentation.py` holds the engine's guides to the identifiers and paths their code spans name; this
 holds every developer document to its links. The user guide's links are held by its strict MkDocs build.
@@ -38,7 +38,7 @@ import tree_files  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 DEFAULT_ROOTS = ('docs/dev', 'AGENTS.md', 'CLAUDE.md', 'README.md', 'BUILD.md', 'CONTRIBUTING.md', 'SECURITY.md',
-                 'HISTORY.md', 'CODE_OF_CONDUCT.md', '.github')
+                 'HISTORY.md', 'CODE_OF_CONDUCT.md', '.github', 'docs/release-notes')
 
 FENCE = re.compile(r'^\s*(```|~~~)')
 CODE_SPAN = re.compile(r'(`+)(.+?)\1')

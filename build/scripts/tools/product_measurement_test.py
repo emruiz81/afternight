@@ -1091,6 +1091,17 @@ class ApplicationPathTest(unittest.TestCase):
                          ('result.json', 1, 20000, 10))
         self.assertEqual((parsed.dataset_identity, parsed.timeout_seconds), ('f' * 64, 1800))
 
+    def test_the_linux_driver_starts_the_classic_shell(self) -> None:
+        # The windows, menus and dialogs the driver answers are the classic shell's; a build with one shell ignores
+        # the variable.
+        session = linux_driver.DisplaySession(pathlib.Path('session'))
+        env = session.application_environment(pathlib.Path('deployment'), pathlib.Path('storage'))
+        self.assertEqual(env['AFTERNIGHT_SHELL'], 'classic')
+
+    def test_the_windows_driver_starts_the_classic_shell(self) -> None:
+        driver = (measurement.REPO_ROOT / measurement.APPLICATION_DRIVER['windows']).read_text(encoding='utf-8')
+        self.assertIn("$start.EnvironmentVariables['AFTERNIGHT_SHELL'] = 'classic'", driver)
+
     def test_a_deployment_runs_its_application_by_the_application_path(self) -> None:
         (self.root / 'bin').mkdir()
         application = self.root / 'bin' / measurement.APPLICATION[measurement.host_platform()]

@@ -38,6 +38,10 @@
 /src/AfterNightTests/fixtures/common/xisf/*.xisf binary
 /src/AfterNightTests/fixtures/common/xisf/*.csv -text
 
+# The settings store AfterNight 1.1.0 wrote, kept as a test input exactly as it wrote it
+# (fixtures/common/settings/PROVENANCE.md).
+/src/AfterNightTests/fixtures/common/settings/*.db binary
+
 # The raw-dump exporter's inputs are compared by the digest of what the engine decodes from them; keep them
 # byte-for-byte.
 /src/AfterNightTests/fixtures/common/expectations/raw-dump/inputs/** -text

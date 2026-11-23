@@ -4,8 +4,8 @@
 /// @file
 /// What a fresh settings store means: every key the new interface added to the global settings store has its default,
 /// which a reader takes while nothing is stored; and a store that holds nothing, read under the Classic style profile,
-/// puts in force what AfterNight 1.1 had - the classic shell, its theme, contrast, accent and tint, its tokens, Night
-/// off.
+/// puts in force what AfterNight 1.1 had - its theme, contrast, accent and tint, its tokens, Night off - but for the
+/// shell, which is the Observatory one.
 
 #include <gtest/gtest.h>
 
@@ -41,9 +41,10 @@ QString switchText(const bool on)
 
 // Every key the new interface added to the global settings store has its default, the value its reader falls back to;
 // none is stored in a fresh store. A store that holds nothing, read under the Classic profile as the application reads
-// it as it starts, gives the choices and the tokens of 1.1: the classic shell, the dark theme, the balanced contrast,
-// the blue accent, the neutral tint and Night off; and the preset a fresh store names is made of 1.1's accent and tint,
-// so a store that keeps it puts nothing else in force.
+// it as it starts, gives the choices and the tokens of 1.1: the dark theme, the balanced contrast, the blue accent, the
+// neutral tint and Night off; and the preset a fresh store names is made of 1.1's accent and tint, so a store that
+// keeps it puts nothing else in force. The shell is the one default that is not 1.1's: a fresh store starts the
+// Observatory shell.
 TEST(SettingsKeys, DefaultsReproduce1_1)
 {
     const std::vector<KeyDefault> added = {
@@ -74,7 +75,7 @@ TEST(SettingsKeys, DefaultsReproduce1_1)
         {SettingsKeys::PROJECTS_LAST, QString::fromLatin1(SettingsDefaults::PROJECTS_LAST)},
     };
     const std::vector<KeyDefault> stated = {
-        {SettingsKeys::INTERFACE_SHELL, QStringLiteral("classic")},
+        {SettingsKeys::INTERFACE_SHELL, QStringLiteral("observatory")},
         {SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, QStringLiteral("balanced")},
         {SettingsKeys::INTERFACE_DENSITY, QStringLiteral("compact")},
         {SettingsKeys::INTERFACE_THEME_PRESET, QStringLiteral("slate")},
@@ -146,8 +147,8 @@ TEST(SettingsKeys, DefaultsReproduce1_1)
     EXPECT_TRUE(read == previous) << "a fresh store reads as other choices than 1.1's under the Classic profile";
     EXPECT_EQ(store.select(QString::fromLatin1(SettingsKeys::INTERFACE_SHELL),
                            QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)),
-              QStringLiteral("classic"))
-        << "a fresh store starts another shell than the classic one";
+              QStringLiteral("observatory"))
+        << "a fresh store starts another shell than the Observatory one";
 
     // The preset a fresh store names is made of what 1.1 put in force.
     const std::optional<an::ui::ThemePresetParts> parts = an::ui::themePresetParts(

@@ -112,12 +112,17 @@ protected:
         return nullptr;
     }
 
-    /// Opens a file as a person's file is opened, and waits for its view.
+    /// Opens a file as a person's file is opened, and waits for its view and for what the application does as it is
+    /// told of it.
     static void openFile(const QString& path)
     {
         an::ui::appContext()->getRecentFilesService()->openDroppedFiles({path});
         EXPECT_TRUE(an::tests::app::processEventsUntil([&path]() { return viewOf(path) != nullptr; }, kProjectOpenMs))
             << path.toStdString() << " did not open";
+        // Whether the image joins the open project is decided a turn after its view is made: that is done too, so a
+        // project opened next does not take an image that was opened before it. A slow build ends a slice of the wait
+        // between the two.
+        settleProjects();
     }
 };
 

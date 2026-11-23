@@ -200,7 +200,7 @@ void pressAtTheNextMessageBox(const QMessageBox::StandardButton answer)
 /// The store holding, for every key of the new interface the dialog shows, a value that is not its default.
 void storeOtherThanTheDefaults(const SettingsStore& store, const QString& elsewhere)
 {
-    store.store(SettingsKeys::INTERFACE_SHELL, QStringLiteral("observatory"));
+    store.store(SettingsKeys::INTERFACE_SHELL, QStringLiteral("classic"));
     store.store(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY, QStringLiteral("rose"));
     store.store(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY, QStringLiteral("amethyst"));
     store.store(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, QStringLiteral("strong"));
@@ -663,10 +663,14 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
 // Under the Observatory profile a window whose text wraps is, at its least size, as high as its rows need at its least
 // width: Qt works a window's least size out without the height its layout needs for a width, so a card of wrapping
 // values under a wrapping description had its rows squeezed under their lines there, by a few pixels each in a font
-// whose lines are taller (Noto Sans).
+// whose lines are taller (Noto Sans). How a form lays its wrapping values out depends on how wide text is, and the
+// suites' own platform on Windows draws a box font about twice the interface's width: there the window's least height
+// is asserted and the labels' lines are reported skipped; started under the native platform
+// (`QT_QPA_PLATFORM=windows`), or under `offscreen`, the case measures them as the interface does.
 TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
 {
     const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
+    const bool measured = an::tests::look::textIsMeasured();
     QDialog window;
     window.setAttribute(Qt::WA_DontShowOnScreen, true);
     auto* const column = new QVBoxLayout(&window);
@@ -690,10 +694,14 @@ TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
     settle();
     window.resize(1, 1);
     settle();
-    const auto expectLinesWhole = [&window](const char* when) {
+    const auto expectLinesWhole = [&window, measured](const char* when) {
         ASSERT_TRUE(window.layout()->hasHeightForWidth());
         EXPECT_GE(window.height(), window.layout()->totalHeightForWidth(window.width()))
             << when << ", at its least size, " << window.width() << " x " << window.height();
+        if (!measured)
+        {
+            return;
+        }
         for (const QLabel* label : window.findChildren<QLabel*>())
         {
             const int lines = label->wordWrap() ? label->heightForWidth(label->width()) : label->sizeHint().height();
@@ -720,6 +728,11 @@ TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
     window.resize(1, 1);
     settle();
     expectLinesWhole("once the banner went");
+    if (!measured && !HasFailure())
+    {
+        GTEST_SKIP() << "the least heights hold; whether each label's lines are whole is measured under the native "
+                        "platform, where text is drawn as the interface draws it";
+    }
 }
 
 // Under the Observatory profile a page whose rows need more than the page's least width widens the dialog's least size:

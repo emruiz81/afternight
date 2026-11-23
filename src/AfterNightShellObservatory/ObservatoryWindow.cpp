@@ -337,6 +337,9 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<ShellActions> shellActions;
     // The regions F6 and Shift+F6 move the focus through.
     std::unique_ptr<RegionFocus> regionFocus;
+    // The window followed as the active one, for the task the person looks at; let go of as the window goes, before
+    // this is.
+    QMetaObject::Connection activeWindowFollowing;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
     an::ui::AnCommandPalette* palette = nullptr;
     PaletteScrim* scrim = nullptr;
@@ -648,7 +651,7 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
         }
     });
     // The task whose window is active is the one the person looks at.
-    QObject::connect(qApp, &QGuiApplication::focusWindowChanged, this, [this](QWindow* /*focus*/) {
+    impl.activeWindowFollowing = QObject::connect(qApp, &QGuiApplication::focusWindowChanged, this, [this](QWindow*) {
         if (m_impl->tasks)
         {
             m_impl->tasks->activeWindowChanged(QApplication::activeWindow());
@@ -718,8 +721,10 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
-    // The focus is followed no more: what goes from here on may move it.
+    // The focus is followed no more: what goes from here on may move it, the children the base class deletes after
+    // this state is gone among them.
     impl.regionFocus.reset();
+    QObject::disconnect(impl.activeWindowFollowing);
     core.projects().unsubscribe(impl.jobsProjectSubscription);
     if (impl.miniatures)
     {

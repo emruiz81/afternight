@@ -1895,7 +1895,9 @@ an id, an id of another shape and a descriptor that cannot make its shell are re
 hands out stays where it is while more are registered.
 
 `ShellSelection::resolve` chooses the one shell a run makes: the first of `--shell=<id>`, the environment variable
-`AFTERNIGHT_SHELL`, the setting `interface/shell` (default `classic`) and the default that names a registered shell.
+`AFTERNIGHT_SHELL`, the setting `interface/shell` and the default, `observatory`, that names a registered shell.
+A store that names no shell - a fresh one, or one AfterNight 1.1 wrote, which knew no other - starts the Observatory
+shell and is not written to; the setting is written only when a person chooses a shell on the Interface page.
 A source that names no registered shell, and an option with no value, is passed over with a warning in the log and
 in the returned `ShellChoice`: a mistyped option never stops the application from starting. The value is joined to
 the option (`--shell=observatory`), so the argument after a bare `--shell` - a file to open, perhaps - is never taken
@@ -2155,7 +2157,7 @@ reads the record of the view's menu; `WindowGeometryStoreTest.*` and `FileDropHa
 
 The application holds two shells, each a library over the shell core: `AfterNightShellClassic`, the window of
 AfterNight 1.1, and `AfterNightShellObservatory`, the window of places and tasks. One run makes one of them, chosen at
-the start (`--shell=<id>`, `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default `classic`), and each names the
+the start (`--shell=<id>`, `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default `observatory`), and each names the
 style profile it is drawn in. A shell is a window and what only a window answers; everything else is the core's, made
 and started before the shell is: `ApplicationCore::initialize` makes and installs the application context, opens the
 session from the limits the settings store states, puts the interface's settings in force so the first widget is made

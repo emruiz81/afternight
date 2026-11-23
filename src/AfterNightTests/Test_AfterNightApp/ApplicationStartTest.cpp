@@ -155,11 +155,14 @@ ShellDescriptor recordingDescriptor(const QString& id, QStringList& log,
     };
 }
 
-/// Two recording shells, `classic` - the default, under the Classic profile - and `second`, under the Observatory one.
+/// Three recording shells: `classic`, under the Classic profile, and `observatory` - the default - and `second`, under
+/// the Observatory one.
 ShellRegistry recordingShells(QStringList& log)
 {
     ShellRegistry registry;
     EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("classic"), log)));
+    EXPECT_TRUE(
+        registry.add(recordingDescriptor(QStringLiteral("observatory"), log, an::ui::StyleProfile::Observatory)));
     EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("second"), log, an::ui::StyleProfile::Observatory)));
     return registry;
 }
@@ -192,13 +195,14 @@ TEST(ApplicationStart, TheStoresOpenBeforeTheStyleAndTheFirstWidget)
     qsizetype widgetsWhenStyled = -1;
     an::ui::StyleProfile profileWhenStyled = an::ui::StyleProfile::Observatory;
 
-    an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), [&](const an::ui::StyleProfile profile) {
-            ++styled;
-            storesOpenWhenStyled = core.storesOpen();
-            widgetsWhenStyled = QApplication::allWidgets().size();
-            profileWhenStyled = profile;
-        });
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
+                                 QProcessEnvironment(), [&](const an::ui::StyleProfile profile) {
+                                     ++styled;
+                                     storesOpenWhenStyled = core.storesOpen();
+                                     widgetsWhenStyled = QApplication::allWidgets().size();
+                                     profileWhenStyled = profile;
+                                 });
 
     ASSERT_NE(started.shell, nullptr);
     QWidget* const window = started.shell->mainWindow();
@@ -249,7 +253,7 @@ TEST(ApplicationStart, StartsTheChosenShell)
         << log.join(QStringLiteral(", ")).toStdString();
 }
 
-// The developer switch reaches the style step: the default shell, which names the Classic profile, is styled under the
+// The developer switch reaches the style step: the classic shell, which names the Classic profile, is styled under the
 // profile the environment names, before it is made.
 TEST(ApplicationStart, TheDeveloperSwitchStylesTheShellUnderTheProfileItNames)
 {
@@ -262,9 +266,9 @@ TEST(ApplicationStart, TheDeveloperSwitchStylesTheShellUnderTheProfileItNames)
     environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
                        QStringLiteral("observatory"));
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, environment,
-                                 [&](const an::ui::StyleProfile profile) { log.append(styledUnder(profile, true)); });
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, environment,
+        [&](const an::ui::StyleProfile profile) { log.append(styledUnder(profile, true)); });
 
     ASSERT_NE(started.choice.descriptor, nullptr);
     EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("classic"));
@@ -316,13 +320,14 @@ TEST(ApplicationStart, TheDeveloperSwitchStartsTheClassicShellInTheObservatoryCo
     environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
                        QStringLiteral("observatory"));
 
-    an::ui::StartedApplication started = an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")},
-                                                                  environment, [](const an::ui::StyleProfile profile) {
-                                                                      // The application's step, but for the widgets
-                                                                      // earlier cases of this process made.
-                                                                      an::ui::testing::forceStyleProfile(profile);
-                                                                      (void)an::ui::installAnProxyStyle();
-                                                                  });
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
+                                 environment, [](const an::ui::StyleProfile profile) {
+                                     // The application's step, but for the widgets
+                                     // earlier cases of this process made.
+                                     an::ui::testing::forceStyleProfile(profile);
+                                     (void)an::ui::installAnProxyStyle();
+                                 });
 
     ASSERT_NE(started.shell, nullptr);
     EXPECT_EQ(an::ui::styleProfile(), an::ui::StyleProfile::Observatory);
@@ -372,8 +377,8 @@ TEST(ApplicationStart, TheTintStrengthIsReadFromTheSettingsStore)
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH);
     ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("strong")));
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themeTintStrength(), an::ui::ThemeTintStrength::Strong);
 
@@ -402,8 +407,8 @@ TEST(ApplicationStart, TheDensityIsReadFromTheSettingsStore)
     ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("comfortable")));
     const an::ui::MetricTokens classicMetrics = an::ui::tokens().metrics;
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themeDensity(), an::ui::ThemeDensity::Comfortable);
     EXPECT_TRUE(an::ui::tokens().metrics == classicMetrics) << "the Classic profile sized something by the density";
@@ -431,8 +436,8 @@ TEST(ApplicationStart, ThePresetIsReadFromTheSettingsStore)
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_PRESET);
     ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("nebula")));
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themePreset(), an::ui::ThemePreset::Nebula);
     EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Rose);
@@ -462,8 +467,8 @@ TEST(ApplicationStart, AnEarlierVersionsAccentAndTintAreKept)
     ASSERT_TRUE(core.globalSettingsStore()->upsert(accent, QStringLiteral("amber")));
     ASSERT_TRUE(core.globalSettingsStore()->upsert(tint, QStringLiteral("ocean")));
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Amber);
     EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Ocean);
@@ -498,7 +503,8 @@ TEST(ApplicationStart, NightIsSetAtStartOnlyWhenAskedFor)
         }
 
         an::ui::StartedApplication started =
-            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
+                                     QProcessEnvironment(), {});
 
         EXPECT_EQ(an::ui::nightModeSet(), asked);
 
@@ -539,13 +545,14 @@ TEST(ApplicationStart, TheDeveloperSwitchStartsTheClassicShellInEitherDensity)
         const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
         ASSERT_TRUE(core.globalSettingsStore()->upsert(key, setting));
 
-        an::ui::StartedApplication started = an::ui::startApplication(
-            core, registry, {QStringLiteral("AfterNight")}, environment, [](const an::ui::StyleProfile profile) {
-                // The application's step, but for the widgets earlier cases of this process
-                // made.
-                an::ui::testing::forceStyleProfile(profile);
-                (void)an::ui::installAnProxyStyle();
-            });
+        an::ui::StartedApplication started =
+            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
+                                     environment, [](const an::ui::StyleProfile profile) {
+                                         // The application's step, but for the widgets earlier cases of this process
+                                         // made.
+                                         an::ui::testing::forceStyleProfile(profile);
+                                         (void)an::ui::installAnProxyStyle();
+                                     });
 
         ASSERT_NE(started.shell, nullptr);
         QWidget* const window = started.shell->mainWindow();
@@ -629,11 +636,11 @@ TEST(ApplicationStart, UnknownShellFallsBack)
         core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=nope")}, QProcessEnvironment(), {});
 
     ASSERT_NE(started.choice.descriptor, nullptr);
-    EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("classic"));
+    EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("observatory"));
     EXPECT_EQ(started.choice.source, ShellChoiceSource::Default);
     ASSERT_FALSE(started.choice.warnings.isEmpty());
     EXPECT_TRUE(started.choice.warnings.front().contains(QStringLiteral("nope")))
         << started.choice.warnings.join(QStringLiteral("; ")).toStdString();
-    EXPECT_TRUE(log.contains(QStringLiteral("classic built")));
+    EXPECT_TRUE(log.contains(QStringLiteral("observatory built")));
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
 }

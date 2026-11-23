@@ -21,9 +21,9 @@ TEST(InterfaceShellSetting, IsStoredUnderInterfaceShell)
     EXPECT_STREQ(SettingsKeys::INTERFACE_SHELL, "interface/shell");
 }
 
-TEST(InterfaceShellSetting, DefaultsToTheClassicShell)
+TEST(InterfaceShellSetting, DefaultsToTheObservatoryShell)
 {
-    EXPECT_STREQ(SettingsDefaults::INTERFACE_SHELL, "classic");
+    EXPECT_STREQ(SettingsDefaults::INTERFACE_SHELL, "observatory");
 }
 
 TEST(InterfaceShellSetting, TheGlobalSettingsStoreKeepsTheChoice)
@@ -35,9 +35,9 @@ TEST(InterfaceShellSetting, TheGlobalSettingsStoreKeepsTheChoice)
 
     // Never chosen: nothing is stored, and a reader falls back to the default.
     EXPECT_EQ(store.selectOptional(key), std::nullopt);
-    EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("classic"));
-
-    ASSERT_TRUE(store.upsert(key, QStringLiteral("observatory")));
-    EXPECT_EQ(store.selectOptional(key), std::optional<QString>(QStringLiteral("observatory")));
     EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("observatory"));
+
+    ASSERT_TRUE(store.upsert(key, QStringLiteral("classic")));
+    EXPECT_EQ(store.selectOptional(key), std::optional<QString>(QStringLiteral("classic")));
+    EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("classic"));
 }

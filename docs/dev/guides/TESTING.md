@@ -83,7 +83,7 @@ in `AGENTS.md` requires.
 `Test_ShellCore` holds the shell core ("The shell core" in [the product guide](PRODUCT_ARCHITECTURE.md)) with no
 window: a case about a class of that library lives there, never in a suite of Controls or Processes, which cannot link
 a library above them. The choice of a shell is held to the arguments it is handed by starting the executable again
-with `--shell=observatory` on its own command line: the copy runs the one disabled case,
+with `--shell=classic` on its own command line: the copy runs the one disabled case,
 `ShellSelection.DISABLED_OwnCommandLineIsNotRead`, which finds the option in `QCoreApplication::arguments()` and not
 in the shell chosen.
 
@@ -402,6 +402,14 @@ to its own output proves nothing; a record that cannot be captured again says so
 naming its producer `AfterNightEngine reference abi=-` and its commit `-`. A record that names an
 accepted difference keeps its reason in the record, and the case that reads it bounds the difference
 in samples and size, so the reason cannot grow quietly.
+
+**An input another release wrote is kept as it wrote it.** `fixtures/common/settings/afternight-1.1.0.db` is the
+settings database AfterNight 1.1.0 wrote, driven through its own Settings dialog, and
+`fixtures/common/settings/PROVENANCE.md` says how and what it holds. `SettingsCarryOver` in `Test_Persistence` opens a
+copy of it as this version opens the store it finds, holds that no key of it is lost or changed and reads the choices
+it carries over, and refuses the file when its SHA-256 is not the one the provenance states. No build of this tree is
+that release, so it cannot be captured again: it is never regenerated, and a store of another release is a file of its
+own beside it.
 
 **A record can be specific to a build.** A behavior record is the reference build's answer, and the
 reference build is MSVC on Windows. A case another build does not reproduce keeps that build's own

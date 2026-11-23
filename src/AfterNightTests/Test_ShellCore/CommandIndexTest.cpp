@@ -120,7 +120,7 @@ QStringList groupIdsOf(const std::vector<CommandRowGroup>& groups)
     return idsOfGroups;
 }
 
-/// The row of an id among a query's groups; null for none.
+/// The row of an id among a query's groups; null for none. The row lives as long as the groups do.
 const CommandRow* rowOf(const std::vector<CommandRowGroup>& groups, const QString& id)
 {
     for (const CommandRowGroup& group : groups)
@@ -134,6 +134,15 @@ const CommandRow* rowOf(const std::vector<CommandRowGroup>& groups, const QStrin
         }
     }
     return nullptr;
+}
+
+/// A query's result that is gone at the end of its statement holds no row a case may keep.
+const CommandRow* rowOf(std::vector<CommandRowGroup>&& groups, const QString& id) = delete;
+
+/// Whether a query's groups hold the row of an id.
+bool lists(const std::vector<CommandRowGroup>& groups, const QString& id)
+{
+    return rowOf(groups, id) != nullptr;
 }
 
 /// The group of an id among a query's groups; null for none.
@@ -384,7 +393,7 @@ TEST_F(CommandIndex, ARemovedProviderTakesItsCommandsWithIt)
     index.addProvider(std::move(owned));
     index.refresh();
     ASSERT_NE(index.entry(QStringLiteral("gone")), nullptr);
-    ASSERT_NE(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("gone")), nullptr);
+    ASSERT_TRUE(lists(index.query(QStringLiteral("Command")), QStringLiteral("gone")));
 
     const FixedCommands stranger({command(QStringLiteral("stranger"), QStringLiteral("Stranger"))});
     index.removeProvider(&stranger);
@@ -393,11 +402,11 @@ TEST_F(CommandIndex, ARemovedProviderTakesItsCommandsWithIt)
 
     index.removeProvider(removed);
     EXPECT_EQ(index.entry(QStringLiteral("gone")), nullptr);
-    EXPECT_EQ(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("gone")), nullptr);
+    EXPECT_FALSE(lists(index.query(QStringLiteral("Command")), QStringLiteral("gone")));
     EXPECT_FALSE(index.run(QStringLiteral("gone")));
     EXPECT_TRUE(m_runs.isEmpty());
     ASSERT_NE(index.entry(QStringLiteral("kept")), nullptr);
-    EXPECT_NE(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("kept")), nullptr);
+    EXPECT_TRUE(lists(index.query(QStringLiteral("Command")), QStringLiteral("kept")));
 
     index.removeProvider(removed);
     EXPECT_NE(index.entry(QStringLiteral("kept")), nullptr) << "a provider removed twice is removed once";
@@ -452,7 +461,8 @@ TEST_F(CommandIndex, TheStarTogglesAFavourite)
     process.setFavorite = [&told](const bool favorite) { told.push_back(favorite); };
     const auto index =
         indexOf({process, command(QStringLiteral("view"), QStringLiteral("Curves View"), CommandGroup::Views)});
-    const CommandRow* const row = rowOf(index->query(QStringLiteral("curves")), QStringLiteral("process"));
+    const std::vector<CommandRowGroup> found = index->query(QStringLiteral("curves"));
+    const CommandRow* const row = rowOf(found, QStringLiteral("process"));
     ASSERT_NE(row, nullptr);
     EXPECT_TRUE(row->favoritable);
     EXPECT_FALSE(row->favorite);
@@ -467,7 +477,8 @@ TEST_F(CommandIndex, TheStarTogglesAFavourite)
     index->toggleFavorite(QStringLiteral("view"));
     EXPECT_EQ(told, (std::vector<bool>{true, false}));
     EXPECT_TRUE(index->query(QString()).empty());
-    const CommandRow* const view = rowOf(index->query(QStringLiteral("curves")), QStringLiteral("view"));
+    const std::vector<CommandRowGroup> foundAgain = index->query(QStringLiteral("curves"));
+    const CommandRow* const view = rowOf(foundAgain, QStringLiteral("view"));
     ASSERT_NE(view, nullptr);
     EXPECT_FALSE(view->favoritable);
 }
@@ -773,11 +784,11 @@ TEST_F(CommandIndex, ListsTheSettingsPagesAndTheirRows)
     EXPECT_EQ(row.title, QStringLiteral("Plate Solving > Default solver"));
     EXPECT_EQ(row.group, CommandGroup::Settings);
 
-    EXPECT_NE(rowOf(index->query(QStringLiteral(":astrom")), page.id), nullptr) << "a page by its search words";
-    EXPECT_NE(rowOf(index->query(QStringLiteral("default sol")), row.id), nullptr) << "a row by its words";
+    EXPECT_TRUE(lists(index->query(QStringLiteral(":astrom")), page.id)) << "a page by its search words";
+    EXPECT_TRUE(lists(index->query(QStringLiteral("default sol")), row.id)) << "a row by its words";
     const QString radius = SettingsCommands::rowCommandId(QStringLiteral("Plate Solving"), QStringLiteral("Hints"),
                                                           QStringLiteral("Search radius"));
-    EXPECT_NE(rowOf(index->query(QStringLiteral("hints")), radius), nullptr) << "a row by its section";
+    EXPECT_TRUE(lists(index->query(QStringLiteral("hints")), radius)) << "a row by its section";
 
     // A label shown in two sections is two rows, each titled by its section.
     EXPECT_EQ(index->entries()[3].title, QStringLiteral("Plate Solving > Threads > Auto"));
@@ -1102,8 +1113,8 @@ TEST_F(CommandIndexInTheApplication, FindsEveryRecordedActionAndProcessByItsText
     for (const QStringList& process : processes)
     {
         const QString expected = ProcessCommands::commandId(process[0].toStdString());
-        const CommandRow* const row = rowOf(index.query(process[1]), expected);
-        EXPECT_NE(row, nullptr) << process[0].toStdString() << " by \"" << process[1].toStdString() << "\"";
+        EXPECT_TRUE(lists(index.query(process[1]), expected))
+            << process[0].toStdString() << " by \"" << process[1].toStdString() << "\"";
     }
 }
 
@@ -1150,8 +1161,8 @@ TEST_F(CommandIndexInTheApplication, ListsTheRecentFilesAndTheSettingsPages)
     core.recentFiles().entriesForEdit() = {file};
     core.commands().refresh();
 
-    const CommandRow* const recent = rowOf(core.commands().query(QStringLiteral("@carina")),
-                                           ImageCommands::fileCommandId(QString::fromStdString(file)));
+    const std::vector<CommandRowGroup> byName = core.commands().query(QStringLiteral("@carina"));
+    const CommandRow* const recent = rowOf(byName, ImageCommands::fileCommandId(QString::fromStdString(file)));
     ASSERT_NE(recent, nullptr);
     EXPECT_EQ(recent->title, QStringLiteral("Carina_Nebula_RGB.fit"));
 
@@ -1159,9 +1170,8 @@ TEST_F(CommandIndexInTheApplication, ListsTheRecentFilesAndTheSettingsPages)
     ASSERT_FALSE(pages.empty());
     for (const SettingsSearchPage& page : pages)
     {
-        EXPECT_NE(
-            rowOf(core.commands().query(QStringLiteral(":") + page.title), SettingsCommands::pageCommandId(page.title)),
-            nullptr)
+        EXPECT_TRUE(
+            lists(core.commands().query(QStringLiteral(":") + page.title), SettingsCommands::pageCommandId(page.title)))
             << page.title.toStdString();
         for (const SettingsSearchRow& row : page.rows)
         {

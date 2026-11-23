@@ -197,14 +197,16 @@ class DisplaySession:
 
     def application_environment(self, deployment: pathlib.Path, storage: pathlib.Path) -> dict:
         """What the application starts with: the session's display and bus, accessibility on, a storage root of its
-        own, the C numeric locale, and only the deployment's directories before the system's on the loader path. The
-        user's configuration and data directories are the storage root's too: Qt keeps its file dialog's history in
-        the one, and anything that writes to the standard data location rather than the storage root writes to the
-        other, so no run leaves anything in the user's own directories."""
+        own, the classic shell, whose windows, menus and dialogs the driver answers (a build with one shell ignores
+        the variable), the C numeric locale, and only the deployment's directories before the system's on the loader
+        path. The user's configuration and data directories are the storage root's too: Qt keeps its file dialog's
+        history in the one, and anything that writes to the standard data location rather than the storage root
+        writes to the other, so no run leaves anything in the user's own directories."""
         env = self.environment()
         env.update({'QT_QPA_PLATFORM': 'xcb', 'QT_ACCESSIBILITY': '1', 'QT_LINUX_ACCESSIBILITY_ALWAYS_ON': '1',
-                    'AFTERNIGHT_TEST_STORAGE_ROOT': str(storage), 'XDG_CONFIG_HOME': str(storage / 'config'),
-                    'XDG_DATA_HOME': str(storage / 'data'), 'LC_NUMERIC': 'C',
+                    'AFTERNIGHT_TEST_STORAGE_ROOT': str(storage), 'AFTERNIGHT_SHELL': 'classic',
+                    'XDG_CONFIG_HOME': str(storage / 'config'), 'XDG_DATA_HOME': str(storage / 'data'),
+                    'LC_NUMERIC': 'C',
                     'LD_LIBRARY_PATH': os.pathsep.join([str(deployment), str(deployment / 'lib')])})
         return env
 

@@ -443,7 +443,7 @@ TEST_F(SettingsDialogTest, GeneralSettingsPage_ImportsThePreviewFrameRateAsANumb
 
 // The Interface page offers the choice of a shell only when there is one to make: with one shell registered the Shell
 // row is not shown and the page writes no shell; with two it lists them, shows the one stored, writes the one chosen -
-// which takes effect at the next start - and resets to the classic shell.
+// which takes effect at the next start - and resets to the Observatory shell, the default.
 TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIsAChoice)
 {
     PersistenceDbExecutor executor(QStringLiteral(":memory:"), QStringLiteral("interface_settings_shell_row"));
@@ -461,7 +461,7 @@ TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIs
     alone.saveSettings();
     EXPECT_EQ(settings.select(key, QStringLiteral("(none)")), QStringLiteral("(none)"));
 
-    ASSERT_TRUE(settings.upsert(key, QStringLiteral("observatory")));
+    ASSERT_TRUE(settings.upsert(key, QStringLiteral("classic")));
     InterfaceSettingsPage choosing(&settings);
     choosing.setAvailableShells({{QStringLiteral("classic"), QStringLiteral("Classic")},
                                  {QStringLiteral("observatory"), QStringLiteral("Observatory")}});
@@ -473,13 +473,13 @@ TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIs
     EXPECT_FALSE(row->isHidden());
     ASSERT_EQ(combo->count(), 2);
     EXPECT_EQ(combo->itemText(0), QStringLiteral("Classic"));
-    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("observatory"));
-
-    combo->setCurrentIndex(0);
-    choosing.saveSettings();
-    EXPECT_EQ(settings.select(key), QStringLiteral("classic"));
+    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("classic"));
 
     combo->setCurrentIndex(1);
+    choosing.saveSettings();
+    EXPECT_EQ(settings.select(key), QStringLiteral("observatory"));
+
+    combo->setCurrentIndex(0);
     choosing.resetToDefaults();
-    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("classic"));
+    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("observatory"));
 }

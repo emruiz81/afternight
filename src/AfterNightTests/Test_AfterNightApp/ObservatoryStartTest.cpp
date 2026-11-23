@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The application's start with either of its shells registered: the Observatory shell started when it is chosen, the
-// core initialized and started and the context made before a shell's window is, for either shell, and the time from
-// the start to the first paint of each shell's window, measured.
+// The application's start with either of its shells registered: the Observatory shell started when it is chosen and
+// when nothing chooses a shell, the core initialized and started and the context made before a shell's window is, for
+// either shell, and the time from the start to the first paint of each shell's window, measured.
 
 #include "ClassicShell.h"
 #include "ObservatoryShell.h"
@@ -15,7 +15,9 @@
 #include "core/IShell.h"
 #include "core/ShellRegistry.h"
 #include "core/ShellSelection.h"
+#include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
+#include "controls/settings/SettingsKeys.h"
 #include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
@@ -34,6 +36,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -127,6 +130,75 @@ TEST(ApplicationStart, StartsTheObservatoryShell)
     ASSERT_EQ(shells.size(), 2u);
     EXPECT_EQ(shells[0].id, QStringLiteral("classic"));
     EXPECT_EQ(shells[1].id, QStringLiteral("observatory"));
+
+    const an::Status shut = an::ui::stopApplication(std::move(started.shell), session);
+    EXPECT_TRUE(shut.ok()) << shut.message();
+    EXPECT_EQ(an::ui::appContext(), nullptr);
+}
+
+// With nothing on the command line, in the environment or in the settings store, the application starts the
+// Observatory shell, among both shells as the application registers them, and writes no choice into the store. The
+// classic shell is still the one chosen where a source names it - the command line, the environment, or the setting the
+// Interface page's Shell row writes - while it is registered.
+TEST(ApplicationStart, DefaultIsObservatory)
+{
+    using an::ui::shell::ShellChoice;
+    using an::ui::shell::ShellChoiceSource;
+
+    ASSERT_EQ(an::ui::appContext(), nullptr);
+    const an::ui::testing::ScopedStyleProfile restoreProfile(an::ui::styleProfile());
+
+    an::ui::ApplicationSession session;
+    ApplicationCore core;
+    core.setApplicationSession(&session);
+    ShellRegistry registry;
+    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    ASSERT_TRUE(registry.add(an::ui::observatory::observatoryShellDescriptor()));
+    core.setShellRegistry(&registry);
+    core.openStores();
+    GlobalSettingsPersistence* const store = core.globalSettingsStore();
+    ASSERT_NE(store, nullptr);
+    const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_SHELL);
+    ASSERT_EQ(store->selectOptional(key), std::nullopt) << "an earlier case left a shell in the store";
+
+    const QString program = QStringLiteral("AfterNight");
+    const auto choose = [&](const QStringList& arguments, const QProcessEnvironment& environment) {
+        return an::ui::shell::ShellSelection::resolve(arguments, environment, core.globalSettings(), registry);
+    };
+    QProcessEnvironment namingClassic;
+    namingClassic.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kEnvironmentVariable),
+                         QStringLiteral("classic"));
+    const ShellChoice byOption = choose({program, QStringLiteral("--shell=classic")}, QProcessEnvironment());
+    const ShellChoice byVariable = choose({program}, namingClassic);
+    ASSERT_TRUE(store->upsert(key, QStringLiteral("classic")));
+    const ShellChoice bySetting = choose({program}, QProcessEnvironment());
+    ASSERT_TRUE(store->remove(key));
+    for (const auto& [choice, source] :
+         {std::pair{byOption, ShellChoiceSource::CommandLine}, std::pair{byVariable, ShellChoiceSource::Environment},
+          std::pair{bySetting, ShellChoiceSource::Setting}})
+    {
+        ASSERT_NE(choice.descriptor, nullptr);
+        EXPECT_EQ(choice.descriptor->id, QStringLiteral("classic"));
+        EXPECT_EQ(choice.source, source);
+        EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
+    }
+
+    an::ui::StyleProfile styledWith = an::ui::StyleProfile::Classic;
+    an::ui::StartedApplication started = an::ui::startApplication(core, registry, {program}, QProcessEnvironment(),
+                                                                  [&styledWith](const an::ui::StyleProfile profile) {
+                                                                      styledWith = profile;
+                                                                      forceProfile(profile);
+                                                                  });
+
+    ASSERT_NE(started.shell, nullptr);
+    ASSERT_NE(started.choice.descriptor, nullptr);
+    EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("observatory"));
+    EXPECT_EQ(started.choice.source, ShellChoiceSource::Default);
+    EXPECT_TRUE(started.choice.warnings.isEmpty()) << started.choice.warnings.join(QLatin1Char('\n')).toStdString();
+    EXPECT_EQ(styledWith, an::ui::StyleProfile::Observatory);
+    EXPECT_NE(dynamic_cast<an::ui::observatory::ObservatoryShell*>(started.shell.get()), nullptr)
+        << "the shell made with nothing named is not the Observatory shell";
+    EXPECT_EQ(store->selectOptional(key), std::nullopt) << "the start wrote the default into the store";
 
     const an::Status shut = an::ui::stopApplication(std::move(started.shell), session);
     EXPECT_TRUE(shut.ok()) << shut.message();

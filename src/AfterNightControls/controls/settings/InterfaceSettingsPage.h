@@ -73,7 +73,7 @@ public:
     void setMenuBarKeeper(std::function<void(bool)> keepShown);
 
 private:
-    /// Shows the shell the settings store names, or the classic shell when it names none the page lists.
+    /// Shows the shell the settings store names, or the default shell when it names none the page lists.
     void selectShell(const QString& id);
 
     void setupUi();

@@ -82,7 +82,8 @@ inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = true;
 #else
 inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = false;
 #endif
-inline constexpr auto INTERFACE_SHELL = "classic";
+// The shell a store that names none starts, a 1.1 store among them; `--shell` and `AFTERNIGHT_SHELL` name another.
+inline constexpr auto INTERFACE_SHELL = "observatory";
 inline constexpr auto INTERFACE_PALETTE_RECENT_COMMANDS = ""; // the palette has run nothing yet
 // How Home shows the recent files; DashboardPreferences reads an absent or unknown value as it.
 inline constexpr auto INTERFACE_DASHBOARD_RECENT_ARRANGEMENT = "grid";

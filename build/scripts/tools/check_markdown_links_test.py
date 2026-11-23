@@ -128,9 +128,9 @@ class StandaloneTests(LinkCase):
                               'docs/dev'], capture_output=True, text=True)
         self.assertEqual(ran.returncode, 0, ran.stderr + ran.stdout)
 
-    def test_the_root_files_and_templates_are_read_by_default(self):
+    def test_the_root_files_the_templates_and_the_release_notes_are_read_by_default(self):
         for root in ('README.md', 'BUILD.md', 'CONTRIBUTING.md', 'SECURITY.md', 'HISTORY.md', 'CODE_OF_CONDUCT.md',
-                     'AGENTS.md', 'CLAUDE.md', '.github'):
+                     'AGENTS.md', 'CLAUDE.md', '.github', 'docs/release-notes'):
             self.assertIn(root, links.DEFAULT_ROOTS)
 
 

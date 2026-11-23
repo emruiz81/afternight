@@ -1300,6 +1300,9 @@ $start.UseShellExecute = $false
 $systemRoot = $env:SystemRoot
 $start.EnvironmentVariables['PATH'] = "$deployment;$systemRoot\System32;$systemRoot"
 $start.EnvironmentVariables['AFTERNIGHT_TEST_STORAGE_ROOT'] = $Storage
+# The guide's pictures, and the windows and menus its recipes drive, are the classic shell's; a build with one shell
+# ignores the variable.
+$start.EnvironmentVariables['AFTERNIGHT_SHELL'] = 'classic'
 foreach ($name in @('QT_PLUGIN_PATH', 'QT_QPA_PLATFORM', 'QT_SCALE_FACTOR', 'QT_SCREEN_SCALE_FACTORS', 'PYTHONHOME', 'PYTHONPATH')) {
     if ($start.EnvironmentVariables.ContainsKey($name)) { $start.EnvironmentVariables.Remove($name) }
 }

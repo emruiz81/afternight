@@ -103,13 +103,13 @@ TEST_F(ShellSelection, TheSettingWinsOverTheDefault)
     EXPECT_TRUE(choice.warnings.isEmpty());
 }
 
-TEST_F(ShellSelection, TheDefaultIsTheClassicShell)
+TEST_F(ShellSelection, TheDefaultIsTheObservatoryShell)
 {
-    EXPECT_STREQ(SettingsDefaults::INTERFACE_SHELL, "classic");
+    EXPECT_STREQ(SettingsDefaults::INTERFACE_SHELL, "observatory");
 
     const ShellChoice choice = resolve({kProgram});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     EXPECT_TRUE(choice.warnings.isEmpty());
 }
@@ -119,7 +119,7 @@ TEST_F(ShellSelection, WithNoSettingsStoreTheSettingIsPassedOver)
     const ShellChoice choice =
         an::ui::shell::ShellSelection::resolve({kProgram}, QProcessEnvironment(), nullptr, m_registry);
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     EXPECT_TRUE(choice.warnings.isEmpty());
 }
@@ -160,7 +160,7 @@ TEST_F(ShellSelection, AnUnknownIdInTheSettingFallsThroughWithAWarning)
 
     const ShellChoice choice = resolve({kProgram});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     ASSERT_EQ(choice.warnings.size(), 1);
     EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("interface/shell")))
@@ -175,7 +175,7 @@ TEST_F(ShellSelection, EverySourceThatFallsThroughLeavesItsOwnWarning)
     const ShellChoice choice =
         resolve({kProgram, QStringLiteral("--shell=aurora")}, environmentNaming(QStringLiteral("solar")));
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     ASSERT_EQ(choice.warnings.size(), 3);
     EXPECT_TRUE(choice.warnings[0].contains(QStringLiteral("aurora")));
@@ -199,9 +199,9 @@ TEST_F(ShellSelection, AShellOptionWithNoValueFallsThroughWithAWarning)
 
 TEST_F(ShellSelection, TheValueIsJoinedToTheOptionAndTheNextArgumentIsNotRead)
 {
-    const ShellChoice choice = resolve({kProgram, QStringLiteral("--shell"), QStringLiteral("observatory")});
+    const ShellChoice choice = resolve({kProgram, QStringLiteral("--shell"), QStringLiteral("nebula")});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     ASSERT_EQ(choice.warnings.size(), 1);
     EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("--shell=<id>")))
@@ -210,27 +210,27 @@ TEST_F(ShellSelection, TheValueIsJoinedToTheOptionAndTheNextArgumentIsNotRead)
 
 TEST_F(ShellSelection, NothingIsChosenWhenNoSourceNamesARegisteredShell)
 {
-    m_registry = registryOf({"observatory"});
+    m_registry = registryOf({"nebula"});
     setShellSetting(QStringLiteral("aurora"));
 
     const ShellChoice choice = resolve({kProgram});
 
     EXPECT_EQ(choice.descriptor, nullptr);
     ASSERT_EQ(choice.warnings.size(), 2);
-    EXPECT_TRUE(choice.warnings[1].contains(QStringLiteral("classic"))) << choice.warnings[1].toStdString();
+    EXPECT_TRUE(choice.warnings[1].contains(QStringLiteral("observatory"))) << choice.warnings[1].toStdString();
 }
 
 // ---- What is read, and how.
 
 TEST_F(ShellSelection, TheFirstArgumentIsTheProgramAndNeverAnOption)
 {
-    const ShellChoice choice = resolve({QStringLiteral("--shell=observatory")});
+    const ShellChoice choice = resolve({QStringLiteral("--shell=nebula")});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     EXPECT_TRUE(choice.warnings.isEmpty());
 
-    EXPECT_EQ(chosenId(resolve({})), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(resolve({})), QStringLiteral("observatory"));
 }
 
 TEST_F(ShellSelection, TheFirstShellOptionIsTakenAndALaterOneIgnoredWithAWarning)
@@ -247,11 +247,11 @@ TEST_F(ShellSelection, TheFirstShellOptionIsTakenAndALaterOneIgnoredWithAWarning
 
 TEST_F(ShellSelection, OtherArgumentsAreLeftAlone)
 {
-    const ShellChoice choice = resolve({kProgram, QStringLiteral("M31.fits"), QStringLiteral("--shells=observatory"),
-                                        QStringLiteral("-shell=observatory"), QStringLiteral("--SHELL=observatory"),
+    const ShellChoice choice = resolve({kProgram, QStringLiteral("M31.fits"), QStringLiteral("--shells=nebula"),
+                                        QStringLiteral("-shell=nebula"), QStringLiteral("--SHELL=nebula"),
                                         QStringLiteral("-platform"), QStringLiteral("windows")});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
 }
@@ -262,7 +262,7 @@ TEST_F(ShellSelection, AnEmptyEnvironmentValueOrSettingIsNoChoice)
 
     const ShellChoice choice = resolve({kProgram}, environmentNaming(QString()));
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
 }
@@ -279,11 +279,12 @@ TEST_F(ShellSelection, AValueIsReadWithoutTheSpacesAroundIt)
 
 TEST_F(ShellSelection, AnIdIsMatchedAsItIsWritten)
 {
-    const ShellChoice choice = resolve({kProgram, QStringLiteral("--shell=Observatory")});
+    const ShellChoice choice = resolve({kProgram, QStringLiteral("--shell=Nebula")});
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
+    EXPECT_EQ(choice.source, ShellChoiceSource::Default);
     ASSERT_EQ(choice.warnings.size(), 1);
-    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("Observatory")));
+    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("Nebula")));
 }
 
 // ---- The arguments are the ones handed to it. The application hands it main's own: on Windows QApplication is
@@ -306,7 +307,7 @@ TEST_F(ShellSelection, ReadsOnlyTheArgumentsItIsHanded)
     child.start(QCoreApplication::applicationFilePath(),
                 {QStringLiteral("--gtest_also_run_disabled_tests"),
                  QStringLiteral("--gtest_filter=ShellSelection.DISABLED_OwnCommandLineIsNotRead"),
-                 QStringLiteral("--shell=observatory")});
+                 QStringLiteral("--shell=classic")});
     ASSERT_TRUE(child.waitForStarted(30000)) << child.errorString().toStdString();
     ASSERT_TRUE(child.waitForFinished(120000)) << child.errorString().toStdString();
 
@@ -323,14 +324,14 @@ TEST_F(ShellSelection, DISABLED_OwnCommandLineIsNotRead)
     {
         GTEST_SKIP() << "run by ShellSelection.ReadsOnlyTheArgumentsItIsHanded in a copy of this executable";
     }
-    ASSERT_TRUE(QCoreApplication::arguments().contains(QStringLiteral("--shell=observatory")))
+    ASSERT_TRUE(QCoreApplication::arguments().contains(QStringLiteral("--shell=classic")))
         << QCoreApplication::arguments().join(QLatin1Char(' ')).toStdString();
 
     const ShellRegistry registry = registryOf({"classic", "observatory"});
     const ShellChoice choice = an::ui::shell::ShellSelection::resolve({QCoreApplication::applicationFilePath()},
                                                                       QProcessEnvironment(), nullptr, registry);
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
 }
 
@@ -352,15 +353,15 @@ TEST_F(ShellSelection, TheChosenShellStartsUnderTheProfileItsDescriptorNames)
     ASSERT_TRUE(registry.add(an::tests::shellcore::descriptorOf(QStringLiteral("classic"))));
     ASSERT_TRUE(registry.add(std::move(observatory)));
 
-    const ShellChoice classic =
+    const ShellChoice byDefault =
         an::ui::shell::ShellSelection::resolve({kProgram}, QProcessEnvironment(), &m_settings, registry);
-    const ShellChoice chosen = an::ui::shell::ShellSelection::resolve({kProgram, QStringLiteral("--shell=observatory")},
+    const ShellChoice chosen = an::ui::shell::ShellSelection::resolve({kProgram, QStringLiteral("--shell=classic")},
                                                                       QProcessEnvironment(), &m_settings, registry);
 
-    EXPECT_EQ(chosenId(classic), QStringLiteral("classic"));
-    EXPECT_EQ(classic.styleProfile, an::ui::StyleProfile::Classic);
-    EXPECT_EQ(chosenId(chosen), QStringLiteral("observatory"));
-    EXPECT_EQ(chosen.styleProfile, an::ui::StyleProfile::Observatory);
+    EXPECT_EQ(chosenId(byDefault), QStringLiteral("observatory"));
+    EXPECT_EQ(byDefault.styleProfile, an::ui::StyleProfile::Observatory);
+    EXPECT_EQ(chosenId(chosen), QStringLiteral("classic"));
+    EXPECT_EQ(chosen.styleProfile, an::ui::StyleProfile::Classic);
     EXPECT_TRUE(chosen.warnings.isEmpty()) << chosen.warnings.join(QLatin1Char('\n')).toStdString();
 }
 
@@ -372,19 +373,20 @@ TEST_F(ShellSelection, TheDeveloperSwitchStartsTheShellUnderTheProfileItNames)
     {
         const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(value));
 
-        EXPECT_EQ(chosenId(choice), QStringLiteral("classic")) << value.toStdString();
+        EXPECT_EQ(chosenId(choice), QStringLiteral("observatory")) << value.toStdString();
         EXPECT_EQ(choice.source, ShellChoiceSource::Default) << value.toStdString();
         EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Observatory) << value.toStdString();
         EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
     }
 
     ShellRegistry registry;
-    an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("classic"));
+    an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("observatory"));
     observatory.styleProfile = an::ui::StyleProfile::Observatory;
     ASSERT_TRUE(registry.add(std::move(observatory)));
-    const ShellChoice classic = an::ui::shell::ShellSelection::resolve(
+    const ShellChoice underClassic = an::ui::shell::ShellSelection::resolve(
         {kProgram}, environmentWithStyleProfile(QStringLiteral("classic")), &m_settings, registry);
-    EXPECT_EQ(classic.styleProfile, an::ui::StyleProfile::Classic);
+    EXPECT_EQ(chosenId(underClassic), QStringLiteral("observatory"));
+    EXPECT_EQ(underClassic.styleProfile, an::ui::StyleProfile::Classic);
 }
 
 // A switch that names no profile is passed over with a warning, and the descriptor's profile stands; an empty one is
@@ -393,7 +395,7 @@ TEST_F(ShellSelection, AStyleProfileTheSwitchDoesNotNameIsPassedOverWithAWarning
 {
     const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("workbench")));
 
-    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
     ASSERT_EQ(choice.warnings.size(), 1);
     EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("AFTERNIGHT_STYLE_PROFILE=workbench")))
@@ -409,7 +411,7 @@ TEST_F(ShellSelection, AStyleProfileTheSwitchDoesNotNameIsPassedOverWithAWarning
 // With no shell chosen there is nothing to start: the profile is Classic and the switch is not read.
 TEST_F(ShellSelection, WithNoShellChosenTheProfileIsClassic)
 {
-    m_registry = registryOf({"observatory"});
+    m_registry = registryOf({"nebula"});
 
     const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("observatory")));
 

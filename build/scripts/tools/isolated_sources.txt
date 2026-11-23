@@ -3781,7 +3781,8 @@ sources Test_Widgets
     qt       core gui widgets testlib
 
 # The persistence suite, linked against the Controls library: the settings, process-settings, folder and thumbnail
-# repositories, the schema versions and the JSON serializer over an in-memory database.
+# repositories, the schema versions and the JSON serializer over an in-memory database, and the settings store
+# AfterNight 1.1.0 wrote, opened as this version opens a store it finds.
 sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/main.cpp
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
@@ -3800,6 +3801,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_schema_versioning.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_console_drawer_settings.cpp
     unit     src/AfterNightTests/Test_Persistence/test_settings_keys_defaults.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_settings_carry_over.cpp
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/FileDialogUtils.h
@@ -3823,6 +3825,7 @@ sources Test_Persistence
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/InMemoryDatabase.h
+    header   src/AfterNightTests/fixtures/ScopedEnvVar.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
