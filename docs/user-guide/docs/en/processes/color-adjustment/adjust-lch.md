@@ -44,7 +44,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-lch.webp
 alt: >-
-  The Adjust Lightness/Chroma/Hue task. Its header names the process and the master. The canvas at the left shows the
+  The Lightness/Chroma/Hue task. Its header names the process and the master. The canvas at the left shows the
   preview of a red nebula in strong colors on a dark gray background, the word PREVIEW in its corner, with a floating
   toolbar of zoom buttons and a channel box near its foot. The column at the right holds the preview's small histogram
   and statistics, the toggles Preview, Preview area and Processed, Target Image, a toolbar over a histogram with three
@@ -139,7 +139,7 @@ controls:
     range: It lists color images and sequences only.
     tradeoff: Apply replaces the image chosen here, so check it before you Apply.
     persistence: Until the task closes. **Reset** leaves it as it is.
-    note: When the target becomes a grayscale image, the task closes without a message.
+    note: When the target becomes a grayscale image, the task closes and a message says why.
   - name: Preview
     kind: check
     default: "On"
@@ -273,7 +273,7 @@ the cut returns it as pure red: the change is lost.
     Every Apply marks the result nonlinear, with or without a mask, and a later step treats it so. Finish the steps
     that need linear data first, or undo the step in the image's history.
 
-The menu item is disabled, or the task closed by itself
+The menu item is disabled, or the task closed with a message
 :   **Cause.** The image is grayscale, or the target became grayscale while the task was open.
 :   **Fix.** Use an RGB image. Convert or debayer a grayscale one only when it is meant to become RGB.
 

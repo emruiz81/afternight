@@ -534,4 +534,75 @@ inline void expectMirrorPageAppliesAsTheWindow(const std::string& descriptorId, 
     }
 }
 
+/// Launches a descriptor's process of no preview over a target - an image or a sequence - as a mirror page with its
+/// parameters set, presses its primary button while every worker is held, so its run waits with its state on the page,
+/// and presses the page's Cancel. Holds that no progress window opened; that the run was running, its frames counted
+/// apart over a sequence, with the page's Cancel offered; and that the run ended stopped, quietly, with the target as
+/// it was - the same document and sequence, no history step, no view made.
+inline void expectMirrorPageRunStopsAtItsCancel(const std::string& descriptorId, ProcessTestContext& context,
+                                                ImageViewControl& target,
+                                                const std::function<void(QWidget&)>& configure = {})
+{
+    context.setActiveImageViewControl(&target);
+    PagePresenter presenter;
+    context.presenter = &presenter;
+    const QPointer<ImageProcessControl> process =
+        dynamic_cast<ImageProcessControl*>(launchWindowOf(descriptorId, target));
+    EXPECT_NE(process, nullptr) << descriptorId;
+    an::ui::ProcessPageLayout* const page = process != nullptr ? process->pageLayout() : nullptr;
+    EXPECT_NE(page, nullptr) << descriptorId << " is a page";
+    if (process != nullptr && page != nullptr)
+    {
+        pumpQuietly();
+        if (configure)
+        {
+            configure(*process);
+            pumpQuietly();
+        }
+        EXPECT_TRUE(pumpUntil([&]() { return mirrorRunEnded(process, target); }));
+        const bool sequence = target.isSequence();
+        const std::optional<an::ui::DocumentSequence> shown = target.document().sequence();
+        const an::ui::DocumentRevision revision = target.document().revision();
+        const std::size_t steps = target.viewHistory() != nullptr ? target.viewHistory()->steps().current : 0u;
+        const std::size_t made = context.madeViews.size();
+        const int errors = context.errorCount();
+        const ProgressWindowsShown windows;
+        {
+            PoolHold hold;
+            EXPECT_TRUE(hold.held());
+            EXPECT_TRUE(process->triggerPrimaryAction()) << descriptorId << ": the primary button is offered";
+            pumpQuietly();
+            EXPECT_TRUE(process->runState().running()) << descriptorId;
+            EXPECT_EQ(process->runState().sequence, sequence) << descriptorId << ": a sequence's frames counted apart";
+            EXPECT_EQ(page->runBars(), sequence ? 2 : 1) << descriptorId;
+            EXPECT_TRUE(page->cancelButton()->isVisible()) << descriptorId << ": the page's Cancel is offered";
+            EXPECT_TRUE(page->cancelButton()->isEnabled()) << descriptorId;
+            page->cancelButton()->click();
+        }
+        EXPECT_TRUE(pumpUntil([&]() { return mirrorRunEnded(process, target); })) << descriptorId;
+        pumpQuietly();
+        EXPECT_EQ(windows.count(), 0) << descriptorId << ": no progress window on a page";
+        if (process != nullptr)
+        {
+            EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Cancelled)
+                << descriptorId << ": the page's Cancel stopped the run";
+        }
+        EXPECT_EQ(target.document().revision(), revision) << descriptorId << ": the target is as it was";
+        EXPECT_EQ(target.document().sequence().has_value(), shown.has_value());
+        if (shown.has_value() && target.document().sequence().has_value())
+        {
+            EXPECT_EQ(target.document().sequence()->sourcePath, shown->sourcePath)
+                << descriptorId << ": the view shows the sequence it was opened on";
+        }
+        if (target.viewHistory() != nullptr)
+        {
+            EXPECT_EQ(target.viewHistory()->steps().current, steps) << descriptorId << ": no history step";
+        }
+        EXPECT_EQ(context.madeViews.size(), made) << descriptorId << ": no view made";
+        EXPECT_EQ(context.errorCount(), errors) << descriptorId << ": a stop the person asked for is quiet";
+    }
+    closeOpenedProcessWindows();
+    context.presenter = nullptr;
+}
+
 } // namespace an::tests::processes::shared

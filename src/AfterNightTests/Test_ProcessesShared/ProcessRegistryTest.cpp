@@ -13,8 +13,11 @@
 #include "fixtures/harness/QObjectCensus.h"
 
 #include "app/ProcessRegistry.h"
+#include "controls/ImageRTPreviewControl.h"
+#include "controls/ProcessPageLayout.h"
 
 #include <QAction>
+#include <QCheckBox>
 #include <QObject>
 #include <QString>
 #include <QThreadPool>
@@ -487,6 +490,73 @@ TEST(ProcessRegistryTest, EveryProcessActionOpensItsProcessWindow)
         closeOpenedProcessWindows();
     }
     EXPECT_EQ(windows, 76);
+    EXPECT_TRUE(context->messages.isEmpty()) << context->messages.join(QStringLiteral(", ")).toStdString();
+}
+
+namespace
+{
+
+/// The check box that turns a process's preview on and off: the one the framework was handed, else the process's own
+/// named for the preview; null for a process with none.
+[[nodiscard]] QCheckBox* previewCheckBoxOf(TopLevelProcessBaseControl& process)
+{
+    if (const auto* preview = dynamic_cast<const ImageRTPreviewControl*>(&process);
+        preview != nullptr && preview->standardParts().previewCheckbox != nullptr)
+    {
+        return preview->standardParts().previewCheckbox;
+    }
+    for (const QString& name : {QStringLiteral("preview"), QStringLiteral("previewCheckbox")})
+    {
+        if (auto* box = process.findChild<QCheckBox*>(name))
+        {
+            return box;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
+// Every process shown as a page with a preview holds its preview check box where every page does, in the toggles row
+// beside Preview area and Compare, under the name every page gives it: Preview. Only Image Compare, LRGB Combination,
+// NBRGB Combination, NB Color Mapper and Narrowband Palette Composer, which always show their preview, have none.
+TEST(ProcessRegistryTest, EveryPreviewPageHoldsItsPreviewCheckBoxInItsTogglesRow)
+{
+    const RegistrySnapshot snapshot;
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const an::tests::processes::shared::ClosesOpenedWindows closesWindows;
+    ViewHandle view = activeColourView(*context);
+    closeOpenedProcessWindows();
+    an::tests::processes::PagePresenter presenter;
+    context->presenter = &presenter;
+
+    int checked = 0;
+    for (const auto& descriptor : an::ui::process_registry::ProcessRegistry::instance().all())
+    {
+        if (descriptor.surface != an::ui::ProcessSurface::PreviewPage || descriptor.is_extension_process)
+        {
+            continue;
+        }
+        launch(descriptor, view.get());
+        an::tests::processes::pumpQuietly();
+        const std::vector<an::tests::processes::shared::OpenedProcessWindow> opened = openedProcessWindows();
+        ASSERT_EQ(opened.size(), 1u) << descriptor.id;
+        TopLevelProcessBaseControl* const process = opened[0].window;
+        an::ui::ProcessPageLayout* const page = process->pageLayout();
+        ASSERT_NE(page, nullptr) << descriptor.id << " is a page";
+        if (QCheckBox* const box = previewCheckBoxOf(*process); box != nullptr)
+        {
+            ++checked;
+            EXPECT_TRUE(page->toggles()->isAncestorOf(box))
+                << descriptor.id << ": its preview check box is in the toggles row, not among its controls";
+            EXPECT_EQ(box->text(), QStringLiteral("Preview")) << descriptor.id;
+        }
+        closeOpenedProcessWindows();
+    }
+    context->presenter = nullptr;
+    EXPECT_EQ(checked, 45) << "the preview pages with a preview check box";
     EXPECT_TRUE(context->messages.isEmpty()) << context->messages.join(QStringLiteral(", ")).toStdString();
 }
 

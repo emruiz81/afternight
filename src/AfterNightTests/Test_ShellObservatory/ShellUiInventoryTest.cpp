@@ -9,6 +9,11 @@
 /// loses or changes a control fails here until its record is written again, so the page that describes it is looked
 /// at too - as `ProcessUiInventoryTest` holds the process windows' records beside it.
 ///
+/// The menu bar is recorded there too (`shell.menu-bar.json`): every menu from the bar down - the menu tree's and what
+/// the window adds to it, its own actions in the View, Window, File and Process menus - with its entries by their
+/// texts as a menu shows them, which a page's `menu` path is held to. A menu that follows what a person did is
+/// recorded as varying, and what an installed extension adds is left out.
+///
 /// A part is walked in the order a person meets it: its layouts in their order, and what a part places by hand -
 /// the floating toolbar - from the left. A control is called by its accessible name, which is what assistive
 /// technology says and what its tooltip shows; failing one, by its text, its tooltip's first line or its object
@@ -18,10 +23,13 @@
 
 #include "ObservatoryPages.h"
 
+#include "actions/MenuTree.h"
+#include "actions/ProcessMenuModel.h"
 #include "components/AnIconRail.h"
 #include "components/RailItem.h"
 
 #include <QAbstractButton>
+#include <QAction>
 #include <QAbstractScrollArea>
 #include <QAbstractSlider>
 #include <QAbstractSpinBox>
@@ -36,6 +44,8 @@
 #include <QLayout>
 #include <QLayoutItem>
 #include <QLineEdit>
+#include <QMenu>
+#include <QMenuBar>
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QSet>
@@ -65,6 +75,9 @@ constexpr const char* kWriteVariable = "AFTERNIGHT_WRITE_SHELL_INVENTORY";
 /// The recorded inventory, from the repository's root.
 constexpr const char* kRecordedFolder = "docs/user-guide/data/ui/shell";
 
+/// The id of the menu bar's record, which is kept beside the parts' and is the file's name.
+constexpr const char* kMenuBarId = "shell.menu-bar";
+
 /// One control of a part, as the inventory records it.
 struct ShellControl
 {
@@ -87,6 +100,30 @@ struct ShellPart
     std::vector<ShellControl> controls;
 };
 
+/// A text as a menu shows it: a mnemonic's ampersand and a shortcut after a tab dropped, white space collapsed. What it
+/// ends with - the "..." of an entry that asks before it acts - is its own.
+[[nodiscard]] QString menuText(const QString& text)
+{
+    const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+    const QString shown = tab >= 0 ? text.left(tab) : text;
+    QString plain;
+    plain.reserve(shown.size());
+    for (qsizetype index = 0; index < shown.size(); ++index)
+    {
+        if (shown[index] == QLatin1Char('&'))
+        {
+            if (index + 1 < shown.size() && shown[index + 1] == QLatin1Char('&'))
+            {
+                plain.append(QLatin1Char('&'));
+                ++index;
+            }
+            continue;
+        }
+        plain.append(shown[index]);
+    }
+    return plain.simplified();
+}
+
 /// A text as a person reads it: rich text as its plain text, a mnemonic's ampersand and a shortcut after a tab
 /// dropped, white space collapsed, a closing colon removed, and what it adds in parentheses at its end - a key, as in
 /// "Close (Esc)" - left to the page.
@@ -96,27 +133,7 @@ struct ShellPart
     {
         text = QTextDocumentFragment::fromHtml(text).toPlainText();
     }
-    const qsizetype tab = text.indexOf(QLatin1Char('\t'));
-    if (tab >= 0)
-    {
-        text.truncate(tab);
-    }
-    QString plain;
-    plain.reserve(text.size());
-    for (qsizetype index = 0; index < text.size(); ++index)
-    {
-        if (text[index] == QLatin1Char('&'))
-        {
-            if (index + 1 < text.size() && text[index + 1] == QLatin1Char('&'))
-            {
-                plain.append(QLatin1Char('&'));
-                ++index;
-            }
-            continue;
-        }
-        plain.append(text[index]);
-    }
-    plain = plain.simplified();
+    QString plain = menuText(text);
     // What a name adds in parentheses at its end - a key, "(Esc)", or what it covers - is said by the page.
     static const QRegularExpression trailingAside(QStringLiteral("\\s*\\([^()]*\\)$"));
     plain.remove(trailingAside);
@@ -537,6 +554,101 @@ private:
     return text;
 }
 
+/// One menu of the menu bar: its path from the bar down, as a page's `menu` names it, and its entries - its actions
+/// and its submenus - by their texts, in their order. A menu whose entries follow what a person did - the files and
+/// processes used last, the favourites - is recorded as varying, with no entries.
+struct MenuRecord
+{
+    QString path;
+    QStringList entries;
+    bool varies = false;
+};
+
+/// Whether a menu's entry is one an installed extension adds - its process in a category's menu, its family in the
+/// Extensions menu - which follows what is installed, not the window.
+[[nodiscard]] bool isExtensionEntry(const QAction& action)
+{
+    using an::ui::shell::ProcessMenuModel;
+    return action.property(ProcessMenuModel::kExtensionProcessEntryProperty).toBool() ||
+           action.property(ProcessMenuModel::kExtensionFamilyEntryProperty).toBool();
+}
+
+/// Records a menu and, after it, each of its submenus in their order.
+void recordMenu(const QMenu& menu, const QString& path, std::vector<MenuRecord>& records)
+{
+    MenuRecord record;
+    record.path = path;
+    const an::ui::shell::MenuNode* const node =
+        an::ui::shell::MenuTree::menuBar().menu(menu.objectName().toStdString());
+    record.varies = node != nullptr && node->varies;
+    std::vector<std::pair<const QMenu*, QString>> submenus;
+    if (!record.varies)
+    {
+        for (const QAction* action : menu.actions())
+        {
+            if (action->isSeparator() || isExtensionEntry(*action))
+            {
+                continue;
+            }
+            const QMenu* const submenu = action->menu();
+            const QString text = menuText(submenu != nullptr ? submenu->title() : action->text());
+            record.entries.push_back(text);
+            if (submenu != nullptr)
+            {
+                submenus.emplace_back(submenu, path + QStringLiteral(" > ") + text);
+            }
+        }
+    }
+    records.push_back(std::move(record));
+    for (const auto& [submenu, below] : submenus)
+    {
+        recordMenu(*submenu, below, records);
+    }
+}
+
+/// The menus of a menu bar, each menu of the bar followed by its submenus.
+[[nodiscard]] std::vector<MenuRecord> menuBarRecords(const QMenuBar& bar)
+{
+    std::vector<MenuRecord> records;
+    for (const QAction* action : bar.actions())
+    {
+        if (const QMenu* const menu = action->menu(); menu != nullptr && !action->isSeparator())
+        {
+            recordMenu(*menu, menuText(menu->title()), records);
+        }
+    }
+    return records;
+}
+
+/// The menu bar's record as the text of its file, a menu a line, lines ending in a line feed.
+[[nodiscard]] QString menuBarText(const std::vector<MenuRecord>& records)
+{
+    QString text = QStringLiteral("{\n  \"id\": ") + jsonString(QString::fromLatin1(kMenuBarId)) +
+                   QStringLiteral(",\n  \"menus\": [");
+    for (std::size_t index = 0u; index < records.size(); ++index)
+    {
+        const MenuRecord& record = records[index];
+        QString line = QStringLiteral("{\"menu\": ") + jsonString(record.path);
+        if (record.varies)
+        {
+            line += QStringLiteral(", \"varies\": true");
+        }
+        else
+        {
+            QStringList quoted;
+            for (const QString& entry : record.entries)
+            {
+                quoted.push_back(jsonString(entry));
+            }
+            line += QStringLiteral(", \"entries\": [") + quoted.join(QStringLiteral(", ")) + QLatin1Char(']');
+        }
+        line += QLatin1Char('}');
+        text += (index == 0u ? QStringLiteral("\n    ") : QStringLiteral(",\n    ")) + line;
+    }
+    text += records.empty() ? QStringLiteral("]\n}\n") : QStringLiteral("\n  ]\n}\n");
+    return text;
+}
+
 /// The repository's root, found from the working directory upwards, or nothing.
 [[nodiscard]] std::filesystem::path repositoryRoot()
 {
@@ -702,9 +814,9 @@ protected:
 
 // Every part of the Observatory window's own chrome holds the controls the user guide's record of it holds: their
 // labels, kinds, object names, groups, visibility, what they show and their choices, in the order a person meets
-// them. A part whose controls changed fails, naming it and the first difference, and so does a record no part answers
-// to. With AFTERNIGHT_WRITE_SHELL_INVENTORY naming a folder, the inventory is written there instead - the one case in
-// which this writes, and never outside that folder.
+// them; and the menu bar holds the menus and entries its record holds. A part or a menu that changed fails, naming it
+// and the first difference, and so does a record nothing answers to. With AFTERNIGHT_WRITE_SHELL_INVENTORY naming a
+// folder, the inventory is written there instead - the one case in which this writes, and never outside that folder.
 TEST_F(ShellUiInventory, MatchesTheRecord)
 {
     resizeTo(QSize(1536, 864));
@@ -746,18 +858,21 @@ TEST_F(ShellUiInventory, MatchesTheRecord)
         folder = QDir(QString::fromStdWString((root / kRecordedFolder).wstring()));
     }
 
-    QSet<QString> expectedFiles;
-    for (const ShellPart& part : parts)
+    // The menu bar: every menu from the bar down, with its entries, which a page's `menu` path is held to.
+    QMenuBar* const bar = window().menuBar();
+    ASSERT_NE(bar, nullptr);
+    const std::vector<MenuRecord> menus = menuBarRecords(*bar);
+    ASSERT_FALSE(menus.empty()) << "the window's menu bar holds no menu";
+    for (const MenuRecord& menu : menus)
     {
-        // A control nothing names cannot be told from another, here or on a page.
-        for (std::size_t index = 0u; index < part.controls.size(); ++index)
-        {
-            EXPECT_FALSE(part.controls[index].label.isEmpty())
-                << part.id << ": control " << (index + 1u) << " has no name, text, tooltip or object name; give it one";
-        }
-        const QString name = QString::fromStdString(part.id) + QStringLiteral(".json");
+        EXPECT_FALSE(menu.entries.contains(QString())) << menu.path.toStdString() << ": an entry has no text";
+    }
+
+    // Each record is written into the folder named, or compared with the file recorded under its id.
+    QSet<QString> expectedFiles;
+    const auto hold = [&](const std::string& id, const QString& text, const char* lookAt) {
+        const QString name = QString::fromStdString(id) + QStringLiteral(".json");
         expectedFiles.insert(name);
-        const QString text = inventoryText(part);
         QFile file(folder.filePath(name));
         if (!writeFolder.isEmpty())
         {
@@ -766,29 +881,41 @@ TEST_F(ShellUiInventory, MatchesTheRecord)
             ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) << file.fileName().toStdString();
             const QByteArray bytes = withCarriageReturns.toUtf8();
             ASSERT_EQ(file.write(bytes), bytes.size()) << file.fileName().toStdString();
-            continue;
+            return;
         }
         if (!file.open(QIODevice::ReadOnly))
         {
-            ADD_FAILURE() << part.id << ": the inventory has no " << name.toStdString() << " under " << kRecordedFolder
+            ADD_FAILURE() << id << ": the inventory has no " << name.toStdString() << " under " << kRecordedFolder
                           << "; write the inventory again with " << kWriteVariable << " naming that folder";
-            continue;
+            return;
         }
         QString recorded = QString::fromUtf8(file.readAll());
         recorded.remove(QLatin1Char('\r'));
         if (recorded != text)
         {
-            ADD_FAILURE() << part.id << ": " << firstDifference(text, recorded)
+            ADD_FAILURE() << id << ": " << firstDifference(text, recorded)
                           << "\nwhen the window is right, write the inventory again with " << kWriteVariable
-                          << " naming " << kRecordedFolder << " and look at the page that describes the part";
+                          << " naming " << kRecordedFolder << " and look at " << lookAt;
         }
+    };
+    for (const ShellPart& part : parts)
+    {
+        // A control nothing names cannot be told from another, here or on a page.
+        for (std::size_t index = 0u; index < part.controls.size(); ++index)
+        {
+            EXPECT_FALSE(part.controls[index].label.isEmpty())
+                << part.id << ": control " << (index + 1u) << " has no name, text, tooltip or object name; give it one";
+        }
+        hold(part.id, inventoryText(part), "the page that describes the part");
     }
+    hold(kMenuBarId, menuBarText(menus), "the pages whose `menu` names what changed");
     for (const QString& name : folder.entryList({QStringLiteral("*.json")}, QDir::Files, QDir::Name))
     {
         EXPECT_TRUE(expectedFiles.contains(name)) << name.toStdString() << " under " << folder.path().toStdString()
                                                   << " is the inventory of no part; delete it";
     }
     RecordProperty("parts", static_cast<int>(parts.size()));
+    RecordProperty("menus", static_cast<int>(menus.size()));
 }
 
 } // namespace an::tests::observatory

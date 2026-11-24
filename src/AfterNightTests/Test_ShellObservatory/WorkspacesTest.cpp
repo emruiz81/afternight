@@ -274,6 +274,28 @@ TEST_F(Workspaces, ASecondWorkspaceAppearsInTheRailWithBadges)
     EXPECT_NE(core().commands().entry(newEntry), nullptr) << "the palette offers no New Workspace";
 }
 
+// The Window menu is offered as the menus beside it are - on Home and on a workspace, in the menu bar and in All menus
+// - and its entries keep their own states: New Workspace is offered on Home, Close Workspace not for the only one.
+TEST_F(Workspaces, TheWindowMenuIsOfferedWhereverItsEntriesAct)
+{
+    QMenu* const windowMenu = window().menuBarOnAlt().menu("menuWindow");
+    ASSERT_NE(windowMenu, nullptr);
+    window().showHome();
+    ASSERT_TRUE(window().isHomeShown());
+    EXPECT_TRUE(windowMenu->isEnabled()) << "on Home";
+    EXPECT_TRUE(windowMenu->menuAction()->isEnabled());
+    ASSERT_NE(window().moreMenu(), nullptr);
+    EXPECT_TRUE(window().moreMenu()->actions().contains(windowMenu->menuAction())) << "All menus holds it too";
+    EXPECT_TRUE(window().shellActions().action(shellIds::kNewWorkspace)->isEnabled());
+    EXPECT_FALSE(window().shellActions().action(shellIds::kCloseWorkspace)->isEnabled()) << "the only workspace";
+
+    ImageViewControl* const view = openView(QStringLiteral("workspaces-window-menu"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_TRUE(window().isWorkspaceShown());
+    EXPECT_TRUE(windowMenu->isEnabled()) << "on a workspace";
+    EXPECT_TRUE(windowMenu->menuAction()->isEnabled());
+}
+
 // A view moved by its tab's menu goes to the workspace named there - a new one, at first - which is shown; each dock
 // area holds its own. Move to Workspace follows Float and lists the other workspaces, a separator and New Workspace.
 TEST_F(Workspaces, AViewMovesByTheTabMenuAndEachDockAreaListsItsOwn)

@@ -227,6 +227,20 @@ TEST(ProjectsSettingsPage, ItStatesTheSettingsAndTheirDefaults)
     bare.saveSettings();
 }
 
+// The compression's tooltip says what the setting reaches: a history kept outside a project, and the compression a new
+// project starts from - not a project's own history, which keeps the compression the project was made with.
+TEST(ProjectsSettingsPage, TheCompressionsTooltipSaysAProjectKeepsItsOwn)
+{
+    const SettingsStore store;
+    ProjectsSettingsPage page(store.persistence());
+    page.loadSettings();
+    const QString tip = page.compressionCombo()->toolTip();
+    EXPECT_FALSE(tip.contains(QStringLiteral("in a project or not"))) << tip.toStdString();
+    EXPECT_TRUE(tip.contains(QStringLiteral("outside a project"))) << tip.toStdString();
+    EXPECT_TRUE(tip.contains(QStringLiteral("project keeps"))) << tip.toStdString();
+    EXPECT_TRUE(tip.contains(QStringLiteral("new project starts from it"))) << tip.toStdString();
+}
+
 // What the page shows is what it stores, under the keys the application reads, and another page reads it back.
 TEST(ProjectsSettingsPage, SavingStoresWhatItShows)
 {

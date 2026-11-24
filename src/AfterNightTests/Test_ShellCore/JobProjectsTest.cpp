@@ -2,11 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // A project for a job, with no widget. A job about to run into a folder with no project open gets a project there:
-// made of the folder, whatever the job keeps in it, named as the folder and stating that an integration job made it;
-// once for a folder, the project it is being opened from then on; none with the setting off, and none while a project
-// is open. What a job is and what its run made are recorded in the open project. And what such a project takes on
-// disk: the job's files in the project's own folder are its integration data, its runs' archives among them, the
-// frames a run can make again are counted apart, and cleaning them frees exactly what the report counts.
+// made of the folder, whatever the job keeps in it, named as the folder, stating that an integration job made it and
+// about the object its frames' OBJECT cards agree on; once for a folder, the project it is being opened from then on;
+// none with the setting off, and none while a project is open. What a job is and what its run made are recorded in the
+// open project. And what such a project takes on disk: the job's files in the project's own folder are its integration
+// data, its runs' archives among them, the frames a run can make again are counted apart, and cleaning them frees
+// exactly what the report counts.
 
 #include "projects/JobProjects.h"
 #include "projects/ProjectService.h"
@@ -40,6 +41,7 @@ using an::ui::JobProject;
 using an::ui::shell::JobProjects;
 using an::ui::shell::ProjectCreateRequest;
 using an::ui::shell::ProjectDocument;
+using an::ui::shell::ProjectObjectSource;
 using an::ui::shell::ProjectOrigin;
 using an::ui::shell::ProjectOutcome;
 using an::ui::shell::ProjectRefusal;
@@ -147,7 +149,7 @@ TEST_F(JobProjectsCase, AJobRunWithNoProjectGetsOneInItsOutputFolder)
     const std::uint64_t before = bytesBelow(folder);
     EXPECT_FALSE(m_jobs->openProject().has_value());
 
-    const std::optional<JobProject> project = m_jobs->projectForJob(folder);
+    const std::optional<JobProject> project = m_jobs->projectForJob(folder, {});
     ASSERT_TRUE(project.has_value());
     EXPECT_EQ(QDir::cleanPath(project->folder), QDir::cleanPath(folder));
     EXPECT_EQ(project->name, QStringLiteral("Carina Nebula"));
@@ -175,16 +177,62 @@ TEST_F(JobProjectsCase, AJobRunWithNoProjectGetsOneInItsOutputFolder)
     EXPECT_GE(bytesBelow(folder), before);
 }
 
+// A project made for a job is about the object its frames' OBJECT cards agree on, read from those cards and kept in
+// its document: blanks around and inside a card and its case do not make another object, and a frame that states none
+// says nothing either way. Opened again for another job, the project keeps the object it states.
+TEST_F(JobProjectsCase, AProjectMadeForAJobIsAboutTheObjectItsFramesAgreeOn)
+{
+    const QString folder = jobFolder(QStringLiteral("Carina"));
+    ASSERT_TRUE(m_jobs
+                    ->projectForJob(folder, {QStringLiteral("NGC 3372"), QString(), QStringLiteral(" ngc  3372 "),
+                                             QStringLiteral("NGC 3372")})
+                    .has_value());
+    ASSERT_NE(m_service->current(), nullptr);
+    ASSERT_TRUE(m_service->current()->object.has_value()) << "the project states no object";
+    EXPECT_EQ(m_service->current()->object->name, QStringLiteral("NGC 3372"));
+    EXPECT_EQ(m_service->current()->object->source, ProjectObjectSource::ObjectCard);
+
+    // The document says so: the project opened again reads it, and a job of other frames does not change it.
+    ASSERT_TRUE(m_service->close());
+    ASSERT_TRUE(m_jobs->projectForJob(folder, {QStringLiteral("M 42")}).has_value());
+    ASSERT_NE(m_service->current(), nullptr);
+    ASSERT_TRUE(m_service->current()->object.has_value());
+    EXPECT_EQ(m_service->current()->object->name, QStringLiteral("NGC 3372"));
+    EXPECT_EQ(m_service->current()->object->source, ProjectObjectSource::ObjectCard);
+}
+
+// Frames that name different objects give a project made for their job no object - it is about several - and so do
+// frames none of which states one, and a job with no frames.
+TEST_F(JobProjectsCase, FramesThatDisagreeOrStateNoObjectGiveTheProjectNone)
+{
+    const QString mixed = jobFolder(QStringLiteral("Mixed"));
+    ASSERT_TRUE(m_jobs->projectForJob(mixed, {QStringLiteral("M 42"), QStringLiteral("M 43"), QString()}).has_value());
+    ASSERT_NE(m_service->current(), nullptr);
+    EXPECT_FALSE(m_service->current()->object.has_value()) << m_service->current()->object->name.toStdString();
+    ASSERT_TRUE(m_service->close());
+
+    const QString none = jobFolder(QStringLiteral("None"));
+    ASSERT_TRUE(m_jobs->projectForJob(none, {QString(), QStringLiteral("  ")}).has_value());
+    ASSERT_NE(m_service->current(), nullptr);
+    EXPECT_FALSE(m_service->current()->object.has_value()) << m_service->current()->object->name.toStdString();
+    ASSERT_TRUE(m_service->close());
+
+    const QString noFrames = jobFolder(QStringLiteral("No Frames"));
+    ASSERT_TRUE(m_jobs->projectForJob(noFrames, {}).has_value());
+    ASSERT_NE(m_service->current(), nullptr);
+    EXPECT_FALSE(m_service->current()->object.has_value()) << m_service->current()->object->name.toStdString();
+}
+
 // A folder gets one project, however many runs go into it: the project it already is is opened.
 TEST_F(JobProjectsCase, AFolderGetsOneProjectAndItIsOpenedFromThenOn)
 {
     const QString folder = jobFolder(QStringLiteral("Once"));
-    ASSERT_TRUE(m_jobs->projectForJob(folder).has_value());
+    ASSERT_TRUE(m_jobs->projectForJob(folder, {}).has_value());
     const QString id = m_service->current()->id;
     ASSERT_TRUE(m_service->close());
     ASSERT_FALSE(m_service->isOpen());
 
-    const std::optional<JobProject> again = m_jobs->projectForJob(folder);
+    const std::optional<JobProject> again = m_jobs->projectForJob(folder, {});
     ASSERT_TRUE(again.has_value());
     EXPECT_EQ(m_service->current()->id, id) << "a second project was made of the folder";
     EXPECT_EQ(m_made, 1);
@@ -199,7 +247,7 @@ TEST_F(JobProjectsCase, AFolderGetsOneProjectAndItIsOpenedFromThenOn)
     ASSERT_TRUE(made.ok()) << made.why.toStdString();
     const QString handMade = made.folder;
     ASSERT_TRUE(m_service->close());
-    const std::optional<JobProject> used = m_jobs->projectForJob(handMade);
+    const std::optional<JobProject> used = m_jobs->projectForJob(handMade, {});
     ASSERT_TRUE(used.has_value());
     EXPECT_EQ(m_service->current()->origin, ProjectOrigin::User) << "the project that was there is the one used";
     EXPECT_EQ(m_made, 1);
@@ -212,7 +260,7 @@ TEST_F(JobProjectsCase, NoneIsMadeWithTheSettingOff)
     const QString folder = jobFolder(QStringLiteral("Off"));
     (void)m_settings.upsert(QString::fromLatin1(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS),
                             QStringLiteral("0"));
-    EXPECT_FALSE(m_jobs->projectForJob(folder).has_value());
+    EXPECT_FALSE(m_jobs->projectForJob(folder, {}).has_value());
     EXPECT_FALSE(m_service->isOpen());
     EXPECT_FALSE(ProjectService::isProjectFolder(folder));
     EXPECT_FALSE(QFileInfo::exists(QDir(folder).filePath(QStringLiteral("integration"))));
@@ -221,9 +269,9 @@ TEST_F(JobProjectsCase, NoneIsMadeWithTheSettingOff)
 
     (void)m_settings.upsert(QString::fromLatin1(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS),
                             QStringLiteral("1"));
-    EXPECT_FALSE(m_jobs->projectForJob(QString()).has_value());
+    EXPECT_FALSE(m_jobs->projectForJob(QString(), {}).has_value());
     EXPECT_FALSE(m_service->isOpen());
-    EXPECT_TRUE(m_jobs->projectForJob(folder).has_value());
+    EXPECT_TRUE(m_jobs->projectForJob(folder, {}).has_value());
 }
 
 // A job that runs while a project is open runs in that project: none is made of its folder.
@@ -236,7 +284,7 @@ TEST_F(JobProjectsCase, NoneIsMadeWhileAProjectIsOpen)
     const QString open = m_service->currentFolder();
     const QString folder = jobFolder(QStringLiteral("Elsewhere"));
 
-    EXPECT_FALSE(m_jobs->projectForJob(folder).has_value());
+    EXPECT_FALSE(m_jobs->projectForJob(folder, {}).has_value());
     EXPECT_EQ(m_service->currentFolder(), open);
     EXPECT_FALSE(ProjectService::isProjectFolder(folder));
     const std::optional<JobProject> seen = m_jobs->openProject();
@@ -249,7 +297,7 @@ TEST_F(JobProjectsCase, NoneIsMadeWhileAProjectIsOpen)
 TEST_F(JobProjectsCase, AFolderThatCannotHoldAProjectIsToldAndTheJobGetsNone)
 {
     const QString file = write(QStringLiteral("not-a-folder.fit"), 10);
-    EXPECT_FALSE(m_jobs->projectForJob(file).has_value());
+    EXPECT_FALSE(m_jobs->projectForJob(file, {}).has_value());
     EXPECT_FALSE(m_service->isOpen());
     ASSERT_EQ(m_refused.size(), 1u);
     ASSERT_TRUE(m_refused.front().refusal.has_value());
@@ -262,7 +310,7 @@ TEST_F(JobProjectsCase, AFolderThatCannotHoldAProjectIsToldAndTheJobGetsNone)
 TEST_F(JobProjectsCase, TheJobAndWhatItsRunMadeAreRecordedInTheProject)
 {
     const QString folder = jobFolder(QStringLiteral("Recorded"));
-    ASSERT_TRUE(m_jobs->projectForJob(folder).has_value());
+    ASSERT_TRUE(m_jobs->projectForJob(folder, {}).has_value());
 
     m_jobs->recordJob(QStringLiteral("last_session"), folder);
     m_jobs->recordJob(QStringLiteral("last_session"), folder);
@@ -331,7 +379,7 @@ TEST_F(JobProjectsCase, CreateInFolderMakesAProjectOfAFolderThatHoldsFiles)
 TEST_F(JobProjectsCase, TheStorageOfAProjectMadeOfAJobsFolderCountsTheJobsFiles)
 {
     const QString folder = jobFolder(QStringLiteral("Counted"));
-    ASSERT_TRUE(m_jobs->projectForJob(folder).has_value());
+    ASSERT_TRUE(m_jobs->projectForJob(folder, {}).has_value());
     // A job made in the project keeps its folder under the project's integration folder.
     (void)write(QStringLiteral("Counted/integration/second/stacked_R.fit"), 2000);
     (void)write(QStringLiteral("Counted/integration/second/ca_corrected_lights/light_001_ca.fit"), 1000);
@@ -369,7 +417,7 @@ TEST_F(JobProjectsCase, AProjectMadeByAPersonCountsOnlyItsIntegrationFolder)
 TEST_F(JobProjectsCase, CleaningTheIntermediateFramesFreesWhatTheReportCounts)
 {
     const QString folder = jobFolder(QStringLiteral("Cleaned"));
-    ASSERT_TRUE(m_jobs->projectForJob(folder).has_value());
+    ASSERT_TRUE(m_jobs->projectForJob(folder, {}).has_value());
     (void)write(QStringLiteral("Cleaned/integration/second/registered_lights/deep/light_reg.fit"), 1500);
     (void)write(QStringLiteral("Cleaned/integration/second/stacked_R.fit"), 2000);
     const ProjectStorageReport before = measure();

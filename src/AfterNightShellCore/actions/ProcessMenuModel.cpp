@@ -30,9 +30,8 @@ namespace an::ui::shell
 namespace
 {
 
-/// The marks of what the model adds to a menu that the menu tree does not hold, so it can be taken away again.
-constexpr const char* kExtensionProcessEntryProperty = "anExtensionProcessMenuAction";
-constexpr const char* kExtensionFamilyEntryProperty = "anExtensionFamilyMenuAction";
+/// The registry category of the processes that run with no window, which no menu of the Process menu lists.
+constexpr std::string_view kNonInteractiveCategory = "non_interactive";
 
 /// The registry categories an extension's process may have, and the menu of the Process menu each joins.
 struct CategoryMenu
@@ -236,8 +235,9 @@ void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::Exten
 
         for (const auto& process : result.manifest->processes)
         {
+            // A process that runs with no window has no menu of the Process menu: its family's menu lists it alone.
             const std::string_view menuId = menuOfCategory(process.category);
-            if (menuId.empty())
+            if (menuId.empty() && process.category != kNonInteractiveCategory)
             {
                 if (an::platform::isLoggingInitialized())
                 {

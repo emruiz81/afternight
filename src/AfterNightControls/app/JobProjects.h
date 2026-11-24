@@ -46,13 +46,17 @@ public:
 
     /// A job is about to run into a folder with no project open. When the settings ask for it, the folder becomes a
     /// project - or, when it is one already, that project is opened - and is the open project from then on. The job's
-    /// own files in the folder are not touched.
+    /// own files in the folder are not touched. A project made for the job is about the object its frames' OBJECT
+    /// cards agree on; one that was there keeps the object it states.
     ///
     /// @param outputFolder the folder the job's runs write to.
+    /// @param objectCards the OBJECT card of each of the job's light frames, an empty text for a frame that states
+    ///        none.
     /// @return the project the job runs in from now on; none when the settings do not ask for one, when a project
     ///         is open already, or when the folder's project could not be made or opened - which is said to the
     ///         person, and the job runs outside any project.
-    [[nodiscard]] virtual std::optional<JobProject> projectForJob(const QString& outputFolder) = 0;
+    [[nodiscard]] virtual std::optional<JobProject> projectForJob(const QString& outputFolder,
+                                                                  const QStringList& objectCards) = 0;
 
     /// Records a job as one of the open project's, once: by the name its session has and the folder its runs write
     /// to. Nothing with no project open.

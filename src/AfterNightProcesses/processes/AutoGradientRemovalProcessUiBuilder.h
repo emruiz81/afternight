@@ -348,7 +348,7 @@ private:
         previewRow->setSpacing(t.spacing.md);
 
         previewCheckbox =
-            new QCheckBox(QCoreApplication::translate("AutoGradientRemovalProcess", "Enable preview", nullptr), parent);
+            new QCheckBox(QCoreApplication::translate("AutoGradientRemovalProcess", "Preview", nullptr), parent);
         previewCheckbox->setObjectName(QStringLiteral("previewCheckbox"));
         previewCheckbox->setChecked(true);
         previewRow->addWidget(previewCheckbox);

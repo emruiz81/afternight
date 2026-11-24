@@ -435,6 +435,7 @@ controls:
     tradeoff: Zstandard takes the least room and the most time to write, None the most room.
     scope: A project keeps the compression it was made with.
     persistence: Stored as `history/compression`.
+    note: Its tooltip says the same - a history outside a project takes it from its next step, a new project starts from it, and a project keeps its own.
   - name: "Ask to compact a history above:"
     kind: spinbox
     default: "10"

@@ -156,7 +156,7 @@ int AnReadoutGrid::heightForWidth(int /*width*/) const
     return count == 0 ? 0 : count * cellHeight() + (count - 1) * parts::kReadoutCellGap;
 }
 
-QSize AnReadoutGrid::sizeHint() const
+int AnReadoutGrid::widestCell() const
 {
     const DesignTokens& t = tokens();
     int widest = 0;
@@ -170,7 +170,12 @@ QSize AnReadoutGrid::sizeHint() const
         widest = (std::max)({widest, value, parts::textWidth(labelFont(t), cell.label),
                              parts::textWidth(noteFont(t), cell.note)});
     }
-    return QSize(m_columns * widest + (m_columns - 1) * parts::kReadoutCellGap, heightForWidth(0));
+    return widest;
+}
+
+QSize AnReadoutGrid::sizeHint() const
+{
+    return QSize(m_columns * widestCell() + (m_columns - 1) * parts::kReadoutCellGap, heightForWidth(0));
 }
 
 QSize AnReadoutGrid::minimumSizeHint() const

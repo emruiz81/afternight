@@ -1152,6 +1152,11 @@ void TopLevelProcessBaseControl::setProcessDescription(const QString& descriptio
         headerDescription->setText(trimmedDescription);
         headerDescription->setVisible(!trimmedDescription.isEmpty());
     }
+    // A page shows it as its title's tooltip, and follows a description stated after it was arranged.
+    if (m_Page != nullptr)
+    {
+        m_Page->setDescription(trimmedDescription);
+    }
 }
 
 void TopLevelProcessBaseControl::showProcessMessage(const QString& title, const QString& message,

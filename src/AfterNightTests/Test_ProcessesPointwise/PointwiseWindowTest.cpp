@@ -1963,3 +1963,93 @@ TEST_P(PointwiseWindowTest, TheSettledPreviewOfALargeSceneIsTheApplyAcrossTheThr
         dropView(context(), target);
     }
 }
+
+namespace
+{
+
+/// The HSL adjustment's window and the LCh adjustment's, which work on a colour image alone.
+class HslTargetTest : public NamedProcessTest
+{
+protected:
+    HslTargetTest() : NamedProcessTest("Hsl") {}
+};
+
+class LchTargetTest : public NamedProcessTest
+{
+protected:
+    LchTargetTest() : NamedProcessTest("Lch") {}
+};
+
+/// Opens a process over a colour scene as its menu entry does, makes the scene a grey image - opened again as one, or
+/// edited into one, as Convert to Grayscale edits it - and holds that the window closes and says why, under its
+/// process's name, as a process whose target it can no longer work on says it.
+void expectAGreyTargetClosesTheWindowSayingWhy(ProcessTestContext& context, const PointwiseProcess& under,
+                                               const bool edited)
+{
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle target = colourScene(context.engineSession());
+    ASSERT_NE(target, nullptr);
+    context.addViewControl(target.get());
+    context.setActiveImageViewControl(target.get());
+    const an::ui::process_registry::ProcessDescriptor* descriptor = shared::registered(under.descriptorId);
+    ASSERT_NE(descriptor, nullptr) << under.descriptorId;
+    ASSERT_TRUE(descriptor->launch_single_image);
+    descriptor->launch_single_image(target.get());
+    ASSERT_EQ(context.openProcesses.size(), 1u) << "the launch opens one window";
+    pumpQuietly();
+    const qsizetype before = context.messages.size();
+
+    if (edited)
+    {
+        auto grey = std::make_shared<std::optional<an::consumer::ImageAsset>>(an::tests::viewer::makeAsset<float>(
+            context.engineSession(), kWidth, kHeight, Channels::Grey,
+            [](std::uint32_t x, std::uint32_t y, std::uint32_t) { return static_cast<float>(sceneValue(x, y, 0u)); }));
+        ASSERT_TRUE(grey->has_value());
+        target->editImage(
+            "Convert To Grayscale", "",
+            [grey](const an::consumer::EngineSession&, const an::consumer::AssetWriteLease&,
+                   std::stop_token) -> an::Result<an::consumer::ImageAsset> { return std::move(**grey); });
+    }
+    else
+    {
+        std::optional<an::ui::ImageDocument> grey =
+            greyDocument(context.engineSession(), kWidth, kHeight,
+                         [](std::uint32_t x, std::uint32_t y) { return static_cast<float>(sceneValue(x, y, 0u)); });
+        ASSERT_TRUE(grey.has_value());
+        target->setDocument(std::move(*grey));
+    }
+    ASSERT_TRUE(pumpUntil([&context]() { return context.openProcesses.empty(); })) << "the window closes";
+    pumpQuietly();
+    const QStringList said = context.messages.mid(before);
+    EXPECT_TRUE(said.contains(QStringLiteral("warning:%1").arg(QString::fromUtf8(under.processName))))
+        << "the window says why it closes, under its process's name; it said: "
+        << said.join(QStringLiteral(", ")).toStdString();
+    dropView(context, target);
+}
+
+} // namespace
+
+// A target opened again as a grey image closes the HSL adjustment, which says why.
+TEST_F(HslTargetTest, ATargetOpenedAgainAsGreyClosesTheWindowSayingWhy)
+{
+    expectAGreyTargetClosesTheWindowSayingWhy(context(), process(), false);
+}
+
+// A target edited into a grey image closes the HSL adjustment, which says why.
+TEST_F(HslTargetTest, ATargetEditedIntoGreyClosesTheWindowSayingWhy)
+{
+    expectAGreyTargetClosesTheWindowSayingWhy(context(), process(), true);
+}
+
+// A target opened again as a grey image closes the LCh adjustment, which says why.
+TEST_F(LchTargetTest, ATargetOpenedAgainAsGreyClosesTheWindowSayingWhy)
+{
+    expectAGreyTargetClosesTheWindowSayingWhy(context(), process(), false);
+}
+
+// A target edited into a grey image closes the LCh adjustment, which says why.
+TEST_F(LchTargetTest, ATargetEditedIntoGreyClosesTheWindowSayingWhy)
+{
+    expectAGreyTargetClosesTheWindowSayingWhy(context(), process(), true);
+}

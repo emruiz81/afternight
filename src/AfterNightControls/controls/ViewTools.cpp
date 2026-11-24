@@ -6,8 +6,10 @@
 /// the Exif fields, the summary, the astrometric solution, the plate solve and the annotated picture - defined beside
 /// the windows, as the view's companion seam declares it, so the view compiles with none of their headers.
 ///
-/// Each window is a child of the view, deleted when it is closed and with the view. The astrometry, plate-solve and
-/// annotation windows are one per view: asking for one already open raises it. The others open a window each time.
+/// Each window is a child of the view, deleted when it is closed and with the view, and one per view: asking for one
+/// already open raises it. The statistics, histogram, FITS header, Exif and summary windows disable the view's entry
+/// that opens them while they are open, as they always did; the readout's buttons, which no window disables, raise the
+/// open one rather than open another.
 
 #include "stdafx.hpp"
 
@@ -49,14 +51,6 @@ template <typename WindowT> QWidget* raiseOrOpen(::ImageViewControl& view)
     return window;
 }
 
-/// Opens a window over the view.
-template <typename WindowT> QWidget* openNew(::ImageViewControl& view)
-{
-    auto* window = new WindowT(&view);
-    window->show();
-    return window;
-}
-
 } // namespace
 
 QWidget* openViewTool(const ViewTool tool, ::ImageViewControl& view)
@@ -64,15 +58,15 @@ QWidget* openViewTool(const ViewTool tool, ::ImageViewControl& view)
     switch (tool)
     {
     case ViewTool::Statistics:
-        return openNew<ImageStatisticsControl>(view);
+        return raiseOrOpen<ImageStatisticsControl>(view);
     case ViewTool::Histogram:
-        return openNew<ImageHistogramControl>(view);
+        return raiseOrOpen<ImageHistogramControl>(view);
     case ViewTool::FitsHeader:
-        return openNew<ImageFITSHeaderViewerControl>(view);
+        return raiseOrOpen<ImageFITSHeaderViewerControl>(view);
     case ViewTool::Exif:
-        return openNew<ImageEXIFViewerControl>(view);
+        return raiseOrOpen<ImageEXIFViewerControl>(view);
     case ViewTool::Summary:
-        return openNew<ImageSummaryViewerControl>(view);
+        return raiseOrOpen<ImageSummaryViewerControl>(view);
     case ViewTool::AstrometryInfo:
         return raiseOrOpen<ImageAstrometryInfoControl>(view);
     case ViewTool::PlateSolve:

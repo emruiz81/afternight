@@ -15,7 +15,7 @@
     {"label": "Preview", "kind": "button", "object": "previewButton", "group": "Correction", "visible": true, "default": ""},
     {"label": "Create gradient model image", "kind": "check", "object": "outputGradientModel", "group": "Outputs", "visible": true, "default": "Off"},
     {"label": "Create protection mask image", "kind": "check", "object": "outputProtectionMask", "group": "Outputs", "visible": true, "default": "Off"},
-    {"label": "Enable preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
+    {"label": "Preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
     {"label": "Target image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
     {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
     {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},

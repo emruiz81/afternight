@@ -155,7 +155,7 @@ controls:
     tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the resampled copy.
     scope: The whole image, on every channel, without the mask. A change made after you press it does not reach the run.
     persistence: "The image and its history keep the result, as the step **Integer Resample** with the text `Binning factor: <f>X - New size: <w>x<h> - Binning method: <mode>` for **Downsample** or `Resample factor: <f>X - New size: <w>x<h>` for **Upsample**."
-    note: "For a mosaic the view does not debayer, it first asks \"Integer Resample CFA\" whether to run anyway, and **No** starts nothing. While the run works, the column says \"applying\" and its controls, **Close** and **Reset** are disabled. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the task open, with the reason in its message strip."
+    note: "For a mosaic the view does not debayer, it first asks \"Integer Resample CFA\" whether to run anyway, and **No** starts nothing. While the run works, the column says \"applying\", or shows **Overall** and **Processing** over a sequence, its controls, **Close** and **Reset** are disabled, and **Cancel** stands in the place of OK. No progress window opens. A run that fails leaves the task open, with the reason in its message strip."
   - name: Close
     kind: button
     default: ""
@@ -171,19 +171,20 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, in a window titled **Integer Resample** with the text `Executing integer resample to sequence <name>`. The column's run row shows the same share."
-    enabled: Shown only while OK works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while OK works on a sequence. Over a single image the row reads "applying". No progress window opens.
     tradeoff: The resampled sequence is written to a temporary file, which needs its disk space until the run ends. An **Upsample** multiplies that space by the factor's square.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
-    note: This window's **Cancel** stops the run; the task cannot be closed while it works.
+    effect: Stands in the footer in place of **OK** during a run, and stops it, on a single image as on a sequence, without a message. The image or the sequence stays as it was, with no history step, and a sequence's temporary file is removed.
+    range: A sequence's run stops before the next frame at the latest.
+    note: The task cannot be closed while a run works.
 ```
 
 ## How it works

@@ -201,8 +201,12 @@ HistogramTransformationProcess::HistogramTransformationProcess(ImageViewControl*
     }
 
     m_FixedLayout = false;
-    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, nullptr, m_ui.buttonBox,
+    // The preview check box is handed over so a page lays it in its toggles row as every page does; what checking it
+    // does - the preview, the histograms, the automatic stretch's buttons - stays this process's own.
+    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, m_ui.preview, m_ui.buttonBox,
                               m_ui.targetImageSelector, nullptr, false, true);
+    QObject::disconnect(m_ui.preview, &QCheckBox::checkStateChanged, this,
+                        &HistogramTransformationProcess::on_rt_preview_clicked);
 
     initializeTargetViewControlComboBox(m_ui.targetImageSelector);
 

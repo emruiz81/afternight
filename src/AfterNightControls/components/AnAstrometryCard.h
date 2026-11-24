@@ -62,7 +62,8 @@ public:
     [[nodiscard]] const AstrometryReadout& readout() const noexcept;
 
     /// Binds an overlay's chip to the action that draws the overlay: the chip shows the action's state and a click
-    /// toggles the action. Null leaves the chip disabled.
+    /// toggles the action; the action triggered - its entry in the settings menu clicked - is told as the chip's click
+    /// is. Null leaves the chip disabled.
     void bindOverlay(AstrometryOverlay overlay, QAction* action);
 
     /// The menu the header's tool opens - the view's astrometry settings; null disables the tool.
@@ -77,7 +78,8 @@ public:
     [[nodiscard]] AnReadoutGrid* readouts() const noexcept;
     [[nodiscard]] AnReadoutText* unsolvedText() const noexcept;
 
-    /// Told when the person turns an overlay's chip on or off, after its action was toggled.
+    /// Told when the person turns an overlay on or off by its chip or by its entry in the settings menu, after its
+    /// action was toggled.
 void overlayToggled(int overlay, bool on) W_SIGNAL(overlayToggled, overlay, on)
 
     void plateSolveRequested() W_SIGNAL(plateSolveRequested) void annotateRequested()
@@ -90,6 +92,7 @@ private:
     {
         QPointer<QAction> action;
         QMetaObject::Connection follows;
+        QMetaObject::Connection ticked;
     };
 
     void refill();

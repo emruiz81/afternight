@@ -448,6 +448,7 @@ void BackgroundNeutralizationProcess::executeBackgroundNeutralization()
     };
     // The reference and the mask are other views' images, leased before the run is admitted.
     request.reads = {reference.asset, mask.asset};
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

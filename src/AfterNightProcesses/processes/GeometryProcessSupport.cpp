@@ -399,7 +399,8 @@ template <typename WorkT, typename DoneT> void runThenLand(WorkT work, DoneT don
     });
 }
 
-/// Moves a progress window, and the run state of the process the run is of, to a fraction of a run, from a worker.
+/// Moves a progress window, and the run state of the process the run is of, to the share of a sequence's frames done,
+/// from a worker; the next frame's own share is not told until its operation reports one.
 void postProgress(const QPointer<ProgressDialogControl>& progress, const QPointer<TopLevelProcessBaseControl>& process,
                   std::uint64_t done, std::uint64_t total)
 {
@@ -420,20 +421,28 @@ void postProgress(const QPointer<ProgressDialogControl>& progress, const QPointe
             if (process)
             {
                 process->reportRunProgress(share);
+                process->reportFrameProgress(std::nullopt);
             }
         },
         Qt::QueuedConnection);
 }
 
-/// States that the run of a process starts: over a sequence its frames are counted from none, over an image it says
-/// how far it is when its operation does.
+/// States that the run of a process starts: over a sequence its frames are counted from none, the frame on its way
+/// apart - a page's Overall and Processing - and over an image it says how far it is when its operation does.
 void startRunState(const QPointer<TopLevelProcessBaseControl>& process, const bool overFrames)
 {
     if (process)
     {
-        process->setRunState(
-            an::ui::runningState(an::ui::applyingRunText(), overFrames ? std::optional<double>(0.0) : std::nullopt));
+        process->setRunState(overFrames ? an::ui::sequenceRunningState(an::ui::applyingRunText())
+                                        : an::ui::runningState(an::ui::applyingRunText()));
     }
+}
+
+/// Whether the process a run is of is arranged as a page: its run shows in the page's own row, and the page's Cancel
+/// requests the run's own stop, so no progress window opens.
+[[nodiscard]] bool onPage(const QPointer<TopLevelProcessBaseControl>& process)
+{
+    return process && process->hasPageLayout();
 }
 
 /// What a run tells its window as it lands, with the process's run state ended first. A run refused because another
@@ -512,11 +521,14 @@ struct SequenceRun
 };
 
 /// Reads the frames of a sequence, runs an operation over each - or takes each as it is when there is none - and
-/// writes what it makes into new sequences, one per path, each published whole or not at all. A worker.
+/// writes what it makes into new sequences, one per path, each published whole or not at all. The frames done move the
+/// progress window, when the run shows one, and the run state of its process; the operation's own reports, which
+/// `observer` receives, move the frame on its way. A worker.
 [[nodiscard]] SequenceRun runOverFrames(const an::consumer::EngineSession& session, an::ui::DocumentSequence sequence,
                                         bool readDemosaiced, const std::vector<QString>& paths, std::stop_token stop,
                                         const QPointer<ProgressDialogControl>& progress,
                                         const QPointer<TopLevelProcessBaseControl>& process,
+                                        an::ui::ExecutionObserver observer,
                                         const an::ui::processes::ImagesOperation& operation,
                                         const an::ui::processes::AdmissionHook& hook, an::ui::ImageReads& reads)
 {
@@ -530,7 +542,7 @@ struct SequenceRun
         run.status = taken;
         return run;
     }
-    an::Result<an::ui::ExecutionScope> scope = admitRun(session, stop, hook, {}, &reads);
+    an::Result<an::ui::ExecutionScope> scope = admitRun(session, stop, hook, std::move(observer), &reads);
     if (!scope.hasValue())
     {
         run.status = scope.status();
@@ -677,9 +689,16 @@ void removeSequences(const std::vector<QString>& paths, std::size_t from)
     return paths;
 }
 
-/// The progress window of a run over a sequence, shown; its Cancel stops the run.
-[[nodiscard]] ProgressDialogControl* showProgress(const an::ui::processes::GeometryRunWords& words)
+/// The progress window of a run, shown when the run wants one and its process is a window of its own; its Cancel
+/// stops the run. Null for a run that wants none, and for a process arranged as a page.
+[[nodiscard]] ProgressDialogControl* showProgress(const an::ui::processes::GeometryRunWords& words,
+                                                  const QPointer<TopLevelProcessBaseControl>& process,
+                                                  const bool wanted)
 {
+    if (!wanted || onPage(process))
+    {
+        return nullptr;
+    }
     auto* progress = new ProgressDialogControl(process_utils::currentMainWindow(), words.title);
     progress->setText(words.progressText);
     progress->setProgressBarRange(0, 100);
@@ -1077,9 +1096,10 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
     if (!view.isSequence())
     {
         auto failure = std::make_shared<std::optional<an::Status>>();
-        // The window asked for: its Cancel stops the run, its observer shows the operation's reports, and the edit's
-        // own stop - a document changed or closed under it - reaches the operation through the scope.
-        ProgressDialogControl* progress = request.progressWindow ? showProgress(request.words) : nullptr;
+        // The window asked for, in a window of its own: its Cancel stops the run, its observer shows the operation's
+        // reports, and the edit's own stop - a document changed or closed under it - reaches the operation through the
+        // scope.
+        ProgressDialogControl* progress = showProgress(request.words, request.process, request.progressWindow);
         const QPointer<ProgressDialogControl> progressGuard(progress);
         // A run that shows no progress window stops at its own stop - a page's Cancel - when it has one.
         const std::optional<std::stop_token> windowStop =
@@ -1174,17 +1194,20 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
         }
         return;
     }
-    ProgressDialogControl* progress = showProgress(request.words);
+    // In a window of its own the run shows a progress window, whose Cancel stops it; on a page it shows in the page's
+    // row - Overall and Processing - and the page's Cancel requests the run's own stop.
+    ProgressDialogControl* progress = showProgress(request.words, request.process, true);
     const QPointer<ProgressDialogControl> progressGuard(progress);
     QPointer<ImageViewControl> guard(&view);
     const bool readDemosaiced = view.isSequenceAutodebayerEnabled();
     startRunState(request.process, true);
     runThenLand(
-        [session, sequence = sequenceToRead(*sequence, std::nullopt), paths = *paths, stop = progress->stopToken(),
-         progressGuard, process = request.process, readDemosaiced, operation = request.operation,
-         hook = request.admissionHook, reads = readsOf(request.reads)]() {
+        [session, sequence = sequenceToRead(*sequence, std::nullopt), paths = *paths,
+         stop = progress != nullptr ? progress->stopToken() : request.stop, progressGuard, process = request.process,
+         observer = an::ui::withFrameProgress({}, request.process.data()), readDemosaiced,
+         operation = request.operation, hook = request.admissionHook, reads = readsOf(request.reads)]() {
             return runOverFrames(
-                *session, sequence, readDemosaiced, paths, stop, progressGuard, process,
+                *session, sequence, readDemosaiced, paths, stop, progressGuard, process, observer,
                 [&operation](const an::ui::ExecutionScope& scope,
                              const an::ui::ProcessSource& frame) -> an::Result<std::vector<an::consumer::ImageAsset>> {
                     an::Result<an::consumer::ImageAsset> made = operation(scope, frame);
@@ -1289,7 +1312,7 @@ void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryR
             return;
         }
         auto held = std::make_shared<an::consumer::AssetReadLease>(std::move(*lease));
-        ProgressDialogControl* progress = request.progressWindow ? showProgress(request.words) : nullptr;
+        ProgressDialogControl* progress = showProgress(request.words, request.process, request.progressWindow);
         const QPointer<ProgressDialogControl> progressGuard(progress);
         startRunState(request.process, false);
         runThenLand(
@@ -1403,15 +1426,18 @@ void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryR
                                                                            : "the view shows no sequence"));
         return;
     }
-    ProgressDialogControl* progress = showProgress(request.words);
+    // In a window of its own the run shows a progress window, whose Cancel stops it; on a page it shows in the page's
+    // row - Overall and Processing - and the page's Cancel requests the run's own stop.
+    ProgressDialogControl* progress = showProgress(request.words, request.process, true);
     const QPointer<ProgressDialogControl> progressGuard(progress);
     startRunState(request.process, true);
     runThenLand(
-        [session, sequence = sequenceToRead(*sequence, request.frames), paths = *paths, stop = progress->stopToken(),
-         progressGuard, process = request.process, readDemosaiced = request.readDemosaiced,
+        [session, sequence = sequenceToRead(*sequence, request.frames), paths = *paths,
+         stop = progress != nullptr ? progress->stopToken() : request.stop, progressGuard, process = request.process,
+         observer = an::ui::withFrameProgress({}, request.process.data()), readDemosaiced = request.readDemosaiced,
          operation = request.operation, hook = request.admissionHook, reads = readsOf(request.reads)]() {
-            return runOverFrames(*session, sequence, readDemosaiced, paths, stop, progressGuard, process, operation,
-                                 hook, *reads);
+            return runOverFrames(*session, sequence, readDemosaiced, paths, stop, progressGuard, process, observer,
+                                 operation, hook, *reads);
         },
         [guard, outputs = request.sequenceOutputs, showDemosaiced = request.showDemosaiced, words = request.words,
          paths = *paths, progressGuard, inFlight = request.inFlight, done](SequenceRun run) {

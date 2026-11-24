@@ -104,7 +104,8 @@ public:
     [[nodiscard]] int barHeight() const;
     [[nodiscard]] int barRadius() const;
 
-    /// Where it sits over an area, in that area's coordinates: centred, its bottom the form's lift above the area's.
+    /// Where it sits over an area, in that area's coordinates: centred - at the area's left when it is wider than the
+    /// area - its bottom the form's lift above the area's.
     /// Where it would cover a rectangle of `keepClear` - a sequence's player strip at the bottom of its view - it is
     /// lifted until its bar is 8 px above the highest of those it would cover, and never above the area's top.
     [[nodiscard]] QRect placementIn(const QRect& area, const QList<QRect>& keepClear = {}) const;

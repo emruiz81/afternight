@@ -59,9 +59,10 @@ bool AdjustHSLProcess::requiresExclusiveAccessStatic()
 
 void AdjustHSLProcess::onImageLoaded(ImageViewControl* ctrl)
 {
+    // A target opened again as a grey image: the process works on colour alone, and says so as it closes.
     if (ctrl == m_image_view_control && !isViewControlSupported(ctrl))
     {
-        close();
+        closeForUnsupportedTarget(*ctrl);
     }
     else
     {
@@ -71,9 +72,10 @@ void AdjustHSLProcess::onImageLoaded(ImageViewControl* ctrl)
 
 void AdjustHSLProcess::onImageUpdated(ImageViewControl* ctrl)
 {
+    // A target edited into a grey image - Convert to Grayscale - likewise.
     if (ctrl == m_image_view_control && !isViewControlSupported(ctrl))
     {
-        close();
+        closeForUnsupportedTarget(*ctrl);
     }
     else
     {
@@ -85,7 +87,14 @@ void AdjustHSLProcess::onViewControlChanged(ImageViewControl* oldCtrl, ImageView
 {
     if (!isViewControlSupported(newCtrl))
     {
-        close();
+        if (newCtrl != nullptr)
+        {
+            closeForUnsupportedTarget(*newCtrl);
+        }
+        else
+        {
+            close();
+        }
     }
     else
     {

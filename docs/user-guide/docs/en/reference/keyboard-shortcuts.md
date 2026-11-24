@@ -79,8 +79,8 @@ the cards whose buttons several of these keys press.
 | ++ctrl+y++ | **Redo** | After an Undo |
 | ++ctrl+shift+z++ | **Image History** | The view holds an image or a sequence |
 | ++ctrl+shift+a++ | **Autostretch Settings** | **Display Mode** reads **Autostretch** and no **Autostretch Settings** window of this view is open |
-| ++ctrl+shift+x++ | **EXIF Viewer** | Always. Each press opens another window, empty when the file stated no field. |
-| ++ctrl+shift+h++ | **FITS Header** | Always. Each press opens another window, empty when the image carries no card. |
+| ++ctrl+shift+x++ | **EXIF Viewer** | Always. One window per view, empty when the file stated no field: pressed again, it brings that window forward. |
+| ++ctrl+shift+h++ | **FITS Header** | Always. One window per view, empty when the image carries no card: pressed again, it brings that window forward. |
 | ++ctrl+shift+t++ | **Statistics** | The view holds an image |
 | ++ctrl+h++ | **Histogram** | The view holds an image |
 | ++ctrl+shift+m++ | **Summary** | The view holds an image |

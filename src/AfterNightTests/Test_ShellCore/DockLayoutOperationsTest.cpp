@@ -42,6 +42,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <list>
 #include <memory>
 #include <optional>
 #include <set>
@@ -384,6 +385,48 @@ TEST_F(DockLayoutOperationsTest, AWorkspacesGroupAndSplitTakeItsViewsAlone)
     EXPECT_TRUE(inside(m_area, away));
     EXPECT_TRUE(inside(m_area, awayToo));
     EXPECT_EQ(groupOf(first), groupOf(away));
+}
+
+// The view's Current Window > Group All Images and Split All Images take the views docked in the dock area the view is
+// docked in, and none of another's: in a workspace they act on that workspace's images alone, as its layout icons do.
+TEST_F(DockLayoutOperationsTest, AViewsGroupAndSplitTakeTheViewsOfItsOwnDockAreaAlone)
+{
+    auto* other = new MainWindow(QStringLiteral("layout.other"), {}, m_window.get());
+    other->setGeometry(QRect(0, 0, 1000, 700));
+    settleDocks();
+    ImageViewControl* const first = dockedView(QStringLiteral("first"));
+    ImageViewControl* const second = dockedView(QStringLiteral("second"));
+    ImageViewControl* const away = dockedView(QStringLiteral("away"), other);
+    ImageViewControl* const awayToo = dockedView(QStringLiteral("away.too"), other);
+    ASSERT_NE(awayToo, nullptr);
+    const auto inside = [](const MainWindow* area, ImageViewControl* view) {
+        return view->getDockWidget()->dockWidget()->mainWindow() == area->mainWindow();
+    };
+    // The view list is in no order: the views sharing a window are a set.
+    const std::list<ImageViewControl*> sharing =
+        DockLayoutOperations::viewsSharingTheWindowOf(*first, m_core.viewService().getListOfViewControls());
+    EXPECT_EQ((std::set<ImageViewControl*>(sharing.begin(), sharing.end())),
+              (std::set<ImageViewControl*>{first, second}));
+
+    m_core.dockLayout().groupAll(*first);
+    settleDocks();
+    EXPECT_EQ(groupOf(first), groupOf(second));
+    EXPECT_TRUE(inside(m_area, first));
+    EXPECT_TRUE(inside(other, away)) << "the other dock area's view was taken";
+    EXPECT_TRUE(inside(other, awayToo)) << "the other dock area's view was taken";
+    EXPECT_NE(groupOf(away), groupOf(awayToo)) << "the other dock area's views were gathered";
+
+    m_core.dockLayout().groupAll(*away);
+    settleDocks();
+    ASSERT_EQ(groupOf(away), groupOf(awayToo));
+    m_core.dockLayout().splitAllEqually(*away);
+    settleDocks();
+    EXPECT_NE(groupOf(away), groupOf(awayToo));
+    EXPECT_TRUE(inside(other, away));
+    EXPECT_TRUE(inside(other, awayToo));
+    EXPECT_TRUE(inside(m_area, first)) << "the first dock area's view was taken";
+    EXPECT_TRUE(inside(m_area, second)) << "the first dock area's view was taken";
+    EXPECT_EQ(groupOf(first), groupOf(second)) << "the first dock area's views were split";
 }
 
 // A workspace's lock marks its dock area, which the decorations read so a double click floats nothing there, and only

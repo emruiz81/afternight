@@ -3,6 +3,11 @@ kind: interface
 summary: >-
   A project keeps a body of work in one folder: its images where they are, their undo histories, its workspaces, its
   notes and its integration runs, all put back when you open it again.
+menu:
+  - File > New Project...
+  - File > Open Project...
+  - File > Switch Project...
+  - File > Close Project
 ---
 # Projects
 
@@ -125,7 +130,9 @@ history above**, in Settings, offers to compact it once, as it opens.
 
 With no project open, an integration run gets a project in its output folder, named after the folder, while **Create
 a project for every integration job** is on in Settings. A folder that is a project already is opened instead, and a
-message says which. Nothing the run wrote is moved.
+message says which. Nothing the run wrote is moved. The new project is about the object the OBJECT cards of the run's
+lights agree on, and Project Home says it came from them; lights that name different objects, or none, give it no
+object.
 
 ### Open a project held by another session
 

@@ -92,11 +92,11 @@ Right-click a tab. Its image becomes the active one, and the menu offers **Close
 **Close Tab Group**, then **Float** and **Move to Workspace**, then **Duplicate**, **Rename** and **Save File...**, and
 **Show in File Browser**. [Workspaces](workspaces.md) says where **Move to Workspace** takes the image.
 
-### Arrange the images of a floating window
+### Arrange the images of the window an image is in
 
-Right-click an image in a floating window and open **Current Window**. **Group All Images**, **Split All Images** and
-**Fit All Images to Window** then arrange the images of that window alone. In a workspace, use its layout icons,
-which arrange the images docked in it.
+Right-click an image and open **Current Window**. **Group All Images**, **Split All Images** and **Fit All Images to
+Window** then arrange the images of the window it is in: those of its floating window alone, or, for a docked image,
+those docked in its workspace, as the workspace's layout icons do. Other workspaces stay as they are.
 
 ### Lock the layout
 
@@ -219,9 +219,9 @@ controls:
   - name: Group All Images
     kind: action
     default: ""
-    effect: Puts the images of the floating window the clicked image is in as tabs of one group, and keeps the clicked image active.
+    effect: Puts the images of the window the clicked image is in as tabs of one group, and keeps the clicked image active.
     enabled: In the menu of a right-click on an image. Disabled while that image is maximized.
-    scope: The floating window that holds the clicked image.
+    scope: The floating window that holds the clicked image, or, for a docked image, the images docked in its workspace. Other workspaces stay as they are.
   - name: Split All Images
     kind: action
     default: ""

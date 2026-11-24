@@ -217,7 +217,7 @@ struct ReadoutController::Impl
 
         void onActiveViewControlChanged(ImageViewControl* view) override
         {
-            if (m_impl.task == nullptr)
+            if (m_impl.task == nullptr && !m_impl.pinned)
             {
                 m_impl.follow(view);
             }
@@ -614,18 +614,20 @@ struct ReadoutController::Impl
         };
     }
 
-    void connectColumn()
+    void connectColumn(const ColumnMemory memory)
     {
         an::ui::IGlobalSettingsProvider* const store = core.globalSettings();
         const QString cardsKey = QString::fromLatin1(SettingsKeys::INTERFACE_READOUT_CARDS);
         const QString collapsedKey = QString::fromLatin1(SettingsKeys::INTERFACE_READOUT_COLLAPSED);
+        const bool collapses = memory == ColumnMemory::FoldsAndCollapse;
         if (store != nullptr)
         {
             if (const std::optional<QString> folded = store->selectOptional(cardsKey); folded.has_value())
             {
                 column->setFoldedCards(*folded);
             }
-            if (const std::optional<QString> collapsed = store->selectOptional(collapsedKey); collapsed.has_value())
+            if (const std::optional<QString> collapsed = store->selectOptional(collapsedKey);
+                collapses && collapsed.has_value())
             {
                 column->setCollapsed(*collapsed == QStringLiteral("true"));
             }
@@ -639,12 +641,15 @@ struct ReadoutController::Impl
                 (void)settings->upsert(cardsKey, folded.isNull() ? QStringLiteral("") : folded);
             }
         });
-        wire(shown, &an::ui::AnReadoutColumn::collapsedChanged, [this, collapsedKey](const bool collapsed) {
-            if (an::ui::IGlobalSettingsProvider* const settings = core.globalSettings())
-            {
-                (void)settings->upsert(collapsedKey, collapsed ? QStringLiteral("true") : QStringLiteral("false"));
-            }
-        });
+        if (collapses)
+        {
+            wire(shown, &an::ui::AnReadoutColumn::collapsedChanged, [this, collapsedKey](const bool collapsed) {
+                if (an::ui::IGlobalSettingsProvider* const settings = core.globalSettings())
+                {
+                    (void)settings->upsert(collapsedKey, collapsed ? QStringLiteral("true") : QStringLiteral("false"));
+                }
+            });
+        }
         an::ui::AnHistogramCard* const histogram = shown->histogramCard();
         wire(histogram, &an::ui::AnHistogramCard::resolutionChanged, [this]() { schedule(true); });
         wire(histogram, &an::ui::AnHistogramCard::histogramWindowRequested,
@@ -693,6 +698,8 @@ struct ReadoutController::Impl
     QPointer<an::ui::AnCompactReadout> compact;
     IReadoutFrameSource* task = nullptr;
     QPointer<ImageViewControl> view;
+    /// Whether one view is followed whichever is active.
+    bool pinned = false;
     an::ui::RequestTracker tracker;
     std::vector<QMetaObject::Connection> connections;
     std::shared_ptr<EngineCalls> calls;
@@ -717,7 +724,7 @@ ReadoutController::ReadoutController(ApplicationCore& core) : m_impl(std::make_u
 
 ReadoutController::~ReadoutController() = default;
 
-void ReadoutController::setColumn(an::ui::AnReadoutColumn* column)
+void ReadoutController::setColumn(an::ui::AnReadoutColumn* column, const ColumnMemory memory)
 {
     Impl& impl = *m_impl;
     impl.disconnectColumn();
@@ -726,7 +733,7 @@ void ReadoutController::setColumn(an::ui::AnReadoutColumn* column)
     {
         return;
     }
-    impl.connectColumn();
+    impl.connectColumn(memory);
     impl.bindView();
     impl.setStale(impl.stale);
     impl.present();
@@ -752,6 +759,7 @@ void ReadoutController::followTask(IReadoutFrameSource* source)
         impl.task->setFrameListener({});
     }
     impl.task = source;
+    impl.pinned = false;
     impl.original.reset();
     impl.measuredOriginal.reset();
     impl.measuredFrame.reset();
@@ -779,6 +787,23 @@ void ReadoutController::followTask(IReadoutFrameSource* source)
     impl.view = nullptr;
     impl.follow(source->target());
     impl.schedule(true);
+}
+
+void ReadoutController::followView(ImageViewControl* view)
+{
+    Impl& impl = *m_impl;
+    if (impl.task != nullptr)
+    {
+        impl.task->setFrameListener({});
+        impl.task = nullptr;
+        impl.original.reset();
+        impl.measuredOriginal.reset();
+        impl.measuredFrame.reset();
+    }
+    impl.pinned = view != nullptr;
+    // Measured anew: the figures shown may be another view's, or a preview's.
+    impl.view = nullptr;
+    impl.follow(view != nullptr ? view : impl.core.viewService().getActiveImageViewControl());
 }
 
 ImageViewControl* ReadoutController::followedView() const

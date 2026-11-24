@@ -589,15 +589,19 @@ std::list<ImageViewControl*> DockLayoutOperations::viewsSharingTheWindowOf(Image
         return sharing;
     }
 
-    // Docked views share no floating window: every view docked in a dock area is taken, as it always was.
-    KDDockWidgets::Core::FloatingWindow* const floatingWindow = dockWidget->dockWidget()->floatingWindow();
+    // A floating window's views share it; a docked view shares the dock area it is docked in - a workspace's - with the
+    // views docked there, and with none of another's.
+    const KDDockWidgets::Core::DockWidget* const shown = dockWidget->dockWidget();
+    KDDockWidgets::Core::FloatingWindow* const floatingWindow = shown->floatingWindow();
+    const KDDockWidgets::Core::MainWindow* const area = floatingWindow == nullptr ? shown->mainWindow() : nullptr;
     for (ImageViewControl* const other : views)
     {
         if (other == nullptr || other->getDockWidget() == nullptr)
         {
             continue;
         }
-        if (other->getDockWidget()->dockWidget()->floatingWindow() == floatingWindow)
+        const KDDockWidgets::Core::DockWidget* const its = other->getDockWidget()->dockWidget();
+        if (its->floatingWindow() == floatingWindow && (floatingWindow != nullptr || its->mainWindow() == area))
         {
             sharing.push_back(other);
         }

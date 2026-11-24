@@ -257,12 +257,14 @@ struct InPlaceRunRequest
     /// What each image becomes.
     ImageOperation operation;
 
-    /// Whether a run over a still image shows the words' progress window too, as a run over a sequence does: its
-    /// Cancel stops the run, and the operation's own progress reports move it. A run that may take long - one that
-    /// waits on another program - asks for it; a geometry step does not.
+    /// Whether a run over a still image shows the words' progress window too, as a run over a sequence does in a
+    /// window of its own: its Cancel stops the run, and the operation's own progress reports move it. A run that may
+    /// take long - one that waits on another program - asks for it; a geometry step does not. A process arranged as a
+    /// page shows no progress window for any run.
     bool progressWindow = false;
 
-    /// The run's own stop, for a run over a still image that shows no progress window: a page's Cancel requests it.
+    /// The run's own stop - the process's run stop, `ImageProcessControl::beginRunStop` - which a run that shows no
+    /// progress window stops at: a page's Cancel requests it, over a still image and over a sequence.
     std::stop_token stop;
 
     /// The window's count of runs in flight, held until the run has landed.
@@ -287,7 +289,9 @@ struct InPlaceRunRequest
 /// reports move; over a sequence, takes the view for the run, reads every frame - demosaiced when the view demosaics
 /// them, by the method the sequence states - writes what each becomes into a new sequence published whole, and shows
 /// it in the view as one history step, behind a progress window whose Cancel stops it and which counts the frames. A
-/// failure is reported under the run's words and in the log; a stop the user asked for is quiet. GUI thread.
+/// process arranged as a page opens no progress window: its run state shows the run - the frames done and the frame on
+/// its way apart over a sequence - and the request's stop, which the page's Cancel requests, stops it. A failure is
+/// reported under the run's words and in the log; a stop the user asked for is quiet. GUI thread.
 ///
 /// @param view the view.
 /// @param request the run.
@@ -328,11 +332,13 @@ struct NewViewsRunRequest
     /// The frames a sequence's run reads, ascending; nothing for every frame of the sequence.
     std::optional<std::vector<std::uint64_t>> frames;
 
-    /// Whether a run over a still image shows the words' progress window too, as a run over a sequence does: its
-    /// Cancel stops the run, and the operation's own progress reports move it.
+    /// Whether a run over a still image shows the words' progress window too, as a run over a sequence does in a
+    /// window of its own: its Cancel stops the run, and the operation's own progress reports move it. A process
+    /// arranged as a page shows no progress window for any run.
     bool progressWindow = false;
 
-    /// The run's own stop, for a run over a still image that shows no progress window: a page's Cancel requests it.
+    /// The run's own stop - the process's run stop, `ImageProcessControl::beginRunStop` - which a run that shows no
+    /// progress window stops at: a page's Cancel requests it, over a still image and over a sequence.
     std::stop_token stop;
 
     /// The window's count of runs in flight, held until the run has landed.
@@ -356,9 +362,10 @@ struct NewViewsRunRequest
 /// progress window when the request asks for one, whose Cancel stops the run and which the operation's progress
 /// reports move; over a sequence, takes the view for the run, writes what each frame becomes into one new sequence per
 /// output, each published whole, and opens a view of each, behind a progress window whose Cancel stops it and which
-/// counts the frames. Nothing is opened unless the whole run succeeded; a view the application cannot make leaves the
-/// views opened before it, and the sequences no view shows are removed. A failure is reported under the run's words
-/// and in the log; a stop the user asked for is quiet. GUI thread.
+/// counts the frames. A process arranged as a page opens no progress window: its run state shows the run, and the
+/// request's stop, which the page's Cancel requests, stops it. Nothing is opened unless the whole run succeeded; a
+/// view the application cannot make leaves the views opened before it, and the sequences no view shows are removed. A
+/// failure is reported under the run's words and in the log; a stop the user asked for is quiet. GUI thread.
 ///
 /// @param view the view.
 /// @param request the run.

@@ -267,7 +267,7 @@ controls:
     kind: button
     default: ""
     effect: Closes the task, as ++esc++ does, and the circles leave the canvas with it.
-    enabled: Disabled while a run works, and so is every other way to close the task. **Cancel** stands in the place of Apply then, but does not stop this run.
+    enabled: Disabled while a run works, and so is every other way to close the task. **Cancel** stands in the place of Apply then, and stops the run.
     note: Closing the target's view stops a run. Nothing is written, no step is added and no message shows.
   - name: Reset
     kind: button
@@ -292,8 +292,9 @@ controls:
       and the history keeps a copy of the step. The working copy alone is twice the image for 16-bit and 32-bit integer
       data and four times for 8-bit. The time grows with the pixels, the stars found and the catalog stars in the
       circle: the pack's files are mapped from disk and only the tiles the circle touches are read. It uses no graphics
-      card and shows no progress window, and the run cannot be stopped from the task. Try new settings on a cropped copy
-      first, since Crop keeps the plate solution.
+      card and shows no progress window: the column's run row shows the run. **Cancel**, in the place of Apply while the
+      run works, stops it at the next check of the calibration, with nothing written, no step added and no message. Try
+      new settings on a cropped copy first, since Crop keeps the plate solution.
     scope: The whole image, all three channels, with the mask blended afterwards. On a sequence view, the frame it shows.
     persistence: >-
       The history records **Photometric Color Calibration** with `Magnitude limit: 14.0, Match radius: 5.0 arcsec,

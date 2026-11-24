@@ -44,7 +44,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 owed: true
 image: ../../assets/images/processes/calibration/cosmetic-correction.webp
 alt: >-
-  The Cosmetic Correction task. Its header names Cosmetic Correction and the raw light. The canvas at the left shows
+  The Cosmetic Correction Filter task. Its header names Cosmetic Correction Filter and the raw light. The canvas at the left shows
   the preview of a gray frame with a galaxy across its middle, the word PREVIEW in its corner and a framed area in its
   middle, under a floating toolbar of zoom buttons and a channel box. The wide column at the right holds the toggles
   Preview, Preview area and Processed, then Target Image, Channel reading Grayscale, the Hot Pixels and Cold Pixels

@@ -130,7 +130,8 @@ inline constexpr char kPageAsideWidthSetting[] = "ImageIntegration/Page/asideWid
  * - **A window made while a project is open** keeps its session in the project's own database, in the folder the
  *   project keeps its jobs in, and a job with no output folder yet is given one there, named as its session.
  * - **A run that starts** makes the job the project's (`joinProjectForRun`): the project that is open, or - with none
- *   open - the one the application gives the job in its output folder, when its settings ask for one. The session is
+ *   open - the one the application gives the job in its output folder, when its settings ask for one, told the
+ *   OBJECT cards of the job's lights so that a project made for it is about their object. The session is
  *   moved into the project's database, so the job is listed once, with its project; it takes a name of its own there
  *   when the project already holds another job of its name; and it is recorded in the project by its name and the
  *   folder its runs write to. A job the application gives no project stays where it is.

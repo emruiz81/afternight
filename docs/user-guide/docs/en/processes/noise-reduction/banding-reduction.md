@@ -41,7 +41,7 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/noise-reduction/banding-reduction.webp
 alt: >-
-  The Banding Reduction task. Its header names Banding Reduction and the image. The canvas at the left shows the
+  The Banding Reduction Filter task. Its header names Banding Reduction Filter and the image. The canvas at the left shows the
   preview of a star field crossed by thin horizontal stripes, the word PREVIEW in its corner and a large framed area in
   its middle where the stripes are gone, with a floating toolbar of zoom buttons, a channel box and the display mode at
   Autostretch near its foot. The column at the right holds the preview's small histogram and statistics, the toggles

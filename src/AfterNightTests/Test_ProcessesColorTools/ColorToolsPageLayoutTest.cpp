@@ -4,7 +4,8 @@
 /// @file
 /// The colour calibration tools as mirror pages: each in its column at 600 px of height, in both densities, with every
 /// control in the column and reached by Tab and nothing clipped sideways where text is measured; each giving through
-/// its page the result its window gives for the same parameters and the same reference; and the two that mark an area
+/// its page the result its window gives for the same parameters and the same reference; each run on its page, over a
+/// sequence or an image, stopped by the page's Cancel with no progress window opened; and the two that mark an area
 /// of the target - Color Calibration and Background Neutralization - marking it on the page's view of the target: the
 /// same rectangle of the image, the same result, nothing of it left on the target's own view.
 
@@ -15,6 +16,7 @@
 #include "controls/ImageProcessControl.h"
 
 #include <QPushButton>
+#include <QTemporaryDir>
 
 #include <gtest/gtest.h>
 
@@ -114,6 +116,60 @@ void appliesAsInAWindow(std::string_view name)
     };
     shared::expectMirrorPageAppliesAsTheWindow(
         tool->descriptorId, *context, [&]() { return sceneTarget(*context, *tool, "applied target"); }, how);
+    if (reference != nullptr)
+    {
+        context->removeViewControl(reference.get(), false);
+    }
+}
+
+/// Sets a tool's dialog as its window cases run it, reading the reference a linear match reads.
+void configureAsTheWindowCases(const ColorTool& tool, QWidget& window)
+{
+    tool.configure(window, "-");
+    if (tool.needsReference)
+    {
+        tool.chooseReference(window, QString::fromLatin1(kReferenceView));
+    }
+}
+
+/// A run of a tool on its page, over a sequence of two frames of its scene or over its scene, stopped by the page's
+/// Cancel: no progress window, the run's row, and the target left as it was.
+void runStopsAtThePagesCancel(std::string_view name, const bool overASequence)
+{
+    const ColorTool* tool = familyTool(name);
+    ASSERT_NE(tool, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle reference = openReference(*context, *tool);
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    ViewHandle still;
+    ImageViewControl* target = nullptr;
+    if (overASequence)
+    {
+        const QString path = writeSceneSequence(context->engineSession(), directory, {tool->scene, tool->scene});
+        ASSERT_FALSE(path.isEmpty());
+        target = openSequenceView(*context, path, an::SequenceFormat::ImageList, "page frames");
+        ASSERT_NE(target, nullptr);
+        ASSERT_TRUE(target->isSequence());
+        ASSERT_TRUE(settleView(*target));
+    }
+    else
+    {
+        still = sceneTarget(*context, *tool, "stopped target");
+        ASSERT_NE(still, nullptr);
+        context->addViewControl(still.get());
+        target = still.get();
+    }
+    shared::expectMirrorPageRunStopsAtItsCancel(tool->descriptorId, *context, *target,
+                                                [tool](QWidget& window) { configureAsTheWindowCases(*tool, window); });
+    if (still != nullptr)
+    {
+        dropView(*context, still);
+    }
     if (reference != nullptr)
     {
         context->removeViewControl(reference.get(), false);
@@ -240,6 +296,23 @@ AN_COLOR_TOOLS_PAGE(ColorCalibration)
 AN_COLOR_TOOLS_PAGE(BackgroundNeutralization)
 AN_COLOR_TOOLS_PAGE(LinearMatch)
 AN_COLOR_TOOLS_PAGE(Scnr)
+
+// A run on a page shows in the page's row and opens no progress window, over a sequence as over an image; the page's
+// Cancel stops it, and the target is left as it was.
+#define AN_COLOR_TOOLS_PAGE_RUN(Name)                       \
+    TEST(PageRun, Name##OverASequenceStopsAtThePagesCancel) \
+    {                                                       \
+        runStopsAtThePagesCancel(#Name, true);              \
+    }                                                       \
+    TEST(PageRun, Name##OverAnImageStopsAtThePagesCancel)   \
+    {                                                       \
+        runStopsAtThePagesCancel(#Name, false);             \
+    }
+
+AN_COLOR_TOOLS_PAGE_RUN(ColorCalibration)
+AN_COLOR_TOOLS_PAGE_RUN(BackgroundNeutralization)
+AN_COLOR_TOOLS_PAGE_RUN(LinearMatch)
+AN_COLOR_TOOLS_PAGE_RUN(Scnr)
 
 // Color Calibration's background area drawn on the page's view of the target is the area the same drag draws on the
 // target's own view, and the page calibrates the image as the window does.

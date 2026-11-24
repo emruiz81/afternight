@@ -1311,6 +1311,18 @@ void LogViewerControl::closeEvent(QCloseEvent* event)
     QWidget::closeEvent(event);
 }
 
+void LogViewerControl::showEvent(QShowEvent* event)
+{
+    DockableControl::showEvent(event);
+    // The level may have changed in Settings while the console was out of sight.
+    refreshFileLogReadout();
+}
+
+void LogViewerControl::refreshFileLogReadout()
+{
+    updateFileLogLevelIndicator();
+}
+
 void LogViewerControl::updateSettings()
 {
     if (m_TextEdit)

@@ -5,12 +5,13 @@
 /// A task's page in the Observatory window, as a person meets it with Curves Transformation: the page opened in the
 /// centre with its rail item selected and the breadcrumb naming it; the same page found again after leaving it; a run's
 /// bar, row and Cancel; a run left running while another place is shown; the snackbar of a run that succeeded and its
-/// Undo; Esc and Ctrl+Enter; the image's floor beside each column; the compact readout's figures; a new image a run
-/// makes landing in a workspace while the page stays. And what the window's actions act on while a page is shown: the
-/// looking actions on its canvas, the image actions on its target, Close and Maximize View withdrawn, Apply from the
-/// rail. And the controls of other families a page holds: a structuring element's grid edited in the column, a
-/// chooser of a second image following the images open, a histogram and its toolbar acting in the column; and the
-/// image's floor beside the wide column of every combination.
+/// Undo, in a floating task's own window too; Esc and Ctrl+Enter; the image's floor beside each column; the compact
+/// readout's figures, and its chevron's full readout over the column; the toolbar's small form over a narrow canvas; a
+/// new image a run makes landing in a workspace while the page stays. And what the window's actions act on while a
+/// page is shown: the looking actions on its canvas, the image actions on its target, Close and Maximize View
+/// withdrawn, Apply from the rail. And the controls of other families a page holds: a structuring element's grid
+/// edited in the column, a chooser of a second image following the images open, a histogram and its toolbar acting in
+/// the column; and the image's floor beside the wide column of every combination.
 
 #include "ObservatoryWindowCase.h"
 
@@ -18,6 +19,7 @@
 #include "chrome/TopBar.h"
 #include "pages/TaskPage.h"
 #include "tasks/TaskPresenter.h"
+#include "tasks/TaskWindow.h"
 #include "workspaces/WorkspaceHost.h"
 
 #include "actions/ActionCatalogue.h"
@@ -25,9 +27,13 @@
 #include "app/ProcessRegistry.h"
 #include "components/AnBreadcrumb.h"
 #include "components/AnCompactReadout.h"
+#include "components/AnFloatingToolbar.h"
 #include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
+#include "components/AnImageFactsCard.h"
+#include "components/AnReadoutColumn.h"
 #include "components/AnSnackbar.h"
+#include "components/AnStatisticsCard.h"
 #include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
 #include "controls/ImageProcessControl.h"
@@ -403,6 +409,53 @@ TEST_F(TaskPage, OpeningCurvesTransformationShowsItsPage)
         << "the eyebrow is the process's menu";
 }
 
+// The column's header names a process as its menu entry and the task header name it - ArcSinh Stretch, SCNR Filter, CLA
+// Histogram Equalization - not by the name the process gives itself, wherever the two differ; its tooltip is the
+// process's description.
+TEST_F(TaskPage, TheColumnNamesTheProcessAsItsMenuEntryDoes)
+{
+    ImageViewControl* const view = openColourView(QStringLiteral("page-column-name"));
+    ASSERT_NE(view, nullptr);
+    int differing = 0;
+    for (const an::ui::process_registry::ProcessDescriptor& descriptor :
+         an::ui::process_registry::ProcessRegistry::instance().all())
+    {
+        const bool page = descriptor.surface == an::ui::ProcessSurface::PreviewPage ||
+                          descriptor.surface == an::ui::ProcessSurface::MirrorPage;
+        if (!page || descriptor.is_extension_process ||
+            descriptor.launch_mode != an::ui::process_registry::ProcessLaunchMode::SingleImage ||
+            descriptor.display_name == descriptor.process_name)
+        {
+            continue;
+        }
+        SCOPED_TRACE(descriptor.id);
+        ++differing;
+        const QString menuName = QString::fromStdString(descriptor.display_name);
+        TopLevelProcessBaseControl* const process = launch(descriptor.id);
+        ASSERT_NE(process, nullptr);
+        settle();
+        an::ui::observatory::TaskPage* const shown = pageOf(process);
+        ASSERT_NE(shown, nullptr);
+        ASSERT_NE(process->pageLayout(), nullptr);
+        const QLabel* const title = process->findChild<QLabel*>(QStringLiteral("pageTitle"));
+        ASSERT_NE(title, nullptr);
+        EXPECT_EQ(title->text(), menuName) << "the column's header names the process as its menu entry does";
+        EXPECT_EQ(shown->header()->processName(), menuName) << "as the task header does";
+        EXPECT_EQ(title->toolTip(), process->property("anProcessDescription").toString())
+            << "its tooltip is the process's description";
+        // Closed, and gone - its preview's work landed - before the next opens on the same image.
+        const QPointer<TopLevelProcessBaseControl> guard(process);
+        ASSERT_TRUE(idle(process));
+        (void)process->close();
+        ASSERT_TRUE(an::tests::app::processEventsUntil([&guard]() {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            return guard.isNull();
+        })) << "the task closed";
+        settle();
+    }
+    EXPECT_GE(differing, 7) << "processes whose menu entry names them otherwise than they name themselves";
+}
+
 // The breadcrumb names the process and the image while the page is shown.
 TEST_F(TaskPage, TheBreadcrumbNamesTheProcessAndTheImage)
 {
@@ -520,6 +573,137 @@ TEST_F(TaskPage, SuccessShowsTheSnackbarAndUndoUndoes)
     snackbar->actionButton()->click();
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return currentStep(*view) == before; }));
     EXPECT_FALSE(snackbar->isVisible()) << "the action dismisses the message";
+}
+
+// A floating task's run that succeeds is said where the person sees it: in its window, at the foot of its canvas, with
+// how long it took and Undo, which undoes the image's step - as the main window says a page's.
+TEST_F(TaskPage, AFloatingTasksSuccessIsSaidInItsWindow)
+{
+    ImageViewControl* const view = openView(QStringLiteral("page-floating-success"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch(kCurves));
+    ASSERT_NE(process, nullptr);
+    const Task* const task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    const TaskId id = task->id;
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    ASSERT_TRUE(window().floatTask(id));
+    settle();
+    ASSERT_NE(window().taskWindow(id), nullptr);
+    bend(*process);
+    ASSERT_TRUE(idle(process));
+    window().snackbar()->dismiss();
+    const std::size_t before = currentStep(*view);
+
+    process->applyProcess();
+    ASSERT_TRUE(idle(process));
+    settle();
+    ASSERT_EQ(currentStep(*view), before + 1u);
+    an::ui::AnSnackbar* const said = page->snackbar();
+    ASSERT_NE(said, nullptr) << "the task's window says nothing";
+    EXPECT_TRUE(said->isVisible());
+    EXPECT_TRUE(page->isAncestorOf(said)) << "it is said in the task's window";
+    EXPECT_EQ(said->text(), QStringLiteral("Curves Transformation applied"));
+    EXPECT_TRUE(said->detail().endsWith(QStringLiteral(" s")));
+    EXPECT_EQ(said->actionText(), QStringLiteral("Undo"));
+    const QRect canvas = page->canvasArea();
+    const QRect placed(said->mapTo(page, QPoint(0, 0)), said->size());
+    EXPECT_TRUE(page->rect().contains(placed)) << "in the task's window";
+    EXPECT_GE(placed.top(), canvas.top());
+    EXPECT_LE(placed.bottom(), canvas.bottom()) << "at the foot of the canvas";
+    EXPECT_FALSE(window().snackbar()->isVisible()) << "the main window, out of sight, says nothing";
+
+    said->actionButton()->click();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return currentStep(*view) == before; }));
+    EXPECT_FALSE(said->isVisible()) << "the action dismisses the message";
+    ASSERT_TRUE(window().attachTask(id));
+    settle();
+}
+
+// The compact readout's chevron opens the full readout - the Histogram, Statistics, Astrometry and Image cards of the
+// task's target, as the readout column shows them - as a sheet over the process's column under it, and closes it again.
+TEST_F(TaskPage, TheChevronOpensTheFullReadoutOverTheColumnAndClosesIt)
+{
+    ImageViewControl* const view = openView(QStringLiteral("page-readout-sheet"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch(kCurves));
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(idle(process));
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    an::ui::AnCompactReadout* const compact = page->compactReadout();
+    EXPECT_FALSE(page->isReadoutSheetShown());
+
+    compact->expandButton()->click();
+    settle();
+    ASSERT_TRUE(page->isReadoutSheetShown());
+    an::ui::AnReadoutColumn* const sheet = page->readoutSheet();
+    ASSERT_NE(sheet, nullptr);
+    EXPECT_TRUE(sheet->isVisible());
+    EXPECT_TRUE(compact->expandButton()->isChecked());
+    EXPECT_EQ(sheet->viewName(), QString::fromUtf8(view->getUniqueName())) << "the target's readout";
+    QWidget* const column = process->pageLayout()->column();
+    ASSERT_NE(column, nullptr);
+    const QRect columnRect(column->mapTo(page, QPoint(0, 0)), column->size());
+    const QRect sheetRect(sheet->mapTo(page, QPoint(0, 0)), sheet->size());
+    const QRect compactRect(compact->mapTo(page, QPoint(0, 0)), compact->size());
+    EXPECT_EQ(sheetRect.left(), columnRect.left()) << "over the column";
+    EXPECT_EQ(sheetRect.width(), columnRect.width());
+    EXPECT_GT(sheetRect.top(), compactRect.bottom()) << "under the compact readout, whose chevron closes it";
+    EXPECT_EQ(sheetRect.bottom(), columnRect.bottom());
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([&]() { return sheet->statisticsCard()->report().has_value(); }, 10000))
+        << "the target's figures land";
+    EXPECT_FALSE(sheet->imageCard()->facts().dimensions.isEmpty());
+
+    compact->expandButton()->click();
+    settle();
+    EXPECT_FALSE(page->isReadoutSheetShown());
+    EXPECT_FALSE(compact->expandButton()->isChecked());
+}
+
+// The toolbar over a canvas narrower than its full form takes its small form, as a floating image window's does, so
+// it lies within the canvas, Fit first; a canvas with room for the full form takes the full form again.
+TEST_F(TaskPage, ANarrowCanvasTakesTheToolbarsSmallForm)
+{
+    ImageViewControl* const view = openView(QStringLiteral("page-narrow-canvas"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch(kCurves));
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(idle(process));
+    const Task* const task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    const TaskId id = task->id;
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    an::ui::AnFloatingToolbar* const toolbar = page->toolbar();
+    ASSERT_TRUE(toolbar->isVisible());
+    EXPECT_EQ(toolbar->form(), an::ui::AnFloatingToolbar::Form::Full) << "the main window's canvas has room";
+    EXPECT_TRUE(page->canvasArea().contains(toolbar->geometry()));
+
+    ASSERT_TRUE(window().floatTask(id));
+    settle();
+    an::ui::observatory::TaskWindow* const floating = window().taskWindow(id);
+    ASSERT_NE(floating, nullptr);
+    ASSERT_NE(floating->window(), nullptr);
+    floating->window()->resize(an::ui::observatory::TaskWindow::kMinimumWidth,
+                               an::ui::observatory::TaskWindow::kMinimumHeight);
+    settle();
+    const QRect canvas = page->canvasArea();
+    ASSERT_FALSE(canvas.isEmpty());
+    ASSERT_LT(canvas.width(), 600) << "the window at its least size leaves a narrow canvas";
+    EXPECT_EQ(toolbar->form(), an::ui::AnFloatingToolbar::Form::Small);
+    EXPECT_TRUE(canvas.contains(toolbar->geometry()))
+        << "the toolbar, " << toolbar->width() << " px, over a canvas " << canvas.width() << " px wide";
+    auto* const fit = toolbar->findChild<QWidget*>(QStringLiteral("anFloatingToolbarFit"));
+    ASSERT_NE(fit, nullptr);
+    EXPECT_TRUE(fit->isVisible());
+    EXPECT_TRUE(canvas.contains(QRect(fit->mapTo(page, QPoint(0, 0)), fit->size()))) << "Fit is in view";
+
+    ASSERT_TRUE(window().attachTask(id));
+    settle();
+    EXPECT_EQ(toolbar->form(), an::ui::AnFloatingToolbar::Form::Full);
 }
 
 // Esc closes an idle page and does nothing during a run; the place shown before comes back.

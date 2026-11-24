@@ -75,6 +75,12 @@ public:
     /// "extension" (`process_registry::extensionProcessTag`). An action of the application has none.
     static constexpr const char* kMenuTagProperty = an::ui::parts::kMenuTagProperty;
 
+    /// The marks of what the model adds to a menu that the menu tree does not hold, so it can be taken away again: an
+    /// extension's process in a category's menu, and an extension's family in the Extensions menu, each with the
+    /// separator before them.
+    static constexpr const char* kExtensionProcessEntryProperty = "anExtensionProcessMenuAction";
+    static constexpr const char* kExtensionFamilyEntryProperty = "anExtensionFamilyMenuAction";
+
     struct Dependencies
     {
         RecentProcessesModel* recentProcesses = nullptr;

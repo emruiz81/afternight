@@ -199,7 +199,7 @@ controls:
     kind: readout
     default: "File log: info"
     effect: Shows the level the log file keeps, as `logging.conf` states it, such as `warning` or `off`, and `info` when it states none.
-    range: Read when the console is first opened, and again each time the lines are shown again. A level changed in Settings shows at the next of those moments, such as **Reload session lines**.
+    range: Read again each time the console opens, in the drawer or in its own window, each time its window is chosen, and at **Reload session lines**, so a level changed in Settings shows when you turn to the console.
     note: Its tooltip reads "Current file logging level from Settings > Logging."
   - name: Search...
     kind: toolbutton

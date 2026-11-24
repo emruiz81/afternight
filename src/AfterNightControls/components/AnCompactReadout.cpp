@@ -19,6 +19,7 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <QResizeEvent>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
@@ -147,6 +148,9 @@ AnCompactReadout::AnCompactReadout(QWidget* parent) : QWidget(parent)
     m_expand = new AnIconButton(
         QStringLiteral("chevron_down"),
         tr("Expand the full readout over the process (Histogram, Statistics, Astrometry, Image)"), this);
+    m_expand->setObjectName(QStringLiteral("compactReadoutExpand"));
+    // A toggle: checked while the full readout is open over the column, which a second press closes.
+    m_expand->setCheckable(true);
     m_expand->setFixedSize(parts::kCompactReadoutHeader, parts::kCompactReadoutHeader);
     header->addWidget(m_expand, 0, Qt::AlignVCenter);
     column->addLayout(header);
@@ -185,10 +189,11 @@ AnCompactReadout::AnCompactReadout(QWidget* parent) : QWidget(parent)
     keepLayout(m_body);
     m_body->setContentsMargins(0, 0, 0, 0);
     column->addLayout(m_body);
-    arrange(false);
+    arrange(Arrangement{.wide = false, .columns = static_cast<int>(kCompactReadoutStatistics.size()), .width = 0});
     refillCells();
 
-    QObject::connect(m_expand, &QAbstractButton::clicked, this, [this]() { fullReadoutRequested(); });
+    QObject::connect(m_expand, &QAbstractButton::clicked, this,
+                     [this](const bool shown) { fullReadoutToggled(shown); });
 }
 
 AnCompactReadout::~AnCompactReadout() = default;
@@ -260,7 +265,7 @@ bool AnCompactReadout::isStale() const noexcept
 
 bool AnCompactReadout::isWide() const noexcept
 {
-    return m_wide;
+    return m_arrangement.wide;
 }
 
 QString AnCompactReadout::modeText() const
@@ -286,6 +291,17 @@ AnReadoutWell* AnCompactReadout::well() const noexcept
 HistogramWidget* AnCompactReadout::histogramWidget() const noexcept
 {
     return m_plot.data();
+}
+
+void AnCompactReadout::setFullReadoutShown(const bool shown)
+{
+    const QSignalBlocker quiet(m_expand);
+    m_expand->setChecked(shown);
+}
+
+bool AnCompactReadout::isFullReadoutShown() const noexcept
+{
+    return m_expand->isChecked();
 }
 
 AnIconButton* AnCompactReadout::expandButton() const noexcept
@@ -317,28 +333,84 @@ void AnCompactReadout::refillCells()
         cells.push_back(std::move(cell));
     }
     m_cells->setCells(std::move(cells));
+    // Other figures may need other room.
+    rearrange();
 }
 
-void AnCompactReadout::arrange(const bool wide)
+namespace
 {
-    m_wide = wide;
+
+/// How many of `count` cells go to a row when at most `most` fit there: rows as even as they can be - five in one row,
+/// three over two, two over two over one.
+[[nodiscard]] int evenColumns(const int count, const int most)
+{
+    const int columns = std::clamp(most, 1, (std::max)(1, count));
+    const int rows = (count + columns - 1) / columns;
+    return (count + rows - 1) / rows;
+}
+
+} // namespace
+
+AnCompactReadout::Arrangement AnCompactReadout::arrangementAt(const int width) const
+{
+    const int count = (std::max)(1, static_cast<int>(m_cells->cells().size()));
+    const int widest = m_cells->widestCell();
+    const int gap = parts::kReadoutCellGap;
+    const auto across = [widest, gap](const int columns) { return columns * widest + (columns - 1) * gap; };
+    const int inner = width - 2 * parts::kCompactReadoutPaddingSide;
+    if (width >= parts::kCompactReadoutWide)
+    {
+        // Beside the histogram, in one row or two, where every cell reads whole and the histogram keeps its least.
+        const int beside = inner - parts::kCompactReadoutSide - 2 * (std::max)(0, m_body->horizontalSpacing());
+        for (const int columns : {count, evenColumns(count, (count + 1) / 2)})
+        {
+            if (beside - across(columns) >= parts::kCompactReadoutWideWell)
+            {
+                return Arrangement{.wide = true, .columns = columns, .width = across(columns)};
+            }
+        }
+    }
+    // Under the histogram, as many to a row as read whole there.
+    const int fit = (inner + gap) / (std::max)(1, widest + gap);
+    return Arrangement{.wide = false, .columns = evenColumns(count, fit), .width = 0};
+}
+
+void AnCompactReadout::rearrange()
+{
+    if (width() <= 0)
+    {
+        return;
+    }
+    const Arrangement wanted = arrangementAt(width());
+    if (!(wanted == m_arrangement))
+    {
+        arrange(wanted);
+    }
+}
+
+void AnCompactReadout::arrange(const Arrangement& arrangement)
+{
+    m_arrangement = arrangement;
+    m_cells->setColumns(arrangement.columns);
     m_body->removeWidget(m_well);
     m_body->removeWidget(m_side);
     m_body->removeWidget(m_cells);
     m_body->addWidget(m_well, 0, 0);
     m_body->addWidget(m_side, 0, 1);
-    if (wide)
+    if (arrangement.wide)
     {
+        // The cells take the room they read whole in; the histogram takes the rest.
+        m_cells->setFixedWidth(arrangement.width);
         m_body->addWidget(m_cells, 0, 2, Qt::AlignVCenter);
-        m_body->setColumnStretch(0, 1);
-        m_body->setColumnStretch(2, 1);
     }
     else
     {
+        m_cells->setMinimumWidth(0);
+        m_cells->setMaximumWidth(QWIDGETSIZE_MAX);
         m_body->addWidget(m_cells, 1, 0, 1, 2);
-        m_body->setColumnStretch(0, 1);
-        m_body->setColumnStretch(2, 0);
     }
+    m_body->setColumnStretch(0, 1);
+    m_body->setColumnStretch(2, 0);
     // The cells move now, not at the next layout pass: a resize has already laid out the old arrangement.
     if (layout() != nullptr)
     {
@@ -353,6 +425,8 @@ void AnCompactReadout::applyMetrics()
     layout()->setSpacing(t.metrics.gap);
     m_body->setHorizontalSpacing(t.metrics.pad);
     m_body->setVerticalSpacing(t.metrics.gap);
+    // The type and the spacing decide what reads whole where.
+    rearrange();
     updateGeometry();
 }
 
@@ -368,10 +442,9 @@ bool AnCompactReadout::event(QEvent* event)
 void AnCompactReadout::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
-    const bool wide = width() >= parts::kCompactReadoutWide;
-    if (wide != m_wide)
+    if (event->size().width() != event->oldSize().width())
     {
-        arrange(wide);
+        rearrange();
     }
 }
 

@@ -40,7 +40,7 @@ are read from, what a complete page contains and how its media is handled.
 | `docs/user-guide/SCREENSHOTS.md` | How a picture of the application is captured and prepared ([Media](#media)). |
 | `docs/user-guide/captures/` | The recipes of the guide's pictures: a JSON file per group of pages, each picture with its page, the roles of the data it opens, what it shows and the capture script's options, and `roles.json`, what each role of data is ([Media](#media)). |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
-| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)); and `ui/`, the inventory of the controls every process window opens with, and `ui/shell/`, the inventory of the main window's own parts, which tests of the application write ([The windows' controls](#the-windows-controls)). |
+| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)); and `ui/`, the inventory of the controls every process window opens with, and `ui/shell/`, the inventory of the main window's own parts and the record of its menu bar, which tests of the application write ([The windows' controls](#the-windows-controls)). |
 | `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events, and the only file `mkdocs.yml` names), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
 | `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
@@ -131,10 +131,14 @@ data_out: nonlinear
   page's stage is its own, not its menu category's: most noise reduction, StarNet and Star Mask work on linear data
   before the stretch, and their pages say so, so a stage per category would teach the wrong order.
 - **Menus.** `check_user_guide.py` reads the application's menus from the shell core's `MenuTree.cpp`, their labels
-  from `ActionCatalogue.cpp` and its registered actions from `ProcessRegistryBuiltins.cpp`. Every `menu` path a page states must exist. A path may name a submenu,
-  which covers every action under it, as the Non-Interactive Processes page names the submenus of immediate actions.
-  Every registered action, and every other action of the Process menu, must sit on some page's `menu`, so a process
-  cannot ship without a page.
+  from `ActionCatalogue.cpp` and its registered actions from `ProcessRegistryBuiltins.cpp`, and the menu bar of the
+  main window as it is once built from the record `docs/user-guide/data/ui/shell/shell.menu-bar.json`, which holds
+  the entries the window adds to the menu tree - View > Command Palette..., View > Night, View > Density > Compact,
+  File > New Project..., Window > New Workspace and the rest ([The main window's own
+  controls](#the-main-windows-own-controls)). Every `menu` path a page states must exist in either. A path may name a
+  submenu, which covers every action under it, as the Non-Interactive Processes page names the submenus of immediate
+  actions. Every registered action, and every other action of the Process menu, must sit on some page's `menu`, so a
+  process cannot ship without a page.
 
 ## The guide's own theme
 
@@ -551,6 +555,15 @@ order a person meets them, each under the name assistive technology gives it.
   title, or the title of a group in one (a readout card, "Task header"), is held to that part as a process page's block
   is to its window. Every part is named by one interface page's block, and every control of it is listed there, or in
   another interface page's block of it, or named in the page's `controls_ignore` with the reason.
+- **The menu bar is recorded beside the parts**, in `shell.menu-bar.json`, which the same case writes and holds: every
+  menu from the bar down, one a line, its path as a page's `menu` names it (`View > Density`) and its entries - its
+  actions and its submenus - by their texts as the menu shows them, mnemonics and shortcuts left out. It is the menu
+  tree and what the window adds to it as it is built: its own actions in the View, Window, File and Process menus,
+  which `MenuTree.cpp` does not hold. A menu whose entries follow what a person did - Open Recent, Favorite Processes,
+  Recent Processes - is recorded as varying, with no entries, and what an installed extension adds is left out. It is
+  no part, and no `controls` block names it: rule R4 accepts a page's `menu` path when the menu tree or this record has
+  it ([Page metadata](#page-metadata)), so a page about an entry only the window adds states its path, and a change to
+  the window's menus fails the case until the record is written again.
 
 ## Verifying in the application
 

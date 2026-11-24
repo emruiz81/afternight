@@ -45,7 +45,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/exposure-correction.webp
 alt: >-
-  The Exposure task. Its header reads Exposure on the stretched master, and the column's header Exposure Correction. The canvas at the left shows
+  The Exposure task. Its header reads Exposure on the stretched master, and the column's header Exposure. The canvas at the left shows
   the preview, a red nebula on a gray background. The column at the right opens with the compact readout of the
   preview, then the Preview, Preview area and Processed toggles, Target Image and Channel at RGB, a histogram with one
   broad peak near its left third and the lines Clipping Low and Clipping High in its corner, its toolbar, and Exposure
@@ -76,7 +76,7 @@ owed: true
 
 1. **Open the task.** Make the image the active one and choose **Process > Adjustments > Exposure**, or find it in
    the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The [task](../../reference/glossary.md#task) opens as a page: the canvas
-   at the left shows the image as its view displays it, the column at the right, headed **Exposure Correction**,
+   at the left shows the image as its view displays it, the column at the right, headed **Exposure**,
    holds its controls, and **Apply** is disabled.
 2. **Choose the channel.** Leave **Channel** at **RGB** to scale the three channels by one factor. Choose a single
    channel or component only to change color on purpose.

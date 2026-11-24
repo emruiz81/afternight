@@ -3,11 +3,6 @@ kind: interface
 summary: >-
   What every task shares: its item in the rail, its header, the canvas with the preview, the column with the
   process's controls, Reset, Close and Apply, its run, and a task floated in a window of its own.
-controls_ignore:
-  - label: Expand the full readout over the process
-    reason: >-
-      The chevron of the compact readout opens nothing; the full readout of an image is the readout column beside a
-      workspace.
 ---
 # Tasks
 
@@ -59,7 +54,7 @@ owed: true
 5. **The history strip.** The target's [history](../reference/glossary.md#history), with the task's step marked
    "pending" until you apply.
 6. **The compact readout.** The preview's histogram, clipping and statistics, each with its change against the
-   original.
+   original, and a chevron that opens the target's full [readout](../reference/glossary.md#readout) over the column.
 7. **The column's header.** The menu the process sits in, over its name, and **Close**.
 8. **The toggles.** **Preview**, **Preview area** and **Processed**.
 9. **The body.** **Target Image** and **Channel**, then the process's controls. A message strip over it says what the
@@ -90,7 +85,8 @@ stacking tools fill their page whole ([Tasks that differ](tasks-reference.md#tas
 2. Choose **Apply**, or press ++ctrl+enter++. A row in the column says how far the run has come, and the target is
    locked until it ends.
 3. The view shows the result, its history gets one step named after the process, and the controls return to their
-   defaults. A message at the foot of the centre offers **Undo**.
+   defaults. A message at the foot of the centre offers **Undo**; in a floating task it shows in the task's window,
+   over the canvas.
 
 ### Apply to a sequence
 
@@ -228,6 +224,7 @@ controls:
     kind: button
     default: ""
     effect: Opens the view's menu, as on an image's view in a workspace.
+    note: A canvas too narrow for the whole toolbar - a floating task's window made small, a small main window - shows the small toolbar of a floating image window - **Fit To Window**, **Zoom Out**, the zoom, **Zoom In**, the display mode where the task has one, and **More** - so none is cut off. The others come back when the canvas has room; ++ctrl+shift+k++ still takes a snapshot with the canvas focused.
   - name: PREVIEW or ORIGINAL
     kind: readout
     default: PREVIEW
@@ -290,7 +287,14 @@ controls:
     kind: readout
     default: "-"
     effect: The preview's statistics, each with its change against the original under it, as `Δ +0.0123`. A color image's are the mean of its three channels' figures.
+    range: Each reads whole. Under the histogram they stand five to a row where five fit, else three over two; in a wide column they stand beside the histogram where they fit there.
     note: While the preview is measured again, or while you drag, the values are drawn faint.
+  - name: Expand the full readout over the process
+    kind: toolbutton
+    default: "Off"
+    effect: Opens the target's full readout over the column, under the compact readout - its **Histogram**, **Statistics**, **Astrometry** and **Image** cards, as the readout beside a workspace shows them, with their buttons to the windows - and closes it again. Its chevron is highlighted while the readout is open.
+    scope: The target as it stands, not the preview. The task's controls are under the readout while it is open; **Apply** and ++ctrl+enter++ still apply.
+    persistence: Which cards are folded is the readout's own, kept as `interface/readoutCards`. The readout closes with the task.
 ```
 
 ### The column
@@ -301,7 +305,7 @@ controls:
   - name: Category and name
     kind: readout
     default: ""
-    effect: The menu the process sits in, in capitals, over the process's name, whose tooltip says what the process does.
+    effect: The menu the process sits in, in capitals, over the process's name as its menu entry and the task header give it, whose tooltip says what the process does.
     note: A process an extension adds, whose code runs in a program of its own, shows "extension" after its name.
   - name: Close
     object: pageClose
@@ -407,7 +411,7 @@ controls:
     range: ++esc++, **Close** in the column's header and in the task header, the task's rail menu and **Window > Close Task** do the same.
     enabled: Disabled while a run works, as every other way to close the task is.
     persistence: "A task keeps none of its values after it closes, except the stacking tools: Image Calibration, Image Registration, Image Stacking, Image Integration, Image Integration Lite and Image List Analyzer."
-    note: Background Neutralization, Mask Drawing and Range Selection have **Cancel** in its place, which does the same. In most tasks its tooltip reads "Close this dialog without applying any changes."
+    note: Background Neutralization, Mask Drawing and Range Selection have **Cancel** in its place, which does the same; during a run it gives way to the **Cancel** that stops the run, so the footer shows one. Its tooltip reads "Close this task without applying any changes."
   - name: Apply
     kind: button
     default: ""

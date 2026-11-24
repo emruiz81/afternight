@@ -33,8 +33,8 @@ derived: true
 NL-Bayes reduces noise by comparing each small patch of the image with the patches around it. The patches that look
 alike form a group: what the group has in common is kept as signal, and the rest is treated as noise. A first pass
 makes a basic estimate, and a second pass searches it again to estimate the original patches. A strengthening loop and
-a Fourier finishing stage can follow, and **Amount** mixes the result with the original. The menu names the process
-**Non-Local Bayes Filter**, and its [task](../../reference/glossary.md#task) is titled **Non-Local Bayes**.
+a Fourier finishing stage can follow, and **Amount** mixes the result with the original. The menu and its [task](../../reference/glossary.md#task) name the
+process **Non-Local Bayes Filter**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the denoised one, keeps its size
 and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -43,7 +43,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/nl-bayes.webp
 alt: >-
-  The Non-Local Bayes task. Its header names Non-Local Bayes and the master. The canvas at the left shows the whole
+  The Non-Local Bayes Filter task. Its header names Non-Local Bayes Filter and the master. The canvas at the left shows the whole
   nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Non-Local Bayes Filter in its
   middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings button
   near its foot. The column at the right holds the preview's small histogram and statistics, the toggles Preview,

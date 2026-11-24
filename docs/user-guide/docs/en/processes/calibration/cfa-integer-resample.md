@@ -156,7 +156,7 @@ controls:
     default: ""
     effect: Checks that the target is a two-by-two mosaic, reads the factor, the direction and the reducer, and resamples the mosaic or every frame of the sequence. The task closes once the view shows the result.
     enabled: When **Target Px** differs from the mosaic's size, which it does as the task opens. Its tooltip then reads "Apply integer resampling to the target image.", and otherwise "Target dimensions match the current image. Change the resample factor to enable."
-    tradeoff: The history keeps the mosaic as it was beside the result, so the run needs the memory of both, and of a cut copy when a side is odd. A still image shows no progress window, and its run cannot be stopped once it starts.
+    tradeoff: The history keeps the mosaic as it was beside the result, so the run needs the memory of both, and of a cut copy when a side is odd.
     scope: The whole mosaic, without the mask.
     persistence: "The view and its history keep the result, as the step **CFA Integer Resample** with the text `Binning factor: <f>X - New size: <w>x<h> - Binning method: <mode>` for **Downsample** or `Resample factor: <f>X - New size: <w>x<h>` for **Upsample**, with the size **Target Px** shows."
     note: While the run works, the column shows it in its banner's place, its controls, **Close** and **Reset** are disabled, and **Cancel** stands where OK was. A run that fails leaves the task open.
@@ -175,19 +175,19 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **CFA Integer Resample** and the text `Executing CFA integer resample to sequence <name>`."
-    enabled: Shown only while OK works on a sequence. A still image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while OK works on a sequence. Over a still image the row reads "applying". No progress window opens.
     tradeoff: The resampled sequence is written to a temporary file, which needs its disk space until the run ends. An **Upsample** multiplies that space by the factor's square.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
-    note: The column's run row shows the same share meanwhile.
+    effect: Stands in the footer in place of **OK** during a run, and stops it, on a still image as on a sequence, without a message. The mosaic or the sequence stays as it was, with no history step, and a sequence's temporary file is removed.
+    range: A sequence's run stops before the next frame at the latest.
 ```
 
 ## How it works

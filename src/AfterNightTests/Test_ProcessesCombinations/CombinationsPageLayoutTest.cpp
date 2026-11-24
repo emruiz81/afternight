@@ -22,6 +22,7 @@
 
 #include <QAbstractButton>
 #include <QCheckBox>
+#include <QPointer>
 #include <QScrollArea>
 #include <QTemporaryDir>
 #include <QStringList>
@@ -270,6 +271,60 @@ TEST(ChannelComposition, ASequencePageOpensNoProgressWindowAndCancels)
     shared::closeOpenedProcessWindows();
     context->presenter = nullptr;
     dropTargets(*context, targets);
+}
+
+// Composed from images on a page, Channel Composition shows its run in the page's row and opens no progress window; the
+// page's Cancel stops it, nothing is published, it says nothing and the page stays open.
+TEST(ChannelComposition, AnImagePageRunStopsAtItsCancel)
+{
+    const CombinationsProcess* process = familyProcess("actionChannelComposition");
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    Targets scene = openScene(*context, *process);
+    ASSERT_FALSE(scene.sides.empty());
+    PagePresenter presenter;
+    context->presenter = &presenter;
+    const QPointer<ChannelCompositionProcess> composition = dynamic_cast<ChannelCompositionProcess*>(
+        shared::launchWindowOf("color.actionChannelComposition", *scene.sides.front().view));
+    ASSERT_NE(composition, nullptr);
+    an::ui::ProcessPageLayout* const page = composition->pageLayout();
+    ASSERT_NE(page, nullptr);
+    process->configure(*composition, scene, "-");
+    ASSERT_TRUE(pumpUntil([&composition]() { return composition.isNull() || composition->isProcessIdle(); }));
+    ASSERT_FALSE(composition.isNull());
+    const std::size_t made = context->madeViews.size();
+    const int errors = context->errorCount();
+
+    const ProgressWindowsShown windows;
+    {
+        PoolHold hold;
+        ASSERT_TRUE(hold.held());
+        ASSERT_TRUE(composition->triggerPrimaryAction()) << "Ok composes the image";
+        QCoreApplication::processEvents();
+        EXPECT_TRUE(composition->isRunning());
+        EXPECT_TRUE(composition->runState().running());
+        EXPECT_FALSE(composition->runState().sequence);
+        EXPECT_EQ(page->runBars(), 1);
+        ASSERT_TRUE(page->cancelButton()->isVisible()) << "the page's Cancel is offered";
+        EXPECT_TRUE(page->cancelButton()->isEnabled());
+        page->cancelButton()->click();
+    }
+    ASSERT_TRUE(pumpUntil([&composition]() { return composition.isNull() || !composition->isRunning(); }));
+    pumpQuietly();
+    ASSERT_FALSE(composition.isNull()) << "a stopped composition leaves the page open";
+    EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+    EXPECT_EQ(composition->runState().phase, an::ui::ProcessRunState::Phase::Cancelled)
+        << "the page's Cancel stopped the composition";
+    EXPECT_EQ(context->madeViews.size(), made) << "nothing published";
+    EXPECT_EQ(composition->runsPublished(), 0u);
+    EXPECT_EQ(context->errorCount(), errors) << "a stop the person asked for is quiet";
+    shared::closeOpenedProcessWindows();
+    context->presenter = nullptr;
+    dropTargets(*context, scene);
 }
 
 // Image Compare applies nothing: it compares. On its page as in its window the second image chosen in its column is the

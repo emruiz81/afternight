@@ -43,10 +43,10 @@ image: ../../assets/images/processes/stretching/histogram-transformation.webp
 alt: >-
   The Histogram Transformation task. Its header names the process and the linear master. The canvas at the left shows
   the stretched preview, a red nebula among stars on a dark gray background. The column at the right opens with the
-  compact readout of the preview and the Preview area and Processed toggles, then holds Target Image and two
+  compact readout of the preview and the Preview, Preview area and Processed toggles, then holds Target Image and two
   histograms, the upper one spread into several peaks, the lower one a single spike at the left edge under a steep
   white curve, with three handles below it. Under them a toolbar, the Channel box with two buttons, the Shadows,
-  Highlights and Midtones boxes with their Clipped fields, and Preview. Reset, Close and Apply stand in its footer.
+  Highlights and Midtones boxes with their Clipped fields. Reset, Close and Apply stand in its footer.
 caption: >-
   Histogram Transformation on a linear master with Shadows and Midtones at 0.02. The lower histogram is the image
   with the curve over it, the upper one is the result, and the canvas shows what Apply writes.
@@ -91,7 +91,7 @@ owed: true
 
 The toolbar under the histograms - zoom, grid, curve, scales, areas and **Plot resolution** - changes only how the
 histograms are drawn, and is the same in every task that has one: see [Tasks](../../interface/tasks.md). The
-column's toggles row has **Preview area** and **Processed**; this task keeps **Preview** among its own controls.
+column's toggles row holds **Preview**, **Preview area** and **Processed**, as in every task.
 
 ```controls
 window: The histograms
@@ -207,6 +207,7 @@ controls:
     kind: check
     default: "On"
     effect: Shows the stretched image in the canvas, with the mask blended in. Off removes it and disables both Auto-stretch buttons. The histograms keep working.
+    enabled: It stands in the column's toggles row.
     tradeoff: Each change stretches the whole image again. On a large image, turn it off while you adjust and on again for the last check.
     scope: The task only.
     persistence: Until the task closes. **Reset** leaves it as it is.

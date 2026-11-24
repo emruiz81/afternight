@@ -522,6 +522,35 @@ class MenuRuleTests(GuideCase):
         code, found = self.findings('R4')
         self.assertEqual((code, found), (0, []))
 
+    def shell_menu_page(self, menu):
+        """The glossary, naming a menu entry the window adds to the menu bar as it is built."""
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\nmenu: %s\n---\n# Glossary\n' %
+                  menu)
+
+    def shell_menu_bar(self, *menus):
+        self.write('docs/user-guide/data/ui/shell/shell.menu-bar.json',
+                   json.dumps({'id': 'shell.menu-bar', 'menus': list(menus)}) + '\n')
+
+    def test_a_menu_path_of_the_window_passes_when_the_menu_bar_record_has_it(self):
+        self.shell_menu_page('[View > Command Palette..., View > Density > Compact, File > New Project...]')
+        self.shell_menu_bar({'menu': 'File', 'entries': ['Open', 'New Project...']},
+                            {'menu': 'View', 'entries': ['Command Palette...', 'Density']},
+                            {'menu': 'View > Density', 'entries': ['Compact', 'Comfortable']})
+        code, found = self.findings('R4')
+        self.assertEqual((code, found), (0, []))
+
+    def test_a_menu_path_of_the_window_fails_when_the_menu_bar_record_lacks_it(self):
+        self.shell_menu_page('View > Command Palette...')
+        code, found = self.findings('R4')
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('reference/glossary.md:4: R4 `menu` names View > Command Palette..., which is no menu or action '
+                      'of the application', found[0].replace('\\', '/'))
+        self.shell_menu_bar({'menu': 'View', 'entries': ['Command Palette', 'Night']})
+        code, found = self.findings('R4')
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('`menu` names View > Command Palette...', found[0])
+        self.assertEqual(code, 1)
+
     def test_a_registered_action_without_a_menu_fails(self):
         self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
                    REGISTRY.replace('}\n', '    AN_REGISTER_CHANNEL(actionExtract_Red, extractRed);\n}\n'))

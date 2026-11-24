@@ -102,8 +102,8 @@ controls:
     kind: readout
     default: ""
     effect: Names the view the window counts, as `Histogram <RGB>`, and follows a rename. A rename changes nothing else. The heading inside says ANALYSIS and the view's name over **Histogram Analysis**.
-    enabled: The window opens from **Open the Histogram window** in the readout's Histogram card, from **Image > Information > Histogram** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+h++ while the view has the keyboard focus. While it is open, that view's menu entry and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open. The readout's button stays enabled, and opens another window at each choice.
-    persistence: Nothing of the window is kept. Each new window opens at **8-bit (256)** and **RGB**, with the grid, the clipping shares and the areas on, **Absolute scales** off and no zoom.
+    enabled: 'The window opens from **Open the Histogram window** in the readout''s Histogram card, from **Image > Information > Histogram** - in the menu bar, **All menus**, the view''s menu or the command palette - or with ++ctrl+h++ while the view has the keyboard focus. There is one window for each view: while it is open, that view''s menu entry and shortcut are disabled, and the readout''s button, which stays enabled, brings it forward. The menu entry and the shortcut come back when the window closes, and when the view''s image loads or changes; chosen then, they bring the open window forward too.'
+    persistence: Nothing of the window is kept. Each window opens at **8-bit (256)** and **RGB**, with the grid, the clipping shares and the areas on, **Absolute scales** off and no zoom.
     note: The window stays open beside your work, and closes with its view. It writes nothing - no image, file, header card, history step or clipboard text, and the plot cannot be exported.
   - name: Plot
     kind: readout
@@ -152,8 +152,8 @@ controls:
 
 **Histogram** is greyed in the menu, and ++ctrl+h++ does nothing
 :   **Cause.** A Histogram window of this view is already open, or the active view has no image.
-:   **Fix.** Bring the open window forward or close it, or choose **Open the Histogram window** in the readout, which
-    opens another one.
+:   **Fix.** Choose **Open the Histogram window** in the readout, which brings the open window forward, or close that
+    window.
 
 One channel's line is much lower than the others
 :   **Cause.** With **Absolute scales** off, every line is drawn against the tallest peak of all.

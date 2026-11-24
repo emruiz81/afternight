@@ -154,7 +154,7 @@ controls:
     default: ""
     effect: Closes the task without merging. ++esc++ does the same.
     enabled: Disabled while a run works.
-    note: The task cannot be closed while a run works. **Cancel** in the footer stops a run over sequences, which then opens nothing and removes the sequence being written.
+    note: The task cannot be closed while a run works. **Cancel** in the footer stops a run, of images or of sequences, which then opens nothing and removes the sequence being written.
 ```
 
 ```controls
@@ -164,12 +164,12 @@ controls:
     kind: readout
     default: ""
     effect: "Shows the share of the frames joined in the column's run row, with an **Overall** and a **Processing** bar, from 0 to 100 percent. The task header and its item in the rail show the run too."
-    enabled: Shown only while OK works on sequences.
+    enabled: "With its two bars only while OK works on sequences. Over images the row reads \"applying\", with one bar."
     tradeoff: The new sequence is written to a temporary file as large as the four plane sequences together, until the run ends. Try a short sequence first.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stands in the footer in place of **OK**, and stops the run before the next frame. Nothing opens, the temporary sequence is removed, and the Merge CFA task stays open, with no message.
+    effect: Stands in the footer in place of **OK**, and stops the run - a merge of images before its mosaic opens, a merge of sequences before the next frame. Nothing opens, the temporary sequence is removed, and the Merge CFA task stays open, with no message.
 ```
 
 ## How it works
@@ -220,8 +220,8 @@ X-Trans or four-color mosaic cannot be joined.
   [validity rule](../../reference/glossary.md#validity-rule) lists its valid samples one by one is refused.
 - A refusal or a failure is reported in a message box titled "Error running Merge CFA", which starts "An error
   occurred when executing the Merge CFA process:", and in the log, not in the column's banner. Nothing opens.
-- A merge of images cannot be stopped once it starts. A run that is stopped, or whose view could not be made,
-  opens nothing and leaves no sequence behind.
+- **Cancel** in the column's footer stops a merge of images as it stops one of sequences. A run that is stopped,
+  or whose view could not be made, opens nothing and leaves no sequence behind.
 
 ### Worked example
 

@@ -96,8 +96,9 @@ void ProjectsSettingsPage::setupUi()
     m_compression->addItem(tr("LZ4 (fast)"), QStringLiteral("lz4"));
     m_compression->addItem(tr("None"), QStringLiteral("none"));
     m_compression->addItem(tr("Zstandard (smallest)"), QStringLiteral("zstd"));
-    m_compression->setToolTip(tr("How the steps of a history are compressed. Every history written from now on takes "
-                                 "it, in a project or not, and a new project starts from it."));
+    m_compression->setToolTip(tr("How the steps of a history are compressed. A history kept outside a project takes "
+                                 "it from its next step, and a new project starts from it; a project keeps the "
+                                 "compression it was made with."));
     historyLayout->addRow(tr("History compression:"), m_compression);
 
     m_compactThreshold = new QSpinBox(historyGroup);

@@ -149,6 +149,7 @@ void ExtractSequenceProcess::executeExtractSequence()
     // The frames are copied as recorded; the new sequence is shown as this one is.
     request.readDemosaiced = false;
     request.showDemosaiced = m_image_view_control->isSequenceAutodebayerEnabled();
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

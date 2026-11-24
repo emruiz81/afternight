@@ -260,7 +260,8 @@ controls:
     effect: >-
       Follows the run in the column's run row, which reads "applying", and in the task header. On an image, the bar
       follows the program's own percentages from 10 to 90 percent, then 95 while the mask is read and shaped. On a
-      sequence, the bar counts the frames. No progress window opens.
+      sequence, **Overall** counts the frames and **Processing** follows the program's percentages for the frame on its
+      way. No progress window opens.
     tradeoff: The bar moves forward only. The program's printed percentages are read, or its report for machines when its `--machine-info` answer offers one.
     note: The log keeps the line `Executing <program> <arguments>`, and the program's other lines at the Debug level.
   - name: Cancel

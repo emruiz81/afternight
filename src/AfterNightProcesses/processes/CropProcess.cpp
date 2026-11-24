@@ -326,6 +326,7 @@ void CropProcess::executeImageCrop()
         const std::array<an::ui::processes::GeometryStep, 1u> steps{crop};
         return an::ui::processes::transformImage(scope, source, steps, "Crop");
     };
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

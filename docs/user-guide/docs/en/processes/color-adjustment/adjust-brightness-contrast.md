@@ -43,7 +43,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-brightness-contrast.webp
 alt: >-
-  The Adjust Brightness And Contrast task. Its header names the process and the master. The canvas at the left shows
+  The Brightness/Contrast task. Its header names the process and the master. The canvas at the left shows
   the preview of a red nebula on a dark background, the word PREVIEW in its corner, with a floating toolbar of zoom
   buttons and a channel box near its foot. The column at the right holds the preview's small histogram and
   statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, a toolbar over a
@@ -71,8 +71,8 @@ owed: true
 
 1. **Open the task.** Make the stretched image the [active image](../../reference/glossary.md#active-image) and
    choose **Process > Adjustments > Brightness/Contrast**, or find it in the
-   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page named **Adjust
-   Brightness And Contrast**: the canvas at the left shows the image unchanged, and the column at the right holds its
+   [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page named
+   **Brightness/Contrast**: the canvas at the left shows the image unchanged, and the column at the right holds its
    controls. **Apply** stays disabled until a value leaves 0.
 2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose a single
    color, or a component such as **CIE Y (Luminance)**, only to change one of them on purpose.

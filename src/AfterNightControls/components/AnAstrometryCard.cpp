@@ -124,6 +124,7 @@ AnAstrometryCard::~AnAstrometryCard()
     for (Binding& binding : m_bindings)
     {
         QObject::disconnect(binding.follows);
+        QObject::disconnect(binding.ticked);
     }
 }
 
@@ -147,6 +148,7 @@ void AnAstrometryCard::bindOverlay(const AstrometryOverlay overlay, QAction* act
     const auto index = static_cast<std::size_t>(overlay);
     Binding& binding = m_bindings[index];
     QObject::disconnect(binding.follows);
+    QObject::disconnect(binding.ticked);
     binding.action = action;
     AnChip* const chip = m_chip[index];
     chip->setEnabled(action != nullptr);
@@ -160,6 +162,11 @@ void AnAstrometryCard::bindOverlay(const AstrometryOverlay overlay, QAction* act
         binding.follows = QObject::connect(action, &QAction::toggled, chip, [chip](const bool on) {
             const QSignalBlocker quiet(chip);
             chip->setChecked(on);
+        });
+        // Ticked in the settings menu, the overlay is turned on or off as a click on its chip turns it: its owner shows
+        // the view's overlays for one turned on. The view's shortcut toggles the action and triggers nothing.
+        binding.ticked = QObject::connect(action, &QAction::triggered, this, [this, index](const bool on) {
+            overlayToggled(static_cast<int>(index), on);
         });
     }
 }

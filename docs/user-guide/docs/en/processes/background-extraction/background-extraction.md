@@ -43,7 +43,7 @@ alt: >-
   The Background Extraction task. Its header reads Background Extraction on the linear master. The canvas at the left
   shows the corrected preview of a red nebula in the Autostretch display, with small yellow squares spread over the
   field, and the floating toolbar near its foot. The column at the right opens with the compact readout of the
-  preview and the ticked Enable preview toggle, then Target Image, the Sample generation section with the Samples per
+  preview and the ticked Preview toggle, then Target Image, the Sample generation section with the Samples per
   Line and Grid Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons, and the
   Background Extraction section with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing
   slider, Degree Order at 1, two unticked check boxes, Preview Display at Corrected image and the Preview button.
@@ -208,30 +208,32 @@ controls:
     options: [Corrected image, Gradient model]
     effect: Chooses what a computed preview shows, the corrected image or the fitted surface. Switching it after **Preview** fits the samples again and shows the other.
     enabled: >-
-      With **Enable preview** on. Until **Preview** is pressed, the canvas shows the image as it is, whichever is chosen.
+      With the **Preview** toggle on. Until the **Preview** button is pressed, the canvas shows the image as it is, whichever is chosen.
       After a change of the samples, **Interpolation Method**, **Smoothing** or **Correction**, switching it changes
       nothing until **Preview** is pressed again.
     tradeoff: The model shows a surface that follows stars or nebula without opening an image. Showing it holds a 32-bit floating-point plane for each channel. An enabled mask blends the model with the image too.
     scope: The preview only, and **Take snapshot**, which keeps what the preview shows. Apply writes the corrected image.
     persistence: Until the task closes. **Reset** and **Apply** return it to **Corrected image**.
   - name: Preview
+    object: previewButton
     kind: button
     default: ""
     effect: Measures the samples, fits the surface and shows the corrected image or the model of the whole image, as Apply computes it.
-    enabled: With at least one sample, **Enable preview** on and no run working.
+    enabled: With at least one sample, the **Preview** toggle on and no run working.
     tradeoff: Each press is the whole fit and correction of Apply. No waiting indicator turns while it works.
     scope: The preview only. There is no preview area.
     persistence: >-
       A change of a setting or of the samples leaves the last preview on the canvas until you press it again. **Reset**,
-      another target, a finished Apply and turning **Enable preview** off return the canvas to the image as it is.
-  - name: Enable preview
+      another target, a finished Apply and turning the **Preview** toggle off return the canvas to the image as it is.
+  - name: Preview
+    object: previewCheckbox
     kind: check
     default: "On"
     effect: Shows the preview in the canvas, where the samples are drawn and clicked. Off hides it with the squares, and drops a computed preview.
     enabled: It stands in the column's toggles row. The task has no **Preview area**.
     tradeoff: Off, you cannot click samples. **Generate Samples** and **Apply** still work.
     persistence: Until the task closes. **Reset** leaves it as it is.
-    note: Once it has been turned off, **Preview** does nothing, and after you turn it on again **Preview** and **Preview Display** stay disabled. Open the task again to preview.
+    note: Once it has been turned off, the **Preview** button does nothing, and after you turn it on again the button and **Preview Display** stay disabled. Open the task again to preview.
   - name: Target Image
     kind: combo
     default: The active image
@@ -243,7 +245,7 @@ controls:
     kind: button
     default: ""
     effect: Clears the samples, drops a grid on its way and returns the controls to their defaults. The preview shows the image as it is.
-    range: It leaves **Degree Order**, **Enable preview** and the target as they are.
+    range: It leaves **Degree Order**, the **Preview** toggle and the target as they are.
   - name: Apply
     kind: button
     default: ""
@@ -264,7 +266,7 @@ controls:
     kind: readout
     default: No square
     effect: Show each sample as a small yellow square at its place on the canvas's preview.
-    enabled: While **Enable preview** is on.
+    enabled: While the **Preview** toggle is on.
     note: A sample is measured over a box of 25 by 25 pixels around its center, in every channel, at each preview and Apply. The task keeps its position only.
     persistence: Until **Clear Samples**, **Reset**, another target, a finished Apply or a new grid. Samples are never saved, and closing the task loses them.
   - name: Click
@@ -272,7 +274,7 @@ controls:
     default: ""
     effect: Adds a sample centered on the pixel you click.
     range: A sample whose box would reach past the image's edge is not kept, and its square disappears.
-    enabled: While **Enable preview** is on.
+    enabled: While the **Preview** toggle is on.
     tradeoff: Samples placed by hand avoid objects, and can leave parts of the frame without any.
   - name: Right-click a square
     kind: action
@@ -390,7 +392,7 @@ caption: >-
     [Pixel Math](../pixel-math/pixel-math.md) for example.
 
 **Preview** or **Apply** stays disabled
-:   **Cause.** The task holds no sample, or **Enable preview** was turned off in it.
+:   **Cause.** The task holds no sample, or the **Preview** toggle was turned off in it.
 :   **Fix.** Choose **Generate Samples** or click the canvas's background. To preview again, open the task anew.
 
 "this many boxes of this size do not fit across the picture", or "this grid holds more sites than a background fit accepts"

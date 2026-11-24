@@ -236,6 +236,28 @@ TEST(ProcessPageLayout, TheFooterIsOutsideTheScrollArea)
     EXPECT_TRUE(process->isHidden()) << "Close closed the page";
 }
 
+// The footer's Close closes the task, and its tooltip says so: the box's own speaks of a dialog, as a window's Close
+// does, and the box keeps it for the window the process is made again when it floats as one.
+TEST(ProcessPageLayout, TheFootersCloseSaysItClosesTheTask)
+{
+    PagedContext paged;
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{});
+    const QString windowTip = QStringLiteral("Close this dialog without applying any changes.");
+    process->buttons->button(QDialogButtonBox::Close)->setToolTip(windowTip);
+    process->show();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+
+    QAbstractButton* const close = page->footerButton(QDialogButtonBox::Close);
+    ASSERT_NE(close, nullptr);
+    EXPECT_FALSE(close->toolTip().contains(QStringLiteral("dialog"))) << close->toolTip().toStdString();
+    EXPECT_TRUE(close->toolTip().contains(QStringLiteral("task"))) << close->toolTip().toStdString();
+    EXPECT_EQ(process->buttons->button(QDialogButtonBox::Close)->toolTip(), windowTip) << "the window's is its own";
+}
+
 // A short page scrolls its body up and down, never sideways, and keeps its footer at its foot.
 TEST(ProcessPageLayout, TheBodyScrollsWhenThePageIsShort)
 {

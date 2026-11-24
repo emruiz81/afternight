@@ -600,7 +600,7 @@ TEST(AstrometryCard, NotSolvedItSaysSoAndOffersPlateSolve)
 }
 
 // A chip is bound to the action that draws its overlay: a click toggles the action and is told; the action toggled
-// another way - the view's menu, its shortcut - moves the chip and tells nothing; with no action the chip is disabled.
+// another way - by the view's shortcut - moves the chip and tells nothing; with no action the chip is disabled.
 TEST(AstrometryCard, EachChipTogglesItsOverlayAndFollowsTheAction)
 {
     an::ui::AnAstrometryCard card;
@@ -633,6 +633,36 @@ TEST(AstrometryCard, EachChipTogglesItsOverlayAndFollowsTheAction)
     EXPECT_TRUE(grid->isChecked()) << "the chip follows only the action it is bound to";
     card.bindOverlay(an::ui::AstrometryOverlay::Grid, nullptr);
     EXPECT_FALSE(grid->isEnabled());
+}
+
+// An overlay ticked in the settings menu - its action triggered, as a click on its entry triggers it - is told as a
+// click on its chip is, and its chip follows; the action toggled by its shortcut still tells nothing.
+TEST(AstrometryCard, AnOverlayTickedInTheSettingsMenuIsToldAsItsChipsClickIs)
+{
+    an::ui::AnAstrometryCard card;
+    card.setReadout(solvedReadout());
+    QMenu settings;
+    QAction* const drawsTheGrid = settings.addAction(QStringLiteral("Equatorial Grid"));
+    drawsTheGrid->setCheckable(true);
+    card.bindOverlay(an::ui::AstrometryOverlay::Grid, drawsTheGrid);
+    card.setSettingsMenu(&settings);
+    QSignalSpy toggled(&card, &an::ui::AnAstrometryCard::overlayToggled);
+
+    drawsTheGrid->trigger();
+    EXPECT_TRUE(card.overlayChip(an::ui::AstrometryOverlay::Grid)->isChecked());
+    ASSERT_EQ(toggled.count(), 1);
+    EXPECT_EQ(toggled.at(0).at(0).toInt(), static_cast<int>(an::ui::AstrometryOverlay::Grid));
+    EXPECT_TRUE(toggled.at(0).at(1).toBool());
+
+    drawsTheGrid->trigger();
+    ASSERT_EQ(toggled.count(), 2);
+    EXPECT_FALSE(toggled.at(1).at(1).toBool());
+
+    drawsTheGrid->toggle();
+    EXPECT_EQ(toggled.count(), 2) << "a shortcut's toggle tells nothing";
+    card.bindOverlay(an::ui::AstrometryOverlay::Grid, nullptr);
+    drawsTheGrid->trigger();
+    EXPECT_EQ(toggled.count(), 2) << "an action no longer bound tells nothing";
 }
 
 // Plate Solve, Annotate... and Info ask for their windows; the header's tool opens the settings menu it is handed.
@@ -1042,9 +1072,63 @@ TEST(CompactReadout, TheModeTheClippingAndTheAstrometryLine)
     readout.setAstrometry(QString());
     EXPECT_EQ(readout.astrometryLine()->sizeHint().width(), 0);
 
-    QSignalSpy asked(&readout, &an::ui::AnCompactReadout::fullReadoutRequested);
+    // The chevron opens the full readout and closes it again: a toggle, checked while it is open.
+    QSignalSpy asked(&readout, &an::ui::AnCompactReadout::fullReadoutToggled);
+    EXPECT_FALSE(readout.isFullReadoutShown());
+    EXPECT_TRUE(readout.expandButton()->isCheckable());
     readout.expandButton()->click();
-    EXPECT_EQ(asked.count(), 1);
+    ASSERT_EQ(asked.count(), 1);
+    EXPECT_TRUE(asked.at(0).at(0).toBool());
+    EXPECT_TRUE(readout.isFullReadoutShown());
+    EXPECT_TRUE(readout.expandButton()->isChecked());
+    readout.expandButton()->click();
+    ASSERT_EQ(asked.count(), 2);
+    EXPECT_FALSE(asked.at(1).at(0).toBool());
+    EXPECT_FALSE(readout.isFullReadoutShown());
+    // Closed by its owner, it is told nothing.
+    readout.setFullReadoutShown(true);
+    readout.setFullReadoutShown(false);
+    EXPECT_EQ(asked.count(), 2);
+    EXPECT_FALSE(readout.expandButton()->isChecked());
+}
+
+// In the widths of a task's column - 360 and 520 px - at either density, each of the five cells reads whole: its label,
+// its value and its change against the original, none elided. Five cells in one row beside the histogram had a sixth
+// of a 520 px column each.
+TEST(CompactReadout, EachCellReadsWholeInTheColumnsWidths)
+{
+    forEachLook([](const DesignTokens& /*t*/) {
+        for (const int width : {360, 520})
+        {
+            SCOPED_TRACE("a column " + std::to_string(width) + " px wide");
+            an::ui::AnCompactReadout readout;
+            an::ui::ImageStatisticsReport original = reportOf({0.3});
+            an::ui::ImageStatisticsReport preview = reportOf({0.4});
+            preview.channels[0].minimum = -0.1234;
+            readout.setFigures(preview, original);
+            readout.resize(width, readout.sizeHint().height());
+            showOffScreen(readout);
+            readout.resize(width, readout.sizeHint().height());
+            QCoreApplication::processEvents();
+            const std::vector<an::ui::testing::RecordedText> texts = recordedTexts(*readout.cells());
+            const auto drawn = [&texts](const QString& whole) {
+                return std::any_of(texts.begin(), texts.end(),
+                                   [&whole](const an::ui::testing::RecordedText& text) { return text.text == whole; });
+            };
+            const std::vector<an::ui::ReadoutCell>& cells = readout.cells()->cells();
+            ASSERT_EQ(cells.size(), 5u);
+            for (const an::ui::ReadoutCell& cell : cells)
+            {
+                for (const QString& part : {cell.label, cell.value, cell.note})
+                {
+                    EXPECT_TRUE(drawn(part)) << part.toStdString() << " is not drawn whole; "
+                                             << an::tests::widgets::describedTexts(*readout.cells()).toStdString();
+                }
+            }
+            const QRect cellsRect(readout.cells()->mapTo(&readout, QPoint(0, 0)), readout.cells()->size());
+            EXPECT_TRUE(readout.rect().contains(cellsRect)) << "the cells lie in the readout";
+        }
+    });
 }
 
 // The compact readout is `surface2`; its stale values are drawn at 55 %.

@@ -491,6 +491,8 @@ void PhotometricColorCalibrationProcess::applyCalibration()
     }
     m_runStop = std::make_shared<std::stop_source>();
     outcome->stop = m_runStop;
+    // The process's run stop, which a page's Cancel requests: its run shows in the page's row, not in a window.
+    const std::stop_token pageStop = beginRunStop();
     calibrationStarting(*m_runStop);
 
     clearCalibrationResult(true);
@@ -529,13 +531,15 @@ void PhotometricColorCalibrationProcess::applyCalibration()
     timer.start();
     m_image_view_control->editImage(
         getProcessName(), description,
-        [outcome, observer, inFlight, reads, processStop = windowStopToken()](
-            const an::consumer::EngineSession& session, const an::consumer::AssetWriteLease& image,
-            std::stop_token stop) -> an::Result<an::consumer::ImageAsset> {
-            // The edit's own stop - the document changed or closed - the run's and the window's going all stop the run.
+        [outcome, observer, inFlight, reads, processStop = windowStopToken(),
+         pageStop](const an::consumer::EngineSession& session, const an::consumer::AssetWriteLease& image,
+                   std::stop_token stop) -> an::Result<an::consumer::ImageAsset> {
+            // The edit's own stop - the document changed or closed - the run's, the page's Cancel and the window's
+            // going all stop the run.
             std::stop_source runStop;
             const std::stop_callback onEdit(stop, [&runStop]() { runStop.request_stop(); });
             const std::stop_callback onWindow(outcome->stop->get_token(), [&runStop]() { runStop.request_stop(); });
+            const std::stop_callback onPage(pageStop, [&runStop]() { runStop.request_stop(); });
             const std::stop_callback onProcess(processStop, [&runStop]() { runStop.request_stop(); });
             an::Result<an::ui::ExecutionScope> scope =
                 an::ui::ExecutionScope::admit(session,

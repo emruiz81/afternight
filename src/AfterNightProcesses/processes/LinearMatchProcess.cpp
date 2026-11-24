@@ -251,6 +251,7 @@ void LinearMatchProcess::executeLinearMatch()
     };
     // The reference is another view's image, leased before the run is admitted.
     request.reads = {reference};
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

@@ -41,7 +41,7 @@ image: ../../assets/images/processes/color-calibration/scnr.webp
 alt: >-
   The SCNR task. Its header reads SCNR Filter on the stretched master, with Float as window and Close at its right. The
   canvas at the left shows the image itself, a pink nebula with dark dust lanes among many stars, and its floating
-  toolbar near its foot. The column at the right, headed SCNR, holds Target Image naming the master, Protection Type
+  toolbar near its foot. The column at the right, headed SCNR Filter, holds Target Image naming the master, Protection Type
   at Average Neutral, Amount at 1.00 with its slider at the right end, both dimmed, and Preserve Lightness ticked.
   Close and Apply stand in its footer.
 caption: >-
@@ -132,26 +132,27 @@ controls:
     kind: button
     default: ""
     effect: Suppresses green over the whole image, or every frame of the sequence, with the values as they are when you press it. The task stays open for another run.
-    enabled: At once. While the run works, the controls and **Close** are disabled, and the run's row in the column says how far it has come.
-    tradeoff: The run holds two floating-point working copies of the image beside the result. A single image's run cannot be stopped once it starts, though **Cancel** stands in the place of Apply. A sequence needs the disk space of a second copy.
+    enabled: At once. While the run works, the controls and **Close** are disabled, the run's row in the column says how far it has come, and **Cancel** stands in the place of Apply.
+    tradeoff: The run holds two floating-point working copies of the image beside the result. A sequence needs the disk space of a second copy.
     scope: Every pixel, through the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
     persistence: "The image and its history keep the result, as the step **SCNR** with the text `Protection Method Average Neutral preserve lightness true`, or `false` with **Preserve Lightness** off. Amount and the mask are not recorded."
     note: "A failed run leaves the image and its history as they were, shows \"Error running SCNR: An error occurred when executing the SCNR process:\" and the reason in the column's message strip, and writes them to the log. While another run holds a sequence, the busy message comes under the title SCNR and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, in a progress window over the main window under the title **SCNR** and the text `Executing SCNR to sequence <name>`. The column's run row shows the same share."
-    enabled: Only while Apply works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while Apply works on a sequence. Over a single image the row reads "applying". No progress window opens.
     tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
-    effect: The progress window's **Cancel** stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
+    effect: Stands in the footer in place of **Apply** during a run, and stops it, on a single image as on a sequence, without a message. The image or the sequence stays as it was, with no history step, and a sequence's temporary file is removed.
+    range: A sequence's run stops before the next frame at the latest.
 ```
 
 ## How it works
@@ -202,7 +203,6 @@ suppressed pixel's a* and b*.
 - A pixel that the image's [validity rule](../../reference/glossary.md#validity-rule) rejects is left as it was in all
   three channels.
 - A frame of a sequence that is not three-channel RGB stops the run with "SCNR needs an RGB image".
-- A single image's run has no progress window and cannot be stopped once it starts.
 
 ### Worked example
 

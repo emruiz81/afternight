@@ -1031,6 +1031,7 @@ void PixelMathProcess::executePixelMath()
         request.stepDescription = std::string();
         request.operation = runOnce;
         request.reads = pixelMathImagesRead(asked, images);
+        request.stop = beginRunStop();
         request.inFlight = beginRunInFlight();
         request.process = this;
         request.admissionHook = admissionHook();
@@ -1060,6 +1061,7 @@ void PixelMathProcess::executePixelMath()
     request.readDemosaiced = m_image_view_control->isSequence() && m_image_view_control->isSequenceAutodebayerEnabled();
     request.showDemosaiced = false;
     request.reads = pixelMathImagesRead(asked, images);
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

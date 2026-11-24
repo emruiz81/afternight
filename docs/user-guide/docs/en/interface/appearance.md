@@ -3,6 +3,9 @@ kind: interface
 summary: >-
   How AfterNight looks: a colour preset, the theme and its contrast, the accent, the surface tint and its strength,
   the density, Night for dark-adapted eyes, the animations and the menu bar.
+menu:
+  - View > Night
+  - View > Density
 ---
 # Appearance
 

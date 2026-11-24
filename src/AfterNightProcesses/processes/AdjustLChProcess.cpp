@@ -57,9 +57,10 @@ bool AdjustLChProcess::requiresExclusiveAccessStatic()
 
 void AdjustLChProcess::onImageLoaded(ImageViewControl* ctrl)
 {
+    // A target opened again as a grey image: the process works on colour alone, and says so as it closes.
     if (ctrl == m_image_view_control && !isViewControlSupported(ctrl))
     {
-        close();
+        closeForUnsupportedTarget(*ctrl);
     }
     else
     {
@@ -69,9 +70,10 @@ void AdjustLChProcess::onImageLoaded(ImageViewControl* ctrl)
 
 void AdjustLChProcess::onImageUpdated(ImageViewControl* ctrl)
 {
+    // A target edited into a grey image - Convert to Grayscale - likewise.
     if (ctrl == m_image_view_control && !isViewControlSupported(ctrl))
     {
-        close();
+        closeForUnsupportedTarget(*ctrl);
     }
     else
     {
@@ -83,7 +85,14 @@ void AdjustLChProcess::onViewControlChanged(ImageViewControl* oldCtrl, ImageView
 {
     if (!isViewControlSupported(newCtrl))
     {
-        close();
+        if (newCtrl != nullptr)
+        {
+            closeForUnsupportedTarget(*newCtrl);
+        }
+        else
+        {
+            close();
+        }
     }
     else
     {

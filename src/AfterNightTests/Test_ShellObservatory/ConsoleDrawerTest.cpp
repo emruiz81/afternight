@@ -28,6 +28,8 @@
 #include "fixtures/ConsoleToolbarRecord.h"
 #include "theme/ComponentParts.h"
 
+#include <AfterNightPlatform/LoggingConfig.h>
+
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/LayoutSaver.h>
 #include <kddockwidgets/MainWindow.h>
@@ -35,7 +37,9 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QByteArray>
 #include <QComboBox>
+#include <QFile>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
@@ -47,7 +51,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
+#include <system_error>
 #include <vector>
 
 namespace an::tests::observatory
@@ -413,6 +421,87 @@ TEST_F(ConsoleDrawer, FloatsAndAttachesKeepingItsContentScrollAndFilters)
     EXPECT_TRUE(dock->isOpen());
     EXPECT_EQ(dock->widget(), console);
     level->setCurrentText(QStringLiteral("info"));
+}
+
+namespace
+{
+
+/// The console's readout of the file logging level: "File log: info".
+[[nodiscard]] const QLabel* fileLogReadout(const LogViewerControl& console)
+{
+    for (const QLabel* label : console.findChildren<QLabel*>())
+    {
+        if (label->text().startsWith(QStringLiteral("File log:")))
+        {
+            return label;
+        }
+    }
+    return nullptr;
+}
+
+/// Stores a file logging level as Settings > Logging stores it.
+void storeFileLogLevel(const std::string& level)
+{
+    an::platform::LoggingConfig config;
+    (void)an::platform::loadLoggingConfig(config);
+    config.logLevel = level;
+    ASSERT_TRUE(an::platform::saveLoggingConfig(config));
+}
+
+} // namespace
+
+// The console's "File log" readout says the level Settings > Logging stores, read again each time the console is
+// opened or shown again - in the drawer and in its own window - so a level changed meanwhile is the one it says.
+TEST_F(ConsoleDrawer, TheFileLogReadoutIsReadAgainWhenTheConsoleIsShown)
+{
+    const std::filesystem::path stored = an::platform::LoggingConfig::defaultConfigPath();
+    std::optional<QByteArray> before;
+    {
+        QFile file(QString::fromStdU16String(stored.u16string()));
+        if (file.open(QIODevice::ReadOnly))
+        {
+            before = file.readAll();
+        }
+    }
+    storeFileLogLevel("info");
+    window().setSessionConsoleVisible(true);
+    settle();
+    LogViewerControl* const console = drawer().console();
+    ASSERT_NE(console, nullptr);
+    const QLabel* const readout = fileLogReadout(*console);
+    ASSERT_NE(readout, nullptr);
+    EXPECT_EQ(readout->text(), QStringLiteral("File log: info"));
+
+    window().setSessionConsoleVisible(false);
+    settle();
+    storeFileLogLevel("debug");
+    window().setSessionConsoleVisible(true);
+    settle();
+    EXPECT_EQ(readout->text(), QStringLiteral("File log: debug")) << "opened again, it says the level stored now";
+
+    storeFileLogLevel("warning");
+    drawer().setFloating(true);
+    settle();
+    EXPECT_EQ(readout->text(), QStringLiteral("File log: warning")) << "shown again in its own window";
+
+    window().setSessionConsoleVisible(false);
+    settle();
+    storeFileLogLevel("trace");
+    window().setSessionConsoleVisible(true);
+    settle();
+    EXPECT_EQ(readout->text(), QStringLiteral("File log: trace")) << "opened again in its own window";
+
+    if (before.has_value())
+    {
+        QFile file(QString::fromStdU16String(stored.u16string()));
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        file.write(*before);
+    }
+    else
+    {
+        std::error_code ignored;
+        std::filesystem::remove(stored, ignored);
+    }
 }
 
 // The drawer is the window's, not a place's: it stays open on Home, on the workspace and from one to the other, and the

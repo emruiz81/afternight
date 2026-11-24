@@ -33,8 +33,8 @@ derived: true
 This process sharpens several scales at once. It splits the image into a smooth base and detail layers of growing
 size, makes the finer layers more opaque, and lays them back over the base, so the finest detail gains the most and
 broad structure the least. **Amount** then mixes the result with the original. The work is done by the `sharpen_alpha`
-command of G'MIC, which AfterNight carries. The menu and the [task](../../reference/glossary.md#task) header name the process **Multiscale Alpha Sharpen**, and
-its column is headed **Multiscale Sharpen Alpha**.
+command of G'MIC, which AfterNight carries. The menu, the [task](../../reference/glossary.md#task) header and its
+column name the process **Multiscale Alpha Sharpen**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the sharpened one, keeps its size
 and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -44,13 +44,13 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 image: ../../assets/images/processes/sharpening/sharpen-alpha.webp
 alt: >-
   The Multiscale Alpha Sharpen task. Its header names the process and the stretched master, and the column's header
-  reads Multiscale Sharpen Alpha. The canvas at the left shows the preview of a red nebula, with the word PREVIEW in
+  reads Multiscale Alpha Sharpen. The canvas at the left shows the preview of a red nebula, with the word PREVIEW in
   its corner, a small framed area in its middle and its floating toolbar near the foot. The column at the right opens
   with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel
   at RGB, and the Amplitude, Number of Scales, Anisotropy and Amount boxes with their sliders. Reset, Close and Apply
   stand in its footer.
 caption: >-
-  Multiscale Sharpen Alpha on the stretched master with Amplitude at 1.00, Number of Scales at 5, Anisotropy at 0.00
+  Multiscale Alpha Sharpen on the stretched master with Amplitude at 1.00, Number of Scales at 5, Anisotropy at 0.00
   and Amount at 0.70. The framed area in the canvas shows what Apply writes there, over the original.
 owed: true
 ```

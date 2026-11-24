@@ -297,6 +297,11 @@ protected:
     /// States the images the process still needs before it can show its result (`missingInputs`), and tells its page.
     void setMissingInputs(QStringList inputs);
 
+    /// Closes the process because its target became an image it cannot work on - an edit made it grey under a process
+    /// of colour alone - and says so first, under the process's name: "The target image '<name>' has changed and isn't
+    /// supported by this process any more. The process will be closed." GUI thread.
+    void closeForUnsupportedTarget(const ImageViewControl& target);
+
     /// Runs `work` on a worker and `done(result)` on the GUI thread, while the window lives. The work is a run in
     /// flight from now until its completion has run or been dropped.
     ///

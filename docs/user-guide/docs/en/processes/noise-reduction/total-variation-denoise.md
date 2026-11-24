@@ -42,7 +42,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/total-variation-denoise.webp
 alt: >-
-  The Total Variation Denoise task. Its header names Total Variation Denoise and the master. The canvas at the left
+  The Total Variation Denoise Filter task. Its header names Total Variation Denoise Filter and the master. The canvas at the left
   shows the preview of a red nebula, the word PREVIEW in its corner and a framed area in its middle, with a floating
   toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right
   holds the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and

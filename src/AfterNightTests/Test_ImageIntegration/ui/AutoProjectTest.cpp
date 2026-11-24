@@ -58,9 +58,11 @@ public:
         return open;
     }
 
-    [[nodiscard]] std::optional<JobProject> projectForJob(const QString& outputFolder) override
+    [[nodiscard]] std::optional<JobProject> projectForJob(const QString& outputFolder,
+                                                          const QStringList& objectCards) override
     {
         asked.append(outputFolder);
+        cards.append(objectCards);
         if (!makesProjects)
         {
             return std::nullopt;
@@ -91,6 +93,10 @@ public:
     bool makesProjects = true;
 
     QStringList asked;
+
+    /// The OBJECT cards each job that asked for a project said its frames state.
+    QList<QStringList> cards;
+
     QList<QPair<QString, QString>> jobs;
     QStringList images;
 
@@ -210,6 +216,26 @@ TEST_F(AutoProject, ARunWithNoProjectOpenAsksForOneInItsOutputFolder)
     IntegrationDataModel read;
     read.fromJson(*loaded.model);
     EXPECT_EQ(read.lightFrames().size(), 1u);
+}
+
+// A job that asks for a project tells the application's projects the OBJECT card of each light it stacks - a light
+// left out is none of them - so that a project made for it is about their object.
+TEST_F(AutoProject, AJobAsksForAProjectWithTheObjectCardsOfItsLights)
+{
+    RecordingProjects projects(m_scope.context());
+    ImageIntegrationProcess& process = openAsPage();
+    process.model()->setOutputDirectory(output());
+    FrameInfo leftOut = lightFrame(output(), 3);
+    leftOut.metadata = FrameMetadata(FrameType::Light, QSize(64, 48), 120.0, -10.0, 800, 1, QStringLiteral("L"),
+                                     QStringLiteral("M 31"), QDateTime::currentDateTimeUtc(), QString());
+    leftOut.excluded = true;
+    process.model()->addFrames(FrameType::Light, {lightFrame(output(), 1), lightFrame(output(), 2), leftOut});
+    pump();
+
+    ASSERT_TRUE(startRun(process));
+    ASSERT_EQ(projects.cards.size(), 1);
+    EXPECT_EQ(projects.cards.front(), (QStringList{QStringLiteral("M 42"), QStringLiteral("M 42")}));
+    ASSERT_TRUE(finish(process));
 }
 
 // A second run of the job asks for no project: it runs in the one it was given, and is recorded there once more -

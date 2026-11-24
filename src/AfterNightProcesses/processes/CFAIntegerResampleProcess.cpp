@@ -300,6 +300,7 @@ void CFAIntegerResampleProcess::executeImageResample()
     request.operation = [steps](const an::ui::ExecutionScope& scope, const an::ui::ProcessSource& source) {
         return an::ui::processes::transformImage(scope, source, steps, "CFA Integer Resample");
     };
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

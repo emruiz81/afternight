@@ -391,6 +391,7 @@ void ResizeProcess::executeImageResize()
         const std::array<an::ui::processes::GeometryStep, 1u> steps{resize};
         return an::ui::processes::transformImage(scope, source, steps, "Resize", mosaicAsGrey);
     };
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

@@ -35,6 +35,12 @@ namespace an::ui::shell
 /// made it. Nothing of what the job keeps there is moved. With the setting off, or with a project open already, none
 /// is made; a project that cannot be made or opened is told (`Hooks::refused`) and the job runs outside any project.
 ///
+/// **The object of a project made for a job** is the one its frames' OBJECT cards agree on, stated as read from those
+/// cards. A card is read with its blanks trimmed and the blanks inside it made one, and two cards agree when they are
+/// the same text without regard to case; the object is named as the first frame that states it writes it. A frame that
+/// states none says nothing either way. Frames that name different objects give the project none - it is about
+/// several - and so do frames none of which states one. A project that was there keeps the object it states.
+///
 /// **What a shell adds.** A project that was there and is opened for a job is opened as any project is: the shell is
 /// told (`Hooks::opened`) and puts back what the project keeps - its workspaces, its images.
 ///
@@ -75,7 +81,8 @@ public:
     [[nodiscard]] static QString projectNameFor(const QString& folder);
 
     [[nodiscard]] std::optional<an::ui::JobProject> openProject() const override;
-    [[nodiscard]] std::optional<an::ui::JobProject> projectForJob(const QString& outputFolder) override;
+    [[nodiscard]] std::optional<an::ui::JobProject> projectForJob(const QString& outputFolder,
+                                                                  const QStringList& objectCards) override;
     void recordJob(const QString& name, const QString& outputFolder) override;
     void addJobImages(const QStringList& files) override;
 

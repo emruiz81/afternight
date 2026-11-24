@@ -44,7 +44,7 @@ image: ../../assets/images/processes/color-calibration/color-calibration.webp
 alt: >-
   The Color Calibration task. Its header reads Color Calibration on the master, with Float as window and Close at its
   right. The canvas at the left shows the linear master itself, a pink nebula and blue-white stars on a gray
-  background. The column at the right, headed ColorCalibration, opens with Target Image naming the master. Under the
+  background. The column at the right, headed Color Calibration, opens with Target Image naming the master. Under the
   White Reference heading, the Reference image box at <--TARGET IMAGE-->, Lower Limit at 0 and Upper Limit at 0.9 with
   their sliders, and a ticked Region of interest group with Left 6000, Top 200, Width 1000, Height 1000 and a From
   Selection button; further down, Manual White Balance, the Output White Reference Mask check box and the same rows of
@@ -417,10 +417,11 @@ controls:
       is named by the target's view name, and a rectangle that is off reads as the whole reference.
     note: >-
       Before anything runs, a reference view that holds no image, or a rectangle that does not fit its reference, is
-      refused in the column's message strip, after "Color Calibration:", and nothing starts. A single image has no
-      progress window, and its run cannot be stopped, though **Cancel** shows. A sequence shows a progress window titled
-      **Color Calibration** with `Executing color calibration to sequence <name>`, whose **Cancel** stops the run, before
-      the next frame at the latest; the column's run row shows the same share. A run that fails says why in the message
+      refused in the column's message strip, after "Color Calibration:", and nothing starts. No progress window opens.
+      Over a single image the column's run row reads "applying"; over a sequence it shows the share of the frames done
+      under **Overall**, and a slice slides along **Processing**. **Cancel** stops the run, on a single image as on a
+      sequence, a sequence's before the next frame at the latest, and leaves the image or the sequence as it was, with
+      no history step and no message. A run that fails says why in the message
       strip, after "Error running color calibration: An error occurred when executing the color calibration process:",
       writes it to the log, and leaves the image, its history and the task as they were. While another run holds a
       sequence, **Apply** shows the busy warning under the title **Color Calibration** and starts nothing.
@@ -498,8 +499,8 @@ brought together. The lineage records the offset \(B_c\,(1 - K_c)\) that equatio
 - When the history cannot keep the image the calibration replaces, it says so once in a message titled "Image
   History". The image stays as it was and no mask opens.
 - When the target changes while a single image's run works, the result is dropped without a message.
-- A single image's run cannot be stopped. A sequence's run stopped with **Cancel** changes nothing, records nothing
-  and opens no mask. In these cases the task stays open.
+- A run stopped with **Cancel**, on a single image or a sequence, changes nothing, records nothing and opens no mask.
+  In these cases the task stays open.
 
 ### Worked example
 

@@ -41,7 +41,7 @@ size and [pixel type](../../reference/glossary.md#pixel-type), adds one step to 
 image: ../../assets/images/processes/sharpening/clahe.webp
 alt: >-
   The CLA Histogram Equalization task. Its header names the process and the stretched master, and the column's
-  header reads CLAHE. The canvas at the left shows the whole equalized nebula. The column at the right opens with the
+  header reads CLA Histogram Equalization. The canvas at the left shows the whole equalized nebula. The column at the right opens with the
   compact readout of the preview, then the Preview toggle ticked and Preview area unticked, Target Image and Channel
   at RGB, a histogram with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar,
   and the Grid Size, Contrast Limit and Amount boxes with their sliders. Reset, Close and Apply stand in its footer.
@@ -67,7 +67,7 @@ owed: true
 1. **Open the task.** Make the stretched image the active one and choose **Process > Intensity Transformations >
    CLA Histogram Equalization**, or find it in the [command palette](../../interface/command-palette.md) with
    ++ctrl+k++. The task opens as a page: the canvas at the left shows the whole image already equalized, the column at
-   the right, headed **CLAHE**, holds its controls, and **Apply** is enabled at once.
+   the right, headed **CLA Histogram Equalization**, holds its controls, and **Apply** is enabled at once.
 2. **Choose what to equalize.** Leave **Channel** at **RGB** to equalize the lightness and keep the colors.
 3. **Set the limit.** At 100 % in the canvas, lower **Contrast Limit** until the grain of the background and the
    rims of the stars calm down.

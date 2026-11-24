@@ -88,6 +88,10 @@ public:
     /// The width the column takes for its window: 360, or 320 in a window under 1200 px wide.
     [[nodiscard]] int columnWidth() const noexcept;
 
+    /// A width of its own in place of the one its window gives it: the width of the column it lies over as a sheet, the
+    /// full readout over a task's column. Zero gives it its window's again.
+    void setOwnWidth(int width);
+
     [[nodiscard]] AnElidedLabel* nameLabel() const noexcept;
     [[nodiscard]] AnIconButton* collapseButton() const noexcept;
 
@@ -116,6 +120,7 @@ private:
     AnAstrometryCard* m_astrometry = nullptr;
     AnImageFactsCard* m_image = nullptr;
     int m_width = 0;
+    int m_ownWidth = 0;
     bool m_collapsed = false;
     bool m_foldsRemembered = false;
     bool m_restoring = false;

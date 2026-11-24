@@ -184,7 +184,8 @@ task's area is labelled "Preview area".
   the process does. A process an extension adds shows "extension" after its name, with the tooltip "Runs in its own
   process".
 - **The compact readout** is at the column's head in a task with a preview. A task whose canvas shows its target, and
-  a task that fills its page whole, have none.
+  a task that fills its page whole, have none. Its chevron opens the target's full [readout](readout.md) over the
+  column, and closes it again.
 - **The body** scrolls up and down, never sideways, and the footer stays in view. **Target Image** and **Channel**
   stand side by side at its head. A list narrower than its longest choice shortens the choice it shows, and its list
   shows each one whole.
@@ -209,10 +210,10 @@ task's area is labelled "Preview area".
   run ends. Click to go to the task".
 - **The target's history strip** shows the task's step after the image's steps: "pending", with the tooltip "The open
   task: not in the history until Apply", and "writing" during a run.
-- **When a run ends,** the task header says how; a run that succeeded in a task of the main window also shows a
-  message at the foot of the centre with **Undo**, and a new image that a run makes opens beside the image it came
-  from, or in the current workspace, without leaving the task. The end of a run is said to a screen reader: the process applied, failed with
-  why, or stopped.
+- **When a run ends,** the task header says how; a run that succeeded also shows a message with **Undo**, at the foot
+  of the centre, or, in a floating task, over its canvas in its own window; and a new image that a run makes opens
+  beside the image it came from, or in the current workspace, without leaving the task. The end of a run is said to a
+  screen reader: the process applied, failed with why, or stopped.
 - **On a task's page,** the zoom of the canvas follows **Zoom In**, **Zoom Out**, **Zoom 100%** and **Fit To Window**,
   and **Undo**, **Redo**, **Save as...**, **Image History**, the **Image** menu and another process act on the
   target. **Close**, **Close All Others** and **Maximize View** are disabled there: an image is closed from its

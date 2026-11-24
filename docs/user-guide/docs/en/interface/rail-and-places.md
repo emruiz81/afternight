@@ -41,8 +41,8 @@ owed: true
 3. **Integration.** The Integration hub: the ways to stack, the single steps of calibration, registration and
    stacking, and the [integration jobs](../reference/glossary.md#integration-job).
 4. **A task.** Under a short line, one item for each open task: the picture of the image it works on, with the
-   process's mark at its corner, or the mark alone for a task with no image. A bar at the rail's edge marks the place or
-   the task shown. See [Tasks](tasks.md).
+   process's mark at its corner, or the mark alone on a plain tile for a task with no image. A bar at the rail's edge
+   marks the place or the task shown. See [Tasks](tasks.md).
 5. **Session Console.** Opens or closes the console's drawer above the status line. See
    [Session Console](log-viewer.md).
 6. **Settings.** Opens [Settings](settings-dialog.md).

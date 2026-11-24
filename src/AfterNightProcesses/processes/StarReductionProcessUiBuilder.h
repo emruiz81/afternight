@@ -200,7 +200,7 @@ inline StarReductionProcessUiElements buildStarReductionProcessUi(QWidget* paren
     outputLayout->addWidget(ui.starImageId, 5, 1, 1, 2);
     controlsLayout->addWidget(outputGroup);
 
-    ui.preview = new QCheckBox(QStringLiteral("Show preview"), controlsPanel);
+    ui.preview = new QCheckBox(QStringLiteral("Preview"), controlsPanel);
     ui.preview->setObjectName(QStringLiteral("preview"));
     ui.preview->setChecked(true);
     controlsLayout->addWidget(ui.preview);

@@ -12,7 +12,7 @@
     {"label": "View Channel", "kind": "combo", "object": "anFloatingToolbarChannel", "group": "Canvas", "visible": true, "varies": ["default"]},
     {"label": "Take snapshot", "kind": "toolbutton", "object": "anFloatingToolbarTakeSnapshot", "group": "Canvas", "visible": true, "default": ""},
     {"label": "More", "kind": "button", "object": "anFloatingToolbarMore", "group": "Canvas", "visible": true, "default": ""},
-    {"label": "Expand the full readout over the process", "kind": "toolbutton", "object": "", "group": "Compact readout", "visible": true, "default": ""},
+    {"label": "Expand the full readout over the process", "kind": "toolbutton", "object": "compactReadoutExpand", "group": "Compact readout", "visible": true, "default": "Off"},
     {"label": "Close", "kind": "toolbutton", "object": "pageClose", "group": "Column header", "visible": true, "default": ""},
     {"label": "Preview", "kind": "check", "object": "preview", "group": "Toggles", "visible": true, "default": "On"},
     {"label": "Preview area", "kind": "check", "object": "pagePreviewArea", "group": "Toggles", "visible": true, "default": "Off"},

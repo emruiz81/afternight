@@ -11,11 +11,13 @@
 #include <QString>
 #include <QTemporaryDir>
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -257,6 +259,10 @@ TEST_F(ArtifactTrackerTest, RewriteThatDestroysTheHeaderStampIsDetected)
     const QDateTime original_modified = QFileInfo(path).lastModified();
     const qint64 original_size = QFileInfo(path).size();
 
+    // The rewrite keeps the size and the modification time, so it differs only in the change the file system stamps
+    // on it, and that stamp moves once per tick of the system clock: 15.6 ms on Windows unless a program asks for a
+    // finer one. A rewrite within the recording's tick is the same change to it, so the case waits two ticks.
+    std::this_thread::sleep_for(std::chrono::milliseconds(32));
     // A foreign tool that rewrites the file does not reproduce AfterNight's private cards.
     // Blanking the header region models that at identical size, with the modification time
     // restored - the case a plain path+mtime check cannot see.
@@ -394,6 +400,10 @@ TEST_F(ArtifactTrackerTest, UnstampedArtifactIsInvalidatedOnceItIsTouched)
     const QDateTime original_modified = QFileInfo(path).lastModified();
     const qint64 original_size = QFileInfo(path).size();
 
+    // The rewrite keeps the size and the modification time, so it differs only in the change the file system stamps
+    // on it, and that stamp moves once per tick of the system clock: 15.6 ms on Windows unless a program asks for a
+    // finer one. A rewrite within the recording's tick is the same change to it, so the case waits two ticks.
+    std::this_thread::sleep_for(std::chrono::milliseconds(32));
     // Without a stamp there is nothing to fall back to, so a changed file identity must
     // invalidate rather than be trusted on metadata alone.
     {

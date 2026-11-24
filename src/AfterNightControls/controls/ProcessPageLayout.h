@@ -241,6 +241,16 @@ public:
 
     // ---- What the page shows
 
+    /// The column's title: the process's name, which a shell states as the process's menu entry and task header state
+    /// it; until one does, the name `Description::title` gave.
+    void setTitle(const QString& title);
+    [[nodiscard]] QString title() const;
+
+    /// What the process does, the title's tooltip: `Description::description`, and the process's description each time
+    /// it states another - an extension's process states its credits there once its host has told them.
+    void setDescription(const QString& description);
+    [[nodiscard]] QString description() const;
+
     /// The eyebrow over the title: the process's category, which a shell names.
     void setCategory(const QString& category);
     [[nodiscard]] QString category() const;

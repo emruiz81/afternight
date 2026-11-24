@@ -308,6 +308,7 @@ void IntegerResampleProcess::executeImageResample()
         const std::array<an::ui::processes::GeometryStep, 1u> steps{resample};
         return an::ui::processes::transformImage(scope, source, steps, "Integer Resample", mosaicAsGrey);
     };
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

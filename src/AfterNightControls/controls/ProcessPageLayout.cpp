@@ -695,6 +695,11 @@ struct ProcessPageLayout::Impl : public QObject
     std::vector<std::pair<QPointer<QAbstractButton>, QPushButton*>> footerButtons;
     QPushButton* primary = nullptr;
 
+    /// The footer's button for the box's own Cancel, which closes the process without a run; null for a box with none.
+    /// During a run it gives way, as the primary button does, to the Cancel that stops the run: the footer shows one
+    /// Cancel.
+    QPushButton* boxCancel = nullptr;
+
     std::vector<AnCollapsibleSection*> sections;
     std::map<const AnCollapsibleSection*, std::uint64_t> lastUse;
     std::uint64_t useClock = 0;
@@ -1307,7 +1312,11 @@ struct ProcessPageLayout::Impl : public QObject
                 stretched = true;
             }
             auto* mirror = new QPushButton(button->text(), footer);
-            mirror->setToolTip(button->toolTip());
+            // The box's Close, or the Cancel that stands in its place, closes the task on a page: a window's tooltip
+            // speaks of a dialog, and the window keeps it.
+            const bool closes = box->buttonRole(button) == QDialogButtonBox::RejectRole;
+            mirror->setToolTip(closes ? translated("Close this task without applying any changes.")
+                                      : button->toolTip());
             mirror->setIcon(button->icon());
             mirror->setProperty("anProcessButtonRole", QString::fromLatin1(footerRole(box->buttonRole(button))));
             mirror->setEnabled(button->isEnabled());
@@ -1319,6 +1328,10 @@ struct ProcessPageLayout::Impl : public QObject
             if (rank == 3 && primary == nullptr)
             {
                 primary = mirror;
+            }
+            if (box->standardButton(button) == QDialogButtonBox::Cancel)
+            {
+                boxCancel = mirror;
             }
         }
         if (!stretched)
@@ -1339,6 +1352,13 @@ struct ProcessPageLayout::Impl : public QObject
         row->addWidget(cancel);
     }
 
+    /// Whether a footer button is hidden during a run, the run's Cancel shown in its stead: the primary button, and the
+    /// box's own Cancel.
+    [[nodiscard]] bool givesWayDuringRun(const QPushButton* mirror) const noexcept
+    {
+        return mirror == primary || mirror == boxCancel;
+    }
+
     void mirrorButton(QAbstractButton& button)
     {
         for (auto& [source, mirror] : footerButtons)
@@ -1346,7 +1366,7 @@ struct ProcessPageLayout::Impl : public QObject
             if (source == &button)
             {
                 mirror->setEnabled(button.isEnabled() && !(run.running() && mirror != primary));
-                if (mirror != primary || !run.running())
+                if (!givesWayDuringRun(mirror) || !run.running())
                 {
                     mirror->setVisible(!button.isHidden());
                 }
@@ -1596,6 +1616,10 @@ struct ProcessPageLayout::Impl : public QObject
             }
             else
             {
+                if (mirror == boxCancel)
+                {
+                    mirror->setVisible(!running && !source->isHidden());
+                }
                 mirror->setEnabled(!running && source->isEnabled());
             }
         }
@@ -1776,6 +1800,34 @@ QAbstractButton* ProcessPageLayout::compareToggle() const noexcept
 int ProcessPageLayout::columnWidth() const
 {
     return m_impl->column != nullptr ? m_impl->column->width() : 0;
+}
+
+void ProcessPageLayout::setTitle(const QString& title)
+{
+    if (m_impl->header == nullptr)
+    {
+        return;
+    }
+    m_impl->header->title->setText(title);
+}
+
+QString ProcessPageLayout::title() const
+{
+    return m_impl->header != nullptr ? m_impl->header->title->text() : QString();
+}
+
+void ProcessPageLayout::setDescription(const QString& description)
+{
+    if (m_impl->header == nullptr)
+    {
+        return;
+    }
+    m_impl->header->title->setToolTip(description);
+}
+
+QString ProcessPageLayout::description() const
+{
+    return m_impl->header != nullptr ? m_impl->header->title->toolTip() : QString();
 }
 
 void ProcessPageLayout::setCategory(const QString& category)

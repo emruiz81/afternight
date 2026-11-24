@@ -42,7 +42,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/patch-pca-denoise.webp
 alt: >-
-  The Patch PCA Denoise task. Its header names Patch PCA Denoise and the master. The canvas at the left shows the
+  The Patch PCA Denoise Filter task. Its header names Patch PCA Denoise Filter and the master. The canvas at the left shows the
   whole nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Patch PCA Denoise Filter in
   its middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings
   button near its foot. The column at the right holds the preview's small histogram and statistics, the toggles

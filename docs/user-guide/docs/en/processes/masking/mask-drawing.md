@@ -309,7 +309,7 @@ controls:
     default: ""
     effect: Takes a copy of the mask as it stands, writes it into a new grayscale image of the target's size, origin, pixel aspect and pixel type, named after the target with ` - MASK`, opens the image beside the target and closes the task.
     range: An edit still waiting to land is not in the copy. A floating-point target receives the values as they are. An integer target receives each value as a share of its range, rounded to the nearest code, so soft edges fall into its steps.
-    enabled: From the moment the task opens, also with nothing drawn, when the mask is black. While the run works, a second **Cancel**, which stops the run, stands in its place, and the tools, the drawing, **Reset** and the first **Cancel** are disabled.
+    enabled: From the moment the task opens, also with nothing drawn, when the mask is black. While the run works, the **Cancel** that stops the run stands in its place and in the place of the task's own **Cancel**, and the tools, the drawing and **Reset** are disabled.
     tradeoff: The column shows the run of a single image too. The copy is kept until the drawing changes.
     scope: "On a sequence it writes a new sequence of that name, each frame the same drawing in that frame's pixel type. A frame of another size stops the run with \"the drawing is not the size of the image\"."
     persistence: The new image's history starts with **Mask Drawing** and the text `Create painted grayscale mask`. It keeps the target's acquisition data, plate solution and lineage, and none of its header cards. It is not recorded as linear or as nonlinear.

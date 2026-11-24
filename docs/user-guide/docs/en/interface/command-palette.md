@@ -3,6 +3,7 @@ kind: interface
 summary: >-
   The command palette finds every process, open image, recent file, menu command and setting by name: press Ctrl+K,
   type a few letters and press Enter.
+menu: View > Command Palette...
 ---
 # Command Palette
 

@@ -44,7 +44,7 @@ image: ../../assets/images/processes/background-extraction/auto-gradient-removal
 alt: >-
   The Auto Gradient Removal task. Its header reads Auto Gradient Removal on the linear master. The canvas at the left
   shows a smooth blurred surface, reddish at the left and blue-green at the right, with the floating toolbar near its
-  foot. The column at the right opens with the compact readout of the preview and the ticked Enable preview toggle,
+  foot. The column at the right opens with the compact readout of the preview and the ticked Preview toggle,
   then Target image and the Background model section with Scale at 5.0, Smoothness at 1.00, Downsample at 4, the
   unticked Simplified polynomial model box and a grayed Polynomial degree slider. The Structure protection,
   Correction and Outputs sections follow in the body, which scrolls, and Reset, Close and Apply stand in the footer.
@@ -74,7 +74,7 @@ owed: true
    Gradient Removal**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The
    task opens as a page: the canvas at the left shows the image as it is, the column at the right holds the controls,
    and **Apply** is already enabled.
-2. **Preview.** Choose **Preview**. When the estimate is done, the canvas shows the corrected image.
+2. **Preview.** Choose the **Preview** button. When the estimate is done, the canvas shows the corrected image.
 3. **Check the model.** Set **Preview display** to **Gradient model**. It shows at once: a smooth surface with the
    broad glow, without stars or the outline of the nebula.
 4. **Check the protection.** Set **Preview display** to **Protection mask**. White marks what was kept out of the
@@ -192,8 +192,8 @@ controls:
     options: [Corrected image, Gradient model, Protection mask]
     effect: Chooses what a computed preview shows. One preview makes all three, so a switch shows the other at once, without computing again. It changes nothing Apply writes.
     enabled: >-
-      With **Enable preview** on. **Protection mask** only with **Protect bright structures** on. Until **Preview** is
-      pressed, and after a setting changes, a switch shows the image as it is.
+      With the **Preview** toggle on. **Protection mask** only with **Protect bright structures** on. Until the
+      **Preview** button is pressed, and after a setting changes, a switch shows the image as it is.
     tradeoff: >-
       The computed preview holds its three images, full size beside the target, until a setting, the target or its
       mask changes or the preview is turned off. An enabled mask blends every display with the image.
@@ -203,12 +203,13 @@ controls:
       model and the protection mask by their own, which shows their broad pattern rather than a flat gray.
     persistence: Until the task closes. **Reset** and a finished Apply return it to **Corrected image**.
   - name: Preview
+    object: previewButton
     kind: button
     default: ""
     effect: Runs the estimate and the correction over the whole image once, makes the corrected image, the model and, with protection, the protection mask, and shows the one **Preview display** names.
-    enabled: With **Enable preview** on and no run working, while no preview stands for the settings. A change of a setting or of the target enables it again.
+    enabled: With the **Preview** toggle on and no run working, while no preview stands for the settings. A change of a setting or of the target enables it again.
     tradeoff: It is the whole estimate of Apply. There is no preview area. For a cheap trial, work on a cropped copy, which cannot stand for the model of the whole frame.
-    persistence: After a setting changes, the canvas keeps the last result until you press **Preview** again, and a switch of **Preview display** before that shows the image as it is. **Reset**, another target and turning **Enable preview** off return the canvas to the image as it is.
+    persistence: After a setting changes, the canvas keeps the last result until you press the **Preview** button again, and a switch of **Preview display** before that shows the image as it is. **Reset**, another target and turning the **Preview** toggle off return the canvas to the image as it is.
   - name: Create gradient model image
     kind: check
     default: "Off"
@@ -231,10 +232,11 @@ controls:
     note: >-
       Its history starts with `AutoGradientRemoval: protection mask created from '<target>'`, and its processing
       state cards name `auto-gradient-removal-protection-mask`. It keeps what the gradient model image keeps.
-  - name: Enable preview
+  - name: Preview
+    object: previewCheckbox
     kind: check
     default: "On"
-    effect: Shows the preview in the canvas. Off stops it, drops the computed preview and disables **Preview display** and **Preview**. Apply still works.
+    effect: Shows the preview in the canvas. Off stops it, drops the computed preview and disables **Preview display** and the **Preview** button. Apply still works.
     enabled: It stands in the column's toggles row. The task has no **Preview area**.
     tradeoff: Off, it frees the images a computed preview holds.
     persistence: Until the task closes. **Reset** leaves it as it is.
@@ -248,7 +250,7 @@ controls:
   - name: Reset
     kind: button
     default: ""
-    effect: Returns every control above to its default, except **Enable preview** and the target, and returns the preview to the image as it is.
+    effect: Returns every control above to its default, except the **Preview** toggle and the target, and returns the preview to the image as it is.
   - name: Apply
     kind: button
     default: ""
@@ -385,9 +387,9 @@ caption: >-
 :   **Fix.** Extract the frame you need into an image of its own, or open the still master.
 
 The preview shows the image unchanged
-:   **Cause.** No preview stands for the settings: **Preview** was not pressed since the last change, or the display
+:   **Cause.** No preview stands for the settings: the **Preview** button was not pressed since the last change, or the display
     was switched after a change.
-:   **Fix.** Keep **Enable preview** on, choose **Preview** and wait for the result.
+:   **Fix.** Keep the **Preview** toggle on, then choose the **Preview** button.
 
 The model or the protection display shows the image through it
 :   **Cause.** An enabled mask on the view blends every preview display with the image.

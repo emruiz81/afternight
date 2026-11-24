@@ -182,8 +182,8 @@ controls:
     kind: button
     default: ""
     effect: Measures the reference and changes the whole image, or every frame of the sequence. The task closes once the view shows the result.
-    enabled: At once, whatever the values. While the run works, the controls, **Cancel** and **Reset** are disabled, and the run's row in the column says how far it has come.
-    tradeoff: The run holds floating-point working copies of the reference and of the image. A single image's run cannot be stopped once it starts, though a second **Cancel** stands in the place of OK. A sequence needs the disk space of a second copy.
+    enabled: At once, whatever the values. While the run works, the controls and **Reset** are disabled, the run's row in the column says how far it has come, and the **Cancel** that stops the run stands in the place of OK and of the task's own **Cancel**.
+    tradeoff: The run holds floating-point working copies of the reference and of the image. A sequence needs the disk space of a second copy.
     scope: Every channel, through the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
     persistence: "The image and its history keep the result, as the step **Background Neutralization** with the text `Reference image '<name>' (ROI X:<x>, Y:<y>, W:<width>, H:<height>)`. The name is the target's own when it is its own reference, and the rectangle is the whole reference while **Region of interest** is off. The limits are not recorded."
     note: "A refused or failed run leaves the task open, and the image and its history as they were. A refusal or a failure is said in the column's message strip: a failure as \"Error running background neutralization: An error occurred when executing the background neutralization process:\" and the reason, which the log gets too. While another run holds a sequence, the busy message comes under the title Background Neutralization and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
@@ -191,7 +191,7 @@ controls:
     kind: button
     default: ""
     effect: Closes the task without changing the image, as ++esc++ does.
-    enabled: Disabled while a run works. The task cannot be closed until the run has ended.
+    enabled: Hidden while a run works, the **Cancel** that stops the run in its place. The task cannot be closed until the run has ended.
   - name: Reset
     kind: button
     default: ""
@@ -201,18 +201,19 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, in a progress window over the main window under the title **Background Neutralization** and the text `Executing background neutralization to sequence <name>`. The column's run row shows the same share."
-    enabled: Only while OK works on a sequence. A single image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while OK works on a sequence. Over a single image the row reads "applying". No progress window opens.
     tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
   - name: Cancel
     kind: button
     default: ""
-    effect: The progress window's **Cancel** stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
+    effect: Stands in the footer in place of **OK** and of the task's own **Cancel** during a run, and stops the run, on a single image as on a sequence, without a message. The image or the sequence stays as it was, with no history step, and a sequence's temporary file is removed.
+    range: A sequence's run stops before the next frame at the latest.
 ```
 
 ## How it works
@@ -258,7 +259,6 @@ separate reference, its offsets are applied to the target unchanged, whatever th
 - Every result is held between 0 and 1: a negative offset can clip the darkest background at 0 and a positive one
   star cores at 1. A floating-point sample above 1 is cut to 1 even where the offset is 0.
 - A pixel that the image's validity rule rejects is left as it was.
-- A single image's run has no progress window and cannot be stopped once it starts.
 
 ### Worked example
 

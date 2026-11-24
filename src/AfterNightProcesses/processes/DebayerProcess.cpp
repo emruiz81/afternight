@@ -183,6 +183,7 @@ void DebayerProcess::executeImageDebayer()
     // A sequence's frames are read as recorded: the dialog's method demosaics them, not the view's.
     request.readDemosaiced = false;
     request.showDemosaiced = false;
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

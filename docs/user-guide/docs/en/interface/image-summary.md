@@ -94,7 +94,7 @@ controls:
     kind: readout
     default: ""
     effect: Names the view the report describes, as `Image Summary Viewer <M42>`. A rename changes the title and the name the report starts with. The heading inside says INFORMATION and the view's name over **Image and Sequence Summary**.
-    enabled: The window opens from **Summary** in the readout's Image card, from **Image > Information > Summary** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+shift+m++ while the view has the keyboard focus. While it is open, the menu entry is disabled until the menus are refreshed, as when another view becomes active. The readout's button and the shortcut stay enabled, and each opens another window.
+    enabled: The window opens from **Summary** in the readout's Image card, from **Image > Information > Summary** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+shift+m++ while the view has the keyboard focus. There is one window for each view. While it is open, the menu entry is disabled until the menus are refreshed, as when another view becomes active. The readout's button and the shortcut stay enabled, and bring the open window forward.
     persistence: Nothing of the window is kept.
     note: It needs no network, no catalog and no other program. It writes no image, file, header card or history step.
   - name: Summary Report
@@ -173,7 +173,8 @@ controls:
 
 **Summary** is greyed in the **Information** menu
 :   **Cause.** A Summary window of this view is open, or the active view has no image.
-:   **Fix.** Use the open window, or choose **Summary** in the readout's Image card, which opens another one.
+:   **Fix.** Choose **Summary** in the readout's Image card, or press ++ctrl+shift+m++, which bring the open window
+    forward.
 
 Every fact of **File Info** reads `-`
 :   **Cause.** The image was never saved, is kept in temporary storage, or its file is gone.

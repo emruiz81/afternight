@@ -238,7 +238,7 @@ controls:
     default: ""
     effect: Closes the task. Its values are discarded.
     enabled: Disabled while a run works, as every other way to close the task is.
-    note: To stop a run, choose **Cancel**, in OK's place while the run works, or the one of the progress window of a sequence.
+    note: To stop a run, choose **Cancel**, in OK's place while the run works.
 ```
 
 ```controls
@@ -250,23 +250,17 @@ controls:
     effect: >-
       Follows the run in the column, in the message strip's place, for an image and for a sequence: "applying", how far
       the run has come and a thin bar. On an image the bar follows the program's own percentages, from 10 to 90
-      percent.
+      percent. On a sequence two bars show: **Overall** counts the frames done, and **Processing** follows the
+      program's percentages for the frame on its way. No progress window opens.
     tradeoff: The bar moves forward only. A program that does not report its progress for machines has its printed percentages read instead.
     note: >-
       The log keeps the line `Executing <program> <arguments>`. The program's other lines go to the log at the Debug
       level, set on the Logging page of the settings, where its line "Backend: ONNX Runtime (DirectML execution
       provider)" or the like names the device it chose. When the program fails, its lines follow the error message.
-  - name: Progress
-    kind: readout
-    default: ""
-    effect: >-
-      On a sequence, a progress window titled `DeepSNR <name>` also opens over the main window. It reads
-      `Executing DeepSNR on <name>` and its bar counts the frames.
-    enabled: Only while **OK** works on a sequence.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. On an image it stands in OK's place while the run works, and on a sequence in the progress window. The program is ended within about a second, and the run ends without a result and without an error.
+    effect: Stops the run. It stands in OK's place while the run works, on an image and on a sequence. The program is ended within about a second, and the run ends without a result and without an error.
     tradeoff: The program is ended at once, with no chance to finish what it was doing. Its temporary files are removed. When the time was the reason, a larger stride shortens the next run.
     persistence: The image or sequence and its history stay as they were.
 ```

@@ -34,8 +34,8 @@ AfterNight's data folder is `%LOCALAPPDATA%\AfterNight` on Windows and `~/.local
   fails with "Only package/protocol/sdk version 1 manifests are supported".
 - **Each process a package declares** joins the **Process** menu, at the end of the category it names, its
   extension's menu under **Extensions** and the [command palette](../reference/glossary.md#command-palette), each
-  tagged **extension**. A category the menu does
-  not have leaves the process out of the menus, with a line in the [log file](../reference/glossary.md#log-file).
+  tagged **extension**. A process of the category `non_interactive`, which runs with no window, is in its
+  extension's menu and the palette only: the **Process** menu has no category of that name.
 - **At start,** AfterNight fills the menus from the packages that were ready when it last ran, then looks at every
   package in the background and updates the menus. A process that is still loading is greyed, with
   "This extension action is still loading and cannot be launched yet." Adding or removing a package folder in the
@@ -198,7 +198,8 @@ Where packages come from
 
 Bytecode
 :   Preparing an environment compiles its Python modules ahead of time, so the package's first start does not. A
-    folder it cannot read is skipped and named in the log file, and every other module is still compiled. A
+    folder it cannot read is skipped and named in the [log file](../reference/glossary.md#log-file), and every other
+    module is still compiled. A
     dependency that cannot be compiled never fails the install, because the extension compiles what it imports when
     it first starts. The package's own modules must compile.
 
@@ -454,9 +455,10 @@ The card shows **Validation Failed**
 
 A process of an extension is greyed, or missing from the **Process** menu
 :   **Cause.** Its package is **Incompatible** or **Unavailable**, the process is still loading, it does not fit the
-    active image, it names a category the menu does not have, or its package is for developers only.
+    active image, it runs with no window, or its package is for developers only.
 :   **Fix.** Read its tooltip and the card, make an image it fits active, or install a release that suits this
-    AfterNight. A process of a category the menu does not have is still in the command palette.
+    AfterNight. A process that runs with no window is in its extension's menu under **Extensions** and in the command
+    palette.
 
 A process an extension added is gone from the menus
 :   **Cause.** The extension took it away from its list, its new list was refused, or its package was uninstalled.

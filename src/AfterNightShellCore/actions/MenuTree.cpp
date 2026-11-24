@@ -397,7 +397,7 @@ constexpr MenuNode kMenus[] = {
     {"menuStar_Processing", "Star Processing", false, true, kStarProcessingItems},
     {"menuUtilities", "Utilities", false, true, kUtilitiesItems},
     {"menuExtensions", "Extensions", false, true, kExtensionsItems},
-    {"menuWindow", "Window", false, false, kWindowItems},
+    {"menuWindow", "Window", false, true, kWindowItems},
     {"menuHelp", "Help", false, true, kHelpItems},
     {"menuAbout", "About", false, true, kAboutItems},
 };

@@ -32,7 +32,8 @@ derived: false
 This process replaces the image with its detail: the image less a Gaussian blur of **Radius**, raised to middle gray.
 Smooth areas become a flat gray of 0.5, whatever their brightness, and every edge, star and filament stands out
 lighter or darker than the gray. It does not sharpen the image itself: there is no amount and no blend back. The
-layer is made for a blend you make afterwards. The menu names the process **High Pass**.
+layer is made for a blend you make afterwards. The menu, the [task](../../reference/glossary.md#task) header and its column name the process
+**High Pass**.
 
 **Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the layer, keeps its size and
 [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
@@ -41,8 +42,8 @@ layer is made for a blend you make afterwards. The menu names the process **High
 ```figure
 image: ../../assets/images/processes/sharpening/high-pass-filter.webp
 alt: >-
-  The High Pass task. Its header names the process and the stretched master, and the column's header reads High Pass
-  Filter. The canvas at the left shows a gray preview in which the stars and the edges of the nebula stand out
+  The High Pass task. Its header names the process and the stretched master, and the column's header reads High Pass.
+  The canvas at the left shows a gray preview in which the stars and the edges of the nebula stand out
   lighter and darker, with its floating toolbar near the foot. The column at the right opens with the compact
   readout of the preview, then the Preview, Preview area and Processed toggles, Target Image, a histogram with one
   narrow peak in the middle and the lines Clipping Low and Clipping High in its corner, a row of toolbar buttons with
@@ -71,8 +72,8 @@ owed: true
 
 1. **Open the task.** Make the image the active one and choose **Process > Details > High Pass**, or find it in the
    [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page: the canvas at the
-   left turns gray with the structure of the image in relief, and the column at the right, headed **High Pass
-   Filter**, holds its controls, its histogram gathered in a narrow peak at 0.5.
+   left turns gray with the structure of the image in relief, and the column at the right, headed **High
+   Pass**, holds its controls, its histogram gathered in a narrow peak at 0.5.
 2. **Set the radius.** Set **Radius** to about the size of the largest structure the layer should hold. Lower keeps
    only the finest detail, higher keeps broader structure too.
 3. **Read the histogram.** Check **Clipping Low** and **Clipping High** in its corner: they give the share of the

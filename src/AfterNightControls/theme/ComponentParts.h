@@ -303,7 +303,8 @@ inline constexpr int kReadoutDotGap = 4;
 inline constexpr qreal kReadoutCapsTracking = 0.08;
 inline constexpr qreal kReadoutStaleOpacity = 0.55;
 // The compact readout of a task: padding 6 12 8, a 20 px header, a well 92 px high beside an 84 px column; a column at
-// least 480 px wide lays its histogram and its cells side by side.
+// least 480 px wide lays its histogram and its cells side by side, where the cells read whole and leave the histogram
+// at least 120 px.
 inline constexpr int kCompactReadoutPaddingTop = 6;
 inline constexpr int kCompactReadoutPaddingSide = 12;
 inline constexpr int kCompactReadoutPaddingBottom = 8;
@@ -311,6 +312,7 @@ inline constexpr int kCompactReadoutHeader = 20;
 inline constexpr int kCompactReadoutWell = 92;
 inline constexpr int kCompactReadoutSide = 84;
 inline constexpr int kCompactReadoutWide = 480;
+inline constexpr int kCompactReadoutWideWell = 120;
 inline constexpr int kCompactReadoutIcon = 12;
 /// A change smaller than this is shown as none.
 inline constexpr double kReadoutDeltaFloor = 0.00005;

@@ -39,8 +39,9 @@ class CompactAstrometryLine;
 /// astrometry in one line ("Solved", "0.52″/px · SIP 4/4"; nothing when it is not solved) and a chevron that asks for
 /// the full readout. A body of the preview's histogram in a 92 px well tagged "Preview", beside an 84 px column of the
 /// mode ("RGB · 8-bit"), Clip low and Clip high; and five cells - Min, Max, Mean, Median, StdDev - each with the change
-/// against the original under its value ("Δ +0.0123", "Δ ±0"). Under 480 px wide the cells take a row of their own
-/// under the histogram; wider, they sit beside it.
+/// against the original under its value ("Δ +0.0123", "Δ ±0"). Each cell reads whole: under 480 px wide the cells take
+/// the room under the histogram, five to a row where five fit and else in rows as even as fit; wider, they sit beside
+/// it in a row of five or two rows of three, where those read whole and leave the histogram 120 px, and else under it.
 ///
 /// The figures are the preview's: a colour image's are the mean of its three channels' figures. While the preview is
 /// measured again - or an interactive frame is shown, whose pixels are approximated - the values are drawn at 55 %.
@@ -80,16 +81,35 @@ public:
     [[nodiscard]] AnIconButton* expandButton() const noexcept;
     [[nodiscard]] QWidget* astrometryLine() const noexcept;
 
-    /// Told when the person asks for the full readout.
-void fullReadoutRequested() W_SIGNAL(fullReadoutRequested)
+    /// Whether the full readout is open over the column, which the chevron shows checked. Set by the owner that opens
+    /// and closes it, which is told nothing.
+    void setFullReadoutShown(bool shown);
+    [[nodiscard]] bool isFullReadoutShown() const noexcept;
+
+    /// Told when the person opens the full readout with the chevron, or closes it with it.
+void fullReadoutToggled(bool shown) W_SIGNAL(fullReadoutToggled, shown)
 
     protected : bool event(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
+    /// Where the cells go at a width: beside the histogram or under it, how many to a row, and how wide they are beside
+    /// it.
+    struct Arrangement
+    {
+        bool wide = false;
+        int columns = 1;
+        int width = 0;
+
+        [[nodiscard]] bool operator==(const Arrangement&) const = default;
+    };
+
     void applyMetrics();
-    void arrange(bool wide);
+    [[nodiscard]] Arrangement arrangementAt(int width) const;
+    void arrange(const Arrangement& arrangement);
+    /// Arranges the cells for the readout's width, when that moves them.
+    void rearrange();
     void refillCells();
 
     CompactAstrometryLine* m_astrometry = nullptr;
@@ -103,7 +123,7 @@ private:
     QGridLayout* m_body = nullptr;
     std::optional<ImageStatisticsReport> m_preview;
     std::optional<ImageStatisticsReport> m_original;
-    bool m_wide = false;
+    Arrangement m_arrangement;
     bool m_stale = false;
 };
 

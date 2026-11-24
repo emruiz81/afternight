@@ -41,7 +41,7 @@ the mask as an image of its own.
 image: ../../assets/images/processes/star-operations/dark-structure-enhance.webp
 alt: >-
   The Dark Structure Enhance task. Its header names the process and the stretched master, and the column's header
-  reads DarkStructureEnhance. The canvas at the left shows a red nebula crossed by dark lanes on a gray background,
+  reads Dark Structure Enhance. The canvas at the left shows a red nebula crossed by dark lanes on a gray background,
   and a framed area in the middle shows the darkened result. The column at the right opens with the compact readout
   of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel at RGB, the Layers to
   Remove, Amount and Iterations boxes with their sliders, the Scaling Function and Preview Mode lists, and Create mask
@@ -66,7 +66,7 @@ owed: true
 1. **Open the task.** Make the stretched image active and choose **Process > Details > Dark Structure Enhance**, or
    find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The task opens as a page:
    the canvas at the left shows the result inside a framed area in the middle, and the column at the right, headed
-   DarkStructureEnhance, holds its controls.
+   Dark Structure Enhance, holds its controls.
 2. **Choose what to measure.** Leave **Channel** at **RGB**, or choose **CIE L* (Lightness)** to darken the
    lightness alone and keep the colors closer.
 3. **Look at the mask.** Set **Preview Mode** to **Generated mask**, with the view's mask off. The dust lanes should

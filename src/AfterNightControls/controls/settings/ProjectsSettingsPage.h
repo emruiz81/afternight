@@ -21,10 +21,11 @@ namespace an::ui
 
 /// What a new project starts from, and how a history is written: the folder a new project is offered in; whether an
 /// integration job run with no project open makes one in its output folder; how the steps of a history are compressed
-/// - LZ4, none or Zstandard - which every history written from then on takes, in a project or not, and which the New
-/// Project dialog starts from; above how many gigabytes a project's history is asked to be compacted; and whether the
-/// project used last is opened as the application starts. A note says what holds without a project: the history is
-/// kept in the temporary folder and cleared on exit.
+/// - LZ4, none or Zstandard - which a history kept outside a project takes from its next step and the New Project
+/// dialog starts from, while a project's history keeps the compression the project was made with; above how many
+/// gigabytes a project's history is asked to be compacted; and whether the project used last is opened as the
+/// application starts. A note says what holds without a project: the history is kept in the temporary folder and
+/// cleared on exit.
 ///
 /// The page shows what the settings store states (`readProjectSettings`) and stores what it shows
 /// (`writeProjectSettings`); a location that is empty or is no folder's path is refused when the dialog applies.

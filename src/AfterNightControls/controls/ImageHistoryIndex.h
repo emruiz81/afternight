@@ -153,7 +153,9 @@ struct HistoryIndex
 /// @return whether it was written.
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool writeHistoryIndex(const QString& directory, const HistoryIndex& index);
 
-/// Reads a directory's index.
+/// Reads a directory's index. An index its history is writing again reads whole - the old one or the new one: for the
+/// moment the new file takes the old one's name it does not open, and it is tried again, a few milliseconds apart. For
+/// a worker.
 ///
 /// @param directory the history's directory.
 /// @return the index; nothing when the directory holds none or holds one that does not read.

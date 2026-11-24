@@ -187,7 +187,7 @@ controls:
     kind: button
     default: ""
     effect: Makes the mask of the whole image, or of every frame of a sequence, opens it beside the target as `<target> - MASK` and closes the task.
-    enabled: While it runs, the footer's **Cancel** stops the run in its place, and **Reset**, the task's own **Cancel** and every control of the column are disabled.
+    enabled: While it runs, the footer's **Cancel** that stops the run stands in its place and in the place of the task's own **Cancel**, and **Reset** and every control of the column are disabled.
     tradeoff: The run shows in the column, "applying" on a single image and **Overall** and **Processing** on a sequence; no progress window opens. Closing the target stops the run, which then makes nothing and shows no message. A sequence is written to a new temporary sequence, opened only when every frame is done.
     scope: The whole image. A preview area does not limit it, and the mask on the target's view is not used.
     persistence: The new image's history starts with a **Range Selection** step without a description. The target and its history are not changed.

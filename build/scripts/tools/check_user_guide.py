@@ -14,9 +14,12 @@ Rules, each reported with its id:
       stage ids are those of data/stages.yml (the schema is docs/user-guide/hooks/guide_model.py's).
   R3  Every page under the docs folder is in the nav, every nav entry names a page, and each page has exactly one H1.
   R4  Menu parity with the application, read from ProcessRegistryBuiltins.cpp (the registered actions) and the shell
-      core's actions (ActionIds.h, the ids; ActionCatalogue.cpp, the labels; MenuTree.cpp, the menus): every `menu`
-      path a page states is a menu or an action of the application, and every registered action, and every other action of the Process menu, sits on a page's `menu`,
-      as the path itself or under a submenu the page names.
+      core's actions (ActionIds.h, the ids; ActionCatalogue.cpp, the labels; MenuTree.cpp, the menus), and from the
+      record of the main window's menu bar, data/ui/shell/shell.menu-bar.json, which a test of the application writes
+      from the running window and which holds the entries the window adds to the menu tree as it is built (View >
+      Command Palette..., File > New Project..., Window > New Workspace): every `menu` path a page states is a menu or
+      an action of either, and every registered action, and every other action of the Process menu, sits on a page's
+      `menu`, as the path itself or under a submenu the page names.
   R5  Every image a page shows exists, spelled with the file's own case: its Markdown and HTML images, the images of
       its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
       assets/images that no page, README.md or the site's logo and favicon uses is a warning. A picture a `figure`
@@ -1369,6 +1372,7 @@ class _GuideCheck:
         self.vocabulary = model.load_vocabulary(guide)
         self.inventory = model.load_ui_inventory(guide)
         self.shell = model.load_shell_inventory(guide)
+        self.shell_menus = model.load_shell_menus(guide)
         self.product = None            # the application's menus, once read
         self.held_windows = set()      # the ids of the windows whose inventory a page was held to
         self.shell_described = {}      # part id -> (path, line) of the first block of an interface page that names it
@@ -1725,7 +1729,9 @@ class _GuideCheck:
         """R2-R15 over every page, or R2-R14 over the pages selected; returns what the summary reports."""
         try:
             product = ProductMenus(self.repo)
-            product_paths = product.existing_paths()
+            # A path is the menu tree's, or one of the menu bar the window has once it is built - the menu tree's and
+            # the entries the window adds to it - which its record under data/ui/shell holds.
+            product_paths = product.existing_paths() | self.model.shell_menu_paths(self.shell_menus)
         except OSError as error:
             product, product_paths = None, set()
             self.report('R4', os.path.join(self.repo, REGISTRY), 1, 'the application sources cannot be read: %s' %

@@ -132,7 +132,7 @@ controls:
     default: ""
     effect: Reads the column, asks the CFA question when the view shows no mosaic, and runs. When the run succeeds, the new views open and the task closes.
     enabled: From the moment the task opens. While the run works, the column shows the run in its banner's place, its controls and **Close** are disabled, and **Cancel** stands where OK was.
-    tradeoff: A still image has no progress window, and its run cannot be stopped once it starts. A sequence takes its view for the run and writes new sequences.
+    tradeoff: A sequence takes its view for the run and writes new sequences.
     scope: The whole image, or every frame of the sequence read as recorded, whatever frame the player shows. The mask is not used.
     persistence: "The source and its history are not changed. The RGB image opens as `<name> - RGB - <method>`, its history beginning `Debayer: RGB image created from RAW image '<name>'`. The channels open as `<name> - RED - <method>`, `<name> - GREEN - <method>` and `<name> - BLUE - <method>`, beginning `Debayer: Red channel extracted from RAW image '<name>'` and likewise. From a sequence, the RGB sequence is `<name> - RGB - <method>`, beginning `Debayer: RGB sequence created from RAW sequence '<name>'`, and the channels are `<name> - RED`, `<name> - GREEN` and `<name> - BLUE`, beginning `Red channel extracted from sequence '<name>'` and likewise."
     note: Its tooltip reads "Run debayer with the current settings." A run that fails, or that **Cancel** stops, leaves the task open, its controls enabled again. When another run holds the sequence, or the still image is being changed, it says "Another process is executing for this image, please cancel that job first before running this process", with "sequence" for a sequence, under the title **Debayer**, and runs nothing. Wait for the other run, then choose OK again.
@@ -164,19 +164,19 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows the share of the frames done, under the title **Debayer** and the text `Executing debayer to sequence <name>`.
-    enabled: Only while OK works on a sequence.
+    effect: Show, in the column's run row, the share of the frames done under **Overall**, and how far the demosaic of the frame on its way has come under **Processing**.
+    enabled: Only while OK works on a sequence. Over a still image the row reads "applying" with one bar. No progress window opens.
     tradeoff: Each output is written whole as a temporary sequence, in the source's container and converted as the container requires, before it opens. The RGB sequence holds three times the mosaic's samples, and both outputs together six times.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. The demosaic notices the stop between tiles of a frame, and the run between frames. Nothing opens, and the sequences being written are removed.
-    note: The column's run row shows the same share meanwhile. The task cannot be closed until the run ends.
+    effect: Stands in the footer in place of **OK** during a run, and stops it, on a still image as on a sequence, without a message. The demosaic notices the stop between tiles of a frame, and a sequence's run between frames. Nothing opens, and the sequences being written are removed.
+    note: The task cannot be closed until the run ends.
 ```
 
 ## How it works

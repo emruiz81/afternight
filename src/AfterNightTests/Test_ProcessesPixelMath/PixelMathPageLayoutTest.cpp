@@ -6,7 +6,8 @@
 /// control in the column and reached by Tab and nothing clipped sideways where text is measured; its expression editor
 /// growing with the body and keeping at least a third of its height; its function, operator and symbol tables in one
 /// section of the column that collapses, serving the expression of whichever tab is shown; and an expression - one, or
-/// one a channel - giving through the page the window's result.
+/// one a channel - giving through the page the window's result; and a run, over an image or a sequence, stopped by the
+/// page's Cancel with no progress window opened.
 
 #include "Test_ProcessesPixelMath/PixelMathTestSupport.h"
 #include "Test_ProcessesShared/PageLayoutCheck.h"
@@ -19,6 +20,7 @@
 
 #include <QSet>
 #include <QTabWidget>
+#include <QTemporaryDir>
 
 #include <gtest/gtest.h>
 
@@ -250,6 +252,40 @@ TEST_F(PixelMathPage, EveryTableIsReached)
         context().presenter = nullptr;
     }
     dropView(context(), target);
+}
+
+// A run over an image on the page shows in the page's row and opens no progress window; the page's Cancel stops it,
+// and the image is left as it was.
+TEST_F(PixelMathPage, AnImageRunStopsAtThePagesCancel)
+{
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle target = scene("stopped target");
+    ASSERT_NE(target, nullptr);
+    context().addViewControl(target.get());
+    shared::expectMirrorPageRunStopsAtItsCancel(kDescriptorId, context(), *target, [](QWidget& window) {
+        setExpression(window, PixelMathExpressionTab::RedOrAll, QStringLiteral("$T * 0.5"));
+    });
+    dropView(context(), target);
+}
+
+// A run over a sequence on the page shows the run's two bars and opens no progress window; the page's Cancel stops it,
+// and the view shows the sequence it was opened on.
+TEST_F(PixelMathPage, ASequenceRunStopsAtThePagesCancel)
+{
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const QString path =
+        writeSceneSequence(context().engineSession(), directory, {"scene-rgb-float32", "scene-rgb-float32-second"});
+    ASSERT_FALSE(path.isEmpty());
+    ImageViewControl* const target = openSequenceView(context(), path, an::SequenceFormat::ImageList, "page frames");
+    ASSERT_NE(target, nullptr);
+    ASSERT_TRUE(settleView(*target));
+    shared::expectMirrorPageRunStopsAtItsCancel(kDescriptorId, context(), *target, [](QWidget& window) {
+        setExpression(window, PixelMathExpressionTab::RedOrAll, QStringLiteral("$T * 0.5"));
+    });
 }
 
 // An expression for each colour channel, written in the page's tabs, gives the window's result.

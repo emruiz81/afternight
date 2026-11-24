@@ -27,12 +27,14 @@
 #include <QCborArray>
 #include <QCborMap>
 #include <QElapsedTimer>
+#include <QLabel>
 #include <QPointer>
 #include <QPushButton>
 #include <QSlider>
 #include <QStringList>
 #include <QThreadPool>
 #include <QTimer>
+#include <QVBoxLayout>
 
 #include <gtest/gtest.h>
 
@@ -274,6 +276,36 @@ TEST_F(HostedProcess, TheDescriptionBecomesControls)
     EXPECT_NE(m_process->findChild<QPushButton*>(QStringLiteral("anNativeParamActionButton")), nullptr);
     EXPECT_DOUBLE_EQ(m_process->currentParams().value(QStringLiteral("strength")).toDouble(), 0.25);
     EXPECT_TRUE(m_process->hostReady());
+}
+
+// The extension's credits, which the process shows with its description, are on its page where a process's description
+// is: the tooltip of the column's header, as its host tells them once the page is there - a first start's - and again
+// when it tells another description.
+TEST_F(HostedProcess, ItsCreditsAreTheDescriptionItsPageShows)
+{
+    open(false);
+    QWidget host;
+    auto* const hostLayout = new QVBoxLayout(&host);
+    hostLayout->setContentsMargins(0, 0, 0, 0);
+    ASSERT_TRUE(m_process->attachToPage(host));
+    ASSERT_NE(m_process->pageLayout(), nullptr);
+    const QLabel* const title = m_process->findChild<QLabel*>(QStringLiteral("pageTitle"));
+    ASSERT_NE(title, nullptr);
+
+    const QString credits = QStringLiteral("Seam Extension by the examples' authors, after the published method.");
+    describe(QCborArray{strengthParam(), QCborMap{{QStringLiteral("id"), QStringLiteral("credits")},
+                                                  {QStringLiteral("type"), QStringLiteral("info")},
+                                                  {QStringLiteral("text"), credits}}});
+    EXPECT_EQ(m_process->property("anProcessDescription").toString(), credits) << "the description carries them";
+    EXPECT_EQ(title->toolTip(), credits) << "the page shows them where it shows a process's description";
+
+    const QString others = QStringLiteral("Other credits.");
+    describe(QCborArray{strengthParam(0.4), QCborMap{{QStringLiteral("id"), QStringLiteral("credits")},
+                                                     {QStringLiteral("type"), QStringLiteral("info")},
+                                                     {QStringLiteral("text"), others}}});
+    EXPECT_EQ(title->toolTip(), others) << "the page follows the description the host tells last";
+
+    m_process->detachToWindow();
 }
 
 TEST_F(HostedProcess, AValueChangeSendsOneEvent)

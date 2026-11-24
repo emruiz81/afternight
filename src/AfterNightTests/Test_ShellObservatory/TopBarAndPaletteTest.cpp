@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The Observatory top bar and the command palette: the bar's parts in each density, the breadcrumb of the place, the
-// palette's field in its three widths, the palette opened by Ctrl+K and running what the menus run through their
-// guards, Night over the whole window, and the shortcuts this shell adds, which no 1.1 shortcut meets.
+// The Observatory top bar and the command palette: the bar's parts in each density, the breadcrumb of the place and a
+// click on it going there, the palette's field in its three widths, the palette opened by Ctrl+K and running what the
+// menus run through their guards, Night over the whole window, and the shortcuts this shell adds, which no 1.1
+// shortcut meets.
 
 #include "ObservatoryWindowCase.h"
 
@@ -12,6 +13,7 @@
 #include "chrome/PaletteField.h"
 #include "chrome/TopBar.h"
 #include "pages/WorkspacePage.h"
+#include "workspaces/WorkspaceHost.h"
 
 #include "Test_ShellObservatory/InventoryRecords.h"
 #include "fixtures/BaselineRecord.h"
@@ -28,7 +30,9 @@
 #include "controls/TopLevelProcessBaseControl.h"
 #include "core/ApplicationCore.h"
 #include "services/FavoriteProcessesModel.h"
+#include "services/ProcessLaunchService.h"
 #include "theme/AnDesignTokens.h"
+#include "views/ViewService.h"
 
 #include <kddockwidgets/DockWidget.h>
 
@@ -223,6 +227,46 @@ TEST_F(TopBar, TheButtonsAtItsRight)
     EXPECT_EQ(more->menu(), window().moreMenu());
     EXPECT_EQ(window().moreMenu()->actions().size(),
               static_cast<qsizetype>(an::ui::shell::MenuTree::menuBar().topLevel().size()));
+    // More is named for what it holds, in its tooltip as to assistive technology.
+    EXPECT_EQ(more->toolTip(), QStringLiteral("All menus"));
+    EXPECT_EQ(more->accessibleName(), QStringLiteral("All menus"));
+}
+
+// A click on a part of the breadcrumb goes to that place: on a task's page the target's name goes to the image in its
+// workspace, and the process's stays on the page; a workspace's name shows the workspace; Home is Home.
+TEST_F(TopBar, AClickOnAPartOfTheBreadcrumbGoesThere)
+{
+    an::ui::AnBreadcrumb& crumbs = *window().topBar()->breadcrumb();
+    ImageViewControl* const view = openView(QStringLiteral("breadcrumb-click"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_TRUE(core().processLaunch().launch(std::string("transforms.actionCurves_Transformation")));
+    settle();
+    ASSERT_TRUE(window().isTaskPageShown());
+    ASSERT_EQ(crumbs.parts().size(), 2);
+
+    crumbs.partActivated(0);
+    settle();
+    EXPECT_TRUE(window().isTaskPageShown()) << "the process's name is the page shown";
+
+    crumbs.partActivated(1);
+    settle();
+    EXPECT_TRUE(window().isWorkspaceShown()) << "the target's name goes to the image";
+    EXPECT_EQ(core().viewService().getActiveImageViewControl(), view);
+    EXPECT_EQ(window().workspaces().workspaceOf(*view), window().workspaces().shown());
+
+    window().showHome();
+    settle();
+    ASSERT_EQ(crumbs.parts(), QStringList{QStringLiteral("Home")});
+    crumbs.partActivated(0);
+    settle();
+    EXPECT_TRUE(window().isHomeShown());
+
+    window().showViews();
+    settle();
+    ASSERT_TRUE(window().isWorkspaceShown());
+    crumbs.partActivated(0);
+    settle();
+    EXPECT_TRUE(window().isWorkspaceShown()) << "the workspace's name shows the workspace";
 }
 
 // Ctrl+K opens the palette over the centre, the centre and the column under the scrim; Esc closes it and the scrim

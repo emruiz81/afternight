@@ -72,8 +72,8 @@ public:
     [[nodiscard]] static std::vector<ImageViewControl*> viewsDockedIn(const DockTarget& target,
                                                                       const std::vector<ImageViewControl*>& views);
 
-    /// The views of `views` that share the window `view` is in: the floating window it is in, or, docked, every view
-    /// docked in a dock area. `view` among them.
+    /// The views of `views` that share the window `view` is in: the floating window it is in, or, docked, the dock area
+    /// it is docked in - a workspace's - and none of another. `view` among them.
     [[nodiscard]] static std::list<ImageViewControl*>
     viewsSharingTheWindowOf(ImageViewControl& view, const std::vector<ImageViewControl*>& views);
 

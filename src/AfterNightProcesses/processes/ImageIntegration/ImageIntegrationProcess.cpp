@@ -1259,11 +1259,23 @@ void ImageIntegrationProcess::joinProjectForRun(const QString& outputDirectory)
     {
         return;
     }
-    // The project that is open, or - with none open - the one the application gives the job in its output folder.
+    // The project that is open, or - with none open - the one the application gives the job in its output folder,
+    // which is about the object the OBJECT cards of the lights the job stacks agree on.
     std::optional<an::ui::JobProject> project = projects->openProject();
     if (!project.has_value())
     {
-        project = projects->projectForJob(outputDirectory);
+        QStringList objectCards;
+        if (m_model)
+        {
+            for (const FrameInfo& frame : m_model->lightFrames().frames())
+            {
+                if (!frame.excluded)
+                {
+                    objectCards.push_back(frame.metadata.objectName());
+                }
+            }
+        }
+        project = projects->projectForJob(outputDirectory, objectCards);
     }
     if (!project.has_value())
     {

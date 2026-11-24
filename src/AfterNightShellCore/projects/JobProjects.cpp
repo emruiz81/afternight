@@ -30,6 +30,35 @@ namespace
     return project;
 }
 
+/// The object frames' OBJECT cards agree on, named as the first frame that states it writes it; none when they name
+/// different objects or none states one. A card is read with its blanks trimmed and the ones inside it made one, and
+/// two cards agree without regard to case.
+[[nodiscard]] std::optional<ProjectObject> objectOfCards(const QStringList& objectCards)
+{
+    QString agreed;
+    for (const QString& card : objectCards)
+    {
+        const QString object = card.simplified();
+        if (object.isEmpty())
+        {
+            continue;
+        }
+        if (agreed.isEmpty())
+        {
+            agreed = object;
+        }
+        else if (object.compare(agreed, Qt::CaseInsensitive) != 0)
+        {
+            return std::nullopt;
+        }
+    }
+    if (agreed.isEmpty())
+    {
+        return std::nullopt;
+    }
+    return ProjectObject{.name = agreed, .source = ProjectObjectSource::ObjectCard};
+}
+
 } // namespace
 
 JobProjects::JobProjects(ProjectService& projects) : m_projects(projects) {}
@@ -61,7 +90,8 @@ std::optional<an::ui::JobProject> JobProjects::openProject() const
     return seenByAJob(m_projects);
 }
 
-std::optional<an::ui::JobProject> JobProjects::projectForJob(const QString& outputFolder)
+std::optional<an::ui::JobProject> JobProjects::projectForJob(const QString& outputFolder,
+                                                             const QStringList& objectCards)
 {
     // A job that runs inside a project asks for none; one that writes nowhere has no folder to make one of.
     if (m_projects.isOpen() || outputFolder.trimmed().isEmpty())
@@ -100,6 +130,7 @@ std::optional<an::ui::JobProject> JobProjects::projectForJob(const QString& outp
     request.name = projectNameFor(folder);
     request.compression = stored.historyCompression;
     request.origin = ProjectOrigin::IntegrationJob;
+    request.object = objectOfCards(objectCards);
     const ProjectOutcome made = m_projects.createInFolder(folder, request);
     if (!made.ok())
     {

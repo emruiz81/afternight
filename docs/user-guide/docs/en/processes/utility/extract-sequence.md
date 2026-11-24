@@ -77,7 +77,7 @@ owed: true
 3. **Set the last frame.** Type the number of the last frame to keep in **End Frame**. Both frames are kept.
 4. **Check the count.** **Selected Frames** shows how many frames the new sequence will hold, and **Sequence Size**
    about how much memory their samples take.
-5. **Extract.** Choose **OK** in the column's footer, or press ++ctrl+enter++. A progress window follows the frames,
+5. **Extract.** Choose **OK** in the column's footer, or press ++ctrl+enter++. The column's run row follows the frames,
    then the task closes and a new sequence view opens beside the source, under its name.
 
 ## Controls
@@ -128,7 +128,7 @@ controls:
     kind: button
     default: ""
     effect: Reads the range, holds the source's view, copies the frames into a new sequence in the source's container, and opens it in a new view beside the source. The task then closes.
-    enabled: While the run works, the column says "applying", and its controls, **Close** and **Reset** are disabled. While another run holds the source's view, a box titled **Extract Sequence** shows "Another process is executing for this sequence, please cancel that job first before running this process", and nothing starts.
+    enabled: While the run works, the column shows the run in its banner's place, its controls, **Close** and **Reset** are disabled, and **Cancel** stands where OK was. While another run holds the source's view, a box titled **Extract Sequence** shows "Another process is executing for this sequence, please cancel that job first before running this process", and nothing starts.
     tradeoff: The whole range is read and written once, which can take time and much temporary disk. The time grows with the frames, their pixels and their channels. A video is decoded frame by frame, and MP4 and Matroska are encoded again. The source's player is paused and disabled while the run holds the view.
     scope: Whole frames and every channel. No mask is read, and nothing is blended.
     persistence: "The new sequence is unsaved, in the session's temporary folder. Its history starts with `Extract Sequence: Extracted frames 11 to 60 from sequence '<name>'`, with the range and the source's name. The source's history gets no step."
@@ -145,17 +145,17 @@ controls:
 ```
 
 ```controls
-window: Extraction progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: Shows "Extracting new sequence from sequence <name>" and the share of the frames written, from 0 to 100 percent, in a window titled **Extract Sequence**. The column's run row shows the same share.
-    enabled: Shown while the run works.
+    effect: Show, in the column's run row, the share of the frames written, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Shown while the run works. No progress window opens.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run before the next frame. Nothing is published, what was written is removed, and the source is unchanged.
+    effect: Stands in the footer in place of **OK** during the run, and stops it before the next frame. Nothing is published, what was written is removed, and the source is unchanged.
     persistence: The task stays open with its controls enabled, and no message is shown.
 ```
 
@@ -165,7 +165,7 @@ controls:
 2. **OK** reads the range, holds the source's view and asks for a new file in the session's temporary folder, in the
    source's container: `SEQ_SWAP<token>.ser`, `.anseq`, `.avi`, `.mp4`, or `.mkv` for any other video container.
 3. The frames from **Start Frame** to **End Frame** are read in order, as the file recorded them, and appended. A
-   mosaic is not demosaiced. The progress bar moves with each frame written.
+   mosaic is not demosaiced. **Overall** moves with each frame written.
 4. When the last frame is in, the new sequence is completed and appears under its file name whole. Until then
    nothing exists there.
 5. The source's view is released and a new view opens beside it, under the source's name, made unique when that name

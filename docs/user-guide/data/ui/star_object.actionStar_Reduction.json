@@ -18,7 +18,7 @@
     {"label": "Create reduced-stars-only image", "kind": "check", "object": "createStarsImage", "group": "Output options", "visible": true, "default": "On"},
     {"label": "Enable reverse stretch", "kind": "check", "object": "enableReverseStretch", "group": "Output options", "visible": true, "default": "Off"},
     {"label": "Stars id", "kind": "field", "object": "starImageId", "group": "Output options", "visible": true, "default": "<Auto>"},
-    {"label": "Show preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
     {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
     {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
     {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}

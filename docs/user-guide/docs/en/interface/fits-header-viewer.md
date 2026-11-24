@@ -118,8 +118,8 @@ controls:
     kind: readout
     default: ""
     effect: Names the view the table belongs to, as `FITS Header Viewer <M42>`, and follows a rename. The heading inside says INFORMATION and the view's name over **FITS Header**.
-    enabled: The menu entry - in the menu bar, **All menus**, the view's menu or the command palette - is enabled while the image carries at least one FITS card, whatever the file's extension. While a window is open, that view's menu entry is disabled until a FITS Header window of it closes. The readout's **FITS Header** is always enabled, and each press opens another window. It and ++ctrl+shift+h++ open a window even when the menu entry is disabled, then empty.
-    tradeoff: While an edit holds the image, the view may find no card and disable the menu entry until the edit is done. With two windows open, closing either enables the menu entry again.
+    enabled: The menu entry - in the menu bar, **All menus**, the view's menu or the command palette - is enabled while the image carries at least one FITS card, whatever the file's extension. There is one window for each view. While it is open, that view's menu entry is disabled until it closes; the readout's **FITS Header** is always enabled, and brings it forward. It and ++ctrl+shift+h++ open a window even when the menu entry is disabled, then empty.
+    tradeoff: While an edit holds the image, the view may find no card and disable the menu entry until the edit is done.
     persistence: Nothing of the window is kept, neither the column widths nor the row marked.
     note: The window stays open beside your work, and closes with its view. None of the three windows reads the pixels, a catalog or the network.
   - name: Key, Value and Comment
@@ -148,7 +148,7 @@ controls:
     kind: readout
     default: ""
     effect: Names the view, as `EXIF Header Viewer <M42>`, and follows a rename. The heading inside says INFORMATION and the view's name over **EXIF Metadata**.
-    enabled: The menu entry is enabled while the image carries an EXIF field the window shows, from a JPEG, TIFF, PNG or camera raw file. A container's own entries, such as a PNG's bit depth or a JPEG comment, do not count. While a window is open, its menu entry is disabled, as for FITS Header. The readout's **EXIF Viewer** and ++ctrl+shift+x++ open a window even when the menu entry is disabled, then empty.
+    enabled: 'The menu entry is enabled while the image carries an EXIF field the window shows, from a JPEG, TIFF, PNG or camera raw file. A container''s own entries, such as a PNG''s bit depth or a JPEG comment, do not count. There is one window for each view: while it is open, its menu entry is disabled, as for FITS Header, and the readout''s **EXIF Viewer** and ++ctrl+shift+x++ bring it forward. They open a window even when the menu entry is disabled, then empty.'
     range: A camera raw file in a TIFF structure - NEF, DNG, ARW, PEF, SRW, CR2, ORF, RW2 - gives its fields, and a RAF file those of its embedded preview. A CR3, CRW, MRW or X3F file gives none.
     persistence: Nothing of the window is kept.
   - name: Tag, Value and Key

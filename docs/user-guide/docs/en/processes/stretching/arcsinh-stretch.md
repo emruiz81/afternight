@@ -45,7 +45,7 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
 alt: >-
   The ArcSinh Stretch task. Its header names the process and the linear master, and the column's header reads
-  ArcSinhStretch. The canvas at the left shows the stretched preview, a red nebula on a dark gray background. The
+  ArcSinh Stretch. The canvas at the left shows the stretched preview, a red nebula on a dark gray background. The
   column at the right opens with the compact readout of the preview, then the Preview, Preview area and Processed
   toggles, Target Image, a histogram with one peak near its left fifth and the lines Clipping Low and Clipping High
   in its corner, its toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with their sliders, and
@@ -75,7 +75,7 @@ owed: true
    [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
    ArcSinh Stretch**, or find it in the [command palette](../../interface/command-palette.md) with ++ctrl+k++. The
    [task](../../reference/glossary.md#task) opens as a page: the canvas at the left shows a nearly black preview, the column at the right, headed
-   **ArcSinhStretch**, its controls and a histogram with a narrow peak at its left.
+   **ArcSinh Stretch**, its controls and a histogram with a narrow peak at its left.
 2. **Raise the stretch factor.** Increase **Stretch Factor** until the faint signal shows in the preview. The
    background turns gray and the peak of the histogram moves to the right.
 3. **Set the black point.** Raise **Black Point** until the background is dark again. Stop while **Clipping Low**

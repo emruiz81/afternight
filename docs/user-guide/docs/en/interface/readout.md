@@ -89,13 +89,15 @@ the readout waits and tries again by itself.
 
 The buttons in the cards' headers open the windows the menus open: **Open the Histogram window**, **Open Image
 Statistics**, **FITS Header**, **EXIF Viewer** and **Summary**, and in the Astrometry card **Info**. Each acts on the
-image the readout reads.
+image the readout reads, and opens one window of its kind for that image: pressed again while it is open, it brings
+that window forward.
 
 ### Show the astrometry over a solved image
 
 Click a chip of the Astrometry card - **Grid**, **Annotations**, **Star labels**, **Detected stars** or **SIP map** -
 to show or hide that overlay. Turning one on turns on **Show Astrometry** on the floating toolbar, which shows every
-overlay chosen. **Astrometry Settings** opens the overlays' menu with the choices for the annotations.
+overlay chosen. **Astrometry Settings** opens the overlays' menu with the choices for the annotations; an overlay
+ticked there turns on **Show Astrometry** as its chip does.
 [Astrometry Overlays](astrometry-overlays.md) describes each overlay.
 
 ### Read a task's preview
@@ -136,7 +138,7 @@ controls:
   - name: Open the Histogram window
     kind: toolbutton
     default: ""
-    effect: Opens Histogram Analysis for the image, a new window at each choice. ++ctrl+h++ does the same.
+    effect: Opens Histogram Analysis for the image. One window per view; choosing it again brings that window forward. ++ctrl+h++ opens it too.
   - name: Plot
     kind: readout
     default: ""
@@ -196,7 +198,7 @@ controls:
   - name: Open Image Statistics
     kind: toolbutton
     default: ""
-    effect: Opens Image Statistics, with its 13 statistics per channel, a new window at each choice. ++ctrl+shift+t++ does the same.
+    effect: Opens Image Statistics, with its 13 statistics per channel. One window per view; choosing it again brings that window forward. ++ctrl+shift+t++ opens it too.
   - name: Figures
     kind: readout
     default: ""
@@ -217,7 +219,7 @@ controls:
     kind: toolbutton
     default: ""
     effect: "Opens the overlays' menu: **Equatorial Grid** (++ctrl+1++), **Deep-Sky Annotations** (++ctrl+2++), **Star Labels** (++ctrl+3++), **SIP Distortion Map** (++ctrl+5++) and **Detected Stars** (++ctrl+4++), then **Level of Detail**, **Labels**, **Palette** and **Text Size** for the annotations."
-    enabled: While the readout reads an image's own view. The shortcuts work while **Show Astrometry** is on.
+    enabled: While the readout reads an image's own view. The shortcuts work while **Show Astrometry** is on; an overlay ticked in the menu turns **Show Astrometry** on, as its chip does.
     persistence: Every choice of the menu is kept between sessions for every view. The grid is on and the other four overlays off on a new profile.
   - name: Solution
     kind: readout
@@ -277,17 +279,17 @@ controls:
   - name: FITS Header
     kind: toolbutton
     default: ""
-    effect: Opens the FITS header of the image, keyword, value and comment, a new window at each choice. ++ctrl+shift+h++ does the same.
+    effect: Opens the FITS header of the image, keyword, value and comment. One window per view; choosing it again brings that window forward. ++ctrl+shift+h++ does the same.
     note: An image that carries no FITS card opens an empty window.
   - name: EXIF Viewer
     kind: toolbutton
     default: ""
-    effect: Opens the camera fields the image's file stated, a new window at each choice. ++ctrl+shift+x++ does the same.
+    effect: Opens the camera fields the image's file stated. One window per view; choosing it again brings that window forward. ++ctrl+shift+x++ does the same.
     note: An image whose file stated no EXIF field opens an empty window.
   - name: Summary
     kind: toolbutton
     default: ""
-    effect: Opens the summary of the image, or of the sequence, a new window at each choice. ++ctrl+shift+m++ does the same.
+    effect: Opens the summary of the image, or of the sequence. One window per view; choosing it again brings that window forward. ++ctrl+shift+m++ does the same.
   - name: Facts
     kind: readout
     default: ""

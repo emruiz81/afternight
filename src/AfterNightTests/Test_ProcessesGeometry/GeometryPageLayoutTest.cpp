@@ -4,7 +4,8 @@
 /// @file
 /// The geometry and filter-array processes launched on an image as mirror pages: each in its column at 600 px of
 /// height, in both densities, with every control in the column and reached by Tab and nothing clipped sideways where
-/// text is measured; each giving through its page the result its window gives for the same parameters; and Crop and
+/// text is measured; each giving through its page the result its window gives for the same parameters; each run on its
+/// page, over a sequence or an image, stopped by the page's Cancel with no progress window opened; and Crop and
 /// Rotate, which mark a rectangle on the view the person works on, marking it on the page's view of the target - the
 /// same rectangle of the image, the same result - and leaving nothing of it on the target's own view.
 
@@ -165,6 +166,48 @@ void appliesAsInAWindow(std::string_view action)
     return documentSamples(target.document());
 }
 
+/// A run of a process over a sequence of three frames of its scene, on its page, stopped by the page's Cancel: no
+/// progress window, the run's two bars, and the sequence left as it was.
+void sequenceRunStopsAtThePagesCancel(std::string_view action)
+{
+    const GeometryProcess* process = familyProcess(action);
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const QString path =
+        writeSceneSequence(context->engineSession(), directory, {process->scene, process->scene, process->scene});
+    ASSERT_FALSE(path.isEmpty());
+    ImageViewControl* const target = openSequenceView(*context, path, an::SequenceFormat::ImageList, "page frames");
+    ASSERT_NE(target, nullptr);
+    ASSERT_TRUE(target->isSequence());
+    ASSERT_TRUE(settleView(*target));
+    shared::expectMirrorPageRunStopsAtItsCancel(process->descriptorId, *context, *target,
+                                                [process](QWidget& window) { process->configure(window, "-"); });
+}
+
+/// A run of a process over its scene, on its page, stopped by the page's Cancel: the image left as it was.
+void imageRunStopsAtThePagesCancel(std::string_view action)
+{
+    const GeometryProcess* process = familyProcess(action);
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    PageTarget target = openPageTarget(*context, *process, "stopped target");
+    ASSERT_NE(target.view, nullptr);
+    context->addViewControl(target.view.get());
+    shared::expectMirrorPageRunStopsAtItsCancel(process->descriptorId, *context, *target.view,
+                                                [process](QWidget& window) { process->configure(window, "-"); });
+    dropView(*context, target.view);
+}
+
 } // namespace
 
 #define AN_GEOMETRY_PAGE(Name, Action)         \
@@ -185,6 +228,32 @@ AN_GEOMETRY_PAGE(CfaIntegerResample, "actionCFA_Integer_Resample")
 AN_GEOMETRY_PAGE(Debayer, "actionDebayer")
 AN_GEOMETRY_PAGE(SplitCfa, "actionSplit_CFA")
 AN_GEOMETRY_PAGE(ExtractSequence, "actionExtract_Sequence")
+
+// A run on a page shows in the page's row and opens no progress window, over a sequence as over an image; the page's
+// Cancel stops it, and the target is left as it was.
+#define AN_GEOMETRY_PAGE_RUN(Name, Action)                  \
+    TEST(PageRun, Name##OverASequenceStopsAtThePagesCancel) \
+    {                                                       \
+        sequenceRunStopsAtThePagesCancel(Action);           \
+    }                                                       \
+    TEST(PageRun, Name##OverAnImageStopsAtThePagesCancel)   \
+    {                                                       \
+        imageRunStopsAtThePagesCancel(Action);              \
+    }
+
+AN_GEOMETRY_PAGE_RUN(Crop, "actionCrop")
+AN_GEOMETRY_PAGE_RUN(Rotate, "actionRotate")
+AN_GEOMETRY_PAGE_RUN(Resize, "actionResize")
+AN_GEOMETRY_PAGE_RUN(IntegerResample, "actionIntegerResample")
+AN_GEOMETRY_PAGE_RUN(CfaIntegerResample, "actionCFA_Integer_Resample")
+AN_GEOMETRY_PAGE_RUN(Debayer, "actionDebayer")
+AN_GEOMETRY_PAGE_RUN(SplitCfa, "actionSplit_CFA")
+
+// Extract Sequence runs over a sequence only.
+TEST(PageRun, ExtractSequenceOverASequenceStopsAtThePagesCancel)
+{
+    sequenceRunStopsAtThePagesCancel("actionExtract_Sequence");
+}
 
 // A crop's rectangle drawn on the page's view of the target is the rectangle of the image the same drag draws on the
 // target's own view in a window, and its Apply crops the image to it as the window's does.
@@ -543,6 +612,61 @@ TEST(MergeCfa, ASequencePageOpensNoProgressWindowAndCancels)
     EXPECT_EQ(process->runsPublished(), 0u);
     shared::closeOpenedProcessWindows();
     context->presenter = nullptr;
+}
+
+// Merge CFA joining four images on a page shows its run in the page's row and opens no progress window; the page's
+// Cancel stops the join, nothing is published, it says nothing and the page stays open.
+TEST(MergeCfa, AnImagePageRunStopsAtItsCancel)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    std::vector<ViewHandle> planes = mergePlanes(*context);
+    ASSERT_EQ(planes.size(), 4u);
+    PagePresenter presenter;
+    context->presenter = &presenter;
+    const QPointer<MergeCFAProcess> process =
+        dynamic_cast<MergeCFAProcess*>(shared::launchWindowOf(kMergeCfa, *planes[0]));
+    ASSERT_NE(process, nullptr);
+    an::ui::ProcessPageLayout* const page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    choosePlanes(*process, planes);
+    ASSERT_TRUE(pumpUntil([&process]() { return process.isNull() || process->isProcessIdle(); }));
+    ASSERT_FALSE(process.isNull());
+    const std::size_t made = context->madeViews.size();
+    const int errors = context->errorCount();
+
+    const ProgressWindowsShown windows;
+    {
+        PoolHold hold;
+        ASSERT_TRUE(hold.held());
+        ASSERT_TRUE(process->triggerPrimaryAction()) << "Ok joins the planes";
+        QCoreApplication::processEvents();
+        EXPECT_TRUE(process->isRunning());
+        EXPECT_TRUE(process->runState().running());
+        EXPECT_FALSE(process->runState().sequence);
+        EXPECT_EQ(page->runBars(), 1);
+        ASSERT_TRUE(page->cancelButton()->isVisible()) << "the page's Cancel is offered";
+        EXPECT_TRUE(page->cancelButton()->isEnabled());
+        page->cancelButton()->click();
+    }
+    ASSERT_TRUE(pumpUntil([&process]() { return process.isNull() || !process->isRunning(); }));
+    pumpQuietly();
+    ASSERT_FALSE(process.isNull()) << "a stopped join leaves the page open";
+    EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+    EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Cancelled)
+        << "the page's Cancel stopped the join";
+    EXPECT_EQ(context->madeViews.size(), made) << "nothing published";
+    EXPECT_EQ(process->runsPublished(), 0u);
+    EXPECT_EQ(context->errorCount(), errors) << "a stop the person asked for is quiet";
+    shared::closeOpenedProcessWindows();
+    context->presenter = nullptr;
+    for (ViewHandle& plane : planes)
+    {
+        dropView(*context, plane);
+    }
 }
 
 // Merge CFA's preview, once its four planes are chosen, is the mosaic Ok makes of them.

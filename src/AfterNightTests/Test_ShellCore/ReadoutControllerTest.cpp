@@ -666,6 +666,35 @@ TEST_F(AstrometryCard, EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut)
     EXPECT_FALSE(chip->isChecked());
 }
 
+// An overlay ticked in the card's settings menu turns the view's overlays on as its chip does - an overlay turned on
+// shows only while the view draws its overlays - and its chip follows; ticked off, the overlays stay as they are.
+TEST_F(AstrometryCard, AnOverlayTickedInTheSettingsMenuTurnsTheOverlaysOnAsItsChipDoes)
+{
+    ImageViewControl* view = filledView(QStringLiteral("menu-overlays"), 0.25f);
+    ASSERT_NE(view, nullptr);
+    (void)controller();
+    QAction* grid = view->findChild<QAction*>(QStringLiteral("astrometryGridAction"));
+    QAction* overlays = view->findChild<QAction*>(QStringLiteral("astrometryOverlayAction"));
+    ASSERT_NE(grid, nullptr);
+    ASSERT_NE(overlays, nullptr);
+    an::ui::AnAstrometryCard& card = *m_column->astrometryCard();
+    QMenu* const menu = card.settingsMenu();
+    ASSERT_NE(menu, nullptr);
+    ASSERT_TRUE(menu->actions().contains(grid)) << "the menu holds the grid's entry";
+    overlays->setChecked(false);
+    grid->setChecked(false);
+
+    // A click on the menu's entry triggers it.
+    grid->trigger();
+    EXPECT_TRUE(grid->isChecked());
+    EXPECT_TRUE(card.overlayChip(an::ui::AstrometryOverlay::Grid)->isChecked());
+    EXPECT_TRUE(overlays->isChecked()) << "an overlay turned on shows only while the view draws its overlays";
+
+    grid->trigger();
+    EXPECT_FALSE(grid->isChecked());
+    EXPECT_TRUE(overlays->isChecked()) << "an overlay turned off leaves the others shown";
+}
+
 // The folded cards and the collapsed column are kept in the global settings store and handed to the next column.
 TEST_F(ReadoutController, RemembersTheFoldsAndTheCollapse)
 {

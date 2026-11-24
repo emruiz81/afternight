@@ -14,7 +14,7 @@
     {"label": "Add dither", "kind": "check", "object": "addDither", "group": "Background Extraction", "visible": true, "default": "Off"},
     {"label": "Preview Display", "kind": "combo", "object": "previewDisplaySelector", "group": "Background Extraction", "visible": true, "default": "Corrected image", "options": ["Corrected image", "Gradient model"]},
     {"label": "Preview", "kind": "button", "object": "previewButton", "group": "Background Extraction", "visible": true, "default": ""},
-    {"label": "Enable preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
+    {"label": "Preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
     {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
     {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
     {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},

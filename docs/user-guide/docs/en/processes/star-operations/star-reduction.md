@@ -45,7 +45,7 @@ image: ../../assets/images/processes/star-operations/star-reduction.webp
 alt: >-
   The Star Reduction task. Its header names the process and the stretched Carina master. The canvas at the left shows
   the stretched nebula with a framed area in its middle, the word PREVIEW in its corner. The column at the right opens
-  with the compact readout of the preview, then the Show preview and Preview area toggles ticked, Target image, and
+  with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target image, and
   the sections of the process: Views with Starless image, Generator and the Generate starless view button; Small star
   protection with its button and check box; Star reduction parameters with Reduction method at Star Method, a dimmed
   Stretch factor, Mode at Strong and Iterations at 2; and Output options with its check boxes and name fields. Reset,
@@ -235,10 +235,10 @@ controls:
     enabled: With **Create reduced-stars-only image**.
     range: A name already in use is made unique.
     persistence: Until the task closes. **Reset** and a finished OK return it to `<Auto>`.
-  - name: Show preview
+  - name: Preview
     kind: check
     default: "On"
-    effect: Shows the preview in the canvas, as **Preview** does in every task. It shows the target unchanged until a starless image is chosen.
+    effect: Shows the preview in the canvas, as in every task. It shows the target unchanged until a starless image is chosen.
     enabled: It stands in the column's toggles row, beside **Preview area**, and is disabled while OK runs.
     scope: The task only. The preview area, which opens on, crops the target, the starless image and the mask alike. OK always works on the whole image.
     persistence: Until the task closes. **Reset** leaves it as it is.

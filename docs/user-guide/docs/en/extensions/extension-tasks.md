@@ -41,7 +41,8 @@ pins:
 3. **The canvas.** The extension's preview, or the image itself when the extension does not preview, under the shapes
    the extension draws.
 4. **The column's header.** The menu the process sits in, over its name and the tag **extension**, whose tooltip
-   reads "Runs in its own process".
+   reads "Runs in its own process". The name's tooltip is what the process does, with the credits the extension
+   gives.
 5. **The extension's controls.** What the extension describes, drawn by AfterNight.
 6. **The footer.** **Reset**, **Close** and **Apply**, as in every task.
 
@@ -51,7 +52,8 @@ pins:
 
 An extension's process carries the tag **extension** wherever it is listed:
 
-- In the **Process** menu, after a line at the end of the category its package names.
+- In the **Process** menu, after a line at the end of the category its package names. A process that runs with no
+  window has no category there.
 - In the extension's own menu under **Extensions**, with **Manage...** and, when the extension names them, its
   **Homepage**, **Repository** and **Support**.
 - In the [command palette](../reference/glossary.md#command-palette), under the extension's name.

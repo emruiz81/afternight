@@ -46,8 +46,8 @@ constexpr int kIndexVersion = 1;
 /// The suffix of the file a step's record is staged in for the length of a read or a write.
 constexpr char kRecordSuffix[] = ".record";
 
-/// How often, and how far apart, an index is tried again when its file cannot take its name: a reader holds the file
-/// it replaces for the moment it reads it.
+/// How often, and how far apart, an index is tried again: written, when its file cannot take its name because a reader
+/// holds the file it replaces for the moment it reads it; read, when the file is taking the place of the one it read.
 constexpr int kIndexWriteAttempts = 40;
 constexpr unsigned long kIndexWriteRetryMs = 5u;
 
@@ -426,9 +426,20 @@ bool writeHistoryIndex(const QString& directory, const HistoryIndex& index)
 
 std::optional<HistoryIndex> readHistoryIndex(const QString& directory)
 {
-    QFile file(indexPathIn(directory));
+    const QString path = indexPathIn(directory);
+    QFile file(path);
+    // An index written again takes the old one's name, and for that moment the file is there but does not open: it is
+    // tried again, as a writer tries again when a reader holds the file. One that is not there is none.
+    for (int attempt = 1; !file.open(QIODevice::ReadOnly); ++attempt)
+    {
+        if (attempt >= kIndexWriteAttempts || !QFileInfo::exists(path))
+        {
+            return std::nullopt;
+        }
+        QThread::msleep(kIndexWriteRetryMs);
+    }
     // An index is a few kilobytes a step; anything far beyond that is not one.
-    if (!file.open(QIODevice::ReadOnly) || file.size() > qint64{64} * 1024 * 1024)
+    if (file.size() > qint64{64} * 1024 * 1024)
     {
         return std::nullopt;
     }

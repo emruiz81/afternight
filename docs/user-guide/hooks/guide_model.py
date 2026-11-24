@@ -14,7 +14,8 @@ its nav label, the category is its nav group, related pages are links in its tex
 The module also reads a page's body as what it says - its headings, lists, tables and prose, outside code and math -
 for the rules that hold a page to its template, its budgets and its vocabulary - and the inventories of the controls
 every process window opens with (`data/ui/`) and of the main window's own parts (`data/ui/shell/`), which tests of
-the application write and a page's `controls` blocks are held to.
+the application write and a page's `controls` blocks are held to, and the record of the main window's menu bar
+(`data/ui/shell/shell.menu-bar.json`), which a page's `menu` paths are held to.
 
 Tests: docs/user-guide/hooks/guide_model_test.py
 """
@@ -685,17 +686,20 @@ def load_ui_inventory(guide_dir):
 # Test_ShellObservatory), and held to the interface pages whose `controls` blocks name the part.
 
 SHELL_INVENTORY = os.path.join(UI_INVENTORY, 'shell')
+# The menu bar's record, beside the parts' and written by the same case: it is no part.
+SHELL_MENU_BAR = 'shell.menu-bar'
 
 
 def load_shell_inventory(guide_dir):
-    """The inventory of the shell's parts, by id, in the order of their files: the files of data/ui/shell/. Empty
-    when the guide has none. A part's `name` is its title, which a `controls` block names as its `window`."""
+    """The inventory of the shell's parts, by id, in the order of their files: the files of data/ui/shell/ but the
+    menu bar's record. Empty when the guide has none. A part's `name` is its title, which a `controls` block names as
+    its `window`."""
     folder = os.path.join(guide_dir, SHELL_INVENTORY)
     parts = {}
     if not os.path.isdir(folder):
         return parts
     for name in sorted(os.listdir(folder)):
-        if not name.endswith('.json'):
+        if not name.endswith('.json') or name == SHELL_MENU_BAR + '.json':
             continue
         path = os.path.join(folder, name)
         try:
@@ -709,6 +713,77 @@ def load_shell_inventory(guide_dir):
             raise GuideDataError('%s: two parts of the shell are called "%s"' % (path, part.name))
         parts[part.id] = part
     return parts
+
+
+# --- The menu bar ------------------------------------------------------------------------------------------------------
+# data/ui/shell/shell.menu-bar.json, which ShellUiInventory writes beside the parts: every menu of the Observatory
+# window's menu bar from the bar down - the menu tree's, and what the window adds to it as it is built - one a line, its
+# path as a page's `menu` names it, and its entries, its actions and its submenus, by their texts as the menu shows
+# them. A menu whose entries follow what a person did - the files and processes used last, the favourites - states
+# `varies: true` and lists none. A page's `menu` path is held to it as to the menu tree (check_user_guide.py, R4).
+
+_SHELL_MENU_KEYS = ('menu', 'entries', 'varies')
+
+
+@dataclass(frozen=True)
+class ShellMenu:
+    """One menu of the menu bar: its path from the bar down, its entries in their order, and whether they vary."""
+
+    path: str
+    entries: tuple
+    varies: bool
+
+
+def load_shell_menus(guide_dir):
+    """The menus of the main window's menu bar, by path, in the record's order: data/ui/shell/shell.menu-bar.json.
+    Empty when the guide has no record. A submenu's path is its menu's and its own title, an entry of that menu."""
+    path = os.path.join(guide_dir, SHELL_INVENTORY, SHELL_MENU_BAR + '.json')
+    if not os.path.isfile(path):
+        return {}
+    try:
+        data = json.loads(read_text(path))
+    except (OSError, ValueError) as error:
+        raise GuideDataError('%s cannot be read: %s' % (path, error)) from error
+
+    def fail(message):
+        raise GuideDataError('%s: %s' % (path, message))
+
+    if not isinstance(data, dict) or set(data) != {'id', 'menus'} or data['id'] != SHELL_MENU_BAR \
+            or not isinstance(data['menus'], list):
+        fail('the menu bar\'s record states `id`, "%s", and `menus`' % SHELL_MENU_BAR)
+    menus = {}
+    for index, record in enumerate(data['menus']):
+        who = 'menu %d' % (index + 1)
+        if not isinstance(record, dict) or not _is_text(record.get('menu')):
+            fail('%s is no mapping that names its `menu`' % who)
+        for key in record:
+            if key not in _SHELL_MENU_KEYS:
+                fail('%s states the unknown key `%s`' % (who, key))
+        varies = record.get('varies', False)
+        if not isinstance(varies, bool):
+            fail('%s: `varies` is %r' % (who, varies))
+        entries = record.get('entries')
+        if varies and entries is not None:
+            fail('%s varies, and lists no entries' % who)
+        if not varies and (not isinstance(entries, list) or not all(_is_text(entry) for entry in entries)):
+            fail('%s: `entries` is a list of texts' % who)
+        menu = record['menu']
+        if menu in menus:
+            fail('%s: %s is recorded twice' % (who, menu))
+        parent, _, title = menu.rpartition(MENU_SEPARATOR)
+        if parent and (parent not in menus or title not in menus[parent].entries):
+            fail('%s: %s is no entry of a menu recorded before it' % (who, menu))
+        menus[menu] = ShellMenu(path=menu, entries=tuple(entries or ()), varies=varies)
+    return menus
+
+
+def shell_menu_paths(menus):
+    """Every menu path the menu bar's record holds: each menu's, and each of its entries'."""
+    paths = set()
+    for menu in menus.values():
+        paths.add(menu.path)
+        paths.update(menu.path + MENU_SEPARATOR + entry for entry in menu.entries)
+    return paths
 
 
 class _NavLoader(yaml.SafeLoader):

@@ -430,16 +430,7 @@ void ImageProcessControl::onImageUpdated(ImageViewControl* ctrl)
 
         if (m_SupportTargetViewControlSelection && !isViewControlSupported(m_image_view_control))
         {
-            auto stdtitle = fmt::format("{}", getProcessName());
-            auto stdmsg = fmt::format("The target image '{}' has changed and isn't supported by this process any more. "
-                                      "The process will be closed.",
-                                      ctrl->getUniqueName());
-
-            if (auto* dialogService = process_utils::currentDialogService())
-            {
-                dialogService->notifyWarnMessage(this, QString::fromUtf8(stdtitle), QString::fromUtf8(stdmsg));
-            }
-            close();
+            closeForUnsupportedTarget(*ctrl);
         }
 
         if (m_SupportPerChannelProcessing)
@@ -453,21 +444,25 @@ void ImageProcessControl::onViewControlChanged(ImageViewControl* oldCtrl, ImageV
 {
     if (m_SupportTargetViewControlSelection && !isViewControlSupported(newCtrl))
     {
-        auto stdtitle = fmt::format("{}", getProcessName());
-        auto stdmsg = fmt::format("The target image '{}' has changed and isn't supported by this process any more. The "
-                                  "process will be closed.",
-                                  newCtrl->getUniqueName());
-        if (auto* dialogService = process_utils::currentDialogService())
-        {
-            dialogService->notifyWarnMessage(this, QString::fromUtf8(stdtitle), QString::fromUtf8(stdmsg));
-        }
-        close();
+        closeForUnsupportedTarget(*newCtrl);
     }
 
     if (m_SupportPerChannelProcessing)
     {
         refreshListOfSupportedChannels();
     }
+}
+
+void ImageProcessControl::closeForUnsupportedTarget(const ImageViewControl& target)
+{
+    const std::string message = fmt::format(
+        "The target image '{}' has changed and isn't supported by this process any more. The process will be closed.",
+        target.getUniqueName());
+    if (auto* dialogService = process_utils::currentDialogService())
+    {
+        dialogService->notifyWarnMessage(this, QString::fromUtf8(getProcessName()), QString::fromUtf8(message));
+    }
+    close();
 }
 
 void ImageProcessControl::onImageViewControlDestroyed(ImageViewControl* ctrl)

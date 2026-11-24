@@ -3,7 +3,16 @@ kind: interface
 summary: >-
   A workspace is a place of the rail that holds open images in tab groups. Make several, name them, move an image
   between them, give one a window of its own, and arrange its images with the layout icons.
-menu: Window
+menu:
+  - Window > New Workspace
+  - Window > Rename Workspace...
+  - Window > Move Workspace to New Window
+  - Window > Close Workspace
+  - Window > Lock Layout
+  - Window > Unlock Layout
+  - Window > Group All Images
+  - Window > Split All Images
+  - Window > Fit Images To Window
 ---
 # Workspaces
 

@@ -3,9 +3,8 @@
 
 /// @file
 /// The opener of a view's tool windows, defined beside the windows: each tool opens its own window as a child of the
-/// view, the astrometry and plate-solve windows once per view, and the view's own commands open them through it; the
-/// inspectors a view offers follow the image it shows whatever room its toolbar has, the Exif window for a field it
-/// shows from any raster container.
+/// view, once per view, and the view's own commands open them through it; the inspectors a view offers follow the
+/// image it shows whatever room its toolbar has, the Exif window for a field it shows from any raster container.
 
 #include "Test_ControlsDialogs/DialogsTestSupport.h"
 
@@ -127,14 +126,30 @@ TEST_F(ViewToolsTest, TheAstrometryAndPlateSolveWindowsOpenOncePerViewAndAreRais
     solve->close();
 }
 
-TEST_F(ViewToolsTest, TheOtherToolsOpenAWindowEachTimeAsTheyAlwaysDid)
+// The statistics, histogram, FITS header, Exif and summary windows are one per view too, as their menu entries and
+// shortcuts, disabled while one is open, always kept them: asked again - by a button of the readout, which no window
+// disables - the open one is raised rather than another opened.
+TEST_F(ViewToolsTest, TheInformationWindowsOpenOncePerViewAndAreRaisedWhenAskedAgain)
 {
-    QWidget* first = an::ui::openViewTool(ViewTool::Summary, *view);
-    QWidget* second = an::ui::openViewTool(ViewTool::Summary, *view);
-    EXPECT_NE(first, second);
-    EXPECT_EQ(openWindows<ImageSummaryViewerControl>(), 2);
-    first->close();
-    second->close();
+    const auto once = [this](const ViewTool tool, auto* typed) {
+        using WindowT = std::remove_pointer_t<decltype(typed)>;
+        QWidget* const first = an::ui::openViewTool(tool, *view);
+        ASSERT_NE(first, nullptr);
+        EXPECT_EQ(an::ui::openViewTool(tool, *view), first);
+        EXPECT_EQ(openWindows<WindowT>(), 1);
+        first->close();
+        QWidget* const reopened = an::ui::openViewTool(tool, *view);
+        ASSERT_NE(reopened, nullptr) << "a window closed is not the one open";
+        EXPECT_TRUE(reopened->isVisible());
+        EXPECT_EQ(openWindows<WindowT>(), 1);
+        reopened->close();
+    };
+    once(ViewTool::Statistics, static_cast<ImageStatisticsControl*>(nullptr));
+    once(ViewTool::Histogram, static_cast<ImageHistogramControl*>(nullptr));
+    once(ViewTool::FitsHeader, static_cast<ImageFITSHeaderViewerControl*>(nullptr));
+    once(ViewTool::Exif, static_cast<ImageEXIFViewerControl*>(nullptr));
+    once(ViewTool::Summary, static_cast<ImageSummaryViewerControl*>(nullptr));
+    ASSERT_TRUE(settle(*view));
 }
 
 TEST_F(ViewToolsTest, TheViewsOwnCommandsOpenTheirWindowsThroughTheOpener)

@@ -485,6 +485,7 @@ void RotateProcess::executeImageRotate()
                                               const an::ui::ProcessSource& source) {
         return an::ui::processes::transformImage(scope, source, steps, "Rotate", mosaicAsGrey);
     };
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

@@ -400,6 +400,47 @@ TEST_F(ProjectHistory, IndexRoundTrip)
     EXPECT_FALSE(readHistoryIndex(homeDirectory("no-such-image")).has_value());
 }
 
+// An index read while its history writes it again - as a view that closes writes it a last time behind it, while the
+// project's storage is measured - reads whole: the old index or the new one, never none. A reader that met the moment
+// the new file takes the old one's name read no index, and the image's history counted no step.
+TEST_F(ProjectHistory, AnIndexReadsWholeWhileItIsWrittenAgain)
+{
+    HistoryIndex index;
+    index.steps.push_back(HistoryIndexStep{.id = QStringLiteral("{11111111-2222-3333-4444-555555555555}"),
+                                           .name = QStringLiteral("Initial state"),
+                                           .file = QStringLiteral("0123456789abcdef0123456789abcdef.xisf"),
+                                           .run = QStringLiteral("fedcba9876543210fedcba9876543210"),
+                                           .image = QStringLiteral("M42"),
+                                           .time = QDateTime::fromMSecsSinceEpoch(1'700'000'000'123, QTimeZone::UTC),
+                                           .bytes = 4096u});
+    index.current = index.steps.front().id;
+    ASSERT_TRUE(QDir().mkpath(homeDirectory()));
+    ASSERT_TRUE(an::ui::history::writeHistoryIndex(homeDirectory(), index));
+
+    constexpr int kWrites = 400;
+    const QString directory = homeDirectory();
+    std::thread writer([directory, index]() {
+        for (int write = 0; write < kWrites; ++write)
+        {
+            EXPECT_TRUE(an::ui::history::writeHistoryIndex(directory, index));
+        }
+    });
+    int reads = 0;
+    int unread = 0;
+    const auto start = std::chrono::steady_clock::now();
+    while (reads < 4 * kWrites && std::chrono::steady_clock::now() - start < std::chrono::seconds(20))
+    {
+        const std::optional<HistoryIndex> read = readHistoryIndex(directory);
+        ++reads;
+        if (!read.has_value() || read->steps.size() != 1u)
+        {
+            ++unread;
+        }
+    }
+    writer.join();
+    EXPECT_EQ(unread, 0) << unread << " of " << reads << " reads found no index while it was written again";
+}
+
 TEST_F(ProjectHistory, IndexListsOnlyWrittenSteps)
 {
     WriterGate& gate = m_Gate;

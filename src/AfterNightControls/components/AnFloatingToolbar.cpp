@@ -1124,9 +1124,11 @@ QRect AnFloatingToolbar::placementIn(const QRect& area, const QList<QRect>& keep
 {
     const QSize size = sizeHint();
     const int lift = m_impl->form == Form::Small ? parts::kFloatingToolbarSmallLift : parts::kFloatingToolbarLift;
-    // The bar's bottom is the lift above the area's; the edge under it hangs a pixel below.
+    // The bar's bottom is the lift above the area's; the edge under it hangs a pixel below. A bar wider than the area
+    // starts at its left, so its first parts stay in view.
     const int barBottom = area.bottom() + 1 - lift;
-    QRect placed(area.left() + (area.width() - size.width()) / 2, barBottom - barHeight(), size.width(), size.height());
+    QRect placed(area.left() + (std::max)(0, (area.width() - size.width()) / 2), barBottom - barHeight(), size.width(),
+                 size.height());
     // Lifted above what it would cover: lifted above one strip it may cover another, so each pass lifts it above the
     // highest it covers, until it covers none or reaches the area's top.
     for (qsizetype pass = 0; pass < keepClear.size(); ++pass)

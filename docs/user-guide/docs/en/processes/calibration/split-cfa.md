@@ -119,7 +119,7 @@ controls:
     default: ""
     effect: Checks that the target is a two-by-two mosaic, reads **Method** and **Ha/OIII Resampling**, and makes the results on the thread pool. New views open beside the mosaic, and the task closes.
     enabled: Enabled when the task opens, also on an image that is no mosaic, which it refuses when you press it. While a run works, **Cancel** stands in its place and the column's controls are disabled.
-    tradeoff: "**Extract Ha/OIII** works on a floating copy of the whole mosaic, and a resampling holds a 64-bit working plane on top of it. A still image shows no progress window, and its run cannot be stopped once it starts."
+    tradeoff: "**Extract Ha/OIII** works on a floating copy of the whole mosaic, and a resampling holds a 64-bit working plane on top of it."
     scope: The whole image or every frame of the sequence, without the mask.
     persistence: "Each new view is unsaved, and its history starts with `Split CFA: CFA0 extracted from RAW image '<mosaic>'`, where `CFA0` is `CFA0` to `CFA3`, `Ha`, `Green` or `OIII`, and `RAW sequence` replaces `RAW image` for a sequence. Its lineage records the split and the plane, or the extraction. The mosaic's history gets no step."
     note: A run that fails leaves the task open with its controls enabled.
@@ -132,19 +132,19 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
-    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Split CFA** and the text `Executing split CFA to sequence <name>`."
-    enabled: Shown only while OK works on a sequence. A still image has no progress window.
+    effect: Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**. **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while OK works on a sequence. Over a still image the row reads "applying". No progress window opens.
     tradeoff: Each result is written to a temporary file in the sequence's container until the run ends. The four positional planes together hold as many samples as the mosaic. An OIII sequence at full size holds as many alone. Try the method on one frame as a still image before a long sequence.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run, before the next frame at the latest. Nothing opens, the temporary files are removed, and the Split CFA task stays open.
-    note: The column's run row shows the same share meanwhile.
+    effect: Stands in the footer in place of **OK** during a run, and stops it, on a still image as on a sequence, without a message. Nothing opens, a sequence's temporary files are removed, and the Split CFA task stays open.
+    range: A sequence's run stops before the next frame at the latest.
 ```
 
 ## How it works

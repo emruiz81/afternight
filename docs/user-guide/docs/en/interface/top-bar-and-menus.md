@@ -17,7 +17,7 @@ box names. A command that does not fit that image is greyed, or says why when yo
 image: ../assets/images/interface/top-bar-and-menus.webp
 alt: >-
   The top of the main window with an image open. Along the very top, the menu bar reads File, Edit, View, Image,
-  Process, Extensions, Window, Help and About, with Window greyed. Under it, the top bar: the AfterNight mark, a
+  Process, Extensions, Window, Help and About. Under it, the top bar: the AfterNight mark, a
   folder, a wide field reading Search or run a command with the keys Ctrl K, and at the right a lock and three
   layout icons, a moon, a question mark, an i and three dots. The View menu is open: Session Console, then Home,
   Integration, Command Palette with Ctrl+K, Readout ticked, Night with Ctrl+Shift+N, Density, Next Region and Previous
@@ -43,6 +43,7 @@ owed: true
    **About**, shown while you press ++alt++.
 2. **The project switcher and where you are.** **No project** until a project is open, then its name. Beside it, the
    path of what the centre shows: **Home**, **Integration**, a [workspace](../reference/glossary.md#workspace) and its active image, or a [task](../reference/glossary.md#task) and its target.
+   Click a part to go there.
 3. **The command palette's field.** **Search or run a command**, which ++ctrl+k++ opens too.
 4. **The layout icons.** They lock the layout of a workspace and group, split or fit its images, and show only while a
    workspace does. See [Workspaces](workspaces.md).
@@ -137,7 +138,7 @@ controls:
   - name: Where you are
     kind: readout
     default: Home
-    effect: The path of what the centre shows - **Home**, **Integration**, a workspace and its active image, or a task's process and its target.
+    effect: The path of what the centre shows - **Home**, **Integration**, a workspace and its active image, or a task's process and its target. A click on a part goes there - a task's target to that image in its workspace, made the active image.
     range: A long name is cut in its middle, and the whole path is then its tooltip.
   - name: Night
     kind: toolbutton
@@ -158,7 +159,7 @@ controls:
     kind: toolbutton
     default: ""
     effect: Opens every menu of the menu bar, from **File** to **About**, in one menu, whether the menu bar shows or not.
-    note: Its tooltip reads "More". The command palette's **all menus** opens the same menu.
+    note: The command palette's **all menus** opens the same menu.
   - name: Search or run a command
     kind: button
     default: ""
@@ -259,7 +260,7 @@ controls:
     kind: action
     default: ""
     effect: "**Lock Layout**, **Unlock Layout**, **Group All Images**, **Split All Images** and **Fit Images To Window** for the workspace shown; **New Workspace**, **Rename Workspace...**, **Move Workspace to New Window** and **Close Workspace**; then **Float as Window**, **Attach** and **Close Task** for the task shown."
-    enabled: The menu bar and **All menus** offer the whole menu greyed. Each command is in the command palette, and in the layout icons or the rail's menus.
+    enabled: Always. Each command is greyed on its own when it cannot act - **Group All Images**, **Split All Images** and **Fit Images To Window** without an image, **Close Workspace** for the only workspace, the task's commands without a task - and each is also in the command palette, and in the layout icons or the rail's menus.
     note: Workspaces and Tasks describe them.
   - name: User Guide
     kind: action
@@ -523,11 +524,6 @@ The menu bar is not there
 :   **Cause.** It shows only while you use it, after ++alt++.
 :   **Fix.** Press and release ++alt++, or open **All menus**. **Always show the menu bar**, on the Interface page of
     Settings, keeps it shown.
-
-The **Window** menu is greyed
-:   **Cause.** The menu bar and **All menus** offer the whole **Window** menu greyed.
-:   **Fix.** Press ++ctrl+k++ and type the command's name, or use the layout icons and the menus of a workspace's or a
-    task's item in the [rail](../reference/glossary.md#rail).
 
 Most of the Image and Process menus are greyed
 :   **Cause.** No image is open, or none is active.

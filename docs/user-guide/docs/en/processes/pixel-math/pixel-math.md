@@ -43,7 +43,7 @@ expression computes, never clamped to 0 to 1. It is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/pixel-math/pixel-math.webp
 alt: >-
-  The PixelMath task. Its header names PixelMath and the master. The canvas at the left shows the master itself, with
+  The Pixel Math task. Its header names Pixel Math and the master. The canvas at the left shows the master itself, with
   no preview, and a floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds
   Target Image naming the master, then a row of tabs: RGB/K, then G, B and A grayed, then Symbols and Summary. In the
   RGB/K tab, an editor holds one line, mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1)), with the function names, the
@@ -81,7 +81,7 @@ owed: true
 1. **Open the task.** Make the target the [active image](../../reference/glossary.md#active-image) and choose
    **Process > Pixel Math > Pixel Math**, or find it in the [command palette](../../interface/command-palette.md) with
    ++ctrl+k++. The task opens as a page: the canvas at the left shows the target, and the column at the right holds
-   the expressions. The task header reads `PixelMath on <name>`, **RGB/K** is empty, and the **Symbols** list under
+   the expressions. The task header reads `Pixel Math on <name>`, **RGB/K** is empty, and the **Symbols** list under
    the expressions names `$T`, `$A`, `$M` and every open image.
 2. **Write the expression.** Type it in **RGB/K**, or double-click a row of the **Functions**, **Operators** or
    **Symbols** list to insert it at the cursor. The editor colors every name it knows.
@@ -417,8 +417,7 @@ controls:
       the other controls are disabled.
     tradeoff: >-
       The run holds working copies of the target, the result and every image the expressions read. The column shows
-      the run of a single image too, but that run cannot be stopped once it starts: the **Cancel** in Apply's place
-      does not reach it.
+      the run, of a single image as of a sequence, and the **Cancel** in Apply's place stops it.
     scope: >-
       The whole target, never through the mask on its view. On a sequence, every frame, whatever frames its player
       selects, debayered first when its view debayers them. Other images are read as their views showed them when
@@ -486,23 +485,25 @@ controls:
 ```
 
 ```controls
-window: Sequence progress
+window: The run in the column
 controls:
-  - name: Progress
+  - name: Overall and Processing
     kind: readout
     default: ""
     effect: >-
-      Shows the share of the frames done, from 0 to 100 percent, in a progress window over the main window, under the
-      title **PixelMath** and the text `Executing PixelMath to sequence <name>`. The column shows the run as well.
-    enabled: Only while Apply works on a sequence. The run of a single image shows in the column alone.
+      Show, in the column's run row, the share of the frames done, from 0 to 100 percent, under **Overall**.
+      **Processing** has no share of its own here, and a slice slides along it.
+    enabled: Only while Apply works on a sequence. Over a single image the row reads "applying". No progress window opens.
     tradeoff: >-
       The result is written to a temporary sequence, which needs the disk space of a second copy until the run ends.
     note: Each frame draws its random numbers from a seed of its own, so two frames draw different numbers.
   - name: Cancel
     kind: button
     default: ""
-    effect: Stops the run. Nothing is published, the temporary sequence is removed, and the sequence stays as it was.
-    note: The **Cancel** in Apply's place in the column does not stop the run, and this one does.
+    effect: >-
+      Stands in the footer in place of **Apply** during a run, and stops it, on a single image as on a sequence,
+      without a message. Nothing is published, a sequence's temporary file is removed, and the image or the sequence
+      stays as it was.
 ```
 
 ## How it works

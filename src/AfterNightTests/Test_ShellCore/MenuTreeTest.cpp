@@ -101,21 +101,22 @@ TEST(MenuTree, SaysWhichMenusHoldAnAction)
                                              "menuExtensions", "menuWindow", "menuHelp", "menuAbout"}));
 }
 
-// The menus 1.1's window made disabled start disabled: Open Recent and Recent Processes until there is something to
-// list, and the Window menu.
+// The menus 1.1's window made disabled until there was something to list start disabled: Open Recent and Recent
+// Processes. The Window menu is offered as the menus beside it are: its entries - the layout's, the workspaces' and the
+// task's - each keep a state of their own, and New Workspace acts from Home, where 1.1's window disabled the menu.
 TEST(MenuTree, BuildsTheMenusAsTheWindowStartedThem)
 {
     QObject owner;
     const ActionCatalogue catalogue(owner);
     QMenuBar bar;
     MenuTree::menuBar().buildMenuBar(bar, catalogue.lookup());
-    for (const char* name : {"menuOpen_Recent", "menuRecent_Processes", "menuWindow"})
+    for (const char* name : {"menuOpen_Recent", "menuRecent_Processes"})
     {
         QMenu* const menu = bar.findChild<QMenu*>(QString::fromLatin1(name));
         ASSERT_NE(menu, nullptr) << name;
         EXPECT_FALSE(menu->isEnabled()) << name;
     }
-    for (const char* name : {"menuFile", "menuFavorite_Processes", "menuMask", "menuProcess"})
+    for (const char* name : {"menuFile", "menuFavorite_Processes", "menuMask", "menuProcess", "menuWindow"})
     {
         QMenu* const menu = bar.findChild<QMenu*>(QString::fromLatin1(name));
         ASSERT_NE(menu, nullptr) << name;

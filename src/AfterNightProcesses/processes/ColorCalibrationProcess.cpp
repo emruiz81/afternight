@@ -740,6 +740,7 @@ void ColorCalibrationProcess::executeColorCalibration()
     // that is both references.
     request.reads = {whiteReference.has_value() ? whiteReference->asset : nullptr, background->reference.asset,
                      mask.asset};
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

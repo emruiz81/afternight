@@ -112,7 +112,8 @@ struct ReadoutTelemetry
 /// Feeds the readout: the column of the full readout, and a task's compact readout.
 ///
 /// **What it follows.** The active view, docked or floating, as the application's listeners are told of it; or, while a
-/// shell shows a task, the task's preview (`followTask`). A view that goes is followed no more.
+/// shell shows a task, the task's preview (`followTask`); or one view whichever is active (`followView`) - a task's
+/// target, which the full readout over the task's column reads out. A view that goes is followed no more.
 ///
 /// **When it measures.** A change - another view, the image updated, the histogram's resolution, a settled frame -
 /// schedules an update, and a burst of changes within `kDebounce` makes one. An update measures only what changed:
@@ -128,7 +129,8 @@ struct ReadoutTelemetry
 /// interactive frame dims the figures and keeps them.
 ///
 /// **What is remembered.** The column's folded cards and its being collapsed, in the global settings store
-/// (`interface/readoutCards`, `interface/readoutCollapsed`).
+/// (`interface/readoutCards`, `interface/readoutCollapsed`); a column with no collapse of its own keeps its folds
+/// alone.
 ///
 /// Used on the GUI thread only.
 class AFTERNIGHTSHELLCORE_API ReadoutController final
@@ -140,21 +142,34 @@ public:
     /// The longest wait before a refused measurement is tried again.
     static constexpr std::chrono::milliseconds kRetryLongest{600};
 
+    /// What of the person's choices a column is handed, and keeps.
+    enum class ColumnMemory : std::uint8_t
+    {
+        /// Its folded cards and its being collapsed: the readout column's.
+        FoldsAndCollapse,
+
+        /// Its folded cards alone: a column that is not collapsed - the full readout over a task's column.
+        Folds
+    };
+
     explicit ReadoutController(ApplicationCore& core);
     ~ReadoutController();
 
     ReadoutController(const ReadoutController&) = delete;
     ReadoutController& operator=(const ReadoutController&) = delete;
 
-    /// The column it feeds, which it neither owns nor outlives the use of; null feeds none. Its remembered folds are
-    /// handed to it.
-    void setColumn(an::ui::AnReadoutColumn* column);
+    /// The column it feeds, which it neither owns nor outlives the use of; null feeds none. Its remembered folds - and,
+    /// as `memory` says, its being collapsed - are handed to it.
+    void setColumn(an::ui::AnReadoutColumn* column, ColumnMemory memory = ColumnMemory::FoldsAndCollapse);
 
     /// The compact readout it feeds while it follows a task; null feeds none.
     void setCompactReadout(an::ui::AnCompactReadout* compact);
 
     /// Follows a task's preview; null follows the active view again.
     void followTask(IReadoutFrameSource* source);
+
+    /// Follows one view, whichever view is active, and no task; null follows the active view again.
+    void followView(ImageViewControl* view);
 
     /// The view it reads out: the active view, or a task's target.
     [[nodiscard]] ImageViewControl* followedView() const;

@@ -288,7 +288,8 @@ controls:
     effect: >-
       Follows the run in the column's run row, which reads "applying", and in the task header. On an image, the bar
       follows the program's own percentages from 10 to 90 percent, then 95 while the answers are read. On a sequence,
-      the bar counts the frames. No progress window opens.
+      **Overall** counts the frames and **Processing** follows the program's percentages for the frame on its way. No
+      progress window opens.
     tradeoff: >-
       The bar moves forward only. StarNet2 2.5.3 prints its percentages, which AfterNight reads. A version whose
       `--machine-info` answer says it reports its progress for machines is asked for `--machine-progress`, and that

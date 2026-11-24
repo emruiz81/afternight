@@ -174,6 +174,11 @@ void ConsoleDrawer::setOpen(const bool open)
         setUnseen(0);
     }
     placeConsole();
+    // Opened, the console says the file logging level stored now: it may have changed in Settings while it was closed.
+    if (open && m_console != nullptr)
+    {
+        m_console->refreshFileLogReadout();
+    }
     tellChanged();
 }
 
@@ -366,6 +371,15 @@ void ConsoleDrawer::makeDock()
     const QSize size(m_window.width() * 2 / 3, (std::max)(m_height * 2, minimumDrawerHeight() * 3));
     const QPoint centre = m_window.mapToGlobal(QPoint(m_window.width() / 2, m_window.height() * 2 / 3));
     m_dock->dockWidget()->setFloatingGeometry(QRect(centre - QPoint(size.width() / 2, size.height() / 2), size));
+    // Its window chosen or focused, the console says the file logging level stored now.
+    const auto refreshReadout = [this](const bool chosen) {
+        if (chosen && m_console != nullptr)
+        {
+            m_console->refreshFileLogReadout();
+        }
+    };
+    QObject::connect(m_dock, &KDDockWidgets::QtWidgets::DockWidget::isCurrentTabChanged, this, refreshReadout);
+    QObject::connect(m_dock, &KDDockWidgets::QtWidgets::DockWidget::isFocusedChanged, this, refreshReadout);
     // Its window closed by the person, the console is closed; it floats still.
     QObject::connect(m_dock, &KDDockWidgets::QtWidgets::DockWidget::isOpenChanged, this, [this](const bool open) {
         if (m_placing || open || !m_open || !m_floating)

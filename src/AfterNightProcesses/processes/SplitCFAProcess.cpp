@@ -186,6 +186,7 @@ void SplitCFAProcess::executeImageExtraction()
     // A sequence's frames are read as recorded, mosaics.
     request.readDemosaiced = false;
     request.showDemosaiced = false;
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

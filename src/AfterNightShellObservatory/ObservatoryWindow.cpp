@@ -328,6 +328,8 @@ struct ObservatoryWindow::Impl
     // The transient message at the foot of the centre, and what its action does.
     an::ui::AnSnackbar* snackbar = nullptr;
     std::function<void()> snackbarAction;
+    // Where a click on each part of the breadcrumb goes, in the parts' order.
+    std::vector<std::function<void()>> crumbPlaces;
     // What the window does about projects, and whether what the start's restore came to was said.
     std::unique_ptr<ProjectFlows> projects;
     bool projectRestoreSaid = false;
@@ -870,6 +872,19 @@ void ObservatoryWindow::buildRegions()
 
     impl.topBar = new TopBar(central);
     outer->addWidget(impl.topBar);
+    // A click on a part of the breadcrumb goes to that place.
+    QObject::connect(impl.topBar->breadcrumb(), &an::ui::AnBreadcrumb::partActivated, this, [this](const int index) {
+        if (index < 0 || static_cast<std::size_t>(index) >= m_impl->crumbPlaces.size())
+        {
+            return;
+        }
+        // Held by value: going to a place says where the person is again, which makes the list anew.
+        const std::function<void()> go = m_impl->crumbPlaces[static_cast<std::size_t>(index)];
+        if (go)
+        {
+            go();
+        }
+    });
 
     auto* body = new QHBoxLayout();
     body->setContentsMargins(0, 0, 0, 0);
@@ -3486,8 +3501,8 @@ void ObservatoryWindow::buildTopBarTrailing()
     information->setMenu(impl.informationMenu);
     information->setPopupMode(QToolButton::InstantPopup);
 
-    // More: the menu tree, as the menu bar holds it.
-    QToolButton* const more = button("topBarMoreButton", QStringLiteral("more_horiz"), tr("More"));
+    // All menus: the menu tree, as the menu bar holds it.
+    QToolButton* const more = button("topBarMoreButton", QStringLiteral("more_horiz"), tr("All menus"));
     more->setAccessibleName(tr("All menus"));
     impl.moreMenu = new QMenu(more);
     impl.moreMenu->setObjectName(QStringLiteral("topBarMoreMenu"));
@@ -3709,36 +3724,69 @@ void ObservatoryWindow::updateBreadcrumb()
         return;
     }
     QStringList parts;
+    std::vector<std::function<void()>> places;
+    // An image's part goes to the image: its workspace shown, the image the active one.
+    const auto toImage = [this](ImageViewControl* image) {
+        return [this, guarded = QPointer<ImageViewControl>(image)]() {
+            if (guarded.isNull())
+            {
+                return;
+            }
+            const QString in = m_impl->workspaces->workspaceOf(*guarded);
+            if (in.isEmpty())
+            {
+                showViews();
+            }
+            else
+            {
+                showWorkspace(in);
+            }
+            m_impl->core.viewService().setActiveImageViewControl(guarded.data());
+        };
+    };
     const an::ui::shell::Task* const task =
         isTaskPageShown() && impl.tasks ? impl.tasks->model().task(impl.shownTask) : nullptr;
     if (task != nullptr)
     {
         // A task's page: the process and the image it works on.
+        const an::ui::shell::TaskId id = task->id;
         parts.append(task->displayName);
+        places.emplace_back([this, id]() {
+            if (m_impl->tasks)
+            {
+                (void)m_impl->tasks->show(id);
+            }
+        });
         if (!task->targetName.isEmpty())
         {
             parts.append(task->targetName);
+            places.emplace_back(toImage(task->target.data()));
         }
     }
     else if (isIntegrationHubShown())
     {
         parts.append(tr("Integration"));
+        places.emplace_back([this]() { showIntegrationHub(); });
     }
     else if (isWorkspaceShown())
     {
         const QString shown = impl.workspaces->shown();
         parts.append(impl.workspaces->workspaceName(shown));
+        places.emplace_back([this, shown]() { showWorkspace(shown); });
         // The workspace's item is its active view; one that floats, or is in another workspace, is not its item.
         if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl();
             active != nullptr && impl.workspaces->workspaceOf(*active) == shown)
         {
             parts.append(QString::fromUtf8(active->getUniqueName()));
+            places.emplace_back(toImage(active));
         }
     }
     else
     {
         parts.append(tr("Home"));
+        places.emplace_back([this]() { showHome(); });
     }
+    impl.crumbPlaces = std::move(places);
     impl.topBar->breadcrumb()->setParts(parts);
 }
 
@@ -4085,8 +4133,31 @@ bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
         }
     });
     page->binder().setMenuFiller(impl.viewMenuFiller);
+    // The compact readout's chevron opens the full readout of the task's target over the column, and closes it.
+    QObject::connect(page->compactReadout(), &an::ui::AnCompactReadout::fullReadoutToggled, this,
+                     [this, id, sheetPage = QPointer<TaskPage>(page)](const bool open) {
+                         if (sheetPage.isNull())
+                         {
+                             return;
+                         }
+                         if (!open)
+                         {
+                             sheetPage->showReadoutSheet(nullptr);
+                             return;
+                         }
+                         const an::ui::shell::Task* const opened =
+                             m_impl->tasks ? m_impl->tasks->model().task(id) : nullptr;
+                         auto readout = std::make_unique<an::ui::shell::ReadoutController>(m_impl->core);
+                         readout->followView(opened != nullptr ? opened->target.data() : nullptr);
+                         sheetPage->showReadoutSheet(std::move(readout));
+                     });
     if (an::ui::ProcessPageLayout* const layout = process.pageLayout())
     {
+        // The column names the process as its menu entry and the task header name it.
+        if (!task->displayName.isEmpty())
+        {
+            layout->setTitle(task->displayName);
+        }
         const std::string_view menu = an::ui::shell::ProcessMenuModel::menuOfCategory(task->category.toStdString());
         for (const an::ui::shell::ProcessMenuModel::Category& category : an::ui::shell::ProcessMenuModel::categories())
         {
@@ -4293,25 +4364,38 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
             }
         });
     }
+    // A page's run that succeeded is said where the person sees it: in the main window's snackbar, or in a floating
+    // task's own window.
+    TaskPage* const floatingPage =
+        task->presentation == an::ui::shell::TaskPresentation::Window ? taskPage(id) : nullptr;
     if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && !ownWork &&
-        task->presentation == an::ui::shell::TaskPresentation::Page)
+        (task->presentation == an::ui::shell::TaskPresentation::Page || floatingPage != nullptr))
     {
         const auto started = impl.runStarted.find(id);
         const double seconds =
             started != impl.runStarted.end() ? std::chrono::duration<double>(at - started->second).count() : 0.0;
         QPointer<ImageViewControl> target(task->target.data());
-        showSnackbar(tr("%1 applied").arg(task->displayName), QStringLiteral("%1 s").arg(seconds, 0, 'f', 1),
-                     tr("Undo"), [this, target]() {
-                         if (target.isNull())
-                         {
-                             return;
-                         }
-                         m_impl->core.viewService().setActiveImageViewControl(target.data());
-                         if (QAction* const undo = m_impl->core.actions().action(an::ui::shell::ids::kUndo))
-                         {
-                             undo->trigger();
-                         }
-                     });
+        const QString said = tr("%1 applied").arg(task->displayName);
+        const QString took = QStringLiteral("%1 s").arg(seconds, 0, 'f', 1);
+        std::function<void()> undo = [this, target]() {
+            if (target.isNull())
+            {
+                return;
+            }
+            m_impl->core.viewService().setActiveImageViewControl(target.data());
+            if (QAction* const undoAction = m_impl->core.actions().action(an::ui::shell::ids::kUndo))
+            {
+                undoAction->trigger();
+            }
+        };
+        if (floatingPage != nullptr)
+        {
+            floatingPage->showSnackbar(said, took, tr("Undo"), std::move(undo));
+        }
+        else
+        {
+            showSnackbar(said, took, tr("Undo"), std::move(undo));
+        }
     }
     refreshTaskHeader(id);
     updateTaskActions();

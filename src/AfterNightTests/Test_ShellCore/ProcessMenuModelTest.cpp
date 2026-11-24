@@ -357,6 +357,47 @@ TEST_F(ProcessMenuModelTest, AFamilysMenuListsItsProcessesFirstWhenAsked)
     EXPECT_EQ(textsOf(*links), (QStringList{QStringLiteral("Manage..."), QStringLiteral("Homepage")}));
 }
 
+// An extension's process of the category of the processes that run with no window, `non_interactive`, has no menu of
+// the Process menu: its extension's family menu lists it, as it lists the extension's other processes, bound to its
+// descriptor, and no category's menu does.
+TEST_F(ProcessMenuModelTest, AProcessThatRunsWithNoWindowIsListedInItsFamilysMenu)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    m_processes.add("extensions.batch", "Fancy Batch process");
+    const std::unique_ptr<ProcessMenuModel> model = this->model();
+    an::ui::extensions::ExtensionLoadResult fancy = packageOf("fancy", "Fancy Tools", "extensions.blur", "filters");
+    an::ui::extensions::ExtensionProcessManifest batch = fancy.manifest->processes.front();
+    batch.id = "extensions.batch";
+    batch.display_name = "Fancy Batch process";
+    batch.action_object_name = "actionExtension_fancy_batch";
+    batch.category = "non_interactive";
+    fancy.manifest->processes.push_back(batch);
+    model->setExtensions({fancy});
+
+    QMenu extensions;
+    model->buildExtensionFamilyMenus(extensions, ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
+    ASSERT_EQ(textsOf(extensions), (QStringList{QStringLiteral("-"), QStringLiteral("Fancy Tools")}));
+    QMenu* const family = extensions.actions().at(1)->menu();
+    ASSERT_NE(family, nullptr);
+    EXPECT_EQ(textsOf(*family),
+              (QStringList{QStringLiteral("Fancy Blur process"), QStringLiteral("Fancy Batch process"),
+                           QStringLiteral("-"), QStringLiteral("Manage..."), QStringLiteral("Homepage")}));
+
+    QAction* const listed = model->extensionAction("actionExtension_fancy_batch");
+    ASSERT_NE(listed, nullptr);
+    EXPECT_EQ(family->actions().at(1), listed) << "the family's menu holds the process's action";
+    EXPECT_EQ(listed->property("anRegistryDescriptorId").toString(), QStringLiteral("extensions.batch"));
+    EXPECT_NE(std::find(m_bound.begin(), m_bound.end(), "actionExtension_fancy_batch -> extensions.batch"),
+              m_bound.end())
+        << "bound to its descriptor, which the launch runs";
+    for (const ProcessMenuModel::Category& category : ProcessMenuModel::categories())
+    {
+        const std::vector<QAction*> inCategory = model->extensionActionsIn(category.menuId);
+        EXPECT_EQ(std::find(inCategory.begin(), inCategory.end(), listed), inCategory.end())
+            << "no menu of the Process menu lists it: " << category.menuId;
+    }
+}
+
 // The model says what changed, so a shell builds the menus that show it again: the extensions when they change, both
 // stored lists when they are read again - dropping, after the extensions changed, the processes the registry no longer
 // holds - and nothing to a listener that unsubscribed.

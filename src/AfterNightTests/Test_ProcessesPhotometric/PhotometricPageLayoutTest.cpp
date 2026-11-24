@@ -6,7 +6,8 @@
 /// height, in both densities, with every control in the column and reached by Tab and nothing clipped sideways where
 /// text is measured; each giving through its page the result its window gives over the same plate-solved field; and
 /// the photometric calibration's background region, drawn on the page's view of the target - the same rectangle of the
-/// image, the same result - with nothing of it, nor of the matched stars, left on the target's own view.
+/// image, the same result - with nothing of it, nor of the matched stars, left on the target's own view; and each
+/// calibration's run on its page stopped by the page's Cancel, with no progress window opened.
 
 #include "Test_ProcessesPhotometric/PhotometricTestSupport.h"
 #include "Test_ProcessesShared/PageLayoutCheck.h"
@@ -117,8 +118,13 @@ class PageLayout : public CalibrationPage
 {
 };
 
-/// The photometric calibration's background region on a page.
+/// The photometric calibration's background region on a page, and its run.
 class PhotometricColorCalibration : public CalibrationPage
+{
+};
+
+/// The spectrophotometric calibration's run on a page.
+class SpectrophotometricColorCalibration : public CalibrationPage
 {
 };
 
@@ -257,6 +263,31 @@ TEST_F(PhotometricColorCalibration, TargetViewShowsNoSelectionInPageMode)
         shared::closeOpenedProcessWindows();
         context().presenter = nullptr;
     }
+    dropView(context(), field);
+}
+
+// A calibration on the page shows its run in the page's row and opens no progress window; the page's Cancel stops it,
+// and the field is left as it was.
+TEST_F(PhotometricColorCalibration, ARunOnThePageStopsAtItsCancel)
+{
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle field = photometricTarget("stopped field");
+    ASSERT_NE(field, nullptr);
+    context().addViewControl(field.get());
+    shared::expectMirrorPageRunStopsAtItsCancel(kPhotometric, context(), *field);
+    dropView(context(), field);
+}
+
+// The spectrophotometric calibration on the page stops at the page's Cancel too, the field left as it was.
+TEST_F(SpectrophotometricColorCalibration, ARunOnThePageStopsAtItsCancel)
+{
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle field = spectrophotometricTarget("stopped field");
+    ASSERT_NE(field, nullptr);
+    context().addViewControl(field.get());
+    shared::expectMirrorPageRunStopsAtItsCancel(kSpectrophotometric, context(), *field);
     dropView(context(), field);
 }
 

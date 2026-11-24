@@ -688,6 +688,72 @@ class UiInventoryTests(TempDir):
         self.assertIn('are inventories of one action, actionLevels', str(raised.exception))
 
 
+def menu_bar_file(menus=None, identifier='shell.menu-bar'):
+    return json.dumps({'id': identifier, 'menus': menus if menus is not None else [
+        {'menu': 'File', 'entries': ['Open', 'Open Recent', 'New Project...', 'Exit']},
+        {'menu': 'File > Open Recent', 'varies': True},
+        {'menu': 'View', 'entries': ['Command Palette...', 'Night', 'Density']},
+        {'menu': 'View > Density', 'entries': ['Compact', 'Comfortable']},
+    ]})
+
+
+class ShellMenuTests(TempDir):
+    def test_a_guide_without_a_record_has_no_menus(self):
+        self.assertEqual(model.load_shell_menus(str(self.root)), {})
+
+    def test_the_menus_are_read_by_their_paths_with_their_entries(self):
+        self.write('data/ui/shell/shell.menu-bar.json', menu_bar_file())
+        menus = model.load_shell_menus(str(self.root))
+        self.assertEqual(list(menus), ['File', 'File > Open Recent', 'View', 'View > Density'])
+        self.assertEqual(menus['File'].entries, ('Open', 'Open Recent', 'New Project...', 'Exit'))
+        self.assertEqual((menus['File > Open Recent'].varies, menus['File > Open Recent'].entries), (True, ()))
+        self.assertEqual((menus['View > Density'].varies, menus['View > Density'].entries),
+                         (False, ('Compact', 'Comfortable')))
+
+    def test_its_paths_are_every_menu_and_every_entry(self):
+        self.write('data/ui/shell/shell.menu-bar.json', menu_bar_file())
+        paths = model.shell_menu_paths(model.load_shell_menus(str(self.root)))
+        for path in ('File', 'File > New Project...', 'File > Open Recent', 'View > Command Palette...',
+                     'View > Density', 'View > Density > Compact'):
+            self.assertIn(path, paths)
+        for path in ('File > New Project', 'Density', 'View > Density > Normal', 'File > Open Recent > a.fits'):
+            self.assertNotIn(path, paths)
+
+    def test_the_record_is_no_part_of_the_shell(self):
+        self.write('data/ui/shell/shell.menu-bar.json', menu_bar_file())
+        self.write('data/ui/shell/shell.rail.json', ui_file('shell.rail', 'Rail', []))
+        self.assertEqual(list(model.load_shell_inventory(str(self.root))), ['shell.rail'])
+
+    def test_the_record_of_the_guide_reads(self):
+        menus = model.load_shell_menus(str(GUIDE_DIR))
+        self.assertIn('View > Command Palette...', model.shell_menu_paths(menus))
+        self.assertIn('File > New Project...', model.shell_menu_paths(menus))
+
+    def test_what_is_not_a_record_is_refused(self):
+        file_menu = {'menu': 'File', 'entries': ['Open']}
+        for text, message in (
+                ('{"id": "shell.menu-bar"', 'cannot be read'),
+                ('[]', 'states `id`, "shell.menu-bar", and `menus`'),
+                (menu_bar_file(identifier='shell.menus'), 'states `id`, "shell.menu-bar", and `menus`'),
+                (menu_bar_file([{'entries': ['Open']}]), 'menu 1 is no mapping that names its `menu`'),
+                (menu_bar_file([dict(file_menu, shown=True)]), 'menu 1 states the unknown key `shown`'),
+                (menu_bar_file([dict(file_menu, varies='yes')]), "menu 1: `varies` is 'yes'"),
+                (menu_bar_file([dict(file_menu, varies=True)]), 'menu 1 varies, and lists no entries'),
+                (menu_bar_file([{'menu': 'File', 'entries': ['Open', '']}]), 'menu 1: `entries` is a list of texts'),
+                (menu_bar_file([{'menu': 'File'}]), 'menu 1: `entries` is a list of texts'),
+                (menu_bar_file([file_menu, file_menu]), 'menu 2: File is recorded twice'),
+                (menu_bar_file([file_menu, {'menu': 'File > Recent', 'varies': True}]),
+                 'menu 2: File > Recent is no entry of a menu recorded before it'),
+                (menu_bar_file([{'menu': 'View > Density', 'entries': []}]),
+                 'menu 1: View > Density is no entry of a menu recorded before it'),
+        ):
+            with self.subTest(message):
+                self.write('data/ui/shell/shell.menu-bar.json', text)
+                with self.assertRaises(model.GuideDataError) as raised:
+                    model.load_shell_menus(str(self.root))
+                self.assertIn(message, str(raised.exception))
+
+
 LIMITS = (GUIDE_DIR / 'data' / 'limits.yml').read_text(encoding='utf-8')
 # The guide's own allowances name its pages, which a test's folder does not have: a test starts from none.
 VOCABULARY = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n',

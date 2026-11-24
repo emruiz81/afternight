@@ -26,6 +26,7 @@
 
 #include <verdigris/wobjectimpl.h>
 
+#include <algorithm>
 #include <array>
 
 W_OBJECT_IMPL(an::ui::AnReadoutColumn)
@@ -229,8 +230,9 @@ void AnReadoutColumn::setCollapsed(const bool collapsed)
 
 void AnReadoutColumn::setWindowSize(const QSize& size)
 {
-    m_width =
+    const int forTheWindow =
         size.width() < parts::kReadoutNarrowWindow ? parts::kReadoutColumnNarrowWidth : parts::kReadoutColumnWidth;
+    m_width = m_ownWidth > 0 ? m_ownWidth : forTheWindow;
     if (!m_foldsRemembered)
     {
         m_restoring = true;
@@ -244,6 +246,13 @@ void AnReadoutColumn::setWindowSize(const QSize& size)
 int AnReadoutColumn::columnWidth() const noexcept
 {
     return m_width;
+}
+
+void AnReadoutColumn::setOwnWidth(const int width)
+{
+    m_ownWidth = (std::max)(0, width);
+    m_width = m_ownWidth > 0 ? m_ownWidth : parts::kReadoutColumnWidth;
+    applyCollapsed();
 }
 
 AnElidedLabel* AnReadoutColumn::nameLabel() const noexcept

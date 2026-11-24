@@ -95,8 +95,8 @@ controls:
     kind: readout
     default: ""
     effect: Names the view the window measures, as `Statistics <RGB>`, and follows a rename. A rename changes nothing else. The heading inside says ANALYSIS and the view's name over **Image Statistics**.
-    enabled: The window opens from **Open Image Statistics** in the readout's Statistics card, from **Image > Information > Statistics** - in the menu bar, **All menus**, the view's menu or the command palette - or with ++ctrl+shift+t++ while the view has the keyboard focus. While it is open, that view's menu entry and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open. The readout's button stays enabled, and opens another window at each choice.
-    persistence: Nothing of the window is kept. Each new window opens at **Normalized (0.0-1.0)** with **Unclipped** off.
+    enabled: 'The window opens from **Open Image Statistics** in the readout''s Statistics card, from **Image > Information > Statistics** - in the menu bar, **All menus**, the view''s menu or the command palette - or with ++ctrl+shift+t++ while the view has the keyboard focus. There is one window for each view: while it is open, that view''s menu entry and shortcut are disabled, and the readout''s button, which stays enabled, brings it forward. The menu entry and the shortcut come back when the window closes, and when the view''s image loads or changes; chosen then, they bring the open window forward too.'
+    persistence: Nothing of the window is kept. Each window opens at **Normalized (0.0-1.0)** with **Unclipped** off.
     note: The window stays open beside your work, and closes with its view. It writes nothing - no image, file, header card, history step or clipboard text.
   - name: Numeric range
     kind: combo
@@ -210,8 +210,8 @@ controls:
 
 **Statistics** is greyed in the menu, and ++ctrl+shift+t++ does nothing
 :   **Cause.** A Statistics window of this view is already open, or the active view has no image.
-:   **Fix.** Bring the open window forward or close it, or choose **Open Image Statistics** in the readout, which opens
-    another one.
+:   **Fix.** Choose **Open Image Statistics** in the readout, which brings the open window forward, or close that
+    window.
 
 The table stays empty
 :   **Cause.** The measurement failed, and a failed measurement leaves the table empty.

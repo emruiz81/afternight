@@ -278,8 +278,8 @@ public:
         auto* previewRow = new QHBoxLayout();
         previewRow->setSpacing(t.spacing.md);
 
-        previewCheckbox = new QCheckBox(
-            QCoreApplication::translate("BackgroundExtractionProcess", "Enable preview", nullptr), controlsPanel);
+        previewCheckbox = new QCheckBox(QCoreApplication::translate("BackgroundExtractionProcess", "Preview", nullptr),
+                                        controlsPanel);
         previewCheckbox->setObjectName(QStringLiteral("previewCheckbox"));
         previewCheckbox->setChecked(true);
         previewCheckbox->setToolTip(QCoreApplication::translate("BackgroundExtractionProcess",

@@ -4,14 +4,18 @@
 /// @file
 /// The mask, star and background processes as pages: each in its column at 600 px of height, in both densities, with
 /// every control in the column and reached by Tab and nothing clipped sideways where text is measured; and each giving
-/// through its page the result its window gives for the same parameters - in the target, or in the new image it makes.
+/// through its page the result its window gives for the same parameters - in the target, or in the new image it makes;
+/// and Mask Drawing's footer offering one Cancel during a run.
 
 #include "Test_ProcessesMasks/MasksTestSupport.h"
 #include "Test_ProcessesShared/PageLayoutCheck.h"
 
 #include "components/AnCollapsibleSection.h"
 
+#include <QAbstractButton>
+#include <QDialogButtonBox>
 #include <QLabel>
+#include <QPointer>
 #include <QStringList>
 #include <QTreeWidget>
 
@@ -118,6 +122,66 @@ AN_MASKS_PAGE_CASES(AutoGradientRemoval, "actionAuto_Gradient_Removal")
 AN_MASKS_PAGE_CASES(BackgroundExtraction, "actionBackground_Extraction")
 AN_MASKS_PAGE_CASES(MaskDrawing, "actionMask_Drawing")
 AN_MASKS_PAGE_CASES(DarkStructureEnhance, "actionDark_Structure_Enhance")
+
+// During its OK run Mask Drawing's footer offers one Cancel, the page's, which stops the run: its own Cancel, which
+// closes it without a mask, gives way as OK does, and is back once the run has ended.
+TEST(MaskDrawing, ARunOnThePageOffersOneCancel)
+{
+    const MasksProcess* process = familyProcess("actionMask_Drawing");
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle target = sceneView(context->engineSession(), process->scene, "drawn target");
+    ASSERT_NE(target, nullptr);
+    context->addViewControl(target.get());
+    context->setActiveImageViewControl(target.get());
+    {
+        PagePresenter presenter;
+        context->presenter = &presenter;
+        const QPointer<ImageRTPreviewControl> drawing =
+            dynamic_cast<ImageRTPreviewControl*>(shared::launchedPage(process->descriptorId, *target));
+        ASSERT_NE(drawing, nullptr);
+        an::ui::ProcessPageLayout* const page = drawing->pageLayout();
+        ASSERT_NE(page, nullptr);
+        process->configure(*drawing, process->changingMode);
+        ASSERT_TRUE(pumpUntil([&drawing]() { return drawing->isProcessIdle(); }));
+        const auto cancelsShown = [page]() {
+            int shown = 0;
+            for (const QAbstractButton* button : page->footer()->findChildren<QAbstractButton*>())
+            {
+                if (button->isVisible() && button->text().remove(QLatin1Char('&')) == QStringLiteral("Cancel"))
+                {
+                    ++shown;
+                }
+            }
+            return shown;
+        };
+        EXPECT_EQ(cancelsShown(), 1) << "its own Cancel before a run";
+        {
+            PoolHold hold;
+            ASSERT_TRUE(hold.held());
+            ASSERT_TRUE(drawing->triggerPrimaryAction()) << "OK makes the mask";
+            pumpQuietly();
+            EXPECT_TRUE(drawing->runState().running());
+            EXPECT_EQ(cancelsShown(), 1) << "one Cancel during the run";
+            EXPECT_TRUE(page->cancelButton()->isVisible()) << "the one that stops the run";
+            page->cancelButton()->click();
+        }
+        ASSERT_TRUE(pumpUntil([&drawing]() { return drawing.isNull() || drawing->isProcessIdle(); }));
+        pumpQuietly();
+        ASSERT_FALSE(drawing.isNull()) << "a stopped run leaves the page open";
+        EXPECT_EQ(drawing->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
+        EXPECT_EQ(cancelsShown(), 1) << "its own Cancel is back";
+        ASSERT_NE(page->footerButton(QDialogButtonBox::Cancel), nullptr);
+        EXPECT_TRUE(page->footerButton(QDialogButtonBox::Cancel)->isVisible());
+        shared::closeOpenedProcessWindows();
+        context->presenter = nullptr;
+    }
+    dropView(*context, target);
+}
 
 // Multiscale Linear Transform keeps the selected layer's controls, the target and what the preview shows beside its
 // preview in a window; on a page they are in the column - the selected layer's section right after the layers it is

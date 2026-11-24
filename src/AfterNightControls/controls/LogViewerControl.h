@@ -95,6 +95,10 @@ public:
     /// The toolbar's Search entry.
     [[nodiscard]] QAction* searchAction() const noexcept;
 
+    /// Reads again the file logging level Settings > Logging stores and says it in the toolbar's "File log" readout.
+    /// The console reads it each time it is shown; a host reads it too when the person turns to the console.
+    void refreshFileLogReadout();
+
     virtual ~LogViewerControl();
 
 private:
@@ -127,6 +131,7 @@ private:
 
 private:
     void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     // void resizeEvent(QResizeEvent* event) override;
 
     void updateSettings();

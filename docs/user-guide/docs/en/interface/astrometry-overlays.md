@@ -71,8 +71,9 @@ pins:
 2. Click a chip of the Astrometry card, such as **Annotations**. **Show Astrometry** turns on and the overlay appears.
    On a new profile **Grid** is the one chip chosen, so **Show Astrometry** alone, or ++ctrl+shift+w++ over the
    picture, shows the grid.
-3. Add the overlays one at a time, so that the labels stay readable. Over the picture, ++ctrl+1++ to ++ctrl+5++ do the
-   same while **Show Astrometry** is on.
+3. Add the overlays one at a time, so that the labels stay readable. Ticking one in **Astrometry Settings** does the
+   same and turns **Show Astrometry** on too. Over the picture, ++ctrl+1++ to ++ctrl+5++ do the same while **Show
+   Astrometry** is on.
 4. Open **Astrometry Settings** in the card's header, and choose **Level of Detail**, **Labels**, **Palette** and **Text
    Size**. The view follows each choice, and every view you open later starts with it.
 5. Zoom and pan. The grid is spaced again for the part you see, and zooming in names smaller objects.
@@ -129,7 +130,7 @@ controls:
     kind: toolbutton
     default: "Off"
     effect: Draws the overlays the chips of the Astrometry card choose over the picture, or hides them all and leaves the chips as they are.
-    enabled: Shown only for a still image whose header states a solution AfterNight reads, never for a sequence, a task's canvas or a still preview. It appears and disappears as a solution is written into the image or removed from it. ++ctrl+shift+w++ over the picture does the same while the button is shown, and turning a chip on turns it on.
+    enabled: Shown only for a still image whose header states a solution AfterNight reads, never for a sequence, a task's canvas or a still preview. It appears and disappears as a solution is written into the image or removed from it. ++ctrl+shift+w++ over the picture does the same while the button is shown, and turning an overlay on - by its chip or by its entry in **Astrometry Settings** - turns it on.
     tradeoff: Several overlays at once can hide the image and add drawing work to every repaint. They are drawn without the graphics processor, and never wait for a network.
     scope: The view only. No pixel, header card, history step, mask, file or new view comes of it, and the image is not marked unsaved. Pixel type, channels, linear or stretched data, the view's channel and display mode, the mask and the zoom do not change the solution the overlays draw.
     persistence: Off in every new view, and never kept. Each view has its own.
@@ -143,7 +144,7 @@ controls:
     kind: toolbutton
     default: ""
     effect: 'Opens the menu of the overlays and of what the annotations name and how they look, the menu below. Its tooltip reads "Astrometry Settings: level of detail, labels, palette, text size".'
-    enabled: While the readout reads an image's own view. The menu's shortcuts work only while **Show Astrometry** is on, over the picture.
+    enabled: While the readout reads an image's own view. An overlay ticked in the menu turns **Show Astrometry** on, as its chip does. The menu's shortcuts work only while **Show Astrometry** is on, over the picture.
     persistence: The menu closes after each choice. Every choice is kept at once, as the menu's block below says.
   - name: Grid
     kind: button

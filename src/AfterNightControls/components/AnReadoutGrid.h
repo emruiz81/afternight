@@ -59,6 +59,9 @@ public:
     /// The rectangle of a cell, in the grid's coordinates.
     [[nodiscard]] QRect cellRect(int index) const;
 
+    /// The width the widest cell needs to be read whole: its label, its value with its unit, or its note.
+    [[nodiscard]] int widestCell() const;
+
     [[nodiscard]] bool hasHeightForWidth() const override;
     [[nodiscard]] int heightForWidth(int width) const override;
     [[nodiscard]] QSize sizeHint() const override;
