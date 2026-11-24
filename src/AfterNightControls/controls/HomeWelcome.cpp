@@ -71,7 +71,7 @@ QIcon providedIcon(const QString& name)
     return {};
 }
 
-/// The product's version as the welcome states it: "v1.1.0", or "dev" where none is stated.
+/// The product's version as the welcome states it: "v2.0.0", or "dev" where none is stated.
 QString versionText()
 {
     const QString version = productVersion();

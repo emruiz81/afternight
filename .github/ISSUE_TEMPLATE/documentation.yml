@@ -40,4 +40,4 @@ body:
     attributes:
       label: Where you read it
       description: The published guide or the copy the installer bundles, the AfterNight version, and the browser.
-      placeholder: Bundled copy, AfterNight 1.1.0, Firefox 151
+      placeholder: Bundled copy, AfterNight 2.0.0, Firefox 151

@@ -60,7 +60,7 @@ install record is lost reads "Extension install receipt is missing or invalid; r
 
 The reasons a package is **Incompatible**, the first that applies:
 
-- "Requires AfterNight 1.2.0 or newer. Current AfterNight version is 1.1.0.", with the versions of the case.
+- "Requires AfterNight 2.1.0 or newer. Current AfterNight version is 2.0.0.", with the versions of the case.
 - "Extension is incompatible with the bundled Python runtime."
 - "Extension does not support the current runtime target."
 - "The rpc SDK backend (Lite hosted + RPC) is not available in this build. Lite hosted + RPC extensions require

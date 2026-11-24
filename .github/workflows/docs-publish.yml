@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       guide_version:
-        description: 'The version the guide states (e.g. 1.1.0); empty states the latest published release'
+        description: 'The version the guide states (e.g. 2.0.0); empty states the latest published release'
         required: false
         default: ''
         type: string
