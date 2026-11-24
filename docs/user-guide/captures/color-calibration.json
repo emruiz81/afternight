@@ -5,43 +5,43 @@
       "picture": "assets/images/processes/color-calibration/background-neutralization.webp",
       "page": "processes/color-calibration/background-neutralization.md",
       "data": ["linear"],
-      "shows": "The Background Neutralization task on a linear master with Upper Limit at 0.2, the canvas showing the image itself in the Autostretch display with Linked channels on",
-      "options": ["-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\background-neutralization.md", "-Set", "backgroundUpperLimitValue=0.2"]
+      "shows": "The Background Neutralization task's column on a linear master with Upper Limit at 0.2, the canvas showing the image itself in the Autostretch display with Linked channels on",
+      "options": ["-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\background-neutralization.md", "-Set", "backgroundUpperLimitValue=0.2", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-calibration/color-calibration.webp",
       "page": "processes/color-calibration/color-calibration.md",
       "data": ["linear"],
-      "shows": "The Color Calibration task on a linear master with a 1000 x 1000 star field at 6000, 200 as both the white and the background reference, the canvas showing the image itself in the Autostretch display with Linked channels on",
-      "options": ["-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\color-calibration.md", "-Set", "whiteRoiGroupBox=On;whiteRoiLeftValue=6000;whiteRoiTopValue=200;whiteRoiWidthValue=1000;whiteRoiHeightValue=1000;backgroundRoiGroupBox=On;backgroundRoiLeftValue=6000;backgroundRoiTopValue=200;backgroundRoiWidthValue=1000;backgroundRoiHeightValue=1000"]
+      "shows": "The Color Calibration task's column on a linear master with a 1000 x 1000 star field at 6000, 200 as the white reference's region of interest, the background reference at its defaults",
+      "options": ["-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\color-calibration.md", "-Set", "whiteRoiGroupBox@3,4;whiteRoiLeftValue=6000;whiteRoiTopValue=200;whiteRoiWidthValue=1000;whiteRoiHeightValue=1000", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-calibration/linear-match.webp",
       "page": "processes/color-calibration/linear-match.md",
-      "data": ["linear"],
-      "shows": "The Linear Match task on the blue channel extracted from a linear master, with its red channel as the reference and the default limits, the canvas showing the target itself in the Autostretch display",
-      "options": ["-Display", "Autostretch", "-View", "Image > Extract Channel > Extract RGB Channels;%display=Autostretch", "-Page", "processes\\color-calibration\\linear-match.md", "-Set", "referenceImageSelector@50,50;%keys=Home,Down,Return"]
+      "data": ["red", "green"],
+      "shows": "The Linear Match task's column on the green stack of the Carina set, with its red stack as the reference and the default limits, in the Autostretch display",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\color-calibration\\linear-match.md", "-Set", "referenceImageSelector=stacked_8288x5644_Red_Carina_Nebula", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-calibration/photometric-cc.webp",
       "page": "processes/color-calibration/photometric-cc.md",
       "data": ["linear"],
-      "shows": "The Photometric Color Calibration task on a plate-solved linear master with a Gaia catalog installed, at its defaults with Show matched stars off, ready to calibrate, the canvas showing the image itself in the Autostretch display with Linked channels on",
-      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\photometric-cc.md", "-Set", "showMatchedStars=Off"]
+      "shows": "The Photometric Color Calibration task's column on a plate-solved linear master with a Gaia catalog installed, at its defaults with Show matched stars off, ready to calibrate, the canvas showing the image itself in the Autostretch display with Linked channels on",
+      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\photometric-cc.md", "-Set", "showMatchedStars=Off", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-calibration/scnr.webp",
       "page": "processes/color-calibration/scnr.md",
       "data": ["linear"],
-      "shows": "The SCNR task at its defaults, Average Neutral with Preserve Lightness, on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, the canvas showing the image itself",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-calibration\\scnr.md"]
+      "shows": "The SCNR task's column at its defaults, Average Neutral with Preserve Lightness, on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, the canvas showing the image itself",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-calibration\\scnr.md", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-calibration/spectrophotometric-cc.png",
       "page": "processes/color-calibration/spectrophotometric-cc.md",
       "data": ["linear"],
-      "shows": "The Spectrophotometric Color Calibration task on a plate-solved linear master after Assign Image State, with the Sony IMX492 sensor and the ZWO filter set chosen, ready to run, the canvas showing the image itself in the Autostretch display with Linked channels on",
-      "options": ["-Storage", "{spcc}", "-ReuseStorage", "-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\spectrophotometric-cc.md", "-Set", "spccProcessAssignImageStateButton^Yes;spccProcessResponseSensorCombo=Mono sensor: Sony IMX492;spccProcessResponseMonoRedFilterCombo=Red filter: Zwo New Lrgb Filters Optimized For CMOS Camera;spccProcessResponseMonoGreenFilterCombo=Green filter: Zwo New Lrgb Filters Optimized For CMOS Camera;spccProcessResponseMonoBlueFilterCombo=Blue filter: Zwo New Lrgb Filters Optimized For CMOS Camera"]
+      "shows": "The Spectrophotometric Color Calibration task's column on a plate-solved linear master after Assign Image State, with the Sony IMX492 sensor and the ZWO filter set chosen, ready to run, the canvas showing the image itself in the Autostretch display with Linked channels on",
+      "options": ["-Storage", "{spcc}", "-ReuseStorage", "-Display", "Autostretch", "-Prepare", "@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-calibration\\spectrophotometric-cc.md", "-Set", "spccProcessAssignImageStateButton^Yes;spccProcessResponseSensorCombo=Mono sensor: Sony IMX492;spccProcessResponseMonoRedFilterCombo=Red filter: Zwo New Lrgb Filters Optimized For CMOS Camera;spccProcessResponseMonoGreenFilterCombo=Green filter: Zwo New Lrgb Filters Optimized For CMOS Camera;spccProcessResponseMonoBlueFilterCombo=Blue filter: Zwo New Lrgb Filters Optimized For CMOS Camera", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

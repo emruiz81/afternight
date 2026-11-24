@@ -15,25 +15,25 @@ The view reads one frame at a time, so a long capture never has to fit in memory
 and **New Sequence** gathers still images into a sequence of their own.
 
 ```figure
-owed: true
 image: ../assets/images/interface/sequences.webp
 alt: >-
-  The AfterNight main window with one sequence view in Workspace 1, its tab named jupiter_8bit. The view shows the disc
-  of Jupiter on black, fitted to the view. Near the foot of the picture, the floating toolbar: zoom buttons, the zoom
-  in percent, a box reading RGB, the segments Linear and Autostretch with Linear chosen, a gear and three dots. Under
-  the picture, the player: play, stop, previous and next buttons, a long slider with its handle at the left end, and a
-  box reading 1/4965. Under it, the history strip reads Initial state. The readout at the right shows the frame's
-  histogram and statistics, an Astrometry card reading Not solved and the Image card, and the status line reads SER
-  SEQUENCE, 448x448 (RGB), 1/4965, 82.46 fps, 8 bit unsigned integer and 2.78 GB.
+  The AfterNight main window with one sequence view in Workspace 1, its tab named jupiter_8bit. The view shows the
+  soft green disc of Jupiter crossed by a dark belt, on black, fitted to the view. Near the foot of the picture, the
+  floating toolbar: zoom buttons, the zoom in percent, a box reading RGB, the segments Linear and Autostretch with
+  Linear chosen, a greyed gear and three dots. Under the picture, the player: play, stop, previous and next buttons, a
+  long slider with its handle at the left end, and a box reading 1/4965. Under it, the history strip reads Initial
+  state. The readout at the right shows the frame's histogram and statistics, an Astrometry card reading Not solved
+  and the Image card, and the status line reads SER SEQUENCE, 448x448 (RGB), 1/4965, 82.46 fps, 8 bit unsigned integer
+  and 2.78 GB.
 caption: >-
   An 8-bit SER video of Jupiter in its view, on its first frame, with the player under the picture.
 pins:
-  - {n: 1, x: 3.6, y: 10.3}
+  - {n: 1, x: 14.2, y: 9.1}
   - {n: 2, x: 20.0, y: 40.0}
-  - {n: 3, x: 3.7, y: 90.3}
+  - {n: 3, x: 3.7, y: 90.2}
   - {n: 4, x: 50.0, y: 90.3}
-  - {n: 5, x: 68.7, y: 90.5}
-  - {n: 6, x: 15.6, y: 98.4}
+  - {n: 5, x: 67.7, y: 86.9}
+  - {n: 6, x: 13.9, y: 98.4}
 ```
 
 ## What you see
@@ -89,7 +89,6 @@ list (`.anseq`), which writes each frame as a [FITS](../reference/glossary.md#fi
    view, unsaved, on its first frame.
 
 ```figure
-owed: true
 image: ../assets/images/interface/sequences-new-sequence.webp
 alt: >-
   The New Sequence window, a window of its own, under the heading New Sequence and a line about building a sequence.

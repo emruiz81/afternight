@@ -19,26 +19,26 @@ Each choice shows at once, in every window, as you make it. **Apply** or **OK** 
 was in force when the page opened.
 
 ```figure
-owed: true
 image: ../assets/images/interface/appearance.webp
 alt: >-
-  The Settings dialog on its Interface page, under the title Colours and Size. Colour preset shows six tiles, each a
-  small window in its colours: Slate Blue, framed as chosen, Observatory, Deep Sea, Graphite, Nebula and Aurora. Theme
-  shows three tiles, Follow System half dark and half light, Light, and Dark, framed as chosen. Then rows of segments
-  and swatches: Contrast with Soft, Balanced ticked, High and OLED; Accent with five coloured discs, the blue one
-  ticked; Surface tint with six squares, the first ticked; Tint strength with Off, Subtle, Balanced ticked and Strong;
-  Density with Compact ticked and Comfortable; and Night with a switch reading Red light for dark adaptation.
+  The Settings dialog on its Interface page, Interface selected in the list at the left, under the title Colours and
+  Size. Colour preset shows six tiles, each a small window in its colours: Slate Blue, framed as chosen, Observatory,
+  Deep Sea, Graphite, Nebula and Aurora. Theme shows three tiles, Follow System half dark and half light, Light, and
+  Dark, framed as chosen. Then rows of segments and swatches: Contrast with Soft, Balanced ticked, High and OLED; Accent
+  with five coloured discs, the blue one ticked; Surface tint with six squares, the first ticked; Tint strength with
+  Off, Subtle, Balanced ticked and Strong; Density with Compact ticked and Comfortable; and, cut by the page's foot,
+  Night with a switch, off, reading Red light for dark adaptation.
 caption: >-
   The Colours and Size group of the Interface page, at the defaults of a new profile.
 pins:
-  - {n: 1, x: 28.6, y: 22.3}
-  - {n: 2, x: 28.6, y: 49.6}
-  - {n: 3, x: 28.6, y: 63.3}
-  - {n: 4, x: 28.6, y: 68.2}
-  - {n: 5, x: 28.6, y: 73.1}
-  - {n: 6, x: 28.6, y: 78.0}
-  - {n: 7, x: 28.6, y: 82.9}
-  - {n: 8, x: 28.6, y: 87.6}
+  - {n: 1, x: 27.0, y: 21.3}
+  - {n: 2, x: 27.0, y: 49.1}
+  - {n: 3, x: 27.0, y: 62.8}
+  - {n: 4, x: 27.0, y: 67.7}
+  - {n: 5, x: 27.0, y: 72.7}
+  - {n: 6, x: 27.0, y: 77.7}
+  - {n: 7, x: 27.0, y: 82.7}
+  - {n: 8, x: 27.0, y: 87.3}
 ```
 
 ## What you see

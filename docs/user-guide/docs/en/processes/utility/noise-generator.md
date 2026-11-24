@@ -42,17 +42,15 @@ preview shows the noise Apply adds.
 ```figure
 image: ../../assets/images/processes/utility/noise-generator.webp
 alt: >-
-  The Noise Generator task. Its header reads Noise Generator on the master and preview up to date. The canvas at the
-  left shows the preview of a red nebula, with the word PREVIEW in its corner and a framed area in its middle labelled
-  Preview: Noise Generator, grainier than the image around it, and a floating toolbar near its foot. The column at the
-  right opens with the compact readout of the preview, then the header Noise Generator, the Preview and Preview area
-  toggles ticked and Processed, Target Image and Channel at RGB, Noise Type at Gaussian, and the Mean, Var, Amount
-  and Salt vs Pepper boxes with their sliders, Var at 0.0100 and the last two grayed. Reset, Close and Apply stand in
-  its footer.
+  The Noise Generator task's column. At its top the compact readout of the preview: the plate solution's scale, a
+  small histogram of three jagged colored curves, the clipped fractions, and Min, Max, Mean, Median and StdDev with
+  their change from the image, StdDev up 0.0015 to 0.1080. Below it the column's header, the Preview and Preview area
+  boxes ticked and the Processed button, Target Image and Channel at RGB, Noise Type at Gaussian, and the Mean, Var,
+  Amount and Salt vs Pepper boxes with their sliders, Var at 0.0100 and the last two grayed. Reset, Close and Apply
+  stand in its footer.
 caption: >-
-  Noise Generator on the stretched master with Gaussian noise at a Var of 0.0100. The framed area in the canvas shows
-  the noise over the original.
-owed: true
+  Noise Generator on the stretched master with Gaussian noise at a Var of 0.0100, the preview area on. The readout at
+  the top is counted from the noisy preview.
 ```
 
 ## Before you start

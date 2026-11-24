@@ -42,16 +42,15 @@ layer is made for a blend you make afterwards. The menu, the [task](../../refere
 ```figure
 image: ../../assets/images/processes/sharpening/high-pass-filter.webp
 alt: >-
-  The High Pass task. Its header names the process and the stretched master, and the column's header reads High Pass.
-  The canvas at the left shows a gray preview in which the stars and the edges of the nebula stand out
-  lighter and darker, with its floating toolbar near the foot. The column at the right opens with the compact
-  readout of the preview, then the Preview, Preview area and Processed toggles, Target Image, a histogram with one
-  narrow peak in the middle and the lines Clipping Low and Clipping High in its corner, a row of toolbar buttons with
-  a Plot resolution box, and the Radius box with its slider. Reset, Close and Apply stand in its footer.
+  The High Pass task's column. At its top the compact readout of the preview: a small histogram with one narrow peak,
+  the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the mean at 0.4996.
+  Below it the column's header, High Pass, the Preview box ticked, Preview area unticked and the Processed button,
+  Target Image at RGB, a histogram with one narrow peak in the middle and the lines Clipping Low and Clipping High in
+  its corner, a row of toolbar buttons with a Plot resolution box, and the Radius box at 5.00 with its slider. Reset,
+  Close and Apply stand in its footer.
 caption: >-
-  High Pass Filter on the stretched master with Radius at 5.00. The histogram gathers at 0.5 and the canvas shows the
-  layer Apply writes.
-owed: true
+  High Pass Filter on the stretched master with Radius at 5.00. The histogram of the layer gathers at 0.5, and the
+  readout at the top measures it.
 ```
 
 ## Before you start

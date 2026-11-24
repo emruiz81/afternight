@@ -42,16 +42,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/graycstoration.webp
 alt: >-
-  The GRAYCstoration Filter task. Its header names GRAYCstoration Filter and the master. The canvas at the left shows the preview of
-  a red nebula, the word PREVIEW in its corner and a small framed area in its middle, with a floating toolbar of zoom
-  buttons, a channel box and the display mode at Autostretch near its foot. The column at the right holds the
-  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
-  at RGB, then ten boxes with sliders from Iterations to Amount, Amplitude at 5, the Interpolation box at Nearest
-  Neighbor and the ticked Fast Approximation box, in a body that scrolls. Reset, Close and Apply stand in its footer.
+  The GRAYCstoration Filter task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and beside them Min, Max and Mean, each with a change of ±0, and Median and StdDev with no
+  value. Below it the column's header, the Preview and Preview area boxes ticked and the Processed button, then, in a
+  body that scrolls, Target Image and Channel at RGB, ten boxes with sliders from Iterations to Amount, Amplitude at
+  5, and the Interpolation box at Nearest Neighbor. Reset, Close and Apply stand in its footer.
 caption: >-
-  GRAYCstoration on the linear master with Amplitude at 5 and the other values at their defaults. The framed area of
-  the canvas shows what Apply writes there, in the Autostretch display mode.
-owed: true
+  GRAYCstoration on the linear master with Amplitude at 5 and the other values at their defaults, the preview area
+  on.
 ```
 
 ## Before you start

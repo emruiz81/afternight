@@ -43,16 +43,15 @@ and its [history](../../reference/glossary.md#history) stay as they were, and th
 ```figure
 image: ../../assets/images/processes/star-operations/starnet.webp
 alt: >-
-  The Starnet++ task. Its header names the process and the stretched Carina master. The canvas at the left shows
-  the master as its view does, with no preview. The column at the right holds Target Image reading RGB, then the
-  check boxes Upsample x2 and Pre-Stretch linear image, clear, and Highlight protection and Generate Stars Output,
-  ticked; Output reading Subtractive Mask; Stride reading Standard (256), with a grayed box reading 256 beside it;
-  Weights, an empty field showing Default StarNet2_weights.onnx in gray, with a Browse button; the line StarNet2 is
-  configured and ready to use; and a Configure button. Close and OK stand in its footer.
+  The Starnet++ task's column, with no readout at its top. Under the column's header it holds Target Image reading
+  RGB, then the check boxes Upsample x2 and Pre-Stretch linear image, clear, and Highlight protection and Generate
+  Stars Output, ticked; Output reading Subtractive Mask; Stride reading Standard (256), with a grayed box reading 256
+  beside it; Weights, an empty field whose gray text begins Default StarNet2_weights, with a Browse button; and the
+  green line StarNet2 is configured and ready to use. A Configure button stands at the foot of the body, and Close
+  and OK in its footer.
 caption: >-
   Starnet++ at its defaults on the stretched Carina master, once AfterNight knows where StarNet2 is: the line above
   Configure says the program is ready.
-owed: true
 ```
 
 ## Before you start

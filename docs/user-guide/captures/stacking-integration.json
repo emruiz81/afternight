@@ -6,42 +6,42 @@
       "page": "processes/stacking-integration/image-integration.md",
       "data": ["ngc253"],
       "shows": "The Image Integration task on its Stacking stage after a run on the NGC 253 set with every setting at its default, the run's view closed: two integration groups and the measured lights of the first",
-      "options": ["-Capture", "image-integration-stacking=Process > Preprocess > Image Integration", "-Set", "actionAddFolder?{ngc253}\\biases;integrationStageList@50,19;actionAddFolder?{ngc253}\\darks;integrationStageList@50,31;actionAddFolder?{ngc253}\\flats;integrationStageList@50,44;actionAddFolder?{ngc253}\\lights;outputDirectoryEdit={work};integrationStageList@50,94;btnExecute^Run;%until=btnOpenReport;btnClose;integrationStageList@50,81"]
+      "options": ["-Capture", "image-integration-stacking=Process > Preprocess > Image Integration", "-Set", "actionAddFolder?{ngc253}\\biases;%wait=Import Complete;Darks;actionAddFolder?{ngc253}\\darks;%wait=Import Complete;Flats;actionAddFolder?{ngc253}\\flats;%wait=Import Complete;Lights;actionAddFolder?{ngc253}\\lights;%wait=Import Complete;outputDirectoryBrowseButton?{work};Summary,;btnExecute^Run;%until=btnOpenReport;btnClose;Stacking,", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     },
     {
-      "picture": "assets/images/processes/stacking-integration/image-integration-lite.png",
+      "picture": "assets/images/processes/stacking-integration/image-integration-lite.webp",
       "page": "processes/stacking-integration/image-integration-lite.md",
       "data": ["eagle"],
-      "shows": "The Image Integration Lite task after a run on the Eagle Nebula lights and flats at the defaults, the run's view closed",
-      "options": ["-Page", "processes\\stacking-integration\\image-integration-lite.md", "-Set", "liteOutputDirectoryEdit={work};liteAddFolderButton?{eagle}\\LIGHT;liteAddFolderButton?{eagle}\\FLAT;liteRunIntegrationButton!;btnClose"]
+      "shows": "The Image Integration Lite task with the Eagle Nebula lights and flats added from their folders and the output folder chosen, ready to run",
+      "options": ["-Page", "processes\\stacking-integration\\image-integration-lite.md", "-Set", "liteOutputDirectoryEdit={work};liteAddFolderButton?{eagle}\\LIGHT;liteAddFolderButton?{eagle}\\FLAT", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/stacking-integration/image-integration-lite-before.webp",
       "page": "processes/stacking-integration/image-integration-lite.md",
       "data": [],
       "shows": "One registered Ha light the Lite recipe wrote, the middle at 100 % in the Linear display, after Histogram Transformation at Shadows 0.03 and Midtones 0.02",
-      "options": ["-Open", "{work}\\registered_lights\\reg_3008x3004_M_16\\{eaglelight}", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.03;midtonesValue=0.02", "-View", "Image > View > Zoom 100%;%middle;%shot=image-integration-lite-before@view"]
+      "options": ["-Open", "{work}\\registered_lights\\reg_3008x3004_M_16\\{eaglelight}", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.03;midtonesValue=0.02", "-View", "Image > View > Zoom 100%;%middle;%shot=image-integration-lite-before@view", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/stacking-integration/image-integration-lite-after.webp",
       "page": "processes/stacking-integration/image-integration-lite.md",
       "data": [],
       "shows": "The Ha master of 25 lights the Lite recipe wrote, the same crop at 100 % in the Linear display, after Histogram Transformation at Shadows 0.03 and Midtones 0.02",
-      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.03;midtonesValue=0.02", "-View", "Image > View > Zoom 100%;%middle;%shot=image-integration-lite-after@view"]
+      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit", "-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.03;midtonesValue=0.02", "-View", "Image > View > Zoom 100%;%middle;%shot=image-integration-lite-after@view", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/stacking-integration/image-list-analyzer.webp",
       "page": "processes/stacking-integration/image-list-analyzer.md",
       "data": ["ngc253"],
       "shows": "The Image List Analyzer task with the 35 raw lights of NGC 253, in Date order, optimized for playback, showing the first",
-      "options": ["-Page", "processes\\stacking-integration\\image-list-analyzer.md", "-Set", "addFiles?{ngc253:lights};optimizeButton!"]
+      "options": ["-Page", "processes\\stacking-integration\\image-list-analyzer.md", "-Set", "addFiles?{ngc253:lights};optimizeButton!", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/stacking-integration/image-stacking.webp",
       "page": "processes/stacking-integration/image-stacking.md",
       "data": ["ngc253"],
       "shows": "The Image Stacking task after stacking the 30 biases of NGC 253 into master_bias.fit, every other value as it opens",
-      "options": ["-Page", "processes\\stacking-integration\\image-stacking.md", "-Set", "Add Files?{ngc253:biases};Name Template=master_bias.fit;Browse?{work}\\masters;Open after stacking=Off;Stack Images!"]
+      "options": ["-Page", "processes\\stacking-integration\\image-stacking.md", "-Set", "Add Files?{ngc253:biases};Name Template=master_bias.fit;Browse?{work}\\masters;Open after stacking=Off;Stack Images!", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     }
   ]
 }

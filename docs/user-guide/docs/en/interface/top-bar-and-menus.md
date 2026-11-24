@@ -16,25 +16,25 @@ box names. A command that does not fit that image is greyed, or says why when yo
 ```figure
 image: ../assets/images/interface/top-bar-and-menus.webp
 alt: >-
-  The top of the main window with an image open. Along the very top, the menu bar reads File, Edit, View, Image,
-  Process, Extensions, Window, Help and About. Under it, the top bar: the AfterNight mark, a
-  folder, a wide field reading Search or run a command with the keys Ctrl K, and at the right a lock and three
-  layout icons, a moon, a question mark, an i and three dots. The View menu is open: Session Console, then Home,
-  Integration, Command Palette with Ctrl+K, Readout ticked, Night with Ctrl+Shift+N, Density, Next Region and Previous
-  Region. Density is highlighted, and its submenu beside it offers Compact, chosen, and Comfortable.
+  The main window with the Carina master open. Along the very top, the menu bar reads File, Edit, View, Image,
+  Process, Extensions, Window, Help and About. Under it, the top bar: the AfterNight mark, a folder, a wide field
+  reading Search or run a command with the keys Ctrl K, and at the right a lock and three layout icons, a moon, a
+  question mark, an i and three dots. The View menu is open over the image: Session Console, then Home, Integration,
+  Command Palette with Ctrl+K, Readout ticked, Night with Ctrl+Shift+N, Density, Next Region and Previous Region.
+  Density is highlighted, and its submenu beside it offers Compact, chosen, and Comfortable. The readout fills the
+  right of the window.
 caption: >-
-  The menu bar shown with Alt, its View menu open on Density, over the top bar of a window with the Carina master open.
+  The menu bar shown with Alt, its View menu open on Density, over a window with the Carina master open.
 pins:
-  - {n: 1, x: 32.0, y: 4.8}
-  - {n: 2, x: 2.6, y: 8.4}
-  - {n: 3, x: 37.6, y: 8.4}
-  - {n: 4, x: 80.8, y: 8.4}
-  - {n: 5, x: 91.2, y: 11.2}
-  - {n: 6, x: 93.5, y: 11.2}
-  - {n: 7, x: 95.7, y: 11.2}
-  - {n: 8, x: 98.0, y: 11.2}
-  - {n: 9, x: 6.0, y: 27.2}
-owed: true
+  - {n: 1, x: 36.4, y: 3.7}
+  - {n: 2, x: 3.1, y: 7.3}
+  - {n: 3, x: 36.1, y: 7.3}
+  - {n: 4, x: 78.2, y: 7.3}
+  - {n: 5, x: 90.0, y: 10.2}
+  - {n: 6, x: 92.6, y: 10.2}
+  - {n: 7, x: 95.2, y: 10.2}
+  - {n: 8, x: 97.7, y: 10.2}
+  - {n: 9, x: 5.8, y: 26.4}
 ```
 
 ## What you see

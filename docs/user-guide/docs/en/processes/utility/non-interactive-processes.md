@@ -50,16 +50,15 @@ turn, a negative, a change to gray or to RGB, and a sequence written in another 
 ```figure
 image: ../../assets/images/processes/utility/non-interactive-processes.webp
 alt: >-
-  The main window with the Carina Nebula master in a workspace, stretched for the screen. The menu bar, which Alt
-  shows, runs across the top with File, Edit, View, Image, Process, Extensions, Window and Help. The Image menu is
-  open under it and lists Actions, Convert Format, Extract Channel, Fast Geometry, Information, Mask, a greyed
-  Sequence and View, then Show in File Browser below a line. Convert Format is highlighted, and its submenu beside it
-  lists seven commands from Convert to 8 bit to Convert to 64 bit float, with the pointer on Convert to unsigned 16
-  bit, the third, and Convert to 32 bit float greyed.
+  The main window with the Carina Nebula master in a workspace, stretched for the screen, and its readout at the
+  right. The menu bar, which Alt shows, runs across the top with File, Edit, View, Image, Process, Extensions, Window,
+  Help and About. The Image menu is open under it and lists Actions, Convert Format, Extract Channel, Fast Geometry,
+  Information, Mask, a greyed Sequence and View, then Show in File Browser below a line. Convert Format is
+  highlighted, and its submenu beside it lists seven commands from Convert to 8 bit to Convert to 64 bit float,
+  Convert to unsigned 16 bit the third and Convert to 32 bit float greyed.
 caption: >-
   Image > Convert Format over the linear Carina master: the master's own type, 32-bit floating point, is greyed, and
   Convert to unsigned 16 bit is the command of the worked example.
-owed: true
 ```
 
 ## Before you start

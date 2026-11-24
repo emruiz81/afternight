@@ -5,15 +5,15 @@
       "picture": "assets/images/processes/background-extraction/background-extraction.webp",
       "page": "processes/background-extraction/background-extraction.md",
       "data": ["linear"],
-      "shows": "The Background Extraction task on a linear master in the Autostretch display mode after Generate Samples at its defaults, with Interpolation Method at Polynomial, Degree Order at 1 and the corrected image previewed",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\background-extraction\\background-extraction.md", "-Set", "generateSamplesButton!;interpolationMethod=Polynomial;degreeOrder=1;previewButton", "-HoldSeconds", "15"]
+      "shows": "The Background Extraction task's column on a linear master in the Autostretch display mode after Generate Samples at its defaults, with Interpolation Method at Polynomial, Degree Order at 1 and the corrected image previewed",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\background-extraction\\background-extraction.md", "-Set", "generateSamplesButton!;interpolationMethod=Polynomial;degreeOrder=1;previewButton", "-HoldSeconds", "15", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/background-extraction/auto-gradient-removal.webp",
       "page": "processes/background-extraction/auto-gradient-removal.md",
       "data": ["linear"],
-      "shows": "The Auto Gradient Removal task at its defaults on a linear master in the Autostretch display mode, with Preview display at Gradient model and the preview computed",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\background-extraction\\auto-gradient-removal.md", "-Set", "previewDisplaySelector=Gradient model;previewButton", "-HoldSeconds", "30"]
+      "shows": "The Auto Gradient Removal task's column at its defaults on a linear master in the Autostretch display mode, with the preview computed",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\background-extraction\\auto-gradient-removal.md", "-Set", "previewButton", "-HoldSeconds", "30", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

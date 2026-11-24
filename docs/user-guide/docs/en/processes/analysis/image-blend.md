@@ -42,16 +42,16 @@ image can be blurred, reduced to its detail or colored, and **Opacity** mixes th
 ```figure
 image: ../../assets/images/processes/analysis/image-blend.webp
 alt: >-
-  The Image Blend task. Its header reads Image Blend on the stretched master. The canvas at the left shows the
-  preview, the stretched red nebula with its edges and stars drawn sharply, the word PREVIEW in its corner and the
-  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
-  Preview, Preview area and Processed toggles, the base's Image box, a histogram over its toolbar and the three
-  Stretch rows of the base. The blend image's group follows in the body, which scrolls, and Reset, Close and OK stand
-  in the footer.
+  The Image Blend task's column, scrolled to its two Stretch groups. At its top the compact readout of the preview,
+  its histogram peaking near a quarter of the range and its median 0.2784. Below it the column's header, Preview
+  ticked, Preview area unticked, the Processed button and the histogram's toolbar. Under Base Image, Black Point,
+  Highlights and Midtones stand at 0.0000, 1.0000 and 0.5000 with their sliders. Under Blend Image, the Image box
+  names RGB-linear, and its Black Point, Highlights and Midtones stand at 0.0200, 1.0000 and 0.0200. The Filter
+  heading is cut at the fold, above Reset, Close and OK.
 caption: >-
-  Image Blend on the stretched Carina master, with the linear master stretched alike as the blend image, filtered by
-  High Pass at a radius of 10 and laid over the base in Overlay: the blend in the canvas, the controls in the column.
-owed: true
+  Image Blend on the stretched Carina master, with the linear master as the blend image, stretched alike with Black
+  Point and Midtones at 0.02. The column is scrolled to the two Stretch groups, and the readout at the top is counted
+  from the preview.
 ```
 
 ## Before you start

@@ -43,18 +43,18 @@ master dark shows. It makes no masters, matches none to groups of lights, and do
 ```figure
 image: ../../assets/images/processes/calibration/image-calibration.webp
 alt: >-
-  The Image Calibration task, a page that fills the centre of the main window under a header naming Image
-  Calibration. On the left of the page, a preview of the first raw light of NGC 253, dark in the Linear display mode,
-  with a scatter of stars, the faint galaxy across its middle and its statistics. On the right, Bias Master unchecked,
-  Dark Master and Flat Master checked with the paths of the two masters, and the Output & Execution card with the
-  output folder, Use source filename on, the suffix _cal, FITS (Recommended) and 32-bit float, over the Calibrate
-  Images button. Across the bottom, the Light Frames table of 35 raw lights, every row with the Status Calibrated,
-  then the buttons Add Files, Add Folder, Remove Selected, two arrows, the counters and Clear All, and Reset and Close
-  at the page's foot.
+  The Image Calibration task, a page under a header naming Image Calibration, and a banner that reads Image
+  Calibration: Calibration executed successfully! On the left, the preview of the first raw light of NGC 253 under
+  its toolbar, with RGB and Linear in its two boxes: dark, with a scatter of stars, the faint galaxy across its middle
+  and a box of its statistics, the median 3541.3333. On the right, Bias Master unchecked, then Dark Master and Flat
+  Master checked with the paths of master_dark.fit and master_flat.fit, each over its closed advanced settings, the
+  output card with Output directory at D:/Captures/lights_cal, and the Calibrate Images button. Across the bottom, the
+  Light Frames table shows its first four lights with their date, size, ISO/Gain, offset, exposure, CFA, depth, type
+  and the status Calibrated, over Add Files, Add Folder, Remove Selected, two arrows, Current Image 1, Total Images 35
+  and Clear All. Reset and Close stand at the page's foot.
 caption: >-
-  Image Calibration after a run over the 35 lights of NGC 253 with the master dark and the master flat: every row
-  reads Calibrated, and the preview shows the first light as it was recorded.
-owed: true
+  Image Calibration after a run over the 35 lights of NGC 253 with a master dark and a master flat made beforehand:
+  the banner reports the run, and the preview shows the first light as it was recorded.
 ```
 
 ## Before you start
@@ -591,20 +591,21 @@ To compare, open the first light and its calibrated file. Each asks "Do you want
 opening?": answer **Yes** to both. Show both whole, with Autostretch.
 
 ```figure
-owed: true
 images:
   - image: ../../assets/images/processes/calibration/image-calibration-before.webp
     alt: >-
-      The whole raw light in color, NGC 253 across the middle, the corners of the frame darker than its centre, and a
-      scatter of single colored dots over the background.
+      The whole raw light in color under the label AUTOSTRETCH, NGC 253 small and tilted in the middle among many
+      stars, the background green and brighter around the centre, and a pale glow at the right edge. The top of the
+      view's toolbar shows at the foot, at 18.29 %.
     label: Before
   - image: ../../assets/images/processes/calibration/image-calibration-after.webp
     alt: >-
-      The same light calibrated, the background even from corner to corner and the colored dots gone.
+      The same light calibrated, the background an even neutral gray from corner to corner and the glow at the right
+      edge gone, the galaxy and the stars as they were.
     label: After
 caption: >-
-  The first light of NGC 253 before and after calibration with the master dark and the master flat, the whole frame
-  in each view's Autostretch display mode.
+  The first light of NGC 253 before and after calibration with a master dark and a master flat made beforehand, the
+  whole frame in each view's Autostretch display mode.
 ```
 
 ## Starting points

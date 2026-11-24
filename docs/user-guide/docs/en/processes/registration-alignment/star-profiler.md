@@ -49,17 +49,14 @@ through the image's [plate solution](../../reference/glossary.md#plate-solution)
 adds a step to its [history](../../reference/glossary.md#history).
 
 ```figure
-owed: true
-image: ../../assets/images/processes/registration-alignment/star-profiler.webp
+image: ../../assets/images/processes/registration-alignment/star-profiler.png
 alt: >-
-  The Star Profiler v2 task. Its header names the process and the stretched Carina master, and the canvas at the left
-  shows the image with a yellow or magenta ellipse around each detected star. The wide column at the right holds the
-  Detected Stars group: a table of narrow columns headed x, y, Mag, FWHMx, FWHMy, Ra, Dec and on, filled with rows of
-  figures, then two rows of buttons from Load Profile to Clear, and a line that reads Detected Stars 2187 beside the
-  Center Selected Star check box and a zoom box. Below, the Star Detection group: Radius at 5, Threshold at 3.00, the
-  unticked Amplitude Range group, Roundness Threshold at 0.50, the unticked Roundness Range group, Convergence at 1,
-  Relax PSF Checks, Profile Type at Gaussian with a dimmed Minimum Beta, then Detect Stars, Use Lightness and Reset.
-  Close stands in the footer.
+  The Star Profiler v2 task's column under its header, Star Processing over Star Profiler v2. The Detected Stars
+  section holds a table of narrow columns, most of their headings cut short, its first five rows filled with
+  figures, then two rows of buttons from Load Profile to Clear, and a line that reads Detected Stars: 2187 beside the
+  Center Selected Star check box and a greyed zoom box at x2.00. Below, the Star Detection section: Radius at 5,
+  Threshold at 3.00, the unticked Amplitude Range with its greyed limits, and Roundness Threshold at 0.50, where the
+  column scrolls on. Close stands in the footer.
 caption: >-
   Star Profiler v2 after a detection on the stretched Carina master with Threshold at 3.00: the table lists 2,187
   stars, brightest first.
@@ -624,17 +621,16 @@ the dark sky a star's height exceeds the 0.72 between 0.278 and 1, and it is dra
 stays below, and the star is drawn yellow. Save the list as `carina-stars.anspv2`.
 
 ```figure
-owed: true
 images:
   - image: ../../assets/images/processes/registration-alignment/star-profiler-before.webp
     alt: >-
-      A crop at 100 % of the middle of the stretched Carina master, pink clouds of nebula beside a dark dust
-      lane and many stars.
+      A crop at 100 % of the middle of the stretched Carina master, many white and blue stars on a dark red-brown
+      glow of nebula, with a box of its statistics at the top right and the view's toolbar at the foot.
     label: Image
   - image: ../../assets/images/processes/registration-alignment/star-profiler-after.webp
     alt: >-
-      The same crop with about thirty stars circled, yellow ellipses on the bright nebula and magenta ones on the
-      darker part at the lower left, while the fainter stars stay unmarked.
+      The same crop with about forty of the brighter stars circled by magenta ellipses, the larger stars by larger
+      ones, while the fainter stars stay unmarked.
     label: Detected stars
 caption: >-
   The middle of the stretched Carina master at 100 % in the Linear display mode, before the detection and with the

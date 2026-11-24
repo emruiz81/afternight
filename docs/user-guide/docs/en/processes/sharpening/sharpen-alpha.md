@@ -43,16 +43,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/sharpening/sharpen-alpha.webp
 alt: >-
-  The Multiscale Alpha Sharpen task. Its header names the process and the stretched master, and the column's header
-  reads Multiscale Alpha Sharpen. The canvas at the left shows the preview of a red nebula, with the word PREVIEW in
-  its corner, a small framed area in its middle and its floating toolbar near the foot. The column at the right opens
-  with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel
-  at RGB, and the Amplitude, Number of Scales, Anisotropy and Amount boxes with their sliders. Reset, Close and Apply
-  stand in its footer.
+  The Multiscale Alpha Sharpen task's column, the narrow kind. At its top the compact readout of the preview: a small
+  histogram beside the clipped fractions, and under them Min, Max, Mean, Median and StdDev. Below it the column's
+  header, the Preview and Preview area boxes both ticked and the Processed button, Target Image and Channel at RGB,
+  and the Amplitude, Number of Scales, Anisotropy and Amount boxes with their sliders, at 1.00, 5, 0.00 and 0.70. The
+  column is empty below them down to Reset, Close and Apply in its footer.
 caption: >-
   Multiscale Alpha Sharpen on the stretched master with Amplitude at 1.00, Number of Scales at 5, Anisotropy at 0.00
-  and Amount at 0.70. The framed area in the canvas shows what Apply writes there, over the original.
-owed: true
+  and Amount at 0.70, the preview area ticked. The readout at the top measures the preview.
 ```
 
 ## Before you start

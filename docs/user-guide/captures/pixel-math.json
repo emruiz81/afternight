@@ -5,8 +5,8 @@
       "picture": "assets/images/processes/pixel-math/pixel-math.webp",
       "page": "processes/pixel-math/pixel-math.md",
       "data": ["linear"],
-      "shows": "The PixelMath task on the linear master with the curve of the worked example in RGB/K, Create new image chosen and New Image Id at STRETCHED, before Apply; the canvas shows the target",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\pixel-math\\pixel-math.md", "-Set", "rgbkTextEdit=mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1));outputModeSelector=Create new image;newImadeIdEdit=STRETCHED"]
+      "shows": "The Pixel Math task's column on the linear master with the curve of the worked example in RGB/K, before Apply",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\pixel-math\\pixel-math.md", "-Set", "rgbkTextEdit=mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1))", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

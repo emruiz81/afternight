@@ -39,16 +39,13 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/sharpening/local-contrast-enhancement.webp
 alt: >-
-  The Local Contrast Enhancement task. Its header names the process and the stretched master. The canvas at the left
-  shows the whole enhanced nebula with its dark lanes. The column at the right opens with the compact readout of the
-  preview, then the Preview toggle ticked and Preview area unticked, Target Image and Channel at RGB, a histogram
-  with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar, and the Spatial
-  Radius, Weight, Darkness Level, Lightness Level and Amount boxes with their sliders. Reset, Close and Apply stand in
-  its footer.
+  The Local Contrast Enhancement task's column. It opens with the compact readout of the preview, then, under the
+  header, Preview ticked and Preview area unticked beside the Processed toggle, and Target Image and Channel at RGB. A
+  histogram with three colored peaks near the left has the lines Clipping Low and Clipping High in its corner, over
+  its toolbar. Below, Spatial Radius at 80.00, Weight at 0.50, Darkness Level and Lightness Level at 1.00 with their
+  sliders, and the top of Amount, cut by the footer, where Reset, Close and Apply stand.
 caption: >-
-  Local Contrast Enhancement on a stretched master with its default values and the preview area off: the canvas
-  shows what Apply writes over the whole image.
-owed: true
+  Local Contrast Enhancement on a stretched master with its default values, the preview on and the preview area off.
 ```
 
 ## Before you start
@@ -233,7 +230,7 @@ back what it lost. **Weight** at 0, or both levels at 0, gives \(y = x\), and **
 
 ### Worked example
 
-The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
+The task in the picture above works on the linear [master](../../reference/glossary.md#master) after Histogram
 Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The task keeps its
 defaults: **Spatial Radius** at 80, **Weight** at 0.50, both levels and **Amount** at 1.00, **Channel** at **RGB**.
 **Preview area** is unticked.

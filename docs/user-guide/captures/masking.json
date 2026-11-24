@@ -5,22 +5,22 @@
       "picture": "assets/images/processes/masking/binarize.webp",
       "page": "processes/masking/binarize.md",
       "data": ["linear"],
-      "shows": "The Binarize task at its defaults, RGB/K at 0.50 in the joint mode, on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\masking\\binarize.md"]
+      "shows": "The Binarize task's column at its defaults, RGB/K at 0.50 in the joint mode, on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\masking\\binarize.md", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/masking/mask-drawing.webp",
       "page": "processes/masking/mask-drawing.md",
       "data": ["linear"],
-      "shows": "The Mask Drawing task on the linear master in the Autostretch display mode, with one ellipse drawn at Feather 100 over the middle of the frame, still selected",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\masking\\mask-drawing.md", "-Set", "toolShapeButton=On;shapeTypeCombo=Ellipse;Feather=100;pageCanvas@35,30>65,70"]
+      "shows": "The Mask Drawing task's column on the linear master in the Autostretch display mode, with one rectangle drawn over the middle of the frame, still selected",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\masking\\mask-drawing.md", "-Set", "toolShapeButton;pageCanvas@35,30>65,70", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/masking/morphological-transformation.webp",
       "page": "processes/masking/morphological-transformation.md",
       "data": ["linear"],
-      "shows": "The Morphological Transformation task with Opening on a circular element of size 7 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\masking\\morphological-transformation.md", "-Set", "operatorSelector=Opening (Dilation + Erosion);seSizeSelector=7 (49 elements);seCircularButton"]
+      "shows": "The Morphological Transformation task's column with Opening on a circular element of size 7 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\masking\\morphological-transformation.md", "-Set", "operatorSelector=Opening (Dilation + Erosion);seSizeSelector=7 (49 elements);seCircularButton", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

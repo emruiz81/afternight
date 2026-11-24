@@ -16,19 +16,18 @@ alt: >-
   The main window showing the Histogram Transformation task. Down the left edge, the rail: a house, a picture frame
   and a stack of layers, a short line, then a small square picture of the Carina Nebula with a round mark at its
   corner, which a bar at the rail's edge marks as shown. At the rail's foot, a terminal and a gear. The centre holds the
-  task's page: the preview of the nebula at the left and the column of the task's controls at the right, with Reset,
-  Close and Apply at its foot.
+  task's page: the preview of the nebula, marked PREVIEW, at the left, and the task's column at the right, with the
+  preview's readout at its top and Reset, Close and Apply at its foot.
 caption: >-
   The rail beside the Histogram Transformation task: the three places at its top, the task's item under them, and the
   Session Console and Settings at its foot.
 pins:
-  - {n: 1, x: 3.6, y: 11.0}
-  - {n: 2, x: 3.6, y: 15.3}
-  - {n: 3, x: 3.6, y: 19.6}
-  - {n: 4, x: 3.8, y: 25.5}
+  - {n: 1, x: 3.6, y: 10.0}
+  - {n: 2, x: 3.6, y: 14.4}
+  - {n: 3, x: 3.6, y: 18.7}
+  - {n: 4, x: 3.8, y: 24.5}
   - {n: 5, x: 3.6, y: 92.9}
   - {n: 6, x: 3.6, y: 97.2}
-owed: true
 ```
 
 ## What you see

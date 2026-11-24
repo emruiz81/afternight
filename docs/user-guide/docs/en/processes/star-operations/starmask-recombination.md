@@ -41,14 +41,14 @@ stars and the mask stay as they were. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/starmask-recombination.webp
 alt: >-
-  The Starmask Recombination task. Its header names the process alone. The canvas at the left shows the preview, the
-  nebula with its stars. The column at the right opens with the compact readout of the preview, then the Preview
-  toggle ticked, Preview area and Processed, then Starless Image and Stars Image, each naming an image of the Carina
-  nebula, and Mask (optional) reading NO IMAGE beside a dimmed Invert check box. Close and OK stand in its footer.
+  The Starmask Recombination task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev, the median at 0.2763. Below it the column's header, the
+  Preview box ticked, Preview area unticked and the Processed button, then Starless Image at RGB - starless, Stars
+  Image at RGB - star mask, and Mask (optional) reading NO IMAGE between arrows beside a dimmed Invert check box. Close
+  and OK stand in its footer.
 caption: >-
   Starmask Recombination with the starless Carina image and the star image Starnet++ made from it, without a mask.
-  The canvas shows the sum OK writes.
-owed: true
+  The readout at the top is counted from the sum OK writes.
 ```
 
 ## Before you start

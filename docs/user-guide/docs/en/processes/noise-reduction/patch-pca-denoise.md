@@ -42,17 +42,13 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/patch-pca-denoise.webp
 alt: >-
-  The Patch PCA Denoise Filter task. Its header names Patch PCA Denoise Filter and the master. The canvas at the left shows the
-  whole nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Patch PCA Denoise Filter in
-  its middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings
-  button near its foot. The column at the right holds the preview's small histogram and statistics, the toggles
-  Preview, Preview area and Processed, Target Image and Channel at RGB, and the Strength box at 4.00, Patch Size at 5,
-  Lookup Size at 7 and Spatial Sampling at 7, each with its slider. Reset, Close and Apply stand in its footer.
+  The Patch PCA Denoise Filter task's column. At its top the compact readout of the preview, its histogram empty and
+  each figure a dash. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
+  button, Target Image and Channel at RGB, and Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
+  Sampling at 7, each with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
   Patch PCA Denoise on the linear Carina master with Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
-  Sampling at 7, the preview shown in the Autostretch display mode: the framed preview area of the canvas is denoised,
-  over the original.
-owed: true
+  Sampling at 7, the preview area on.
 ```
 
 ## Before you start

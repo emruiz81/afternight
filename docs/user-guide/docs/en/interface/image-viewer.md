@@ -14,28 +14,27 @@ channel, linear or stretched - and none of that changes the image, its history o
 in the same kind of view.
 
 ```figure
-owed: true
 image: ../assets/images/interface/image-viewer.webp
 alt: >-
   The centre of the main window with one image view, its tab named RGB. The whole Carina Nebula fills the view, red
   and white clouds and dark lanes among many stars, with the word AUTOSTRETCH in a dark box at the top left. A dark
-  floating toolbar near the bottom holds a fit button, a zoom-out button, 13.24 %, a zoom-in button, a 100 % button
+  floating toolbar near the bottom holds a fit button, a zoom-out button, 11.79 %, a zoom-in button, a 100 % button
   and a maximize button, a box reading RGB, the segments Linear and Autostretch with Autostretch selected, a gear, a
   star and three dots. Under the view, the history strip reads HISTORY and Initial state, with undo, redo and history
   buttons at its right.
 caption: >-
   The linear Carina master in its view, fitted to the workspace and shown in the Autostretch display mode.
 pins:
-  - {n: 1, x: 1.2, y: 2.0}
-  - {n: 2, x: 1.4, y: 9.7}
+  - {n: 1, x: 10.9, y: 2.1}
+  - {n: 2, x: 24.3, y: 9.7}
   - {n: 3, x: 3.6, y: 40.0}
-  - {n: 4, x: 20.8, y: 91.7}
-  - {n: 5, x: 42.8, y: 91.7}
-  - {n: 6, x: 53.5, y: 91.7}
-  - {n: 7, x: 68.1, y: 91.7}
-  - {n: 8, x: 72.4, y: 91.7}
-  - {n: 9, x: 76.6, y: 91.7}
-  - {n: 10, x: 1.2, y: 97.9}
+  - {n: 4, x: 26.4, y: 88.6}
+  - {n: 5, x: 48.7, y: 88.6}
+  - {n: 6, x: 62.9, y: 88.6}
+  - {n: 7, x: 72.9, y: 88.6}
+  - {n: 8, x: 77.9, y: 88.6}
+  - {n: 9, x: 82.9, y: 88.6}
+  - {n: 10, x: 46.5, y: 97.9}
 ```
 
 ## What you see
@@ -86,15 +85,14 @@ To tune the stretch, choose the gear beside the display mode. The settings chang
 follows each change.
 
 ```figure
-owed: true
 image: ../assets/images/interface/image-viewer-autostretch-settings.webp
 alt: >-
   The Autostretch Settings window, titled Autostretch Settings and RGB. Under the eyebrow DISPLAY and RGB, the heading
   Autostretch Settings and a line saying that the image is not changed until the stretch is applied. A Pre Processing
   group holds Target Background at 0.25 and Shadows Clipping at -2.80, each a value box and a slider, then the Linked
   channels check box, off, and the greyed Neutralize Background and Color Calibration check boxes. A Post Processing
-  group holds Saturation, Sat Bg., Brightness and Contrast. At the foot, the Print Autostretch Banner check box, on,
-  the Apply Stretch button, Reset, and a Close button.
+  group holds Saturation at 0.00, Sat Bg. at 1.00, Brightness and Contrast at 0. At the foot, the Print Autostretch
+  Banner check box, on, the Apply Stretch button, Reset, and a Close button.
 caption: >-
   Autostretch Settings for the Carina master's view, at its defaults.
 ```

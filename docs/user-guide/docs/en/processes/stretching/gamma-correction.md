@@ -41,15 +41,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/gamma-correction.webp
 alt: >-
-  The Gamma Correction task. Its header names the process and the stretched master. The canvas at the left shows the
-  preview, a red nebula on a nearly black background. The column at the right opens with the compact readout of the
-  preview, then the Preview, Preview area and Processed toggles, Target Image and Channel at RGB, a histogram with one
-  peak close to its left edge and the lines Clipping Low and Clipping High in its corner, its toolbar, and the Gamma
-  box at 0.50 with its slider. Reset, Close and Apply stand in its footer.
+  The Gamma Correction task's column. At its top the compact readout of the preview: a small histogram, the clipped
+  fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the column's header,
+  the Preview box ticked, Preview area unticked and the Processed button, Target Image and Channel at RGB, a
+  histogram with one peak close to its left edge and the lines Clipping Low and Clipping High in its corner, its
+  toolbar, and Gamma at 0.50 with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
-  Gamma Correction on a stretched master with Gamma at 0.50. The histogram is counted from the darkened preview, and
-  the canvas shows what Apply writes.
-owed: true
+  Gamma Correction on a stretched master with Gamma at 0.50. The histogram and the readout at the top are counted
+  from the darkened preview.
 ```
 
 ## Before you start

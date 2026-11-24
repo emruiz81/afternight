@@ -12,31 +12,30 @@ The [readout](../reference/glossary.md#readout) is the column at the right of th
 Integration place and a [task](../reference/glossary.md#task)'s page hide it; a task shows a compact readout of its preview in its own column instead.
 
 ```figure
-owed: true
 image: ../assets/images/interface/readout.webp
 alt: >-
   The readout column. Its header reads READOUT and RGB, with a panel button at its right. The Histogram card, marked
-  RGB, shows a plot of three channels near its left edge with Clipping Low 0.000% and Clipping High 0.019% over it, a
-  row of zoom, fit, grid, information, scale and area buttons, and a box reading 8-bit (256). The Statistics card has
-  the segments Normalized, 8-bit and 16-bit, Normalized chosen, and a table of Min, Max, Mean, Median, StdDev and MAD
-  for R, G and B. The Astrometry card, marked Solved and SIP 4/4, gives the field centre 10:44:30.67 and -59:53:31.7,
-  a scale of 1.095 arcseconds per pixel and a rotation of 107.75 degrees, the chips Grid, Annotations, Star labels,
+  RGB, shows a narrow peak at the plot's left edge with Clipping Low 0.000% and Clipping High 0.019% over it, a row of
+  zoom, fit, grid, information, scale and area buttons, and a box reading 8-bit (256). The Statistics card has the
+  segments Normalized, 8-bit and 16-bit, Normalized chosen, and a table of Min, Max, Mean, Median, StdDev and MAD for
+  R, G and B. The Astrometry card, marked Solved and SIP 4/4, gives the field centre 10:44:30.67 and -59:53:31.7, a
+  scale of 1.095 arcseconds per pixel and a rotation of 107.75 degrees, the chips Grid, Annotations, Star labels,
   Detected stars and SIP map with Grid selected, and the buttons Plate Solve, Annotate... and Info. At the foot, the
-  Image card begins with Dimensions 7246 by 5429.
+  Image card, three buttons in its header, gives Dimensions 7246 by 5429, 32 bit floating point, 450.19 MB and RGB.
 caption: >-
   The readout of the linear Carina master: its histogram, its statistics per channel, its plate solution and its
   Image card.
 pins:
-  - {n: 1, x: 3.0, y: 2.5}
-  - {n: 2, x: 91.7, y: 2.5}
-  - {n: 3, x: 3.6, y: 7.2}
-  - {n: 4, x: 10.0, y: 24.1}
-  - {n: 5, x: 3.6, y: 35.5}
-  - {n: 6, x: 22.2, y: 35.5}
-  - {n: 7, x: 3.6, y: 63.1}
-  - {n: 8, x: 3.6, y: 77.0}
-  - {n: 9, x: 3.6, y: 85.6}
-  - {n: 10, x: 3.6, y: 92.2}
+  - {n: 1, x: 37.0, y: 2.3}
+  - {n: 2, x: 87.0, y: 2.3}
+  - {n: 3, x: 70.4, y: 15.3}
+  - {n: 4, x: 3.7, y: 26.8}
+  - {n: 5, x: 24.1, y: 35.8}
+  - {n: 6, x: 57.8, y: 34.8}
+  - {n: 7, x: 46.3, y: 58.0}
+  - {n: 8, x: 33.3, y: 74.3}
+  - {n: 9, x: 81.5, y: 78.6}
+  - {n: 10, x: 46.3, y: 84.5}
 ```
 
 ## What you see

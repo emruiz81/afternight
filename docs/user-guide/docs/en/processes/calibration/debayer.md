@@ -38,13 +38,11 @@ new views beside the source and closes the [task](../../reference/glossary.md#ta
 [pixel type](../../reference/glossary.md#pixel-type).
 
 ```figure
-owed: true
 image: ../../assets/images/processes/calibration/debayer.webp
 alt: >-
-  The Debayer task. Its header names Debayer and the raw light. The canvas at the left shows the light as its view
-  does, a gray mosaic under Autostretch. The column at the right holds four lists: Bayer/mosaic pattern at From
-  metadata, Demosaicing method at RCD, Output mode at Combined RGB Color, and Target Image naming the light. Close and
-  OK stand in its footer.
+  The Debayer task's column under its header, Preprocess over Debayer. It holds four lists: Target Image naming the
+  raw light, Bayer/mosaic pattern at From metadata, Demosaicing method at RCD and Output mode at Combined RGB Color.
+  The rest of the column is empty down to the footer, where Close and OK stand.
 caption: >-
   Debayer on a raw light of NGC 253 with its defaults: the pattern the file states, RCD and one RGB image.
 ```
@@ -252,11 +250,9 @@ until color calibration balances it. The view's [Autostretch](../../reference/gl
 shows each channel by its own statistics, so the background looks neutral there. The hot pixels of the mosaic become
 colored dots: repair them on the mosaic first.
 
-The pair shows the core of the galaxy, from x 2572 to 2971 and from y 1692 to 1991 of the frame, at 100 % in the
-Autostretch display mode: the mosaic, then the new color view.
+The pair shows the core of the galaxy at 100 % in the Autostretch display mode: the mosaic, then the new color view.
 
 ```figure
-owed: true
 images:
   - image: ../../assets/images/processes/calibration/debayer-before.webp
     alt: >-
@@ -265,7 +261,7 @@ images:
     label: Before
   - image: ../../assets/images/processes/calibration/debayer-after.webp
     alt: >-
-      The same crop of the color image, the checkered texture gone, the core of the galaxy warm yellow on a neutral
+      The same crop of the color image, the checkered texture gone, the core of the galaxy warm yellow on a greenish
       gray background, white stars, and the hot pixels turned into small red, green and blue dots.
     label: After
 caption: >-

@@ -43,17 +43,16 @@ their own. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/star-reduction.webp
 alt: >-
-  The Star Reduction task. Its header names the process and the stretched Carina master. The canvas at the left shows
-  the stretched nebula with a framed area in its middle, the word PREVIEW in its corner. The column at the right opens
-  with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target image, and
-  the sections of the process: Views with Starless image, Generator and the Generate starless view button; Small star
-  protection with its button and check box; Star reduction parameters with Reduction method at Star Method, a dimmed
-  Stretch factor, Mode at Strong and Iterations at 2; and Output options with its check boxes and name fields. Reset,
-  Close and OK stand in its footer.
+  The Star Reduction task's column. At its top the compact readout of the preview: a small histogram of three colored
+  curves with spikes, the clipped fractions, and Min, Max, Mean, Median and StdDev, the median at 0.2784. Below it the
+  column's header, the Preview and Preview area boxes ticked and the Processed button, Target image at RGB, and the
+  first sections of the process: Views with Starless image at RGB - starless, Generator at Starnet++ and the Generate
+  starless view button; Small Star Protection with its button and the unticked Enable small star protection box; and
+  Star Reduction Parameters with Reduction method at Star Method, where the column is cut. Reset, Close and OK stand
+  in its footer.
 caption: >-
-  Star Reduction on the stretched Carina master against its starless image, with Star Method, Strong and Iterations
-  at 2. The framed area in the canvas shows the reduced stars.
-owed: true
+  Star Reduction on the stretched Carina master against its starless image, with Reduction method at Star Method. The
+  readout at the top is counted from the preview, made with the worked example's settings.
 ```
 
 ## Before you start

@@ -6,35 +6,35 @@
       "page": "processes/registration-alignment/image-registration.md",
       "data": ["ngc253"],
       "shows": "The Image Registration task after Register and Align on the 35 calibrated lights of NGC 253, every setting at its default, the first frame the reference",
-      "options": ["-Page", "processes\\registration-alignment\\image-registration.md", "-Set", "addFiles?{work:lights_cal};outputDirectoryButton?{work}\\registered;registerButton!;alignButton!"]
+      "options": ["-Page", "processes\\registration-alignment\\image-registration.md", "-Set", "addFiles?{work:lights_cal};outputDirectoryButton?{work}\\registered;registerButton!;alignButton!", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/registration-alignment/plate-solving.webp",
       "page": "processes/registration-alignment/plate-solving.md",
       "data": ["linear"],
       "shows": "The Plate Solve window after a solve of the linear master with the Gaia DR3 G<=14 pack, Write WCS to the current image metadata ticked",
-      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Display", "Autostretch", "-Capture", "plate-solving=Image > Information > Plate Solve", "-Set", "plateSolveSolve!"]
+      "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Display", "Autostretch", "-Capture", "plate-solving=Image > Information > Plate Solve", "-Set", "plateSolveSolve!", "-Width", "1280"]
     },
     {
-      "picture": "assets/images/processes/registration-alignment/star-profiler.webp",
+      "picture": "assets/images/processes/registration-alignment/star-profiler.png",
       "page": "processes/registration-alignment/star-profiler.md",
       "data": ["linear"],
-      "shows": "The Star Profiler v2 task after a detection on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, Threshold at 3.00, its ellipses over the image in the canvas",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler=Process > Star Processing > Star Profiler v2", "-Set", "thresholdValue=3.0;detectStarsButton^OK"]
+      "shows": "The Star Profiler v2 task's column after a detection on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, Threshold at 3.00, its ellipses over the image in the canvas",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler=Process > Star Processing > Star Profiler v2", "-Set", "thresholdValue=3.0;detectStarsButton^OK", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/registration-alignment/star-profiler-before.webp",
       "page": "processes/registration-alignment/star-profiler.md",
       "data": ["linear"],
       "shows": "The middle of the stretched master at 100 % in the Star Profiler v2 task's canvas, in the Linear display mode, before a detection",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler-task=Process > Star Processing > Star Profiler v2", "-Set", "anFloatingToolbarZoom100;%shot=star-profiler-before@canvas"]
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler-task=Process > Star Processing > Star Profiler v2", "-Set", "anFloatingToolbarZoom100;%shot=star-profiler-before@canvas", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/registration-alignment/star-profiler-after.webp",
       "page": "processes/registration-alignment/star-profiler.md",
       "data": ["linear"],
       "shows": "The same part of the canvas after a detection at Threshold 3.00, each star found drawn as a yellow or magenta ellipse",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler-task=Process > Star Processing > Star Profiler v2", "-Set", "anFloatingToolbarZoom100;thresholdValue=3.0;detectStarsButton^OK;%shot=star-profiler-after@canvas"]
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Capture", "star-profiler-task=Process > Star Processing > Star Profiler v2", "-Set", "anFloatingToolbarZoom100;thresholdValue=3.0;detectStarsButton^OK;%shot=star-profiler-after@canvas", "-Scale", "1"]
     }
   ]
 }

@@ -39,16 +39,15 @@ The [task](../../reference/glossary.md#task) changes no file and measures no sta
 that are left, in the table's order, as one [SER](../../reference/glossary.md#ser), AVI, MP4 or WebM file.
 
 ```figure
-owed: true
 image: ../../assets/images/processes/stacking-integration/image-list-analyzer.webp
 alt: >-
-  The Image List Analyzer task, a page that fills the centre of the main window under a header naming Image List
-  Analyzer. On the left of the page, the preview of a color frame of a galaxy among stars, with a card of statistics
-  in its corner and a player under it. On the right, the summary of the file, a histogram with three narrow peaks near
-  its left edge, the Optimize For Fast Play button, the status Images Already Optimized and the Export Sequence
-  button. Below, a table of files with the columns File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA and Depth,
-  its first row selected, then Add Files, Add Folder, Remove Selected, Current Image 1, Total Images 35 and Clear All.
-  Reset and Close stand at the page's foot.
+  The Image List Analyzer task, a page under a header naming Image List Analyzer. On the left, a table of the files
+  with the columns File, Date, Size and Filter, the others scrolled out of sight, its first row selected, over Add
+  Files, Add Folder, Remove Selected, Current Image 1, Total Images 35 and Clear All. In the middle, the preview of a
+  color frame of a galaxy among stars under the label AUTOSTRETCH and a card of statistics, with a player under it. On
+  the right, the summary of the file with its name and path, a histogram with narrow peaks near its left edge, the
+  greyed Optimize For Fast Play button, the status Images Already Optimized and the Export Sequence button. Reset and
+  Close stand at the page's foot.
 caption: >-
   Image List Analyzer with 35 raw color-filter lights of NGC 253, in Date order and optimized for playback, showing the
   first of them.

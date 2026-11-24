@@ -17,27 +17,26 @@ Logging page of [Settings](settings-dialog.md) sets up, keeps them on disk betwe
 clearing or filtering the console leaves the file as it is.
 
 ```figure
-owed: true
 image: ../assets/images/interface/log-viewer.webp
 alt: >-
   The main window with the Carina Nebula master in its workspace, its readout at the right, and the Session Console's
   drawer open under them, above the status line. The drawer's toolbar reads Session Console, then holds zoom buttons,
-  a wrap button, a bin, a reload arrow, a terminal icon and a gear, Show >= with a box reading info, the words File
-  log: info, and at the far right a magnifier, a disk, a window icon and a cross. Below, lines of text, each a date
-  and time, the word info in blue and a message. At the rail's foot a terminal icon, and at the status line's right
+  a wrap button, a bin, a reload arrow, a highlighted terminal icon and a gear, Show >= with a box reading info, the
+  words File log: info, and at the far right a magnifier, a disk, a window icon and a cross. Below the toolbar the list
+  of messages is empty, its session just cleared. At the rail's foot a terminal icon, and at the status line's right
   end a button reading Console.
 caption: >-
-  The Session Console's drawer open under the Carina master's workspace.
+  The Session Console's drawer open under the Carina master's workspace, its session just cleared.
 pins:
-  - {n: 1, x: 3.6, y: 75.0}
-  - {n: 2, x: 11.6, y: 75.0}
-  - {n: 3, x: 30.2, y: 75.0}
-  - {n: 4, x: 40.8, y: 75.0}
-  - {n: 5, x: 91.0, y: 75.0}
-  - {n: 6, x: 95.7, y: 75.0}
-  - {n: 7, x: 3.6, y: 81.0}
+  - {n: 1, x: 3.0, y: 74.6}
+  - {n: 2, x: 21.7, y: 77.8}
+  - {n: 3, x: 36.4, y: 77.8}
+  - {n: 4, x: 48.7, y: 77.8}
+  - {n: 5, x: 92.0, y: 77.8}
+  - {n: 6, x: 97.2, y: 77.8}
+  - {n: 7, x: 50.0, y: 85.0}
   - {n: 8, x: 3.6, y: 92.9}
-  - {n: 9, x: 93.6, y: 98.4}
+  - {n: 9, x: 94.3, y: 98.4}
 ```
 
 ## What you see

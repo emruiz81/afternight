@@ -40,16 +40,13 @@ adds one step to its [history](../../reference/glossary.md#history) and closes t
 ```figure
 image: ../../assets/images/processes/geometry/rotate.webp
 alt: >-
-  The Rotate task. Its header reads Rotate on the master. The canvas at the left shows the master stretched for the
-  screen, turned 10 degrees clockwise on a larger canvas with black corners, with an amber dashed frame divided in
-  thirds inside the turned image. The column at the right, headed Rotate, holds Target Image naming the master, the
-  Rotation section with Rotation Angle at 10.00, Resize image ticked, a slider and Interpolation at Auto (Lanczos4),
-  and the Crop section, ticked, with Pos X at 1040, Width at 6000, Pos Y at 1102 and Height at 4400, then Current Size
-  at 450.19 MB and New Size at 302.12 MB. Reset, Close and OK stand in its footer.
+  The Rotate task's column, headed Rotate. It holds Target Image at RGB, the master, the Rotation section with
+  Rotation Angle at 10.00, Resize image ticked, a slider and Interpolation at Auto (Lanczos4), and the Crop section,
+  its box ticked, with Pos X at 1040, Width at 6000, Pos Y at 1102 and Height at 4400, then Current Size at 450.19 MB
+  and New Size at 302.12 MB. Reset, Close and OK stand in its footer.
 caption: >-
   Rotate on the linear Carina master, turned 10 degrees on a larger canvas and cropped to a rectangle of 6000 by 4400
-  pixels that the turned image fills: the canvas shows the turn and the frame of the crop.
-owed: true
+  pixels that the turned image fills. New Size gives the memory the result will hold.
 ```
 
 ## Before you start

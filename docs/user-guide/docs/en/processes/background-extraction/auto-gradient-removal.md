@@ -42,16 +42,15 @@ their own.
 ```figure
 image: ../../assets/images/processes/background-extraction/auto-gradient-removal.webp
 alt: >-
-  The Auto Gradient Removal task. Its header reads Auto Gradient Removal on the linear master. The canvas at the left
-  shows a smooth blurred surface, reddish at the left and blue-green at the right, with the floating toolbar near its
-  foot. The column at the right opens with the compact readout of the preview and the ticked Preview toggle,
-  then Target image and the Background model section with Scale at 5.0, Smoothness at 1.00, Downsample at 4, the
-  unticked Simplified polynomial model box and a grayed Polynomial degree slider. The Structure protection,
-  Correction and Outputs sections follow in the body, which scrolls, and Reset, Close and Apply stand in the footer.
+  The Auto Gradient Removal task's column, scrolled down. At its top the compact readout of the preview: the image's
+  plate solution, a small histogram with one peak near its dark end, the clipped fractions, and Min, Max, Mean, Median
+  and StdDev, the median 0.0277. Below it the column's header, the Preview box ticked and the Processed button, the
+  Structure Protection group with Protect bright structures ticked and Threshold at 0.050 and Amount at 0.50 with
+  their sliders, and the Correction group with Mode at Subtraction, Preview display at Corrected image and the dimmed
+  Preview button. The Outputs group begins at the fold. Reset, Close and Apply stand in its footer.
 caption: >-
   Auto Gradient Removal on the linear Carina master at its defaults, with the preview computed and Preview display at
-  Gradient model: the background the estimate found, in the canvas.
-owed: true
+  Corrected image.
 ```
 
 ## Before you start
@@ -340,7 +339,7 @@ radius \(\max(1, \operatorname{round}(r\,k))\). With \(L\) the median of the wor
 
 ### Worked example
 
-The master in the picture above is the linear Carina master, 7,246 by 5,429 pixels, whose background turns from
+The task pictured above works on the linear Carina master, 7,246 by 5,429 pixels, whose background turns from
 pink at the left to green at the right. At the defaults, **Downsample** at 4 gives a working image of 1,812 by 1,358
 pixels, and equation (1) a radius of 68 working pixels, 272 pixels of the image. Equation (2) leaves the stars and
 the bright nebula out, and **Gradient model** shows the color shift the model follows. With **Subtraction**,

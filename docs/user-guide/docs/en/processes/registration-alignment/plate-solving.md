@@ -43,15 +43,15 @@ its [history](../../reference/glossary.md#history). The pixels are not changed, 
 save the image.
 
 ```figure
-owed: true
 image: ../../assets/images/processes/registration-alignment/plate-solving.webp
 alt: >-
-  The Plate Solve window over the main window. Its heading reads Plate Solve over a line saying what it does. The
-  Acquisition Hints section is open: RA at 10h 44m 30.671s, Dec at S 59 degrees 53 minutes 31.732 seconds, a Find
-  object button, Focal length near 435 mm and Pixel size at 2.31 µm. Below it the Solved Field card lists the field
-  center, image scale, rotation, field of view, Internal Gaia as the solver and the SIP distortion. Then the Clear
-  Astrometry button, the ticked Write WCS to the current image metadata check box, and a footer with Reset Hints at
-  its left and Close and Solve at its right.
+  The Plate Solve window, titled Plate Solve <RGB>. Its heading reads Astrometry · RGB over Plate Solve and a line
+  saying what it does. The Acquisition Hints section is open: RA at 10h 44m 30.671s, Dec at S 59 degrees 53 minutes
+  31.732 seconds, a Find object button, Focal length at 434.44 mm and Pixel size at 2.31 µm. Below it the Solved
+  Field card lists the field center, an image scale of 1.097 arcsec/px, a rotation of 107.75 deg, the field of view,
+  Internal Gaia as the solver and the SIP distortion of order 4/4. Then the Clear Astrometry button, the ticked Write
+  WCS to the current image metadata check box, and a footer with Reset Hints at its left and Close and Solve at its
+  right.
 caption: >-
   Plate Solve after a solve of the Carina master with the Gaia DR3 G<=14 pack: the hints its header gave, the focal
   length the solve derived and the solution it found and wrote.
@@ -732,7 +732,7 @@ optics' distortion:
 
 ### Worked example
 
-The [master](../../reference/glossary.md#master) in the picture above is a linear 32-bit floating-point RGB image of
+The [master](../../reference/glossary.md#master) the picture above solves is a linear 32-bit floating-point RGB image of
 the Carina Nebula, 7246 by 5429 pixels, shown in the view's [Autostretch](../../reference/glossary.md#autostretch)
 display. Its header carries the solution its stacking wrote, without `PLTSOLVR`, and states `FOCALLEN` 432 and
 `XPIXSZ` 2.315. With the Gaia DR3 G<=14 pack installed and every setting at its default, open the window. **Solved Field** shows the header's

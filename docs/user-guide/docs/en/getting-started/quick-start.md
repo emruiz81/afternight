@@ -37,26 +37,26 @@ Lights alone are enough to run. The result is then stacked but not calibrated, a
 ## Steps
 
 ```figure
-image: ../assets/images/getting-started/quick-start.png
+image: ../assets/images/getting-started/quick-start.webp
 alt: >-
-  The Image Integration Lite task, a page that fills the centre of the main window under a header naming Image
-  Integration Lite. A green banner at the top of the page reads Ready. Under it, two columns. At the left, the Dataset
-  card counts 18 light, 40 flat, 20 dark and 30 bias frames of the object NGC253, and the Frames card below it has the
-  Add as box reading Auto-detect, the Add Files, Add Folder, Change Type and Clear All buttons, and a table of the files
-  with their type, object, exposure and calibration. At the right, the Setup card holds the Output folder with its
-  Browse button and the options of the run, and Processing Settings lists four closed lines: Calibration,
-  Registration, Normalization and Stacking. Open Full Process, Close and Run Integration are at the page's foot.
+  The Image Integration Lite task, a page under a header naming Image Integration Lite. A green banner at the top of
+  the page reads Ready. Under it, two columns. At the left, the Dataset card counts 18 light, 40 flat, 20 dark and 30
+  bias frames of the object NGC253, and the Frames card below it has the Add as box reading Auto-detect, the Add
+  Files, Add Folder, Change Type and Clear All buttons, and a table of the files with their type, filter, object,
+  exposure and calibration, its first rows bias frames used by the flats. At the right, the Setup card holds the
+  Output folder with its Browse button and the options of the run, and Processing Settings lists four closed lines:
+  Calibration, Registration, Normalization and Stacking. Open Full Process, Close and Run Integration are at the
+  page's foot.
 caption: >-
   Image Integration Lite with a night on NGC 253 loaded and ready to run: a color camera's lights with their darks,
   flats and bias frames.
 pins:
-  - {n: 2, x: 60.5, y: 18.6}
-  - {n: 3, x: 21.2, y: 35.0}
-  - {n: 4, x: 2.4, y: 40.0}
-  - {n: 5, x: 60.5, y: 44.1}
-  - {n: 6, x: 1.6, y: 8.5}
-  - {n: 7, x: 89.5, y: 96.1}
-owed: true
+  - {n: 2, x: 60.0, y: 17.2}
+  - {n: 3, x: 13.2, y: 32.5}
+  - {n: 4, x: 1.6, y: 37.0}
+  - {n: 5, x: 60.0, y: 44.8}
+  - {n: 6, x: 1.3, y: 8.6}
+  - {n: 7, x: 90.3, y: 96.4}
 ```
 
 ### Open Image Integration Lite
@@ -212,13 +212,12 @@ disk space, and a later run in the same folder reuses or replaces what matches.
 image: ../assets/images/getting-started/quick-start-result.webp
 alt: >-
   The AfterNight main window with one image open in Workspace 1, in a tab named stacked_5544x3684_NGC253: a pale
-  galaxy seen almost edge-on, in the middle of a field of stars on a gray background. The floating toolbar near the
-  foot of the view shows Autostretch selected, and the readout at the right shows the master's histogram and
-  statistics. In the rail, under the places, the item of the Image Integration Lite task.
+  galaxy seen almost edge-on, in the middle of a field of stars on a gray background, AUTOSTRETCH written in its
+  corner. The floating toolbar near the foot of the view shows Autostretch selected, and the readout at the right
+  shows the master's histogram, its statistics and its size, 5544 x 3684 in 32-bit floating point.
 caption: >-
   The stacked master of NGC 253 as the run opened it, shown with Autostretch. Its colors are those of the camera:
   color calibration comes later.
-owed: true
 ```
 
 Lite keeps its list of frames only while the task is open, and does one target at a time. It does not take video

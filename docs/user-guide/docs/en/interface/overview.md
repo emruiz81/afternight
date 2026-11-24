@@ -15,25 +15,24 @@ This page names each region and says what to do first. The page each region link
 ```figure
 image: ../assets/images/interface/overview.webp
 alt: >-
-  The AfterNight main window with one image open. Along the top, the top bar: the AfterNight mark, a folder reading No
-  project, the path Workspace 1 then RGB, a wide field reading Search or run a command with the keys Ctrl K, and a
-  row of small icons at the right. Down the left edge, a narrow rail of icons: a house, a picture frame that is
-  selected and a stack of layers, and at its foot a terminal and a gear. The centre holds a tab named RGB over the red
-  and white clouds of the Carina Nebula among many stars, with a floating toolbar near its foot and a History strip
-  under it. At the right, the Readout column with its Histogram, Statistics, Astrometry and Image cards. Along the
-  bottom, the status line: a box reading RGB, the image's size, type and memory, the zoom, RA and Dec, an icon and a
-  Console button.
+  The AfterNight main window with one image open. Along the top, the top bar: No project, the path Workspace 1 then
+  RGB, a wide field reading Search or run a command with the keys Ctrl K, and a row of icons at the right. Down the
+  left edge, the rail: a house, a picture frame that is selected and a stack of layers, and at its foot a terminal
+  and a gear. The centre holds a tab named RGB over the red and white clouds of the Carina Nebula among many stars,
+  the word AUTOSTRETCH at its top left, a floating toolbar near its foot with the zoom, RGB, Linear and Autostretch,
+  and a History strip under it holding Initial state. At the right, the Readout column with its Histogram, Statistics
+  and Astrometry cards and the top of its Image card. Along the bottom, the status line: a box reading RGB, the
+  image's size, type and memory, the zoom, RA and Dec, an icon and a Console button.
 caption: >-
   The main window with the linear Carina master open in Workspace 1, shown with Autostretch, and its readout at the
   right.
 pins:
-  - {n: 1, x: 37.5, y: 5.9}
-  - {n: 2, x: 3.4, y: 15.3}
+  - {n: 1, x: 28.5, y: 4.8}
+  - {n: 2, x: 1.8, y: 24.0}
   - {n: 3, x: 40.0, y: 45.0}
-  - {n: 4, x: 75.0, y: 10.6}
-  - {n: 5, x: 9.5, y: 98.4}
-  - {n: 6, x: 94.6, y: 98.4}
-owed: true
+  - {n: 4, x: 88.5, y: 9.6}
+  - {n: 5, x: 10.7, y: 98.4}
+  - {n: 6, x: 94.3, y: 98.4}
 ```
 
 ## What you see

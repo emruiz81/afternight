@@ -16,26 +16,26 @@ and what a step did to them. It counts the stored samples, never what the view d
 the image, its header or its [history](../reference/glossary.md#history).
 
 ```figure
-owed: true
-image: ../assets/images/interface/image-histogram.webp
+image: ../assets/images/interface/image-histogram.png
 alt: >-
   The Histogram Analysis window, titled Histogram <RGB>. Its heading reads ANALYSIS · RGB over Histogram Analysis and
-  a line about channel distributions. A card titled Histogram Plot and Controls holds a dark plot with a dotted grid,
-  where red, green and blue filled areas rise to sharp peaks a quarter of the way from the left, overlapping in white,
-  and fall in a long low tail toward the right. Two lines in the top left corner read Clipping Low: 0.000% and Clipping
-  High: 0.019%. A strip from black to white runs under the plot. Under it, three zoom buttons, four toggle buttons, a
-  box reading 8-bit (256), and a Channel box reading RGB. Reset and Close stand at the bottom right.
+  a line about channel distributions. A card titled Histogram Plot and Controls holds a dark plot with a faint grid,
+  where red, green and blue filled areas rise to sharp peaks a quarter of the way from the left, the red one tallest,
+  overlapping in white, and fall in a long low tail toward the right. Two lines in the top left corner read Clipping
+  Low: 0.000% and Clipping High: 0.019%. A strip from black to white runs under the plot. Under it, three zoom buttons,
+  four toggle buttons, a box reading 8-bit (256), and a Channel box reading RGB. Reset and Close stand at the bottom
+  right.
 caption: >-
   Histogram Analysis of the Carina master after Histogram Transformation with Shadows and Midtones at 0.02, opened
   from the readout at its defaults.
 pins:
-  - {n: 1, x: 1.6, y: 9.7}
+  - {n: 1, x: 17.8, y: 8.2}
   - {n: 2, x: 85.0, y: 40.0}
-  - {n: 3, x: 4.0, y: 28.8}
+  - {n: 3, x: 4.0, y: 29.0}
   - {n: 4, x: 3.4, y: 85.1}
-  - {n: 5, x: 34.8, y: 85.1}
-  - {n: 6, x: 74.2, y: 85.1}
-  - {n: 7, x: 77.4, y: 93.9}
+  - {n: 5, x: 48.0, y: 85.0}
+  - {n: 6, x: 73.5, y: 85.0}
+  - {n: 7, x: 77.4, y: 93.7}
 ```
 
 ## What you see

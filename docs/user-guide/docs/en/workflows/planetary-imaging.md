@@ -34,19 +34,18 @@ start at step 6.
 ## Steps
 
 ```figure
-owed: true
 image: ../assets/images/interface/sequences.webp
 alt: >-
-  The AfterNight main window with one sequence view in Workspace 1, its tab named jupiter_8bit. The disc of Jupiter
-  with its belts on a black sky fills the view, with the floating toolbar near its foot. Under the picture, the
-  player's play, stop, previous and next buttons, a long slider and a box reading 1/4965, then the history strip. The
-  readout column stands at the right. The status line along the bottom reads SER
-  SEQUENCE, 448x448 (RGB), 1/4965 and 82.46 fps.
+  The AfterNight main window with one sequence view in Workspace 1, its tab named jupiter_8bit. The soft green disc
+  of Jupiter, crossed by a dark belt, fills the view on black, with the floating toolbar near its foot. Under the
+  picture, the player's play, stop, previous and next buttons, a long slider and a box reading 1/4965, then the
+  history strip. The readout column stands at the right. The status line along the bottom reads SER SEQUENCE,
+  448x448 (RGB), 1/4965 and 82.46 fps.
 caption: >-
   The guide's SER video of Jupiter in its view, on its first frame, with the player under the picture.
 pins:
-  - {n: 1, x: 9.8, y: 98.4}
-  - {n: 2, x: 3.6, y: 91.5}
+  - {n: 1, x: 13.9, y: 98.4}
+  - {n: 2, x: 3.7, y: 90.2}
 ```
 
 ### Open the video

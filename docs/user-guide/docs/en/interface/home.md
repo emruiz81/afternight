@@ -16,25 +16,24 @@ What Home keeps is a list of paths, pictures and choices: taking a file off the 
 ```figure
 image: ../assets/images/interface/home.webp
 alt: >-
-  Home in the main window. At the top left, the day's date in small capitals over the heading Home; at the right, a row
-  of buttons: Open file with the keys Ctrl O, New sequence, Image integration, New project and a button of three dots.
-  Under them a wide card fills the width: the grey picture of a flat frame behind its file name, a line of facts from
-  its header, a Continue button and a star. Below, the heading Recent images and sequences with the count 2 images and
-  a line of help, then a search box with the keys Ctrl F, a box reading Recent beside the word Sort, and two icons for
-  a grid and a list. Under them two tiles, a grey flat frame and the Carina Nebula, each tagged FITS, with its file
-  name, its size and the day it was changed.
+  Home in the main window, its house selected in the rail. At the top left, the day's date in small capitals over the
+  heading Home; at the right, a row of buttons: Open file with the keys Ctrl O, New sequence, Image integration, New
+  project and a button of three dots. Under them a wide card fills the width: the grey picture of a flat frame behind
+  its file name, two lines of facts from its header, a Continue button and a star. Below, the heading Recent images and
+  sequences with the count 2 images and a line of help, then a search box with the keys Ctrl F, a box reading Recent
+  beside the word Sort, and two icons for a grid and a list. Under them two tiles, a grey flat frame and the Carina
+  Nebula, each tagged FITS, with its file name, its size and when it was changed.
 caption: >-
   Home with two recent images, the Carina master and a blue flat, the flat featured in the Continue row.
 pins:
-  - {n: 1, x: 3.9, y: 13.3}
-  - {n: 2, x: 52.3, y: 14.4}
-  - {n: 3, x: 96.9, y: 17.9}
-  - {n: 4, x: 3.9, y: 22.4}
-  - {n: 5, x: 94.3, y: 22.3}
-  - {n: 6, x: 3.9, y: 48.9}
-  - {n: 7, x: 62.9, y: 48.9}
-  - {n: 8, x: 3.9, y: 58.0}
-owed: true
+  - {n: 1, x: 4.5, y: 12.2}
+  - {n: 2, x: 46.3, y: 13.4}
+  - {n: 3, x: 96.5, y: 16.3}
+  - {n: 4, x: 7.5, y: 24.0}
+  - {n: 5, x: 93.0, y: 21.5}
+  - {n: 6, x: 4.5, y: 48.3}
+  - {n: 7, x: 58.0, y: 48.3}
+  - {n: 8, x: 4.5, y: 57.4}
 ```
 
 ## What you see
@@ -83,10 +82,9 @@ alt: >-
   words Welcome to AfterNight, the line Astrophotography processing suite, a sentence and the version. Under Get
   started, three cards: Open an image, Stack your frames and Read the guide. A line says projects are optional, with a
   New project link. A dashed drop zone reads Drop images or sequences here, with the formats and an Open file button.
-  At the foot, six small cards under What you can do.
+  At the foot, the tops of six small cards under What you can do, cut by the window's edge.
 caption: >-
   Home on the first start of a new profile, before any file has been opened.
-owed: true
 ```
 
 ### Return to recent work

@@ -41,15 +41,12 @@ has no preview: its canvas shows the target itself.
 ```figure
 image: ../../assets/images/processes/color-calibration/linear-match.webp
 alt: >-
-  The Linear Match task. Its header reads Linear Match on the blue channel of the master, with Float as window and
-  Close at its right. The canvas at the left shows that channel itself, stretched for the screen: the nebula in gray
-  among many stars. The column at the right, headed Linear Match, holds Target Image naming the blue channel, Reference
-  Image naming the red channel, Reject low at 0.000 with its slider at the left and Reject high at 0.920 with its
-  slider near the right. Close and OK stand in its footer.
+  The Linear Match task's column, with no readout at its top, its rows spread far apart. Under the column's header
+  the Target Image label stands above a wide gap and its list at stacked_8288x5644_Green_Carina_Nebula, then Reference
+  Image at another stack of the Carina set, shortened to stacked_8288x5..._Carina_Nebula, Reject low at 0.000 with its
+  slider at the left and Reject high at 0.920 with its slider near the right. Close and OK stand in its footer.
 caption: >-
-  Linear Match on the blue channel extracted from the linear Carina master, with its red channel as the reference and
-  the default limits, as the worked example sets them: the canvas shows the target as it is.
-owed: true
+  Linear Match on the green stack of the Carina set, with its red stack as the reference and the default limits.
 ```
 
 ## Before you start

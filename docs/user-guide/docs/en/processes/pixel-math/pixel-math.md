@@ -43,18 +43,15 @@ expression computes, never clamped to 0 to 1. It is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/pixel-math/pixel-math.webp
 alt: >-
-  The Pixel Math task. Its header names Pixel Math and the master. The canvas at the left shows the master itself, with
-  no preview, and a floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds
-  Target Image naming the master, then a row of tabs: RGB/K, then G, B and A grayed, then Symbols and Summary. In the
-  RGB/K tab, an editor holds one line, mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1)), with the function names, the
-  target symbol and the numbers in their own colors. Under the tabs, Use a single RGB/K expression is ticked, with
-  Import and Export at the right, then the section of the Functions, Operators and Symbols lists, and the Settings
-  section, where the output box reads Create new image and New Image Id reads STRETCHED, in a body that scrolls. Close
-  and Apply stand in its footer.
+  The Pixel Math task's column, with no readout at its top. Under the column's header, in a body that scrolls, Target
+  Image at RGB, the master, then a row of tabs: RGB/K, then G, B and A grayed, then Symbols and Summary. In the RGB/K
+  tab, an editor holds one line, mtf(0.02, clamp(($T - 0.02) / 0.98, 0, 1)), with the function names, the target
+  symbol and the numbers in their own colors. Under it, Use a single RGB/K expression is ticked, with Import and Export
+  at the right, then the Functions, Operators and Symbols section: the Functions and Operators lists side by side,
+  the first from abs, and the top of the Symbol and Type table under them. Close and Apply stand in its footer.
 caption: >-
-  Pixel Math on the linear Carina master with the curve of the worked example in RGB/K and Create new image chosen,
-  before Apply. The canvas shows the target, since the task has no preview.
-owed: true
+  Pixel Math on the linear Carina master with the curve of the worked example in RGB/K, before Apply. The column has
+  no readout, since the task has no preview.
 ```
 
 ## Before you start

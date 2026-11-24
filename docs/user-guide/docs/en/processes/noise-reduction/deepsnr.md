@@ -41,15 +41,14 @@ channels and header, and adds one step to its [history](../../reference/glossary
 ```figure
 image: ../../assets/images/processes/noise-reduction/deepsnr.webp
 alt: >-
-  The DeepSNR task. Its header names DeepSNR and the master. The canvas at the left shows the master itself, with no
-  preview, and a floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds
-  Target Image and the process's controls: the Pre-Stretch linear image check box, ticked; Stride, with a box reading Default (480) and a greyed box reading 480
-  beside it; Weights, an empty field showing Default DeepSNR_weights_v2.onnx in grey, with a Browse button; the line
-  DeepSNR is configured and ready to use; and a Configure button. Close and OK stand in its footer.
+  The DeepSNR task's column, with no readout at its top. Under the column's header, Target Image at RGB, the
+  Pre-Stretch linear image box ticked, Stride with a box reading Default (480) and a grayed box reading 480 beside it,
+  Weights, an empty field whose gray hint names the default weights file, cut short, with a Browse button, and the
+  line DeepSNR is configured and ready to use. A Configure button stands at the foot of the body, and Close and OK in
+  the footer.
 caption: >-
   DeepSNR on the linear Carina master with Pre-Stretch linear image ticked, Stride at Default (480) and Weights empty,
-  once AfterNight knows where the program is. The canvas shows the target, since the task has no preview.
-owed: true
+  once AfterNight knows where the program is. The column has no readout, since the task has no preview.
 ```
 
 ## Before you start

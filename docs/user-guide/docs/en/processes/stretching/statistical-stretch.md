@@ -41,17 +41,16 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/stretching/statistical-stretch.webp
 alt: >-
-  The Statistical Stretch task. Its header names the process and the linear master. The canvas at the left shows the
-  stretched preview, a red nebula on a dark background. The column at the right opens with the compact readout of
-  the preview, then the Preview, Preview area and Processed toggles, Target Image, a histogram of three overlapping
-  peaks in the lower part of the range with two clipping shares written in its corner, and its toolbar. Under them
-  the Target Median box and slider, the Linked Stretch check box, the Black Point Sigma box and slider, three more
-  check boxes, the Curves Boost box and slider, and a line of text with three black points and a count of pixels.
-  Reset, Close and Apply stand in its footer.
+  The Statistical Stretch task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median at 0.1500.
+  Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image
+  at RGB, a histogram of three overlapping peaks in the lower part of the range with two clipping shares written in
+  its corner, and its toolbar. Under them Target Median at 0.150 and Black Point Sigma at 5.00, each with its slider,
+  and the check boxes Linked Stretch, No Black Clipping and Normalize Image, all unticked. Reset, Close and Apply
+  stand in its footer.
 caption: >-
-  Statistical Stretch on a linear master with Target Median at 0.15. The histogram is the result's, the line under
-  Curves Boost gives the black points, and the canvas shows what Apply writes.
-owed: true
+  Statistical Stretch on a linear master with Target Median at 0.15 and every other control at its starting value.
+  The histogram is the result's, and the readout at the top measures the preview.
 ```
 
 ## Before you start

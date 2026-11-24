@@ -40,17 +40,15 @@ open. To use the mask, attach it to a view through [Masks](../../interface/masks
 ```figure
 image: ../../assets/images/processes/star-operations/starnet-star-mask.webp
 alt: >-
-  The Starnet++ Star Mask task. Its header names the process and the stretched Carina master. The canvas at the left
-  shows the master as its view does, with no preview. The column at the right holds Target Image reading RGB, then
-  the Mask Settings section: Lightness and Binary Mask ticked, and Lower limit at 0.100000, Upper limit at 1.000000
-  and Smoothness at 2.00, each with its slider. Then the StarNet2 Settings section: Pre-Stretch linear image clear,
-  Highlight protection ticked, Stride reading Standard (256) beside a grayed box reading 256, Weights, an empty field
-  showing Default StarNet2_weights.onnx in gray, with a Browse button, Upsample x2 clear, the line StarNet2 is
-  configured and ready to use, and a Configure button. Close and OK stand in its footer.
+  The Starnet++ Star Mask task's column, with no readout at its top. Under the column's header it holds Target Image
+  reading RGB, then the Mask Settings section: Lightness and Binary Mask ticked, and Lower limit at 0.100000, Upper
+  limit at 1.000000 and Smoothness at 2.00, each with its slider. Then the StarNet2 Settings section: Pre-Stretch
+  linear image clear, Highlight protection ticked, Stride reading Standard (256) beside a grayed box reading 256,
+  Weights, an empty field whose gray text begins Default StarNet2_weig, with a Browse button, Upsample x2 clear, the
+  line StarNet2 is configured and ready to use, and a Configure button. Close and OK stand in its footer.
 caption: >-
   Starnet++ Star Mask on the stretched Carina master with Lightness and Binary Mask ticked and Smoothness at 2, once
   AfterNight knows where StarNet2 is.
-owed: true
 ```
 
 ## Before you start

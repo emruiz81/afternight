@@ -41,17 +41,15 @@ new image is not attached to it as its mask.
 ```figure
 image: ../../assets/images/processes/masking/mask-drawing.webp
 alt: >-
-  The Mask Drawing task. Its header names Mask Drawing and the master. The canvas at the left shows the preview of a
-  red nebula with a red-tinted ellipse over the middle of the frame, outlined, with four square handles on its sides,
-  and a floating toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column
-  at the right holds Target Image, the Tool group with six buttons and Shape pressed, the Brush group grayed out with
-  Tip Shape, Size, Hardness, Opacity, Flow, Spacing, Stabilization and Blend Mode, the Shapes group with Shape at
-  Ellipse, Feather at 100.0 and Filled ticked, Mask View at Red, the Import Mask and Export Mask buttons, and Undo, Redo
-  and Clear, in a body that scrolls. Reset, Cancel and OK stand in its footer.
+  The Mask Drawing task's column. At its top the compact readout of the preview: the image's plate solution, an empty
+  histogram and a dash in place of every value. Below it the column's header, the Preview box ticked and dimmed,
+  Preview area unticked and the Processed button, Target Image at RGB, a line of help about painting on the preview,
+  the Tool group with Brush, Eraser, Shape, Edit, Fill and Gradient, Shape pressed, and the dimmed Brush group with
+  Tip Shape at Round, Size at 24, Hardness, Opacity and Flow at 1.00 and Spacing at 0.25, in a body that scrolls.
+  Reset, Cancel and OK stand in its footer.
 caption: >-
-  Mask Drawing on the linear Carina master in the Autostretch display, with one ellipse drawn at Feather 100. The
-  tint in the canvas is the mask, and the handles show that the ellipse can still be edited.
-owed: true
+  Mask Drawing on the linear Carina master with Shape pressed, after one rectangle was drawn over the middle of the
+  frame. Pressing Shape dims the Brush group.
 ```
 
 ## Before you start

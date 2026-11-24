@@ -20,7 +20,6 @@ card, a field, the pixels or the [history](../reference/glossary.md#history), an
 changed. For the image's size and format, open [Image and Sequence Summary](image-summary.md) instead.
 
 ```figure
-owed: true
 image: ../assets/images/interface/fits-header-viewer.webp
 alt: >-
   The FITS Header Viewer window of a raw NGC 253 light frame. Its heading reads INFORMATION and the frame's name over
@@ -31,11 +30,11 @@ alt: >-
 caption: >-
   The FITS header of a raw NGC 253 light frame, as the file states it, opened from the readout's Image card.
 pins:
-  - {n: 1, x: 2.0, y: 11.4}
-  - {n: 2, x: 7.0, y: 33.0}
-  - {n: 3, x: 21.0, y: 33.0}
-  - {n: 4, x: 55.5, y: 33.0}
-  - {n: 5, x: 82.2, y: 92.8}
+  - {n: 1, x: 21.9, y: 14.0}
+  - {n: 2, x: 7.0, y: 31.8}
+  - {n: 3, x: 20.4, y: 31.8}
+  - {n: 4, x: 55.5, y: 31.8}
+  - {n: 5, x: 82.2, y: 92.5}
 ```
 
 ## What you see
@@ -77,14 +76,13 @@ Choose **Info** in the readout's Astrometry card, **Image > Information > Astrom
 ++ctrl+shift+p++. A line says whether the image has a solution, and eleven fields sum it up.
 
 ```figure
-owed: true
 image: ../assets/images/interface/fits-header-viewer-astrometry-info.webp
 alt: >-
   The Astrometry Info window. Its heading reads ASTROMETRY · RGB over Astrometry Info and a line of description; under
-  it, the words Astrometric solution available, then a card of eleven rows: Field center RA 10:44:30.67, Field center Dec -59:53:31.7, CRVAL RA 10:44:30.67, CRVAL Dec
-  -59:53:31.7, Image scale 1.095 arcsec/px, Rotation 107.7° (N through E), Field of view 132.22′ × 99.16′, Projection
-  RA---TAN-SIP / DEC--TAN-SIP, Equinox ICRS, SIP distortion A/B 4/4, 14 coeffs, and Solver Unknown. Close stands at the
-  bottom right.
+  it, the words Astrometric solution available, then a card of eleven rows: Field center RA 10:44:30.67, Field center
+  Dec -59:53:31.7, CRVAL RA 10:44:30.67, CRVAL Dec -59:53:31.7, Image scale 1.095 arcsec/px, Rotation 107.7° (N
+  through E), Field of view 132.22′ × 99.16′, Projection RA---TAN-SIP / DEC--TAN-SIP, Equinox ICRS, SIP distortion A/B
+  4/4, 14 coeffs, and Solver Unknown. Close stands at the bottom right.
 caption: >-
   Astrometry Info for the plate-solved Carina master, opened by Info in the readout's Astrometry card.
 ```

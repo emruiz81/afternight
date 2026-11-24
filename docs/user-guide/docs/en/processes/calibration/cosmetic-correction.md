@@ -41,18 +41,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 [history](../../reference/glossary.md#history).
 
 ```figure
-owed: true
 image: ../../assets/images/processes/calibration/cosmetic-correction.webp
 alt: >-
-  The Cosmetic Correction Filter task. Its header names Cosmetic Correction Filter and the raw light. The canvas at the left shows
-  the preview of a gray frame with a galaxy across its middle, the word PREVIEW in its corner and a framed area in its
-  middle, under a floating toolbar of zoom buttons and a channel box. The wide column at the right holds the toggles
-  Preview, Preview area and Processed, then Target Image, Channel reading Grayscale, the Hot Pixels and Cold Pixels
-  check boxes, each over a Threshold box at 0.50 with its slider, and General Settings with Kernel Size at 3x3 and
-  Amount at 1.00. Reset, Close and Apply stand in its footer.
+  The Cosmetic Correction Filter task's column. At its top the compact readout of the preview, a grayscale histogram
+  of one narrow peak at its left edge, both clipping shares at 0.000 %. Under the header, Preview and Preview area are
+  ticked beside the Processed toggle, then Target Image names the raw light and Channel reads Grayscale, greyed. The
+  Hot Pixels and Cold Pixels sections each hold a ticked check box over a Threshold box at 0.50 with its slider, and
+  General Settings holds Kernel Size at 3x3 and Amount at 1.00. Reset, Close and Apply stand in the footer.
 caption: >-
-  Cosmetic Correction at its defaults on a raw light of NGC 253, in the Autostretch display mode: the framed area in
-  the middle of the canvas shows what Apply writes there.
+  Cosmetic Correction at its defaults on a raw light of NGC 253, the preview and the preview area on.
 ```
 
 ## Before you start
@@ -266,17 +263,17 @@ The pair shows the core of the galaxy, from x 2572 to 2971 and from y 1692 to 19
 view's [Autostretch](../../reference/glossary.md#autostretch) display mode.
 
 ```figure
-owed: true
 images:
   - image: ../../assets/images/processes/calibration/cosmetic-correction-before.webp
     alt: >-
-      A crop at 100 % of the raw frame, gray with a fine checkered texture, the core of NGC 253 running diagonally
-      across it, a few round stars, and many single white pixels scattered over the sky and the galaxy alike.
+      A crop at 100 % of the raw frame under the label AUTOSTRETCH, gray with a fine checkered texture, the core of
+      NGC 253 running diagonally up across its lower right, a few round stars, and many single white pixels scattered
+      over the sky and the galaxy alike.
     label: Before
   - image: ../../assets/images/processes/calibration/cosmetic-correction-after.webp
     alt: >-
-      The same crop after the correction, the single white pixels gone, the stars and the galaxy as they were, and the
-      cluster near the core of the galaxy reduced to one bright pixel.
+      The same crop after the correction, the single white pixels gone, the stars and the galaxy as they were, and a
+      small bright cluster near the core of the galaxy reduced to one faint pixel.
     label: After
 caption: >-
   The core of NGC 253 on a raw light at 100 %, before and after Apply at the defaults, both in the Autostretch display

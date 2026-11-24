@@ -45,19 +45,15 @@ no preview: its canvas shows the image itself.
 ```figure
 image: ../../assets/images/processes/color-calibration/spectrophotometric-cc.png
 alt: >-
-  The Spectrophotometric Color Calibration task. Its header reads Spectrophotometric Color Calibration on the master,
-  with Float as window and Close at its right. The canvas at the left shows the plate-solved master itself, red and
-  pink clouds of nebula in a dense field of stars. The column at the right opens with Target image naming the master,
-  then a line saying the process calibrates linear RGB images from Gaia XP sampled spectra and response profiles, a
-  status line saying it is ready to run with a long profile name, a green banner saying the prerequisites are ready,
-  the Sensor box at Mono sensor: Sony IMX492, the Red, Green and Blue filter boxes at the ZWO filter set, the White
-  reference box at Average Spiral Galaxy and a line that sums up the response. Below them, the folded Catalog and WCS
-  Preflight and Photometry and Fit sections. Reset, Close and Apply stand in its footer.
+  The Spectrophotometric Color Calibration task's column. Under its header, Target image names the master, then a
+  status line says SPCC is ready to run with a long response profile name and the white reference, and a green banner
+  says the SPCC prerequisites are ready and the profile was selected by hand. The Sensor box reads Mono sensor: Sony
+  IMX492, the Red, Green and Blue filter boxes the ZWO filters for CMOS cameras, and White reference Average Spiral
+  Galaxy, over a line that sums up the response. Below them, the folded Catalog and WCS Preflight and Photometry and
+  Fit sections and the top of an empty Diagnostics box. Reset, Close and Apply stand in the footer.
 caption: >-
   Spectrophotometric Color Calibration on the plate-solved Carina master after Assign Image State, with the Sony
-  IMX492 sensor and the ZWO filter set chosen: the banner and the status line say a run can start, and the canvas
-  shows the image in the Autostretch display with Linked channels on.
-owed: true
+  IMX492 sensor and the ZWO filter set chosen: the banner and the status line say a run can start.
 ```
 
 ## Before you start
@@ -809,9 +805,9 @@ result is \(g_c\,v\).
 
 ### Worked example
 
-The master in the picture above is a linear 32-bit floating-point RGB image of the Carina Nebula, 7246 by 5429 pixels,
-whose three channels have their median at 0.0277. It was taken with a ZWO ASI294MM Pro through red, green and blue
-filters. Its header carries a plate solution at 1.095 arcseconds per pixel, its
+The master the picture above was taken on is a linear 32-bit floating-point RGB image of the Carina Nebula, 7246 by
+5429 pixels, whose three channels have their median at 0.0277. It was taken with a ZWO ASI294MM Pro through red,
+green and blue filters. Its header carries a plate solution at 1.095 arcseconds per pixel, its
 [pixel scale](../../reference/glossary.md#pixel-scale), and names the camera, but no filter, no exposure start and no
 processing state. With the whole catalog and the response data installed, the banner asks for a response profile,
 and **Assign Image State** shows under it, since nothing records the image as linear:

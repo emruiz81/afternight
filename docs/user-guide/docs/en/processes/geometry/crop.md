@@ -40,15 +40,12 @@ plate solve.
 ```figure
 image: ../../assets/images/processes/geometry/crop.webp
 alt: >-
-  The Crop task. Its header reads Crop on the master. The canvas at the left shows the whole master stretched for
-  the screen, the red nebula among its stars, with an amber dashed frame divided in thirds around the middle of the
-  field, and a floating toolbar near its foot. The column at the right, headed Crop, holds Target Image naming the
-  master, the Pos X, Pos Y, Width and Height boxes at 1623, 1214, 4000 and 3000, Current Size at 450.19 MB, New Size
-  at 137.33 MB and the New Selection button. Reset, Close and OK stand in its footer.
+  The Crop task's column, headed Crop. It holds Target Image at RGB, the master, then the Pos X, Pos Y, Width and
+  Height boxes at 1623, 1214, 4000 and 3000, and beside them Current Size at 450.19 MB, New Size at 137.33 MB and the
+  New Selection button. The rest of the body is empty. Reset, Close and OK stand in its footer.
 caption: >-
-  Crop on the linear Carina master with a rectangle of 4000 by 3000 pixels at its middle: the frame on the canvas
-  shows what stays, and New Size what the result will hold.
-owed: true
+  Crop on the linear Carina master with a rectangle of 4000 by 3000 pixels at its middle: New Size gives what the
+  result will hold.
 ```
 
 ## Before you start

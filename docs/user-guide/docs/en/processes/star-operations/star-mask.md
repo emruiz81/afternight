@@ -42,18 +42,16 @@ recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/star-mask.webp
 alt: >-
-  The Star Mask task. Its header names the process and the linear Carina master. The canvas at the left shows the
-  whole mask, small white dots of stars on black, with its floating toolbar at Linear near the foot. The column at
-  the right opens with the compact readout of the preview, then the Preview toggle ticked and Preview area unticked,
-  Target Image, the Detection section with Radius at 5 and Threshold at 1.00, the grayed Amplitude Range group,
-  Roundness Threshold at 0.50, the grayed Roundness Range group, Convergence at 1, Relax PSF Checks, Profile Type at
-  Gaussian, a grayed Minimum Beta and Use Lightness, and the ticked Shaped Areas section with Percent Increase at
-  1.00, Pixel Increase at 0, Min Size at 2, Max Size at 25 and Star Shape at Truncated Bell. Reset, Close and Apply
-  stand in its footer.
+  The Star Mask task's column. At its top the compact readout of the preview: the plate solution's scale, a small
+  grayscale histogram near the left edge, the clipped fractions, and Min, Max, Mean, Median and StdDev with their
+  change from the image, the median at 0.0276. Below it the column's header, the Preview box ticked, Preview area
+  unticked and the Processed button, Target Image at RGB, and the Detection section with Radius at 5 and Threshold at
+  1.00, the unticked Amplitude Range group grayed at 0.00 and 1.00, Roundness Threshold at 0.50, the unticked
+  Roundness Range group grayed at 1.00, and Convergence at 1 beside the unticked Relax PSF Checks, where the column is
+  cut. Reset, Close and Apply stand in its footer.
 caption: >-
-  Star Mask on the linear Carina master with Percent Increase at 1.00. With the preview area off and the Linear
-  display mode, the canvas shows the whole mask Apply makes.
-owed: true
+  Star Mask on the linear Carina master with the detection at its defaults and the preview area off, as the worked
+  example below sets it.
 ```
 
 ## Before you start

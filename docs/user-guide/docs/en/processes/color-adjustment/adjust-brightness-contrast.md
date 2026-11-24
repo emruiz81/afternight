@@ -43,17 +43,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-brightness-contrast.webp
 alt: >-
-  The Brightness/Contrast task. Its header names the process and the master. The canvas at the left shows
-  the preview of a red nebula on a dark background, the word PREVIEW in its corner, with a floating toolbar of zoom
-  buttons and a channel box near its foot. The column at the right holds the preview's small histogram and
-  statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, a toolbar over a
-  histogram with one broad peak about a fifth of the way across and the lines Clipping Low and Clipping High in its
-  corner, and the Brightness box at -10 and the Contrast box at 20 with their sliders. Reset, Close and Apply stand in its
-  footer.
+  The Brightness/Contrast task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median down to
+  0.1952. Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button,
+  Target Image and Channel at RGB, a histogram with one broad peak about a fifth of the way across and the lines
+  Clipping Low and Clipping High in its corner, its toolbar, and the Brightness box at -10 and the Contrast box at 20
+  with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  Adjust Brightness And Contrast on a stretched master with Brightness at -10 and Contrast at 20. The histogram is
-  counted from the darker, more contrasted preview, and the preview in the canvas shows what Apply writes.
-owed: true
+  Adjust Brightness And Contrast on a stretched master with Brightness at -10 and Contrast at 20. The histogram and
+  the readout at the top are counted from the darker, more contrasted preview.
 ```
 
 ## Before you start

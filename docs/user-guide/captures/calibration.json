@@ -5,61 +5,61 @@
       "picture": "assets/images/processes/calibration/cfa-integer-resample.webp",
       "page": "processes/calibration/cfa-integer-resample.md",
       "data": ["cfa"],
-      "shows": "The CFA Integer Resample task as it opens on a raw light of NGC 253 opened as a mosaic: Downsample by 2 with Average, Target Px 2772 by 1842",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Page", "processes\\calibration\\cfa-integer-resample.md"]
+      "shows": "The CFA Integer Resample task's column as it opens on a raw light of NGC 253 opened as a mosaic: Downsample by 2 with Average, Target Px 2772 by 1842",
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Page", "processes\\calibration\\cfa-integer-resample.md", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/calibration/cosmetic-correction.webp",
       "page": "processes/calibration/cosmetic-correction.md",
       "data": ["cfa"],
-      "shows": "The Cosmetic Correction task at its defaults on a raw light of NGC 253 opened as a mosaic, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "shows": "The Cosmetic Correction task's column at its defaults on a raw light of NGC 253 opened as a mosaic, in the Autostretch display mode, its preview area in the middle of the canvas",
       "before": "A raw light of NGC 253 opened as a mosaic, the core of the galaxy at 100 % in the Autostretch display mode",
       "after": "The same crop after Cosmetic Correction at its defaults",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\cosmetic-correction.md", "-Apply"]
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\cosmetic-correction.md", "-Apply", "-Crop", "column", "-Height", "980", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/calibration/debayer.webp",
       "page": "processes/calibration/debayer.md",
       "data": ["cfa"],
-      "shows": "The Debayer task at its defaults on a raw light of NGC 253 opened as a mosaic: From metadata, RCD, Combined RGB Color",
+      "shows": "The Debayer task's column at its defaults on a raw light of NGC 253 opened as a mosaic: From metadata, RCD, Combined RGB Color",
       "before": "A raw light of NGC 253 opened as a mosaic, the core of the galaxy at 100 % in the Autostretch display mode",
       "after": "The same crop of the RGB image RCD made of it, in the Autostretch display mode",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\debayer.md", "-Apply", "-AfterView", "%display=Autostretch;Image > View > Zoom 100%;%middle;%shot=debayer-after@view"]
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\debayer.md", "-Apply", "-AfterView", "%display=Autostretch;Image > View > Zoom 100%;%middle;%shot=debayer-after@view", "-Crop", "column", "-Height", "980", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/calibration/image-calibration.webp",
       "page": "processes/calibration/image-calibration.md",
       "data": ["ngc253"],
       "shows": "The Image Calibration task after a run over the 35 lights of NGC 253 with the master dark and the master flat, every row Calibrated",
-      "options": ["-Prepare", "Process > Preprocess > Image Stacking|Add Files?{ngc253:biases};Name Template=master_bias.fit;Browse?{work}\\masters;Open after stacking=Off;Stack Images!||Process > Preprocess > Image Stacking|Clear All^Yes;Add Files?{ngc253:darks};Name Template=master_dark.fit;Stack Images!||Process > Preprocess > Image Calibration|addFiles?{ngc253:flats};biasGroupBox=On;biasFileButton?{work}\\masters\\master_bias.fit;outputDirectoryButton?{work}\\flats_cal;calibrateImagesButton!||Process > Preprocess > Image Stacking|Clear All^Yes;Add Files?{work:flats_cal};Name Template=master_flat.fit;Stack Images!", "-Page", "processes\\calibration\\image-calibration.md", "-Set", "clearAll^Yes;addFiles?{ngc253:lights};biasGroupBox=Off;darkGroupBox=On;darkFileButton?{work}\\masters\\master_dark.fit;flatGroupBox=On;flatFileButton?{work}\\masters\\master_flat.fit;outputDirectoryButton?{work}\\lights_cal;calibrateImagesButton!"]
+      "options": ["-Page", "processes\\calibration\\image-calibration.md", "-Set", "addFiles?{ngc253:lights};biasGroupBox=Off;darkGroupBox=On;darkFileButton?{work}\\masters\\master_dark.fit;flatGroupBox=On;flatFileButton?{work}\\masters\\master_flat.fit;outputDirectoryButton?{work}\\lights_cal;calibrateImagesButton!", "-Crop", "task", "-Width", "1536", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/calibration/image-calibration-before.webp",
       "page": "processes/calibration/image-calibration.md",
       "data": ["cfa"],
       "shows": "The first raw light of NGC 253, debayered as it opened, whole in the Autostretch display mode",
-      "options": ["-OpenAnswer", "Yes", "-Display", "Autostretch", "-View", "%shot=image-calibration-before@view"]
+      "options": ["-OpenAnswer", "Yes", "-Display", "Autostretch", "-View", "%shot=image-calibration-before@view", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/calibration/image-calibration-after.webp",
       "page": "processes/calibration/image-calibration.md",
       "data": [],
       "shows": "The calibrated file the image-calibration recipe wrote of the first light, debayered as it opened, whole in the Autostretch display mode",
-      "options": ["-Open", "{work}\\lights_cal\\{cfaname}_cal.fits", "-OpenAnswer", "Yes", "-Display", "Autostretch", "-View", "%shot=image-calibration-after@view"]
+      "options": ["-Open", "{work}\\lights_cal\\{cfaname}_cal.fits", "-OpenAnswer", "Yes", "-Display", "Autostretch", "-View", "%shot=image-calibration-after@view", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/calibration/merge-cfa.webp",
       "page": "processes/calibration/merge-cfa.md",
       "data": ["cfa"],
-      "shows": "The Merge CFA task with CFA Pattern at RGGB and the four planes Split CFA made of a raw light of NGC 253 in CFA0 to CFA3, the merged mosaic in the canvas",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Prepare", "Process > Color Spaces > Split CFA", "-Page", "processes\\calibration\\merge-cfa.md", "-Set", "cfa0Selector={cfaname} - CFA0 - Red;cfa1Selector={cfaname} - CFA1 - Green1;cfa2Selector={cfaname} - CFA2 - Green2;cfa3Selector={cfaname} - CFA3 - Blue"]
+      "shows": "The Merge CFA task's column with CFA Pattern at RGGB and the four planes Split CFA made of a raw light of NGC 253 in CFA0 to CFA3, the merged mosaic in the canvas",
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Prepare", "Process > Color Spaces > Split CFA", "-Page", "processes\\calibration\\merge-cfa.md", "-Set", "cfa0Selector={cfaname} - CFA0 - Red;cfa1Selector={cfaname} - CFA1 - Green1;cfa2Selector={cfaname} - CFA2 - Green2;cfa3Selector={cfaname} - CFA3 - Blue", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/calibration/split-cfa.webp",
       "page": "processes/calibration/split-cfa.md",
       "data": ["cfa"],
-      "shows": "The Split CFA task on a raw light of NGC 253 opened as a mosaic, Method at Split CFA Channels",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Page", "processes\\calibration\\split-cfa.md"]
+      "shows": "The Split CFA task's column on a raw light of NGC 253 opened as a mosaic, Method at Split CFA Channels",
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-Page", "processes\\calibration\\split-cfa.md", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

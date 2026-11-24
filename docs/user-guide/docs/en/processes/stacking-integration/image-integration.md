@@ -78,7 +78,7 @@ each group.
 never changed. The task keeps the [project](../../reference/glossary.md#project) for next time, and a later run reuses whatever still matches.
 
 ```figure
-image: ../../assets/images/processes/stacking-integration/image-integration-stacking.png
+image: ../../assets/images/processes/stacking-integration/image-integration-stacking.webp
 alt: >-
   The Image Integration task, a page that fills the centre of the main window. Its header names the job over its
   count of frames and groups, with the disk space it needs over a bar, the Undo and Redo buttons, the button of its
@@ -93,7 +93,6 @@ alt: >-
 caption: >-
   The Stacking stage after a run on the NGC 253 set with every setting at its default, the run's view closed: one
   integration group for each object name the lights carry, and the measured lights of the first group below.
-owed: true
 ```
 
 ## Before you start

@@ -15,7 +15,6 @@ header. A [SER](../reference/glossary.md#ser) video or an image list gets a repo
 from what the file system says of the file. It never reads the pixels, and it changes nothing.
 
 ```figure
-owed: true
 image: ../assets/images/interface/image-summary.webp
 alt: >-
   The Image Summary Viewer window for a duplicate of a raw NGC 253 light frame. Its heading reads INFORMATION and the
@@ -27,10 +26,10 @@ caption: >-
   The summary of a duplicate of a raw NGC 253 light frame, opened from the readout: a duplicate has never been a
   file, so its file facts read a dash.
 pins:
-  - {n: 1, x: 2.0, y: 11.4}
-  - {n: 2, x: 3.0, y: 27.0}
-  - {n: 3, x: 4.4, y: 48.0}
-  - {n: 4, x: 62.2, y: 92.8}
+  - {n: 1, x: 42.9, y: 14.0}
+  - {n: 2, x: 3.0, y: 25.8}
+  - {n: 3, x: 19.3, y: 47.7}
+  - {n: 4, x: 62.2, y: 92.5}
 ```
 
 ## What you see

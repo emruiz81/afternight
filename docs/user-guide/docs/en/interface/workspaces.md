@@ -25,26 +25,25 @@ Arranging the images of a workspace changes only what you see. No image, [histor
 or unsaved change moves with it.
 
 ```figure
-owed: true
 image: ../assets/images/interface/workspaces.webp
 alt: >-
   The AfterNight main window with Workspace 1 selected in the rail. The top bar reads No project, then Workspace 1 and
   the name of a master flat, the field Search or run a command, and at its right a lock, two arrangement icons, a fit
   icon, Night, help, information and a menu button. The centre holds two images split side by side, each in a tab
-  group of its own: the Carina Nebula master at the left and a gray master flat with dust shadows at the right, under
-  an AUTOSTRETCH banner. A dark floating toolbar lies over the bottom of the images, and under them a strip reads
-  HISTORY and Initial state. The readout column at the right shows the flat's Histogram, Statistics, Astrometry and
-  Image cards.
+  group of its own: at the left the Carina master, dark but for its stars in its linear display, and at the right a
+  gray master flat with dust shadows under an AUTOSTRETCH banner. The flat's floating toolbar lies across the foot of
+  both, and under them a strip reads HISTORY and Initial state. The readout column at the right shows the flat's
+  Histogram, Statistics, Astrometry and Image cards.
 caption: >-
   Workspace 1 with two images split side by side, and the layout icons at the right of the top bar.
 pins:
-  - {n: 1, x: 1.2, y: 15.3}
-  - {n: 2, x: 10.2, y: 5.9}
-  - {n: 3, x: 80.6, y: 5.9}
-  - {n: 4, x: 3.6, y: 10.2}
-  - {n: 5, x: 38.6, y: 45.0}
-  - {n: 6, x: 10.6, y: 89.6}
-  - {n: 7, x: 3.4, y: 95.1}
+  - {n: 1, x: 3.6, y: 14.4}
+  - {n: 2, x: 14.2, y: 7.0}
+  - {n: 3, x: 77.9, y: 4.8}
+  - {n: 4, x: 21.1, y: 9.1}
+  - {n: 5, x: 37.8, y: 45.0}
+  - {n: 6, x: 5.9, y: 89.5}
+  - {n: 7, x: 42.1, y: 95.0}
 ```
 
 ## What you see

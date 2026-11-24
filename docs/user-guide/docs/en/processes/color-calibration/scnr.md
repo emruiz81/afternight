@@ -39,15 +39,11 @@ itself.
 ```figure
 image: ../../assets/images/processes/color-calibration/scnr.webp
 alt: >-
-  The SCNR task. Its header reads SCNR Filter on the stretched master, with Float as window and Close at its right. The
-  canvas at the left shows the image itself, a pink nebula with dark dust lanes among many stars, and its floating
-  toolbar near its foot. The column at the right, headed SCNR Filter, holds Target Image naming the master, Protection Type
-  at Average Neutral, Amount at 1.00 with its slider at the right end, both dimmed, and Preserve Lightness ticked.
-  Close and Apply stand in its footer.
+  The SCNR task's column, headed SCNR Filter, with no readout at its top. It holds Target Image at RGB, Protection
+  Type at Average Neutral, Amount at 1.00 with its slider at the right end, both dimmed, and Preserve Lightness
+  ticked. The rest of the body is empty. Close and Apply stand in its footer.
 caption: >-
-  SCNR on the stretched Carina master with its defaults, Average Neutral and Preserve Lightness, ready to apply: the
-  canvas shows the image as it is.
-owed: true
+  SCNR on the stretched Carina master with its defaults, Average Neutral and Preserve Lightness, ready to apply.
 ```
 
 ## Before you start

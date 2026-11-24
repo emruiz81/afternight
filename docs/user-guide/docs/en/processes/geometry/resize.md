@@ -42,16 +42,14 @@ needed.
 ```figure
 image: ../../assets/images/processes/geometry/resize.webp
 alt: >-
-  The Resize task. Its header reads Resize on the master. The canvas at the left shows the whole master stretched for
-  the screen, the red nebula among its stars, unchanged. The column at the right, headed Resize, holds Target Image
-  naming the master, then a grid with the columns Original Px, Target Px and % Adjust and the rows Width and Height:
-  7246 and 5429 under Original Px, 3623 and 2714 under Target Px, 50.00 and 50.00 under % Adjust. Under it Keep
-  aspect ratio is ticked and Interpolation reads Auto, then Current Size at 450.19 MB with New Size at 112.53 MB under
-  it. Reset, Close and OK stand in its footer.
+  The Resize task's column, headed Resize. It holds Target Image at RGB, the master, then a grid with the columns
+  Original Px, Target Px and % Adjust and the rows Width and Height: 7246 and 5429 under Original Px, 3623 and 2714
+  under Target Px, 50.00 and 50.00 under % Adjust. Under it Keep aspect ratio is ticked and Interpolation reads
+  Auto, its text cut short, then Current Size at 450.19 MB with New Size at 112.53 MB under it. Reset, Close and OK
+  stand in its footer.
 caption: >-
-  Resize on the linear Carina master at 50 percent with Keep aspect ratio on: the canvas shows the image as it is, and
-  the Target Px column and New Size the result before OK.
-owed: true
+  Resize on the linear Carina master at 50 percent with Keep aspect ratio on: the Target Px column and New Size give
+  the result before OK.
 ```
 
 ## Before you start

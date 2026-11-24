@@ -17,21 +17,20 @@ A history keeps 20 states, the first one included. Without a [project](projects.
 save the states you need to keep. An image of a [project](../reference/glossary.md#project) keeps its history in the project's folder.
 
 ```figure
-owed: true
 image: ../assets/images/interface/image-history.webp
 alt: >-
   The centre of the main window with the Carina Nebula master in its view, stretched, its tab named RGB with an
-  asterisk, and the floating toolbar near the bottom. Under the view, the history strip reads HISTORY, then three chips
-  joined by chevrons: Initial state, Histogram Transformation, and Gamma Correction with a check on an accent ground.
-  At its right are the undo, redo and history buttons.
+  asterisk, and the floating toolbar near the bottom with Linear selected. Under the view, the history strip reads
+  HISTORY, then three chips joined by chevrons: Initial state, Histogram Transformation, and Gamma Correction with a
+  check on an accent ground. At its right are the undo, redo and history buttons.
 caption: >-
   The history strip of the Carina master after Histogram Transformation and Gamma Correction: the image shows the
   last step.
 pins:
-  - {n: 1, x: 1.0, y: 97.9}
-  - {n: 2, x: 6.9, y: 97.9}
-  - {n: 3, x: 34.8, y: 97.9}
-  - {n: 4, x: 90.7, y: 97.9}
+  - {n: 1, x: 4.3, y: 95.2}
+  - {n: 2, x: 19.5, y: 97.9}
+  - {n: 3, x: 59.3, y: 97.9}
+  - {n: 4, x: 88.4, y: 97.9}
 ```
 
 ## What you see

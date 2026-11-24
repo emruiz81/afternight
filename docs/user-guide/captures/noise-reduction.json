@@ -5,71 +5,71 @@
       "picture": "assets/images/processes/noise-reduction/banding-reduction.webp",
       "page": "processes/noise-reduction/banding-reduction.md",
       "data": ["linear"],
-      "shows": "The Banding Reduction task with Protect From Highlights ticked and Sigma at 1.00, on a 1,100 x 820 crop of the top right of the linear master with bands added by Pixel Math, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Prepare", "Process > Geometry > Crop|targetWidth=1100;targetHeight=820;targetPosX=5800;targetPosY=200||Process > Pixel Math > Pixel Math|rgbkTextEdit=$T + 0.001*sin(y()*y())", "-Page", "processes\\noise-reduction\\banding-reduction.md", "-Set", "protectFromHighlights=On"]
+      "shows": "The Banding Reduction task's column with Protect From Highlights ticked and Sigma at 1.00, on a 1,100 x 820 crop of the top right of the linear master with bands added by Pixel Math, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Prepare", "Process > Geometry > Crop|targetWidth=1100;targetHeight=820;targetPosX=5800;targetPosY=200||Process > Pixel Math > Pixel Math|rgbkTextEdit=$T + 0.001*sin(y()*y())", "-Page", "processes\\noise-reduction\\banding-reduction.md", "-Set", "protectFromHighlights=On", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/bilateral-filter.webp",
       "page": "processes/noise-reduction/bilateral-filter.md",
       "data": ["linear"],
-      "shows": "The Bilateral Filter task on the linear master with Sigma Color at 0.01 and the other values at their defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\bilateral-filter.md", "-Set", "sigmaColorValue=0.01"]
+      "shows": "The Bilateral Filter task's column on the linear master with Sigma Color at 0.01 and the other values at their defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\bilateral-filter.md", "-Set", "sigmaColorValue=0.01", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/deepsnr.webp",
       "page": "processes/noise-reduction/deepsnr.md",
       "data": ["linear"],
-      "shows": "The DeepSNR task on the linear master with Pre-Stretch linear image ticked, Stride at Default (480) and Weights empty, in a profile that knows where DeepSNR is; the canvas shows the target",
-      "options": ["-Storage", "{deepsnr}", "-ReuseStorage", "-Display", "Autostretch", "-Page", "processes\\noise-reduction\\deepsnr.md", "-Set", "preStretchLinearImage=On"]
+      "shows": "The DeepSNR task's column on the linear master with Pre-Stretch linear image ticked, Stride at Default (480) and Weights empty, in a profile that knows where DeepSNR is; the canvas shows the target",
+      "options": ["-Storage", "{deepsnr}", "-ReuseStorage", "-Display", "Autostretch", "-Page", "processes\\noise-reduction\\deepsnr.md", "-Set", "preStretchLinearImage=On", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/gaussian-blur.webp",
       "page": "processes/noise-reduction/gaussian-blur.md",
       "data": ["linear"],
-      "shows": "The Gaussian Blur task with Sigma at 2.00 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\noise-reduction\\gaussian-blur.md", "-Set", "sigmaValue=2.0"]
+      "shows": "The Gaussian Blur task's column with Sigma at 2.00 on the linear master after Histogram Transformation with Shadows and Midtones at 0.02, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\noise-reduction\\gaussian-blur.md", "-Set", "sigmaValue=2.0", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/graycstoration.webp",
       "page": "processes/noise-reduction/graycstoration.md",
       "data": ["linear"],
-      "shows": "The GRAYCstoration task on the linear master with Amplitude at 5 and the other values at their defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\graycstoration.md", "-Set", "amplitudeValue=5", "-HoldSeconds", "30"]
+      "shows": "The GRAYCstoration task's column on the linear master with Amplitude at 5 and the other values at their defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\graycstoration.md", "-Set", "amplitudeValue=5", "-HoldSeconds", "30", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/median-filter.webp",
       "page": "processes/noise-reduction/median-filter.md",
       "data": ["linear"],
-      "shows": "The Median Filter task on the linear master at its defaults, Kernel Size at 3x3, Iterations at 1 and Modulation at 1.00, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\median-filter.md"]
+      "shows": "The Median Filter task's column on the linear master at its defaults, Kernel Size at 3x3, Iterations at 1 and Modulation at 1.00, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\median-filter.md", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/nl-bayes.webp",
       "page": "processes/noise-reduction/nl-bayes.md",
       "data": ["linear"],
-      "shows": "The Non-Local Bayes task on the linear master at its defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\nl-bayes.md"]
+      "shows": "The Non-Local Bayes task's column on the linear master at its defaults, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\nl-bayes.md", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/patch-pca-denoise.webp",
       "page": "processes/noise-reduction/patch-pca-denoise.md",
       "data": ["linear"],
-      "shows": "The Patch PCA Denoise task on the linear master with Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial Sampling at 7, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\patch-pca-denoise.md", "-Set", "patchSizeValue=5;lookupSizeValue=7", "-HoldSeconds", "60"]
+      "shows": "The Patch PCA Denoise task's column on the linear master with Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial Sampling at 7, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\patch-pca-denoise.md", "-Set", "patchSizeValue=5;lookupSizeValue=7", "-HoldSeconds", "60", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/total-variation-denoise.webp",
       "page": "processes/noise-reduction/total-variation-denoise.md",
       "data": ["linear"],
-      "shows": "The Total Variation Denoise task on the linear master with Algorithm at Chambolle and Weight at 0.0050, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\total-variation-denoise.md", "-Set", "algorithmSelector=Chambolle;weightValue=0.005"]
+      "shows": "The Total Variation Denoise task's column on the linear master with Algorithm at Chambolle and Weight at 0.0050, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\total-variation-denoise.md", "-Set", "algorithmSelector=Chambolle;weightValue=0.005", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/noise-reduction/wavelet-denoise.webp",
       "page": "processes/noise-reduction/wavelet-denoise.md",
       "data": ["linear"],
-      "shows": "The Wavelet Denoise task on the linear master at its defaults, Threshold at 1.40, Scales at 6, Iterations at 10 and Amount at 1.00, in the Autostretch display mode, its preview area in the middle of the canvas",
-      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\wavelet-denoise.md"]
+      "shows": "The Wavelet Denoise task's column on the linear master at its defaults, Threshold at 1.40, Scales at 6, Iterations at 10 and Amount at 1.00, in the Autostretch display mode, its preview area in the middle of the canvas",
+      "options": ["-Display", "Autostretch", "-Page", "processes\\noise-reduction\\wavelet-denoise.md", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

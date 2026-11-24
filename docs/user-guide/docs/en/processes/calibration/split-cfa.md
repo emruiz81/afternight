@@ -40,12 +40,11 @@ for a sequence, and closes the [task](../../reference/glossary.md#task). Each re
 [history](../../reference/glossary.md#history) are not changed.
 
 ```figure
-owed: true
 image: ../../assets/images/processes/calibration/split-cfa.webp
 alt: >-
-  The Split CFA task. Its header names Split CFA and the raw light, and the canvas at the left shows the light as its
-  view does, a gray mosaic. The column at the right holds Method at Split CFA Channels, Ha/OIII Resampling greyed at No
-  Resampling, and Target Image naming the light, with Close and OK in its footer.
+  The Split CFA task's column under its header, Preprocess over Split CFA. From the top it holds Target Image naming
+  the raw light, Method at Split CFA Channels and Ha/OIII Resampling greyed at No Resampling. The rest of the column is
+  empty down to the footer, where Close and OK stand.
 caption: >-
   Split CFA on a raw NGC 253 light with Method at Split CFA Channels, which opens the light's four positional planes.
 ```

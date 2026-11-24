@@ -39,11 +39,10 @@ alt: >-
 caption: >-
   The main window on Home, as AfterNight shows it on its first start, before any file was opened.
 pins:
-  - {n: 2, x: 1.6, y: 11.1}
+  - {n: 2, x: 1.8, y: 22.5}
   - {n: 3, x: 1.6, y: 97.1}
-  - {n: 4, x: 52.0, y: 14.4}
-  - {n: 10, x: 92.6, y: 5.8}
-owed: true
+  - {n: 4, x: 45.8, y: 13.4}
+  - {n: 10, x: 92.6, y: 7.0}
 ```
 
 ### Start AfterNight
@@ -179,9 +178,8 @@ alt: >-
 caption: >-
   A linear master of the Carina Nebula just opened, shown in the Autostretch display mode, with the readout beside it.
 pins:
-  - {n: 7, x: 41.5, y: 89.6}
-  - {n: 8, x: 75.0, y: 10.6}
-owed: true
+  - {n: 7, x: 45.7, y: 86.1}
+  - {n: 8, x: 71.3, y: 9.6}
 ```
 
 [Image Viewer](../interface/image-viewer.md) shows how to zoom, pan and inspect the image.

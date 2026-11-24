@@ -43,17 +43,13 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/wavelet-denoise.webp
 alt: >-
-  The Wavelet Denoise Filter task. Its header names Wavelet Denoise Filter and the master. The canvas at the left shows the preview
-  of a red nebula, the word PREVIEW in its corner and a small framed area in its middle, with a floating toolbar of
-  zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right holds the
-  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
-  at RGB, and the Threshold, Scales, Iterations and Amount boxes with their sliders. Reset, Close and Apply stand in its
-  footer.
+  The Wavelet Denoise Filter task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the Preview and Preview area
+  boxes ticked and the Processed button, Target Image and Channel at RGB, and Threshold at 1.40, Scales at 6,
+  Iterations at 10 and Amount at 1.00 with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
   Wavelet Denoise on the linear master with its defaults, Threshold at 1.40, Scales at 6, Iterations at 10 and Amount
-  at 1.00. The framed area of the canvas shows what Apply writes there, over the original, in the Autostretch display
-  mode.
-owed: true
+  at 1.00, the preview area on. The readout at the top is counted from the preview.
 ```
 
 ## Before you start

@@ -45,15 +45,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/exposure-correction.webp
 alt: >-
-  The Exposure task. Its header reads Exposure on the stretched master, and the column's header Exposure. The canvas at the left shows
-  the preview, a red nebula on a gray background. The column at the right opens with the compact readout of the
-  preview, then the Preview, Preview area and Processed toggles, Target Image and Channel at RGB, a histogram with one
-  broad peak near its left third and the lines Clipping Low and Clipping High in its corner, its toolbar, and Exposure
-  at 1.50 with its slider right of the middle. Reset, Close and Apply stand in its footer.
+  The Exposure task's column. At its top the compact readout of the preview: a small histogram, the clipped
+  fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the column's header,
+  Exposure, the Preview box ticked, Preview area unticked and the Processed button, Target Image and Channel at RGB, a
+  histogram with one broad peak near its left third and the lines Clipping Low and Clipping High in its corner, its
+  toolbar, and Exposure at 1.50 with its slider right of the middle. Reset, Close and Apply stand in its footer.
 caption: >-
-  Exposure Correction on a stretched master with Exposure at 1.50, a factor of 1.3. The histogram is counted from the
-  brightened preview, and the canvas shows what Apply writes.
-owed: true
+  Exposure Correction on a stretched master with Exposure at 1.50, a factor of 1.3. The histogram and the readout at
+  the top are counted from the brightened preview.
 ```
 
 ## Before you start
@@ -271,7 +270,7 @@ Under a mask whose value at a pixel is \(k\), from 0 for black to 1 for white, t
 
 ### Worked example
 
-The picture above shows the Carina Nebula master after Histogram Transformation with **Shadows** and
+The picture above shows the task on the Carina Nebula master after Histogram Transformation with **Shadows** and
 [**Midtones**](../../reference/glossary.md#midtones) at 0.02, which leaves its background near 0.28. With **Channel** at **RGB** and **Exposure** at 1.50, equation (1)
 gives a factor of 1.3. Equation (2) moves the background to 0.36 and turns every sample at or above 0.77 into
 white: the whole picture is brighter, and the brightest clouds and the star cores go flat.

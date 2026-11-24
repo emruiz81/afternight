@@ -43,17 +43,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/adjust-hsl.webp
 alt: >-
-  The Hue/Saturation/Lightness task. Its header names the process and the master. The canvas at the left shows
-  the preview of a red nebula in strong colors on a dark gray background, the word PREVIEW in its corner, with a
-  floating toolbar of zoom buttons and a channel box near its foot. The column at the right holds the preview's small
-  histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, a toolbar over a histogram
-  with three colored peaks about a quarter of the way across and the lines Clipping Low and Clipping High in its
-  corner, and the Hue, Lightness and Saturation boxes with their sliders, Saturation at 25 and the other two at 0.
-  Reset, Close and Apply stand in its footer.
+  The Hue/Saturation/Lightness task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median nearly
+  unchanged at 0.2824. Below it the column's header, the Preview box ticked, Preview area unticked and the Processed
+  button, Target Image at RGB, a histogram with three colored peaks about a quarter of the way across and the lines
+  Clipping Low and Clipping High in its corner, its toolbar, and the Hue, Lightness and Saturation boxes with their
+  sliders, Saturation at 25 and the other two at 0. Reset, Close and Apply stand in its footer.
 caption: >-
-  Adjust HSL on a stretched master with Saturation at 25. The histogram is counted from the adjusted preview, and the
-  preview in the canvas shows what Apply writes.
-owed: true
+  Adjust HSL on a stretched master with Saturation at 25. The histogram and the readout at the top are counted from
+  the adjusted preview.
 ```
 
 ## Before you start

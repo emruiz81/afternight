@@ -16,29 +16,28 @@ to check a solution, to find your way around a field and to name what it holds. 
 draws the same annotations into a picture you can keep.
 
 ```figure
-owed: true
 image: ../assets/images/interface/astrometry-overlays.webp
 alt: >-
   The AfterNight main window with the Carina Nebula master in its view, shown in the Autostretch display mode. Thin
-  blue lines of right ascension and declination cross the picture, labelled 10h 40m, 10h 45m and −59° 00′ at its
-  edges. NGC 3372 is written in pink over the core of the nebula, and a large dashed pink circle around it runs off the
-  top and bottom of the view. On the floating toolbar near the bottom, the star-shaped Show Astrometry button is
-  pressed. In the readout at the right, the Astrometry card reads Solved · SIP 4/4 beside a settings button, then the
-  field centre 10:44:30.67 and −59:53:31.7, a scale of 1.095″/px and a rotation of 107.75 deg; under them the chips
-  Grid and Annotations, selected, Star labels, Detected stars and SIP map, and the buttons Plate Solve, Annotate... and
-  Info. The status line at the bottom reads RA − and Dec −.
+  blue lines of right ascension and declination cross the picture, labelled 10h 40m, 10h 45m and −59° 00′ at its top
+  and left edges and −59° 30′ to −61° 00′ along its foot. NGC 3372 is written in pink over the core of the nebula, and
+  a large dashed pink circle around it runs off the top and bottom of the view. On the floating toolbar near the
+  bottom, the star-shaped Show Astrometry button is pressed. In the readout at the right, the Astrometry card reads
+  Solved · SIP 4/4 beside a settings button, then the field centre 10:44:30.67 and −59:53:31.7, a scale of 1.095″/px
+  and a rotation of 107.75 deg; under them the chips Grid and Annotations, selected, Star labels, Detected stars and
+  SIP map, and the buttons Plate Solve, Annotate... and Info. The status line ends in RA and Dec, both cut short.
 caption: >-
   The linear Carina master in Autostretch, fitted to its workspace, with the grid and the deep-sky annotations at the
   Standard level of detail, turned on from the readout's Astrometry card.
 pins:
-  - {n: 1, x: 5.3, y: 37.3}
-  - {n: 2, x: 36.0, y: 48.2}
-  - {n: 3, x: 54.3, y: 89.6}
-  - {n: 4, x: 75.8, y: 64.5}
-  - {n: 5, x: 96.6, y: 64.5}
-  - {n: 6, x: 75.8, y: 76.8}
-  - {n: 7, x: 75.8, y: 84.2}
-  - {n: 8, x: 84.7, y: 98.5}
+  - {n: 1, x: 10.9, y: 42.7}
+  - {n: 2, x: 41.6, y: 48.0}
+  - {n: 3, x: 56.5, y: 86.1}
+  - {n: 4, x: 84.3, y: 64.0}
+  - {n: 5, x: 97.1, y: 66.5}
+  - {n: 6, x: 88.5, y: 80.1}
+  - {n: 7, x: 94.8, y: 84.2}
+  - {n: 8, x: 81.7, y: 98.4}
 ```
 
 ## What you see
@@ -106,14 +105,13 @@ from the legend, and compare directions and colors across the field, not lengths
 model looks plausible for your optics.
 
 ```figure
-owed: true
 image: ../assets/images/interface/astrometry-overlays-sip.webp
 alt: >-
-  The Carina Nebula master in its view in the Autostretch display mode, covered by a regular grid of twenty by twenty
-  arrows. Over most of the field the arrows are short and green. Toward the left and right edges they grow and turn
-  yellow and orange, and the longest sit in the top left and bottom right corners. A small box at the top left of the
-  picture reads SIP distortion, max, and a number of pixels, over the AUTOSTRETCH banner. The floating toolbar lies
-  along the foot, its Show Astrometry button pressed.
+  The Carina Nebula master in its view in the Autostretch display mode, covered by a regular grid of small arrows.
+  Over most of the field the arrows are short and green. Toward the left and right edges they grow and turn yellow and
+  orange, and the longest sit in the top left and bottom right corners. A small box at the top left of the picture
+  reads SIP distortion, max 51.59 px, over the AUTOSTRETCH banner. The floating toolbar lies along the foot, its Show
+  Astrometry button pressed.
 caption: >-
   The SIP distortion map of the Carina master's solution, its grid chip turned off, with the legend that gives the
   largest correction in pixels.

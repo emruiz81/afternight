@@ -44,17 +44,15 @@ was. No [mask](../../reference/glossary.md#mask) is made or attached.
 ```figure
 image: ../../assets/images/processes/masking/morphological-transformation.webp
 alt: >-
-  The Morphological Transformation task. Its header names the process and the master. The canvas at the left shows
-  the preview of a red nebula with fewer stars than the original, the word PREVIEW in its corner, with a floating
-  toolbar of zoom buttons, a channel box and the display mode near its foot. The column at the right holds the
-  preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and Channel
-  at RGB, the Morphological Filter section with Operator at Opening, Iterations at 1, Amount at 1.00 with its slider
-  and a grayed Selection box, and the Structuring Element section with a seven by seven grid whose white cells form a
-  disc, the Size box at 7 and seven small icon buttons. Reset, Close and Apply stand in its footer.
+  The Morphological Transformation task's column. At its top the compact readout of the preview, a histogram of three
+  colored curves peaking near the left, its median at 0.2502, 0.0282 below the image's. Under the header, Preview is
+  ticked, Preview area not, beside the Processed toggle, and Target Image and Channel read RGB. The Morphological
+  Filter section holds Operator at Opening (Dilation + Erosion), Iterations at 1, Amount at 1.00 with its slider and a
+  greyed Selection at 0.50. The Structuring Element section shows the top of a seven by seven grid whose white cells
+  form a disc, beside Size at 7 (49 elements) and seven small icon buttons. Reset, Close and Apply stand in the footer.
 caption: >-
-  Morphological Transformation on the stretched Carina master with Opening and a circular element of size 7. The
-  preview in the canvas shows what Apply writes: the small stars are gone and the clouds keep their shape.
-owed: true
+  Morphological Transformation on the stretched Carina master with Opening and a circular element of size 7, the
+  preview on: the readout compares the preview with the image.
 ```
 
 ## Before you start

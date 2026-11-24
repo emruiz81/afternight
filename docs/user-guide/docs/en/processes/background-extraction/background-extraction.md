@@ -40,18 +40,16 @@ size, channels and [pixel type](../../reference/glossary.md#pixel-type), and add
 ```figure
 image: ../../assets/images/processes/background-extraction/background-extraction.webp
 alt: >-
-  The Background Extraction task. Its header reads Background Extraction on the linear master. The canvas at the left
-  shows the corrected preview of a red nebula in the Autostretch display, with small yellow squares spread over the
-  field, and the floating toolbar near its foot. The column at the right opens with the compact readout of the
-  preview and the ticked Preview toggle, then Target Image, the Sample generation section with the Samples per
-  Line and Grid Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons, and the
-  Background Extraction section with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing
-  slider, Degree Order at 1, two unticked check boxes, Preview Display at Corrected image and the Preview button.
-  Reset, Close and Apply stand in the footer.
+  The Background Extraction task's column. At its top the compact readout of the preview: the plate solution's scale,
+  1.095"/px, a small histogram near the left edge, the clipped fractions, and Min, Max, Mean, Median and StdDev with
+  their change from the image, the median at 0.0275, down 0.0002. Below it the column's header, the Preview box ticked
+  and the Processed button, Target Image at RGB, the Sample Generation section with the Samples per Line and Grid
+  Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons, and the Background Extraction
+  section with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing slider, Degree Order
+  at 1 and the unticked Output Background Model and Add dither boxes. Reset, Close and Apply stand in the footer.
 caption: >-
-  Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples:
-  the samples and the corrected preview in the canvas, the controls in the column.
-owed: true
+  Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples
+  by Polynomial at Degree Order 1. The readout at the top is counted from the corrected preview.
 ```
 
 ## Before you start

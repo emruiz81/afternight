@@ -43,17 +43,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/color-adjustment/color-saturation.webp
 alt: >-
-  The Color Saturation task. Its header names Color Saturation and the master. The canvas at the left shows the
-  preview of a red nebula in strong colors on a gray background, the word PREVIEW in its corner, with a floating
-  toolbar of zoom buttons and a channel box near its foot. The column at the right holds the preview's small
-  histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, a toolbar over a histogram
-  with one broad peak near its left third and the lines Clipping Low and Clipping High in its corner, then Hue at
-  Global, and Amount at 0.50 and Background factor at 1.00 with their sliders. Reset, Close and Apply stand in its
-  footer.
+  The Color Saturation task's column. At its top the compact readout of the preview: a small histogram, the clipped
+  fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the mean and the median nearly
+  unchanged. Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button,
+  Target Image at RGB, a histogram with one broad peak about a quarter of the way across and the lines Clipping Low
+  and Clipping High in its corner, its toolbar, then Hue at Global, and Amount at 0.50 and Background factor at 1.00
+  with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
   Color Saturation on a stretched master with Hue at Global, Amount at 0.50 and Background factor at 1.00. The
-  preview in the canvas shows the stronger colors Apply writes, and the sky below the cutoff as it was.
-owed: true
+  histogram and the readout at the top are counted from the preview, whose colors change while its levels hardly
+  move.
 ```
 
 ## Before you start

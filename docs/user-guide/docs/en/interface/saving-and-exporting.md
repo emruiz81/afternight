@@ -17,7 +17,6 @@ or resized if you ask. Both write a file whole or not at all, and replace an exi
 complete. [Supported Formats](../getting-started/supported-formats.md) compares what each format keeps.
 
 ```figure
-owed: true
 image: ../assets/images/interface/saving-and-exporting.webp
 alt: >-
   The Export Sequence dialog, under the heading SEQUENCE, Export Sequence and a line about writing the sequence's
@@ -28,13 +27,13 @@ alt: >-
 caption: >-
   Export Sequence for an 8-bit SER video of Jupiter, set to write an MP4 video stretched by its view's Autostretch.
 pins:
-  - {n: 1, x: 2.4, y: 12.3}
-  - {n: 2, x: 6.0, y: 36.8}
-  - {n: 3, x: 6.0, y: 44.8}
-  - {n: 4, x: 69.3, y: 44.8}
-  - {n: 5, x: 6.6, y: 51.7}
-  - {n: 6, x: 8.4, y: 57.0}
-  - {n: 7, x: 60.0, y: 91.3}
+  - {n: 1, x: 41.2, y: 15.3}
+  - {n: 2, x: 6.0, y: 35.4}
+  - {n: 3, x: 6.0, y: 43.5}
+  - {n: 4, x: 84.0, y: 49.1}
+  - {n: 5, x: 6.6, y: 50.6}
+  - {n: 6, x: 29.3, y: 56.3}
+  - {n: 7, x: 60.0, y: 91.1}
 ```
 
 ## What you see

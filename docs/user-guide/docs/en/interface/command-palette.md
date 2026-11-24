@@ -15,20 +15,20 @@ the commands of the menus and the places of the [rail](../reference/glossary.md#
 image: ../assets/images/interface/command-palette.webp
 alt: >-
   The main window with the command palette open over it. In the top bar, the field Search or run a command with the
-  keys Ctrl K. Under it, over the dimmed image and readout, a dark panel: a magnifier and the line Type a command,
-  process or file, with an Esc key at the right; below it, the words No command matches; and along its foot, keys with
-  words: Up and Down navigate, Enter run, Esc close, then the signs greater-than for processes, at for images and colon
-  for settings, and three dots with the words all menus.
+  keys Ctrl K. Under it, over the image and the readout, a dark panel: a magnifier and the word stretch typed, with an
+  Esc key at the right; below it, under the heading Processes, ArcSinh Stretch, selected, and Statistical Stretch,
+  each with Intensity Transformations at its right; and along its foot, keys with words: Up and Down navigate, Enter
+  run, Esc close, then the signs greater-than for processes, at for images and colon for settings, and three dots with
+  the words all menus.
 caption: >-
-  The command palette as it opens on a new profile, before anything is typed or run.
+  The command palette with stretch typed: the processes whose names hold it, the first one selected.
 pins:
-  - {n: 1, x: 37.5, y: 5.9}
-  - {n: 2, x: 29.4, y: 12.3}
-  - {n: 3, x: 29.4, y: 16.9}
-  - {n: 4, x: 29.4, y: 21.2}
-  - {n: 5, x: 50.4, y: 21.2}
-  - {n: 6, x: 67.3, y: 21.2}
-owed: true
+  - {n: 1, x: 36.1, y: 4.8}
+  - {n: 2, x: 26.3, y: 11.4}
+  - {n: 3, x: 26.3, y: 16.1}
+  - {n: 4, x: 26.3, y: 26.7}
+  - {n: 5, x: 50.6, y: 26.7}
+  - {n: 6, x: 69.6, y: 26.7}
 ```
 
 ## What you see

@@ -13,25 +13,24 @@ the [rail](../reference/glossary.md#rail) that brings that window forward. [Usin
 says whether an extension can run.
 
 ```figure
-owed: true
 image: ../assets/images/extensions/extension-tasks.webp
 alt: >-
-  The main window showing an extension's process as a task. Down the left edge, the rail, with the task's item under
-  Home, the workspace and the Integration place: a small picture of the image with the process's mark. Under the top
-  bar, the task header names the process and its image, with Float as window and Close at its right. Most of the
-  window is the canvas, with the preview of the Carina Nebula. At the right, the column: the compact readout of the
-  preview, the menu's name over the process's name and the small tag extension, the controls the extension describes,
-  and Reset, Close and Apply at the foot.
+  The main window showing HDR Multiscale, an extension's process, as a task. In the rail at the left edge, the task's
+  item under Home, the workspace and the Integration place: a small picture of the image with the process's mark. The
+  task header reads HDR Multiscale on RGB, preview up to date, with Float as window and Close at its right. Most of
+  the window is the canvas, labelled PREVIEW, with the dark preview of the Carina Nebula. At the right, the column:
+  the compact readout, Adjustments over HDR Multiscale and the small tag extension, Target Image, a note on the
+  process, the Parameters card the extension describes, and Reset, Close and Apply at the foot.
 caption: >-
-  An extension's stretch as a task AfterNight draws, on the linear master: the preview in the canvas at the left, the
-  extension's controls in the column at the right.
+  HDR Multiscale, an extension's process, as a task AfterNight draws, at its defaults on the linear master: the
+  preview in the canvas at the left, the extension's controls in the column at the right.
 pins:
-  - {n: 1, x: 1.0, y: 25.5}
-  - {n: 2, x: 3.7, y: 10.4}
-  - {n: 3, x: 4.4, y: 17.9}
-  - {n: 4, x: 63.8, y: 30.5}
-  - {n: 5, x: 63.8, y: 40.3}
-  - {n: 6, x: 64.9, y: 94.4}
+  - {n: 1, x: 0.8, y: 24.6}
+  - {n: 2, x: 3.8, y: 9.3}
+  - {n: 3, x: 5.0, y: 16.0}
+  - {n: 4, x: 58.9, y: 30.4}
+  - {n: 5, x: 58.9, y: 55.0}
+  - {n: 6, x: 59.6, y: 94.3}
 ```
 
 ## What you see

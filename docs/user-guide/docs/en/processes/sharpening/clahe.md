@@ -40,15 +40,14 @@ size and [pixel type](../../reference/glossary.md#pixel-type), adds one step to 
 ```figure
 image: ../../assets/images/processes/sharpening/clahe.webp
 alt: >-
-  The CLA Histogram Equalization task. Its header names the process and the stretched master, and the column's
-  header reads CLA Histogram Equalization. The canvas at the left shows the whole equalized nebula. The column at the right opens with the
-  compact readout of the preview, then the Preview toggle ticked and Preview area unticked, Target Image and Channel
-  at RGB, a histogram with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar,
-  and the Grid Size, Contrast Limit and Amount boxes with their sliders. Reset, Close and Apply stand in its footer.
+  The CLA Histogram Equalization task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the column's
+  header, the Preview box ticked, Preview area unticked and the Processed button, Target Image and Channel at RGB, a
+  histogram with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar, and Grid
+  Size at 8, Contrast Limit at 1.50 and Amount at 1.00 with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  CLAHE on a stretched master with Grid Size at 8 and Contrast Limit at 1.50: the canvas shows what Apply writes over
-  the whole image.
-owed: true
+  CLAHE on a stretched master with Grid Size at 8 and Contrast Limit at 1.50. The histogram and the readout at the
+  top are counted from the preview of the whole image.
 ```
 
 ## Before you start

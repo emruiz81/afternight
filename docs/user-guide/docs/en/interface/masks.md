@@ -18,26 +18,25 @@ A mask is a link between two views, not a part of the image. It is not saved wit
 **Duplicate**, not kept in the [history](../reference/glossary.md#history), and it ends when either view closes.
 
 ```figure
-owed: true
 image: ../assets/images/interface/masks.webp
 alt: >-
-  The AfterNight main window with the menu bar shown and its Image menu open over the view of RGB. The view shows the
-  Carina Nebula covered in solid red, except for its bright clouds, which show through in white and gray. Beside the
-  Image menu, its Mask submenu: Select Mask, Remove Mask, Invert Mask unticked, Enable Mask and Show Mask ticked, and
-  Rendering Mode, whose own submenu lists Overlay Red, chosen, then Overlay Green, Overlay Blue, Overlay Yellow,
-  Overlay Magenta and Overlay Cyan, each with its swatch, then Replace and Multiply. The readout at the right shows the
-  image's histogram, statistics and Astrometry card, and the history strip reads Initial state and Histogram
-  Transformation.
+  The AfterNight main window with the menu bar shown and its Image menu open over the view of RGB, Mask highlighted.
+  The view shows the Carina Nebula covered in solid red, except for its bright clouds, which show through in white
+  and gray. Beside the Image menu, its Mask submenu: Select Mask, Remove Mask, Invert Mask unticked, Enable Mask and
+  Show Mask ticked, and Rendering Mode, whose own submenu lists Overlay Red, chosen, then Overlay Green, Overlay Blue,
+  Overlay Yellow, Overlay Magenta and Overlay Cyan, each with its swatch, then Replace and Multiply. The readout at the
+  right shows the image's histogram, statistics and Astrometry card, and the history strip reads Initial state and
+  Histogram Transformation.
 caption: >-
   The stretched Carina master in the Linear display mode, with the mask Range Selection made of its bright clouds
   drawn in Overlay Red, and Image > Mask > Rendering Mode open from the menu bar.
 pins:
-  - {n: 1, x: 3.6, y: 12.8}
+  - {n: 1, x: 3.6, y: 11.9}
   - {n: 2, x: 14.0, y: 60.0}
-  - {n: 3, x: 9.6, y: 23.9}
-  - {n: 4, x: 22.8, y: 23.4}
-  - {n: 5, x: 21.4, y: 33.0}
-  - {n: 6, x: 33.8, y: 39.1}
+  - {n: 3, x: 9.6, y: 23.1}
+  - {n: 4, x: 36.4, y: 24.2}
+  - {n: 5, x: 36.4, y: 32.4}
+  - {n: 6, x: 25.8, y: 39.0}
 ```
 
 ## What you see
@@ -78,7 +77,6 @@ channel, and fits only a color target.
 3. Choose **OK**. **Enable Mask** and **Show Mask** are on, **Invert Mask** is off, and the overlay appears.
 
 ```figure
-owed: true
 image: ../assets/images/interface/masks-selector.webp
 alt: >-
   The Mask Selector window, titled Mask Selector <RGB>. Under the heading Mask Selector and a line about choosing a

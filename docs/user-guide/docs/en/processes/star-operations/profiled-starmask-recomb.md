@@ -43,17 +43,15 @@ profile file stay as they were. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/profiled-starmask-recomb.webp
 alt: >-
-  The Profiled Starmask Recombination task. Its header names the process alone. The canvas at the left shows the
-  nebula with its brighter stars, circled by the profile's areas. The column at the right opens with the compact
-  readout of the preview, then the Preview toggle ticked, Preview area and Processed, and the sections of the process:
-  Image Composition names a starless image and a stars image of the Carina nebula; Stars Profile shows a file path, a
-  star count, the Stars Filter button, Show Star Profiles ticked, Invert Selection, Scale Factor at 1.00 and Tighten
-  Edges at 0.00 with their sliders; and Mask Generation holds Shape at Binary Areas, Soften Edges at 2.00, and two
-  dimmed sliders. Reset, Close and OK stand in its footer.
+  The Profiled Starmask Recombination task's column. It opens with the compact readout of the preview, then, under
+  the header, Preview ticked, Preview area unticked and the Processed toggle. Image Composition names RGB - starless
+  as the Starless Image and RGB - star mask as the Stars Image. Stars Profile shows the path of carina.anspv2 with
+  three small buttons, Current Stars at 2187, the Stars Filter button, Show Star Profiles ticked, Invert Selection,
+  and Scale Factor at 1.00 and Tighten Edges at 0.00 with their sliders. Under Mask Generation, Shape reads Binary
+  Areas, where the column scrolls on. Reset, Close and OK stand in the footer.
 caption: >-
-  Profiled Starmask Recombination of the starless Carina image and its star image through a profile of the brighter
-  stars, with Binary Areas at their defaults. The canvas shows what OK writes.
-owed: true
+  Profiled Starmask Recombination of the starless Carina image and the star mask Starnet++ made of it, through a Star
+  Profiler v2 profile of 2,187 stars, with Binary Areas at their defaults and the preview on.
 ```
 
 ## Before you start

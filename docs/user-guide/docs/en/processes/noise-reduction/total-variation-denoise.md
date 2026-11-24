@@ -42,17 +42,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/total-variation-denoise.webp
 alt: >-
-  The Total Variation Denoise Filter task. Its header names Total Variation Denoise Filter and the master. The canvas at the left
-  shows the preview of a red nebula, the word PREVIEW in its corner and a framed area in its middle, with a floating
-  toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right
-  holds the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image and
-  Channel at RGB, the Algorithm box at Chambolle, the Weight, Epsilon and Max Iterations boxes with their sliders, and
-  a greyed Isotropic check box. Reset, Close and Apply stand in its footer.
+  The Total Variation Denoise Filter task's column. At its top the compact readout of the preview: a small histogram,
+  the clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the Preview and Preview
+  area boxes ticked and the Processed button, Target Image and Channel at RGB, Algorithm at Chambolle, Weight at
+  0.0050, Epsilon at 0.0002 and Max Iterations at 200 with their sliders, and a grayed Isotropic box, ticked. Reset,
+  Close and Apply stand in its footer.
 caption: >-
   Total Variation Denoise on the linear master with Algorithm at Chambolle, which sets Epsilon to 0.0002 and Max
-  Iterations to 200, and Weight at 0.0050. The framed area of the canvas shows what Apply writes there, in the
-  Autostretch display mode.
-owed: true
+  Iterations to 200, and Weight at 0.0050, the preview area on. The readout at the top is counted from the preview.
 ```
 
 ## Before you start

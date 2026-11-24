@@ -15,23 +15,22 @@ Only images dock in a [workspace](../reference/glossary.md#workspace). A [task](
 Image History, the header viewers and Settings are windows of their own.
 
 ```figure
-owed: true
 image: ../assets/images/interface/docking-panels.webp
 alt: >-
   The centre of the main window holding one tab group with two tabs, RGB and the name of a master flat. The flat's tab
   is in front, with an accent line under it, and each tab has a cross. At the right end of the strip are a chevron, a
-  float button and a cross. The gray master flat with its dark dust shadows fills the group under an AUTOSTRETCH
-  banner, and a dark floating toolbar near the bottom starts with the flat's name. Under the group, the history strip
-  reads HISTORY and Initial state.
+  float button and a cross. The gray master flat with its dark dust shadows sits small in the middle of the group under
+  an AUTOSTRETCH banner, and a dark floating toolbar near the bottom starts with the flat's name. Under the group, the
+  history strip reads HISTORY and Initial state.
 caption: >-
   Two images grouped as tabs of one tab group, the master flat in front.
 pins:
-  - {n: 1, x: 1.2, y: 2.0}
-  - {n: 2, x: 9.6, y: 2.0}
-  - {n: 3, x: 34.6, y: 2.0}
-  - {n: 4, x: 91.2, y: 2.0}
+  - {n: 1, x: 2.2, y: 2.1}
+  - {n: 2, x: 12.9, y: 2.1}
+  - {n: 3, x: 44.2, y: 2.1}
+  - {n: 4, x: 88.4, y: 2.1}
   - {n: 5, x: 24.6, y: 50.0}
-  - {n: 6, x: 11.6, y: 91.7}
+  - {n: 6, x: 3.7, y: 91.7}
 ```
 
 ## What you see

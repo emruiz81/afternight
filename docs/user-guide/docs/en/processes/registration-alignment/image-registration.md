@@ -44,18 +44,17 @@ Image Integration workflow.
 ```figure
 image: ../../assets/images/processes/registration-alignment/image-registration.webp
 alt: >-
-  The Image Registration task, a page that fills the centre of the main window under a header naming Image
-  Registration. On the left of the page, a preview of one frame above the Frame List, a table of the 35 frames with
-  the columns File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point and RMS, and under it a row of
-  buttons from Add to Clear All with the Current, Registered and Reference counts. On the right, the Registration card
-  with Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star Pairs, Max Stars per
-  Frame, three check boxes, Skip already-registered frames ticked and the Register button; the Alignment card with
-  Standard chosen, Interpolation at Auto and the Align button; Extended Settings and the Output Directory with its
-  path. Reset and Close stand at the page's foot.
+  The Image Registration task, a page under a header naming Image Registration. At the upper left, the preview of the
+  first frame under its toolbar, dark in the Linear display mode with a scatter of stars. At the right, the
+  Registration card with Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star
+  Pairs at 10, Max Stars per Frame at 2000, three check boxes, Skip already-registered frames ticked, and the Register
+  button; under it, the Alignment card with Standard chosen and Interpolation at Auto. Across the page, the Frame List
+  table with the columns File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point and RMS, its first row the
+  reference, Registered with 622 stars. Under it, the buttons from Add to Blink Compare..., Current 1, Registered
+  35/35, Reference 1 and Clear All, then Advanced with its closed Quality Thresholds, and Reset and Close.
 caption: >-
   Image Registration after Register and Align on 35 calibrated lights of NGC 253, every setting at its default: the
   table holds each frame's figures, and the first frame is the reference.
-owed: true
 ```
 
 ## Before you start

@@ -43,19 +43,17 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/gh-transformation.webp
 alt: >-
-  The Generalized Hyperbolic Transformation task. Its header names the process and the linear master. The canvas at
-  the left shows the stretched preview, a pale nebula on a gray background. The column at the right opens with the
-  compact readout of the preview, then the Preview, Preview area and Processed toggles, Target Image, and two
-  histograms, each under a white curve. In the upper one the peak stands about a quarter of the way along. In the
-  lower one it is a spike at the left edge, under a curve that rises steeply and then bends over, with three handles
-  below it. Under them a toolbar, the Channel and Transformation type boxes with the Invert box, five values with
-  sliders, from Stretch factor to Protect highlights, and three SP picker buttons. Reset, Close and Apply stand in its
-  footer.
+  The Generalized Hyperbolic Transformation task's column. At its top the compact readout of the preview: a small
+  histogram, the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it
+  the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image at RGB,
+  and two histograms, each under a white curve that rises steeply and then bends over, with two lines of clipping
+  percentages in its top left corner. In the upper one the peak is a row of separate spikes from about a fifth of the
+  way along, shrinking to the right. In the lower one it is a spike at the left edge, beside a dotted diagonal. The
+  lower histogram runs on under Reset, Close and Apply in the footer.
 caption: >-
   Generalized Hyperbolic Transformation on a linear master, with the symmetry point at 0.025, a stretch factor of 2.5
-  and a local intensity of 5. The lower histogram is the image, the upper one the result, and the canvas shows what
-  Apply writes.
-owed: true
+  and a local intensity of 5, the values of the worked example. The lower histogram is the image, the upper one the
+  result, and the readout at the top measures the preview.
 ```
 
 ## Before you start

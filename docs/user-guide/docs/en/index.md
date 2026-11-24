@@ -10,10 +10,12 @@ hero:
     - {label: Run the quick start, page: getting-started/quick-start.md}
     - {label: Install AfterNight, page: getting-started/installation.md}
     - {label: Browse the processes, page: processes/index.md}
-  image: assets/images/interface/hero-screenshot.png
-  alt: Fresh-profile AfterNight Dashboard with onboarding, start cards, quick actions, and an image drop zone
+  image: assets/images/interface/hero-screenshot.webp
+  alt: >-
+    The AfterNight main window on Home at the first start of a new profile: the welcome with the version, three ways
+    to begin - open an image, stack your frames, read the guide - a drop zone, and what the application can do
   caption: >-
-    Start from the fresh-profile Dashboard to open images, begin an integration, or review the guided first steps.
+    Start from Home to open an image, begin an integration, or read the guide.
 notice: >-
   Some of this guide's pictures are still to come: where one is missing, its page shows a frame that describes it.
 paths:

@@ -42,15 +42,14 @@ components stay as they were.
 ```figure
 image: ../../assets/images/processes/color-composition/channel-composition.webp
 alt: >-
-  The Channel Composition task. Its header names the process alone. The canvas at the left shows the composed color
-  preview of the Carina Nebula, its clouds and stars, with the word PREVIEW in its corner and the floating toolbar near
-  its foot. The column at the right opens with the compact readout of the preview, then the Preview, Preview area and
-  Processed toggles, Color Space at RGB, the Red, Green and Blue boxes each naming one channel of the master, and
-  Linear Match ticked. Close and OK stand in its footer.
+  The Channel Composition task's column. At its top the compact readout of the preview: a small histogram with a red,
+  a green and a blue peak close together near its dark end, the clipped fractions, and Min, Max, Mean, Median and
+  StdDev, the median 0.0702. Below it the column's header, the Preview box ticked, Preview area unticked and the
+  Processed button, Color Space at RGB, the Red, Green and Blue boxes each naming a stack of the Carina set, shortened
+  to stacked_828...rina_Nebula, and Linear Match ticked. Close and OK stand in its footer.
 caption: >-
-  Channel Composition in RGB with the red, green and blue channels of the Carina master in its three boxes and Linear
-  Match ticked: the canvas shows the color image OK makes.
-owed: true
+  Channel Composition in RGB with the red, green and blue stacks of the Carina set in its three boxes and Linear Match
+  ticked. The readout at the top is counted from the composed preview.
 ```
 
 ## Before you start

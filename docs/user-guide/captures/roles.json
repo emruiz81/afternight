@@ -1,6 +1,11 @@
 {
   "roles": {
     "linear": "A linear RGB master of the Carina Nebula, the maintainer's own data",
+    "linear2": "A copy of the linear master under a name of its own, RGB-linear.fit, so that it opens beside the first as a second image",
+    "red": "The red stack of the Carina set the linear master was composed from, the maintainer's own data",
+    "green": "The green stack of the same set, the maintainer's own data",
+    "blue": "The blue stack of the same set, the maintainer's own data",
+    "lum": "The luminance stack of the same set, the maintainer's own data",
     "flat": "A master flat of the Carina Nebula set, the maintainer's own data",
     "ngc253": "The NGC 253 color-camera set of the workflow pages: a folder of lights, darks, flats and bias frames, the maintainer's own data",
     "eagle": "The Eagle Nebula narrowband lights and flats of the workflow pages, the maintainer's own data",
@@ -9,7 +14,7 @@
     "work": "An empty folder a recipe writes to - a project, a run's output - whose path names nothing personal, such as D:\\Captures, since a picture may show it",
     "starnet": "A storage root kept by an earlier run, whose settings name the StarNet2 program (tools/starnetPath)",
     "deepsnr": "A storage root kept by an earlier run, whose settings name the DeepSNR program (tools/deepsnrPath)",
-    "gaia": "A storage root kept by an earlier run, with a Gaia catalog pack installed for plate solving",
+    "gaia": "A storage root kept by an earlier run, with a Gaia catalog pack installed for plate solving and an Image Integration job of the NGC 253 lights",
     "spcc": "A storage root kept by an earlier run, with the catalogs spectrophotometric color calibration needs",
     "tools": "A storage root kept by an earlier run, whose settings name the external tools a page uses",
     "cfaname": "Not a path: the name of the raw color-filter frame's view, its file name without the extension",

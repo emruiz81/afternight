@@ -43,16 +43,15 @@ nonlinear.
 ```figure
 image: ../../assets/images/processes/color-composition/colorize.webp
 alt: >-
-  The Colorize task. Its header reads Colorize on the stretched master. The canvas at the left shows the preview, the
-  nebula and its stars in shades of one blue, with the word PREVIEW in its corner and the floating toolbar near its
-  foot. The column at the right opens with the compact readout of the preview, then the Preview, Preview area and
-  Processed toggles, Target Image, a histogram with a red, a green and a blue peak apart from each other and its
-  toolbar, the Method list at HSV, Hue at 200.00 and Saturation at 0.60 with their sliders, and Use lightness ticked.
-  Reset, Close and Apply stand in its footer.
+  The Colorize task's column. At its top the compact readout of the preview: a small histogram, the clipped fractions,
+  and Min, Max, Mean, Median and StdDev with their change from the image, the median down 0.0579 to 0.2205. Below it
+  the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image at RGB, a
+  histogram with a red, a green and a blue peak apart from each other and its toolbar, the Method list at HSV, Hue at
+  200.00 and Saturation at 0.60 with their sliders, and Use lightness ticked. Reset, Close and Apply stand in its
+  footer.
 caption: >-
-  Colorize on a stretched master with Hue at 200, Saturation at 0.60 and Use lightness on: the canvas shows the
-  lightness of the image in one blue hue.
-owed: true
+  Colorize on a stretched master with Hue at 200, Saturation at 0.60 and Use lightness on. The histogram and the
+  readout at the top are counted from the colorized preview.
 ```
 
 ## Before you start

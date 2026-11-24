@@ -41,16 +41,16 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/histogram-transformation.webp
 alt: >-
-  The Histogram Transformation task. Its header names the process and the linear master. The canvas at the left shows
-  the stretched preview, a red nebula among stars on a dark gray background. The column at the right opens with the
-  compact readout of the preview and the Preview, Preview area and Processed toggles, then holds Target Image and two
-  histograms, the upper one spread into several peaks, the lower one a single spike at the left edge under a steep
-  white curve, with three handles below it. Under them a toolbar, the Channel box with two buttons, the Shadows,
-  Highlights and Midtones boxes with their Clipped fields. Reset, Close and Apply stand in its footer.
+  The Histogram Transformation task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median at 0.2784.
+  Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image
+  at RGB and two histograms. The upper one is a row of spikes shrinking to the right. The lower one is a single spike
+  at the left edge under a steep white curve, with two handles at the left of the strip below it and one at the
+  right. The top of the histogram toolbar shows above Reset, Close and Apply in the footer.
 caption: >-
-  Histogram Transformation on a linear master with Shadows and Midtones at 0.02. The lower histogram is the image
-  with the curve over it, the upper one is the result, and the canvas shows what Apply writes.
-owed: true
+  Histogram Transformation on a linear master with Shadows and Midtones at 0.02, the values of the worked example.
+  The lower histogram is the image with the curve over it, the upper one is the result, and the readout at the top
+  measures the preview.
 ```
 
 ## Before you start

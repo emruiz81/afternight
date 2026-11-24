@@ -16,24 +16,23 @@ its figures. The window changes nothing either: not the samples, the header, the
 [history](../reference/glossary.md#history), the [mask](../reference/glossary.md#mask) or a file.
 
 ```figure
-owed: true
-image: ../assets/images/interface/image-statistics.webp
+image: ../assets/images/interface/image-statistics.png
 alt: >-
   The Image Statistics window, titled Statistics <RGB>. Its heading reads ANALYSIS · RGB over Image Statistics and a
   line about per-channel statistics. A card titled Statistics Table holds a table with the columns RED, GREEN and BLUE
-  and a row for each figure, from COUNT (PX), COUNT (%), MEAN, SIGMA and MEDIAN to MIN and MAX and more below, each
-  cell a number with seven decimals. Under the table, a box reading Normalized (0.0-1.0), an Unclipped check box, off,
-  and a Refresh button. Close stands at the bottom right.
+  and a row for each figure, from COUNT (PX), COUNT (%), MEAN, SIGMA and MEDIAN to MIN and MAX and more below, the
+  pixel counts whole and the other cells with seven decimals. Under the table, a box reading Normalized (0.0-1.0), an
+  Unclipped check box, off, and a Refresh button. Close stands at the bottom right.
 caption: >-
   Image Statistics on the linear Carina master, opened from the readout at its defaults: Normalized (0.0-1.0) with
   Unclipped off.
 pins:
-  - {n: 1, x: 2.0, y: 11.4}
+  - {n: 1, x: 20.1, y: 9.7}
   - {n: 2, x: 3.4, y: 38.4}
-  - {n: 3, x: 3.2, y: 82.6}
-  - {n: 4, x: 29.8, y: 82.6}
-  - {n: 5, x: 80.6, y: 82.6}
-  - {n: 6, x: 82.2, y: 92.8}
+  - {n: 3, x: 3.2, y: 82.1}
+  - {n: 4, x: 43.8, y: 82.1}
+  - {n: 5, x: 80.6, y: 82.1}
+  - {n: 6, x: 82.2, y: 92.5}
 ```
 
 ## What you see

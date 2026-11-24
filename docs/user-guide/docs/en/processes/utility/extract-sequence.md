@@ -46,13 +46,11 @@ source and its [history](../../reference/glossary.md#history) are not changed.
 ```figure
 image: ../../assets/images/processes/utility/extract-sequence.webp
 alt: >-
-  The Extract Sequence task. Its header reads Extract Sequence on the video. The canvas at the left shows the
-  video's frame, the disc of Jupiter small on a black field. The column at the right, headed Extract Sequence, holds
-  Start Frame at 11 and End Frame at 60, each with a box and a slider, then Selected Frames at 50 and Sequence Size in
-  megabytes. Reset stands at the left of its footer, and Close and OK at the right.
+  The Extract Sequence task's column, headed Extract Sequence, with no readout at its top. It holds Start Frame at 11
+  and End Frame at 60, each with a box and a slider, then Selected Frames at 50 and Sequence Size at 28.71 MB. The
+  rest of the body is empty. Reset stands at the left of its footer, and Close and OK at the right.
 caption: >-
   Extract Sequence on a planetary video with Start Frame at 11 and End Frame at 60, which keeps 50 frames.
-owed: true
 ```
 
 ## Before you start

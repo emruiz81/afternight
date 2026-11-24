@@ -44,15 +44,14 @@ was.
 ```figure
 image: ../../assets/images/processes/color-adjustment/tighten-edges.webp
 alt: >-
-  The Tighten Edges task. Its header names Tighten Edges and the master. The canvas at the left shows the preview of a
-  red nebula with many stars, the word PREVIEW in its corner, with a floating toolbar of zoom buttons, a channel box
-  and the display mode near its foot. The column at the right holds the preview's small histogram and statistics, the
-  toggles Preview, Preview area and Processed, Target Image and Channel at RGB, and the Value box at 0.50 and the
-  Amount box at 1.00 with their sliders. Reset, Close and Apply stand in its footer.
+  The Tighten Edges task's column, the narrow kind. At its top the compact readout of the preview: a small histogram
+  beside the clipped fractions, and under them Min, Max, Mean, Median and StdDev. Below it the column's header, the
+  Preview box ticked, Preview area unticked and the Processed button, Target Image and Channel at RGB, and the Value
+  box at 0.50 and the Amount box at 1.00 with their sliders. The column is empty below them down to Reset, Close and
+  Apply in its footer.
 caption: >-
-  Tighten Edges on a stretched master with Value at 0.50 and Amount at 1.00. The preview in the canvas shows what
-  Apply writes.
-owed: true
+  Tighten Edges on a stretched master with Value at 0.50 and Amount at 1.00. The readout at the top measures the
+  preview.
 ```
 
 ## Before you start

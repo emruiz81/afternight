@@ -39,20 +39,19 @@ you choose, never changes your frames, and opens the masters when it ends. The
 [Quick Start](../../getting-started/quick-start.md) takes you through a first run step by step.
 
 ```figure
-image: ../../assets/images/processes/stacking-integration/image-integration-lite.png
+image: ../../assets/images/processes/stacking-integration/image-integration-lite.webp
 alt: >-
-  The Image Integration Lite task, a page that fills the centre of the main window under a header naming Image
-  Integration Lite. An amber banner at the top of the page reads Ready with 4 warnings. Under it, two columns. At the
-  left, the Dataset card counts 64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and
-  the object M 16, and the Frames card below it has the Add as box, the Add Files, Add Folder, Change Type and Clear
-  All buttons, and a table of the files with their type, filter, object, exposure and calibration. At the right, the
+  The Image Integration Lite task under a header naming Image Integration Lite. An amber banner at the top of the
+  page reads Ready with 4 warning(s). Under it, two columns. At the left, the Dataset card counts 64 light, 150 flat,
+  0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and the object M 16, and the Frames card below it has
+  the Add as box at Auto-detect, the Add Files, Add Folder, Change Type and Clear All buttons, and a table of the
+  files with their type, filter, object, exposure and calibration, its first rows the Ha flats. At the right, the
   Setup card holds the Output folder with its Browse button, two check boxes, the memory limit and CPU Threads, and
-  Processing Settings lists four closed lines: Calibration, Registration, Normalization and Stacking. Run Integration,
-  Open Full Process and Close are at the page's foot.
+  Processing Settings lists four closed lines: Calibration, Registration, Normalization and Stacking. Open Full
+  Process, Close and Run Integration are at the page's foot.
 caption: >-
-  Image Integration Lite after a run on Eagle Nebula narrowband lights and their flats, every setting at its default:
-  one master was stacked for each of the three filters.
-owed: true
+  Image Integration Lite before a run, with the Eagle Nebula's narrowband lights and their flats added and the output
+  folder chosen, every setting at its default. The run stacks one master for each of the three filters.
 ```
 
 ## Before you start
@@ -681,12 +680,12 @@ master's header reads `STACKCNT` 25 and `EXPTIME` 7500, the 25 exposures added. 
 is: the stack keeps the level and lowers the noise.
 
 ```figure
-owed: true
 images:
   - image: ../../assets/images/processes/stacking-integration/image-integration-lite-before.webp
     alt: >-
       A 100 % crop of one registered Ha light: the pillars of the Eagle Nebula lying across the left half, a small
-      star cluster beside them, all in gray under a coarse grain with scattered white and dark specks.
+      star cluster beside them, all in gray under a fine grain with scattered white and dark specks, and the view's
+      toolbar at the foot.
     label: One light
   - image: ../../assets/images/processes/stacking-integration/image-integration-lite-after.webp
     alt: >-

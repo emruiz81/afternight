@@ -40,16 +40,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/curves-transformation.webp
 alt: >-
-  The Curves Transformation task. Its header names the process and the stretched master. The canvas at the left
-  shows the preview, a red nebula on a dark background. The column at the right opens with the compact readout of
-  the preview, then the Preview, Preview area and Processed toggles, Target Image, and the curve editor: a white
-  curve that sags below a dotted diagonal through one point, over a grid and the three colored lines of a histogram
-  with its peak near the left edge, and two lines of clipping percentages in its top left corner. Under it a row of
-  toolbar buttons, the Interpolation box and Channel at RGB. Reset, Close and Apply stand in its footer.
+  The Curves Transformation task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the column's
+  header, the Preview box ticked, Preview area unticked and the Processed button, Target Image at RGB, and the curve
+  editor: a white curve that sags below a dotted diagonal through one point, over the three colored lines of a
+  histogram peaking near the left edge, with two clipping percentages in its top left corner. Under it a toolbar,
+  Interpolation at Cubic and Channel at RGB. Reset, Close and Apply stand in its footer.
 caption: >-
   Curves Transformation on a stretched master with one point pulled down from 0.28 to 0.14. The histogram behind
-  the curve is the result's, and the canvas shows what Apply writes.
-owed: true
+  the curve is the result's, and the readout at the top measures the preview.
 ```
 
 ## Before you start

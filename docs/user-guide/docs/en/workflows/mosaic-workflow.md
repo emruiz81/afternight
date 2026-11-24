@@ -36,15 +36,16 @@ Panels of a similar depth, in the same number and length of exposures, stack to 
 ## Steps
 
 ```figure
-owed: true
 image: ../assets/images/workflows/mosaic-workflow.webp
 alt: >-
-  The Registration Settings dialog of Image Integration, the name of its registration group under the title. Among
-  its settings, the alignment row offers Standard, Mosaic and Intersection, with Mosaic chosen, and the Auto-solve
-  unsolved frames during Registration box is ticked and greyed, with a note under it. Reset to Defaults, Apply to All
-  Groups, OK and Cancel run along the bottom.
+  The Registration Settings dialog of Image Integration, the name of its registration group, 5544x3684 | NGC253,
+  under the title. In its Registration section, the Auto-solve unsolved frames during Registration box is ticked and
+  greyed, with a note under it that it stays on while Mosaic is chosen; then Enrich with Gaia catalog, ticked, the
+  star limits, the reference image, Star Matching, the Auto transform model and the chromatic aberration settings,
+  off. At the foot of the list, the Alignment section with Mosaic chosen under Standard. Reset to Defaults, Apply to
+  All Groups, Cancel and OK run along the bottom.
 caption: >-
-  The registration settings of a group of panels with the Mosaic canvas chosen and a plate solver set up.
+  The registration settings of a group of panels with the Mosaic canvas chosen: Auto-solve stays on while it is.
 ```
 
 ### Add every panel's frames

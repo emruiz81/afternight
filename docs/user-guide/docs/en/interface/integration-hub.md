@@ -11,26 +11,26 @@ turns frames into a stacked [master](../reference/glossary.md#master): the ways 
 do one stage on a list of frames, and every [integration job](../reference/glossary.md#integration-job), with how its last run ended. No image needs to be open.
 
 ```figure
-owed: true
 image: ../assets/images/interface/integration-hub.webp
 alt: >-
-  The main window showing the Integration place. Under the heading Integration and the line Calibrate, register and
-  stack, three large cards under Three ways to stack: Guided integration with the tag Planned, a greyed Start and the
-  words Not in this version; Image Integration with a blue New integration button; Image Integration Lite with a New
-  quick integration button. Under Single steps, four smaller cards: Image Calibration, Image Registration, Image
-  Stacking and Image List Analyzer, each with a line and an arrow. Under Integration jobs, with the count 0, a search
-  field and Show set to All projects, the column headings Job, Project, Frames, Masters, Last run, Took and Status,
-  the line No integration job yet, and a line about the project a job without one creates.
+  The main window showing the Integration place, its stack of layers selected in the rail. Under the heading
+  Integration and the line Calibrate, register and stack, three large cards under Three ways to stack: Guided
+  integration with the tag Planned, a greyed Start and the words Not in this version; Image Integration with a blue
+  New integration button; Image Integration Lite with a New quick integration button. Under Single steps, four smaller
+  cards: Image Calibration, Image Registration, Image Stacking and Image List Analyzer, each with a line and an arrow.
+  Under Integration jobs, with the count 0, a search field and Show set to All projects, the column headings Job,
+  Project, Frames, Masters, Last run, Took and Status, the line No integration job yet, and a line about the project a
+  job without one creates.
 caption: >-
   The Integration place of a new profile: its ways to stack and its single steps, and no job yet.
 pins:
-  - {n: 1, x: 4.4, y: 12.9}
-  - {n: 2, x: 6.4, y: 27.0}
-  - {n: 3, x: 37.6, y: 27.0}
-  - {n: 4, x: 69.0, y: 27.0}
-  - {n: 5, x: 4.4, y: 50.8}
-  - {n: 6, x: 4.4, y: 64.7}
-  - {n: 7, x: 66.4, y: 64.7}
+  - {n: 1, x: 4.4, y: 13.2}
+  - {n: 2, x: 6.4, y: 26.3}
+  - {n: 3, x: 35.9, y: 26.3}
+  - {n: 4, x: 68.6, y: 26.3}
+  - {n: 5, x: 4.4, y: 50.5}
+  - {n: 6, x: 4.4, y: 64.6}
+  - {n: 7, x: 61.9, y: 64.6}
   - {n: 8, x: 4.4, y: 68.6}
 ```
 

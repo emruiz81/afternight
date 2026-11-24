@@ -40,14 +40,12 @@ same [Bayer pattern](../../reference/glossary.md#bayer-pattern) and phase, adds 
 [pixel type](../../reference/glossary.md#pixel-type) is kept.
 
 ```figure
-owed: true
 image: ../../assets/images/processes/calibration/cfa-integer-resample.webp
 alt: >-
-  The CFA Integer Resample task. Its header names CFA Integer Resample and the raw light, and the canvas at the left
-  shows the light as its view does. The wide column at the right holds, in the Resample group, Resample Factor at 2,
-  Downsample Mode at Average, and the Downsample and Upsample buttons with Downsample chosen. In the New Size group,
-  Original Px reads 5544 and 3684 and Target Px 2772 and 1842, with Current Size at 38.96 MB and New Size at 9.74 MB.
-  Under them Target Image names the light, and Reset, Close and OK stand in the footer.
+  The CFA Integer Resample task's column under its header, Geometry over CFA Integer Resample. Target Image names the
+  raw light. In the Resample section, Resample Factor reads 2, Downsample Mode Average, and of the Downsample and
+  Upsample buttons Downsample is chosen. In the New Size section, Original Px reads 5544 by 3684 and Target Px 2772 by
+  1842, with Current Size at 38.96 MB and New Size at 9.74 MB. Reset, Close and OK stand in the footer.
 caption: >-
   CFA Integer Resample on a raw NGC 253 light, binning by 2 with Average, as the task opens: Target Px and New Size
   show the result before OK.

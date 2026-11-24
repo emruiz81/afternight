@@ -43,19 +43,17 @@ multiscale linear transform, which blurs the original with ever wider Gaussians,
 ```figure
 image: ../../assets/images/processes/multiscale/multiscale-linear.webp
 alt: >-
-  The Multiscale Linear Transform task. Its header names the process and the master. The canvas at the left shows the
-  preview of a red nebula with the word PREVIEW in its corner and a large framed area in its middle, with a floating
-  toolbar of zoom buttons, a channel box and the display mode at Autostretch near its foot. The column at the right
-  holds the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image
-  and Channel at RGB, then, in a body that scrolls, the Transform Settings section with Algorithm, Detail Layers at 6,
-  Layer Spacing at Dyadic, a disabled Scaling Function and Amount at 1.00, a table of Layer 1 to Layer 6 and Residual,
-  each ticked with a bias of 0.00, over the Enable All, Disable All and Reset Biases buttons, and the Global Settings
-  section, whose k-Sigma Thresholding group is ticked, with Threshold (k) at 3.00 and Amount at 0.70. Reset, Close and
-  Apply stand in its footer.
+  The Multiscale Linear Transform task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the Preview and Preview area
+  boxes ticked and the Processed button, then, in a body that scrolls, Target Image and Channel at RGB, Preview Mode
+  at Processed Image, the Transform Settings section with Algorithm at Multiscale Linear Transform, Detail Layers at
+  6, Layer Spacing at Dyadic, a grayed Scaling Function at B3 Spline (5) and Amount at 1.00, and the head of the
+  Layers section, a table whose first row, Layer 1, is ticked with a bias of 0.00. Reset, Close and Apply stand in
+  its footer.
 caption: >-
-  Multiscale Linear Transform on the linear master with k-Sigma Thresholding ticked and its Amount at 0.70. The framed
-  area of the canvas shows the result there, over the original, in the Autostretch display mode.
-owed: true
+  The top of the Multiscale Linear Transform task's column on the linear master, with six detail layers in the dyadic
+  spacing and the preview area on. The k-Sigma Thresholding of the worked example is in the Global Settings section,
+  further down the column.
 ```
 
 ## Before you start

@@ -16,29 +16,28 @@ shares; each process page describes its own controls, and [Tasks Reference](task
 image: ../assets/images/interface/tasks.webp
 alt: >-
   The main window showing the Histogram Transformation task. At the left, the rail with Home, the workspace and the
-  Integration place, and under them the task's item. Under the top bar, the task header with the image's thumbnail,
-  Histogram Transformation and the image's name, and at its right the Float as window and Close buttons. Most of the
+  Integration place, and under them the task's item. Under the top bar, the task header: a dark thumbnail, Histogram
+  Transformation on RGB and preview up to date, and at its right the Float as window and Close buttons. Most of the
   page is the canvas: the stretched preview of the Carina Nebula among its stars, the word PREVIEW in its upper left
   corner, and near its foot a floating toolbar of zoom buttons, a channel box, a camera button and More. Under the
   canvas, the history strip with Initial state and a dashed Histogram Transformation chip marked pending. At the right,
-  the column: a small histogram with clipping shares and five statistics, the word ADJUSTMENTS over the process's name
-  and a close button, Preview area and Processed, Target Image and the process's two histograms, and Reset, Close and
-  Apply along its foot. The status line runs along the bottom of the window.
+  the column: the preview's readout with a small histogram, its clipping shares and five statistics, the word
+  ADJUSTMENTS over the process's name and a close button, Preview ticked, Preview area and Processed, Target Image and
+  the process's two plots, and Reset, Close and Apply along its foot. The status line runs along the bottom.
 caption: >-
   Histogram Transformation as a task, with Shadows and Midtones at 0.02 on a linear master: the canvas with the preview
   at the left, the column with the process's controls at the right.
 pins:
-  - {n: 1, x: 1.0, y: 25.5}
-  - {n: 2, x: 3.7, y: 10.4}
-  - {n: 3, x: 4.4, y: 17.9}
-  - {n: 4, x: 18.8, y: 89.6}
-  - {n: 5, x: 3.5, y: 95.1}
-  - {n: 6, x: 63.8, y: 14.0}
-  - {n: 7, x: 63.8, y: 30.5}
-  - {n: 8, x: 64.0, y: 35.8}
-  - {n: 9, x: 63.8, y: 40.3}
-  - {n: 10, x: 64.9, y: 94.4}
-owed: true
+  - {n: 1, x: 3.6, y: 24.5}
+  - {n: 2, x: 35.5, y: 9.3}
+  - {n: 3, x: 21.1, y: 17.4}
+  - {n: 4, x: 14.8, y: 89.5}
+  - {n: 5, x: 44.5, y: 95.0}
+  - {n: 6, x: 75.9, y: 13.0}
+  - {n: 7, x: 72.0, y: 29.5}
+  - {n: 8, x: 82.7, y: 35.6}
+  - {n: 9, x: 73.8, y: 40.3}
+  - {n: 10, x: 74.8, y: 94.3}
 ```
 
 ## What you see
@@ -112,14 +111,14 @@ window answers ++esc++, ++ctrl+enter++ and ++f1++, and closing it closes the tas
 image: ../assets/images/interface/tasks-floating.webp
 alt: >-
   A window of its own titled Gamma Correction and the image's name. It holds the whole task page: the header with
-  Gamma Correction on the image, a check and "preview up to date", and the Attach and Close buttons at its right; the
-  canvas at the left with the word PREVIEW over the stars and its floating toolbar near the foot; the history strip
-  with a pending step; and at the right the column with the compact readout, Preview ticked, Preview area, Processed,
-  Target Image and Channel, a histogram with its clipping shares, and Reset, Close and Apply at the foot.
+  Gamma Correction on the image, a check and "preview up to date", and the Attach and Close buttons at its right; a
+  narrow canvas at the left with the word PREVIEW over the stars and the nebula's edge, and its floating toolbar near
+  the foot; the history strip with a pending step cut short; and at the right the column with the compact readout,
+  Preview ticked, Preview area, Processed, Target Image and Channel, a histogram with its clipping shares, and Reset,
+  Close and Apply at the foot.
 caption: >-
   Gamma Correction floated in a window of its own, with Gamma at 0.50: the same page, with Attach in place of Float as
   window.
-owed: true
 ```
 
 ### Start again or close

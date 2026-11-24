@@ -42,16 +42,14 @@ needed.
 ```figure
 image: ../../assets/images/processes/geometry/integer-resample.webp
 alt: >-
-  The Integer Resample task. Its header reads Integer Resample on the master. The canvas at the left shows the whole
-  master stretched for the screen, the red nebula among its stars, unchanged. The column at the right, headed Integer
-  Resample, holds Target Image naming the master, then the Resample section with Resample Factor at 2, Downsample
-  Mode at Average on a row of its own and the Downsample and Upsample buttons with Downsample chosen, then the New
-  Size section, where Original Px reads 7246 and 5429 and Target Px 3623 and 2714, with Current Size at 450.19 MB and
-  New Size at 112.53 MB. Reset, Close and OK stand in its footer.
+  The Integer Resample task's column, headed Integer Resample. It holds Target Image at RGB, the master, then the
+  Resample section with Resample Factor at 2, Downsample Mode at Average and the Downsample and Upsample options, one
+  under the other, with Downsample chosen, then the New Size section, where Original Px reads 7246 and 5429 and
+  Target Px 3623 and 2714, with Current Size at 450.19 MB and New Size at 112.53 MB. Reset, Close and OK stand in
+  its footer.
 caption: >-
-  Integer Resample on the linear Carina master, binning by 2 with Average, as the task opens: the canvas shows the
-  image as it is, and Target Px and New Size the result before OK.
-owed: true
+  Integer Resample on the linear Carina master, binning by 2 with Average, as the task opens: Target Px and New Size
+  give the result before OK.
 ```
 
 ## Before you start

@@ -45,19 +45,16 @@ The task has no preview: its canvas shows the image itself.
 ```figure
 image: ../../assets/images/processes/color-calibration/photometric-cc.webp
 alt: >-
-  The Photometric Color Calibration task. Its header reads Photometric Color Calibration on the master, with Float as
-  window and Close at its right. The canvas at the left shows the plate-solved master itself, red and pink clouds of
-  nebula in a dense field of stars. The column at the right opens with Target image naming the master, then a line
-  saying the process calibrates the RGB channel balance from Gaia DR3 star colors, the Magnitude limit box at 14.0, the
-  Match radius (arcsec) box at 5.0, the Apply background neutralization check box ticked, and the Background ROI
-  Override group, unticked, whose Left, Top, Width and Height boxes read 0, 0, 7246 and 5429 beside a From Selection
-  button, all greyed. Under the group the status line, and the Show matched stars check box unticked. Reset, Close and
-  Apply stand in its footer.
+  The Photometric Color Calibration task's column, with no readout at its top. Under the column's header it holds
+  Target image at RGB, a line saying the process calibrates the RGB channel balance from Gaia DR3 star colors on a
+  plate-solved image, the Magnitude limit box at 14.0, the Match radius (arcsec) box at 5.0, the Apply background
+  neutralization check box ticked, and the unticked Background ROI Override box, whose Left, Top, Width and Height
+  boxes read 0, 0, 7246 and 5429 beside a From Selection button, all greyed. Under the group the status line reads
+  "Ready to calibrate photometric gains from Gaia-matched stars." At the foot of the body the Show matched stars check
+  box is unticked. Reset, Close and Apply stand in its footer.
 caption: >-
   Photometric Color Calibration on the plate-solved Carina master with a Gaia catalog installed, at its defaults and
-  with Show matched stars off: the status line says the task is ready to calibrate, and the canvas shows the image in
-  the Autostretch display with Linked channels on.
-owed: true
+  with Show matched stars off: the status line says the task is ready to calibrate.
 ```
 
 ## Before you start

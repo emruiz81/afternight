@@ -40,16 +40,14 @@ shows the image itself, and what you set reaches the image only when you press *
 ```figure
 image: ../../assets/images/processes/color-calibration/background-neutralization.webp
 alt: >-
-  The Background Neutralization task. Its header reads Background Neutralization on the master, with Float as window
-  and Close at its right. The canvas at the left shows the linear master itself, stretched for the screen with its
-  channels linked: pink clouds of nebula and many stars on a gray sky. The column at the right holds Target Image
-  naming the master, Reference image reading TARGET IMAGE between arrows, Lower Limit at 0.000000 and Upper Limit at
-  0.200000, each with a slider, and the unticked Region of interest group with its Left, Top, Width and Height boxes
-  dimmed at 0 and its From Selection button. Reset, Cancel and OK stand in its footer.
+  The Background Neutralization task's column, with no readout at its top. Under the column's header it holds Target
+  Image at RGB, Reference image reading TARGET IMAGE between arrows, Lower Limit at 0.000000 and Upper Limit at
+  0.200000, each with a slider, and the unticked Region of interest box with its Left, Top, Width and Height boxes
+  dimmed at 0 and its dimmed From Selection button. The rest of the body is empty. Reset, Cancel and OK stand in its
+  footer.
 caption: >-
   Background Neutralization on the linear Carina master with Upper Limit raised to 0.2, the limit of the worked
-  example: the canvas shows the image as it is, in the Autostretch display with Linked channels on.
-owed: true
+  example.
 ```
 
 ## Before you start

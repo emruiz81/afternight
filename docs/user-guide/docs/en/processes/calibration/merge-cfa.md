@@ -40,15 +40,15 @@ holds. It moves no plane.
 changed.
 
 ```figure
-owed: true
 image: ../../assets/images/processes/calibration/merge-cfa.webp
 alt: >-
-  The Merge CFA task. Its header names Merge CFA, and the canvas at the left shows the merged mosaic, a gray image
-  with a fine checkered texture. The column at the right holds CFA Pattern at RGGB, then the CFA0, CFA1, CFA2 and
-  CFA3 boxes, each naming one plane of the light, from CFA0 - Red to CFA3 - Blue, with Close and OK in its footer.
+  The Merge CFA task's column. At its top the compact readout of the preview, a grayscale histogram of one narrow
+  peak near its left edge, with both clipping shares at 0.000 % and the median at 0.0566. Under the header, Merge
+  CFA, Preview is ticked beside the Processed toggle. CFA Pattern reads RGGB, then the CFA0, CFA1, CFA2 and CFA3 boxes
+  each name one plane of the light, from CFA0 - Red to CFA3 - Blue. Close and OK stand in the footer.
 caption: >-
   Merge CFA with CFA Pattern at RGGB and the four planes Split CFA made of a raw NGC 253 light in CFA0 to CFA3, the
-  merged mosaic in the canvas.
+  preview on.
 ```
 
 ## Before you start

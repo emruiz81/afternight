@@ -42,15 +42,15 @@ nonlinear. The masters stay as they are.
 ```figure
 image: ../../assets/images/processes/color-composition/narrowband-palette-composer.webp
 alt: >-
-  The Narrowband Palette Composer task. Its header names the process alone. The canvas at the left holds the Palette
-  Grid: tiles of the nebula in different colors, the SHO tile first and framed, green clouds over a gray background.
-  The column at the right holds its sections: Sources with the Ha, OIII and SII boxes naming the three Eagle Nebula
-  masters and OSC1 and OSC2 empty, Preparation with Input autostretch and Match sizes to reference ticked, Mode at
-  Palette Grid, the Ha, OIII and SII sliders at 100%, and a Status line. Reset, Close and Apply stand in its footer.
+  The Narrowband Palette Composer task's column. At its top the compact readout of the preview, its histogram empty
+  and a dash in place of every value. Below it the column's header and its groups: Sources with the Ha, OIII and SII
+  boxes naming the three Eagle Nebula masters, such as stacked_3008x3004_Ha_M_16, and OSC1 and OSC2 at
+  <--NO IMAGE-->, Preparation with Input autostretch and Match sizes to reference ticked, Preview with Mode at
+  Palette Grid, and Adjust Selected Palette with the Ha and OIII sliders at 100%. Reset, Close and Apply stand in its
+  footer.
 caption: >-
-  Narrowband Palette Composer with the Ha, OIII and SII masters of the Eagle Nebula and every other control at its
-  default: the grid in the canvas shows each palette as Apply would write it, SHO selected.
-owed: true
+  Narrowband Palette Composer with the Ha, OIII and SII masters of the Eagle Nebula in their boxes and every other
+  control at its default.
 ```
 
 ## Before you start

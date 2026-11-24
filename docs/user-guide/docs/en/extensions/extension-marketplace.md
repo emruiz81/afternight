@@ -19,29 +19,28 @@ extension has an update. Once a package is installed, the **Installed** tab says
 [Using Extensions](using-extensions.md).
 
 ```figure
-owed: true
-image: ../assets/images/extensions/extension-marketplace.webp
+image: ../assets/images/extensions/extension-marketplace.png
 alt: >-
-  The Extensions window, a window of its own in front of the main window, on its Browse tab. Under its heading,
-  Extensions, and the tabs, a banner counts the packages the repository offers and a line gives the disk space the
-  extension environments take. A row holds a search box, a Filter list at All Extensions, a Sort list at Name (A-Z), a
-  Refresh button and a More Actions button. Package cards follow, each with its name, badges for its state, its
-  version and its signature, and the buttons Install or Installed, Uninstall and Details. The first card is open on
-  its details, in five parts from Overview to Trust. Two check boxes, Automatically remove unused extension
-  environments and Allow unsigned extensions, sit above Reset Tab at the left and Close at the right.
+  The Extensions window, a window of its own, on its Browse tab. Under its heading and the Browse and Installed tabs,
+  a banner reads 4 package(s) available from the official repository, 0 update(s), 0 incompatible, and a line gives
+  the 1.7 GiB that two extension environments take. A row holds the Search extensions box, a Filter list at All
+  Extensions, a Sort list at Name (A-Z), Refresh and More Actions. Four package cards follow, Cosmic Clarity, GraXpert
+  AI, RC-Astro XTerminators and VeraLux Suite, each with badges for its state, its latest version and its signature,
+  Install or Installed, Uninstall, a closed Details toggle and a line on what it does. Two check boxes, Automatically
+  remove unused extension environments, ticked, and Allow unsigned extensions sit above Reset Tab and Close.
 caption: >-
-  The Browse tab with the official repository's list, the first card open on its details.
+  The Browse tab with the official repository's four packages, one of them installed, every card closed.
 pins:
-  - {n: 1, x: 90.0, y: 10.0}
-  - {n: 2, x: 80.0, y: 14.5}
-  - {n: 3, x: 50.0, y: 19.5}
-  - {n: 4, x: 71.0, y: 19.5}
-  - {n: 5, x: 83.5, y: 19.5}
-  - {n: 6, x: 3.5, y: 27.0}
-  - {n: 7, x: 62.0, y: 27.0}
-  - {n: 8, x: 3.5, y: 45.0}
-  - {n: 9, x: 45.0, y: 87.0}
-  - {n: 10, x: 14.0, y: 95.5}
+  - {n: 1, x: 1.5, y: 16.8}
+  - {n: 2, x: 1.5, y: 22.4}
+  - {n: 3, x: 1.5, y: 27.7}
+  - {n: 4, x: 45.5, y: 27.7}
+  - {n: 5, x: 78.9, y: 27.7}
+  - {n: 6, x: 1.5, y: 36.2}
+  - {n: 7, x: 69.5, y: 36.2}
+  - {n: 8, x: 87.3, y: 36.2}
+  - {n: 9, x: 1.5, y: 86.9}
+  - {n: 10, x: 2.2, y: 94.7}
 ```
 
 ## What you see

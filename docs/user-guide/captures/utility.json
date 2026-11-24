@@ -5,22 +5,22 @@
       "picture": "assets/images/processes/utility/extract-sequence.webp",
       "page": "processes/utility/extract-sequence.md",
       "data": ["jupiter"],
-      "shows": "The Extract Sequence task on an 8-bit SER video of Jupiter, with Start Frame at 11 and End Frame at 60, which keeps 50 frames",
-      "options": ["-Page", "processes\\utility\\extract-sequence.md", "-Set", "startFrameValue=11;endFrameValue=60"]
+      "shows": "The Extract Sequence task's column on an 8-bit SER video of Jupiter, with Start Frame at 11 and End Frame at 60, which keeps 50 frames",
+      "options": ["-Page", "processes\\utility\\extract-sequence.md", "-Set", "startFrameValue=11;endFrameValue=60", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/utility/noise-generator.webp",
       "page": "processes/utility/noise-generator.md",
       "data": ["linear"],
-      "shows": "The Noise Generator task on the linear Carina master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Gaussian noise at a Var of 0.0100, the preview on in its preview area",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\utility\\noise-generator.md", "-Set", "varValue=0.01"]
+      "shows": "The Noise Generator task's column on the linear Carina master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Gaussian noise at a Var of 0.0100, the preview on in its preview area",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\utility\\noise-generator.md", "-Set", "varValue=0.01", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/utility/non-interactive-processes.webp",
       "page": "processes/utility/non-interactive-processes.md",
       "data": ["linear"],
       "shows": "The main window over the linear Carina master in the Autostretch display mode, with the menu bar shown and Image > Convert Format open, the pointer on Convert to unsigned 16 bit",
-      "options": ["-Display", "Autostretch", "-MenuShot", "non-interactive-processes=Image > Convert Format > Convert to unsigned 16 bit"]
+      "options": ["-Display", "Autostretch", "-MenuShot", "non-interactive-processes=Image > Convert Format > Convert to unsigned 16 bit", "-Width", "1280"]
     }
   ]
 }

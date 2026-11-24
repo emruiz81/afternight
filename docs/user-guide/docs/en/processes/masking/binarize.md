@@ -42,16 +42,14 @@ image. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/masking/binarize.webp
 alt: >-
-  The Binarize task. Its header names Binarize and the master. The canvas at the left shows the preview of the nebula
-  cut to pure colors, white and red clouds and white stars on a black background, the word PREVIEW in its corner, with
-  a floating toolbar of zoom buttons, a channel box and the display mode near its foot. The column at the right holds
-  the preview's small histogram and statistics, the toggles Preview, Preview area and Processed, Target Image, the
-  RGB/K box at 0.500000 with its slider, the Green and Blue boxes grayed out at the same value, and Selection at Joint
-  RGB/K channels. Reset, Close and Apply stand in its footer.
+  The Binarize task's column. At its top the compact readout of the preview: an empty histogram, Clip Low at 94.695 %
+  and Clip High at 5.305 %, and Min, Max, Mean, Median and StdDev at 0.0000, each with its change from the image.
+  Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image
+  at RGB, the RGB/K box at 0.500000 with its slider, the Green and Blue boxes grayed out at the same value, and
+  Selection at Joint RGB/K channels. Reset, Close and Apply stand in its footer.
 caption: >-
-  Binarize on the stretched Carina master with RGB/K at 0.50 in the joint mode. Each channel is cut on its own, so the
-  red nebula stays pure red and only what is bright in all three channels turns white.
-owed: true
+  Binarize on the stretched Carina master with RGB/K at 0.50 in the joint mode. Clip Low and Clip High at the top add
+  up to 100 %: every sample of the preview is 0 or 1.
 ```
 
 ## Before you start

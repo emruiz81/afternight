@@ -44,14 +44,12 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/gaussian-blur.webp
 alt: >-
-  The Gaussian Blur task. Its header names Gaussian Blur and the master. The canvas at the left shows the preview of a
-  red nebula, softened, with the word PREVIEW in its corner and a floating toolbar of zoom buttons, a channel box, the
-  display mode and a settings button near its foot. The column at the right holds the preview's small histogram and
-  statistics, the toggles Preview, Preview area and Processed, Target Image and Channel at RGB, and the Sigma box at
+  The Gaussian Blur task's column. At its top the compact readout of the preview: a small histogram with three
+  colored peaks, the clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the
+  Preview box ticked, Preview area unticked and the Processed button, Target Image and Channel at RGB, and Sigma at
   2.00 with its slider. Reset, Close and Apply stand in its footer.
 caption: >-
-  Gaussian Blur on the stretched master with Sigma at 2.00. The preview in the canvas shows what Apply writes.
-owed: true
+  Gaussian Blur on the stretched master with Sigma at 2.00. The readout at the top is counted from the preview.
 ```
 
 ## Before you start

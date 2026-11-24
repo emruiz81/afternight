@@ -20,7 +20,6 @@ The folder holds `project.anproj`, which describes the project, the folders `his
 and `thumbnails`, and `notes.md`. While a project is open, **Home** shows its page, Project Home.
 
 ```figure
-owed: true
 image: ../assets/images/interface/projects.webp
 alt: >-
   The main window showing Project Home. The top bar reads Carina Nebula beside a folder icon, then Home. Under the
@@ -31,18 +30,18 @@ alt: >-
   and Rename...; under it an Images and sequences card with one row, RGB.fit, FITS, 7246 x 5429, 1 step - 0.4 GB, Open
   in Workspace 1 and a date. On the right, an Integrations card reading No integration in this project yet, a Storage
   card with a bar, a legend of five lines and the buttons Compact history... and a greyed Clean intermediate files...,
-  and a Notes card with an empty text box.
+  and a Notes card whose empty box says the notes are kept in the folder as notes.md.
 caption: >-
   Project Home of a new project, Carina Nebula, made with the image that was open.
 pins:
-  - {n: 1, x: 3.4, y: 5.9}
-  - {n: 2, x: 4.6, y: 14.0}
-  - {n: 3, x: 4.6, y: 21.2}
-  - {n: 4, x: 4.6, y: 26.0}
-  - {n: 5, x: 4.6, y: 46.4}
-  - {n: 6, x: 70.6, y: 26.0}
-  - {n: 7, x: 70.6, y: 34.3}
-  - {n: 8, x: 70.6, y: 61.8}
+  - {n: 1, x: 7.4, y: 7.0}
+  - {n: 2, x: 4.6, y: 13.0}
+  - {n: 3, x: 4.6, y: 20.2}
+  - {n: 4, x: 4.6, y: 25.2}
+  - {n: 5, x: 4.6, y: 45.8}
+  - {n: 6, x: 84.3, y: 25.2}
+  - {n: 7, x: 80.1, y: 33.5}
+  - {n: 8, x: 79.0, y: 62.1}
 ```
 
 ## What you see
@@ -75,14 +74,13 @@ The folder must not exist yet, or be empty. Moving a history to another drive co
 the move is.
 
 ```figure
-owed: true
 image: ../assets/images/interface/projects-new.webp
 alt: >-
-  The New Project dialog. Name reads Carina Nebula. Location holds a long folder path with a folder button, and under
-  it a line beginning The project folder will be, then the path ending in Carina Nebula. Object (optional) reads NGC
-  3372. History compression shows three segments, LZ4 (fast) chosen, None and Zstandard (smallest), over a line saying
+  The New Project dialog. Name reads Carina Nebula. Location holds the folder D:\Captures with a folder button, and
+  under it a line reads The project folder will be D:\Captures\Carina Nebula. Object (optional) reads NGC 3372.
+  History compression shows three segments, LZ4 (fast) chosen, None and Zstandard (smallest), over a line saying
   history steps are XISF images that open in other programs. Two ticked boxes read Add the open image to the project
-  and Move its undo history into the project, with a size. A framed note says images stay where they are. Cancel and
+  and Move its undo history into the project (349.3 MB). A framed note says images stay where they are. Cancel and
   Create project close the dialog.
 caption: >-
   The New Project dialog filled in for Carina Nebula, with the open image and its undo history added to it.

@@ -40,22 +40,21 @@ and 3008 × 3004 pixels, in a folder `LIGHT`, and 50 flats for each filter in a 
 ## Steps
 
 ```figure
-image: ../assets/images/processes/stacking-integration/image-integration-lite.png
+image: ../assets/images/processes/stacking-integration/image-integration-lite.webp
 alt: >-
-  The Image Integration Lite task after a run, a page that fills the centre of the main window under a header naming
-  Image Integration Lite. An amber banner at the top of the page reads Ready with 4 warnings. Under it, two columns. At
-  the left, the Dataset card counts 64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and
-  the object M 16, and the Frames card below it has the Add as box, the Add Files, Add Folder, Change Type and Clear
-  All buttons, and the table of the files with their type, filter, object, exposure and calibration. At the right, the
-  Setup card holds the Output folder with its Browse button and the options of the run, and Processing Settings lists
-  four closed lines. Open Full Process, Close and Run Integration are at the page's foot.
+  The Image Integration Lite task before a run, under a header naming Image Integration Lite. An amber banner at the
+  top of the page reads Ready with 4 warning(s). Under it, two columns. At the left, the Dataset card counts 64 light,
+  150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and the object M 16, and the Frames card below
+  it has the Add as box, the Add Files, Add Folder, Change Type and Clear All buttons, and the table of the files, its
+  first rows the Ha flats. At the right, the Setup card holds the Output folder with its Browse button and the options
+  of the run, and Processing Settings lists four closed lines. Open Full Process, Close and Run Integration are at the
+  page's foot.
 caption: >-
-  Image Integration Lite after a run on the Eagle Nebula's Ha, OIII and SII lights and their flats, every setting at
-  its default.
+  Image Integration Lite with the Eagle Nebula's Ha, OIII and SII lights and their flats added and the output folder
+  chosen, every setting at its default, ready to run.
 pins:
-  - {n: 1, x: 21.2, y: 35.0}
-  - {n: 2, x: 89.5, y: 96.1}
-owed: true
+  - {n: 1, x: 19.5, y: 32.5}
+  - {n: 2, x: 90.3, y: 96.4}
 ```
 
 ### Stack the three filters in one run
@@ -210,13 +209,14 @@ are the flat masters, the registered lights under `registered_lights`, and under
 its [report](../processes/stacking-integration/integration-report.md), `workflow_report.html`.
 
 ```figure
-owed: true
 image: ../assets/images/workflows/narrowband-imaging-result.webp
 alt: >-
-  The AfterNight main window with one image open, in a tab named stacked_3008x3004_Oiii_M_16 - SHO Narrowband
-  Palette: the clouds of the Eagle Nebula with the dark pillars near the middle, in warm and blue tones without the
-  green of SHO, over a dark gray background with many stars. The floating toolbar near the foot of the view shows
-  Linear selected, and the readout at the right shows the image's histogram and statistics.
+  The AfterNight main window with Workspace 1 split in three: the Ha master at the left and the SII master at the
+  right, both nearly black, and in the middle the image named stacked_3008x3004_Oiii_M_16 - SHO Narrowband Palette,
+  its tab active beside the OIII master's. It shows the clouds of the Eagle Nebula with the dark pillars near the
+  middle, in muted blue and gray without the green of SHO, over a dark violet background with many stars. The
+  floating toolbar under it shows Linear selected, the history strip below lists SCNR, Curves Transformation and Color
+  Saturation, the last one current, and the readout at the right shows the image's histogram and statistics.
 caption: >-
   The Eagle Nebula in SHO after the steps on this page, shown in the Linear display mode: the picture is in the image
   itself.

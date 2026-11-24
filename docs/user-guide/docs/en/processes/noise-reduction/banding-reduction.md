@@ -41,17 +41,14 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/noise-reduction/banding-reduction.webp
 alt: >-
-  The Banding Reduction Filter task. Its header names Banding Reduction Filter and the image. The canvas at the left shows the
-  preview of a star field crossed by thin horizontal stripes, the word PREVIEW in its corner and a large framed area in
-  its middle where the stripes are gone, with a floating toolbar of zoom buttons, a channel box and the display mode at
-  Autostretch near its foot. The column at the right holds the preview's small histogram and statistics, the toggles
-  Preview, Preview area and Processed, Target Image and Channel at RGB, the Amount box with its slider, the ticked
-  Protect From Highlights box, the Sigma box with its slider and the Vertical Banding box. Reset, Close and Apply stand
-  in its footer.
+  The Banding Reduction Filter task's column. At its top the compact readout of the preview: a small histogram, the
+  clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the Preview and Preview area
+  boxes ticked and the Processed button, Target Image and Channel at RGB, Amount at 1.00 with its slider, the Protect
+  From Highlights box ticked, Sigma at 1.00 with its slider and the Vertical Banding box unticked. Reset, Close and
+  Apply stand in its footer.
 caption: >-
   Banding Reduction on a corner of the linear master with bands added, Protect From Highlights ticked and Sigma at
-  1.00. The framed area of the canvas shows what Apply writes there, in the Autostretch display mode.
-owed: true
+  1.00, the preview area on. The readout at the top is counted from the preview.
 ```
 
 ## Before you start

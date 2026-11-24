@@ -4,44 +4,44 @@
     {
       "picture": "assets/images/processes/color-composition/channel-composition.webp",
       "page": "processes/color-composition/channel-composition.md",
-      "data": ["linear"],
-      "shows": "The Channel Composition task in RGB with the red, green and blue channels Extract RGB Channels took from a linear master in Red, Green and Blue and Linear Match ticked, the composed preview in the canvas in the Autostretch display mode",
-      "options": ["-View", "Image > Extract Channel > Extract RGB Channels", "-Page", "processes\\color-composition\\channel-composition.md", "-Set", "redChannel@50,50;%keys=Home,Down,Return;greenChannel@50,50;%keys=Home,Down,Down,Return;blueChannel@50,50;%keys=Home,Down,Down,Down,Return;linearMatchCheckBox=On;Autostretch"]
+      "data": ["red", "green", "blue"],
+      "shows": "The Channel Composition task's column in RGB with the red, green and blue stacks of the Carina set in Red, Green and Blue and Linear Match ticked, in the Autostretch display mode",
+      "options": ["-Page", "processes\\color-composition\\channel-composition.md", "-Set", "redChannel=stacked_8288x5644_Red_Carina_Nebula;greenChannel=stacked_8288x5644_Green_Carina_Nebula;blueChannel=stacked_8288x5644_Blue_Carina_Nebula;linearMatchCheckBox=On;Autostretch", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/colorize.webp",
       "page": "processes/color-composition/colorize.md",
       "data": ["linear"],
-      "shows": "The Colorize task on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Method at HSV, Hue at 200, Saturation at 0.60 and Use lightness on, the preview on",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-composition\\colorize.md", "-Set", "useLightness=On;hueValue=200;saturationValue=0.6"]
+      "shows": "The Colorize task's column on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with Method at HSV, Hue at 200, Saturation at 0.60 and Use lightness on, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02", "-Page", "processes\\color-composition\\colorize.md", "-Set", "useLightness=On;hueValue=200;saturationValue=0.6", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/lrgb-combination.webp",
       "page": "processes/color-composition/lrgb-combination.md",
-      "data": ["linear"],
-      "shows": "The LRGB Combination task on a copy of the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with that copy's CIE L* lightness, made by Pixel Math, as its Luminance and Saturation at 0.40, the preview on",
-      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Pixel Math > Pixel Math|rgbkTextEdit=$T;outputModeSelector=Create new image;newImadeIdEdit=lrgb_color||Process > Pixel Math > Pixel Math|rgbkTextEdit=CIEL(lrgb_color);outputModeSelector=Create new image;newImadeIdEdit=lrgb_luminance;colorSpaceSelector=Grayscale", "-View", "@lrgb_color...", "-Page", "processes\\color-composition\\lrgb-combination.md", "-Set", "luminanceImageSelector=lrgb_luminance;saturationMTFValue=0.4"]
+      "data": ["lum", "linear"],
+      "shows": "The LRGB Combination task's column on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, with the luminance stack of the Carina set, stretched at Shadows 0.135 and Midtones 0.023, as its Luminance and Saturation at 0.40, the preview on",
+      "options": ["-Prepare", "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02||Process > Intensity Transformations > Histogram Transformation|targetImageSelector=stacked_8288x5644_Luminance_Carina_Nebula;shadowsValue=0.135;midtonesValue=0.023", "-Page", "processes\\color-composition\\lrgb-combination.md", "-Set", "luminanceImageSelector=stacked_8288x5644_Luminance_Carina_Nebula;saturationMTFValue=0.4", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/nbrgb-combination.webp",
       "page": "processes/color-composition/nbrgb-combination.md",
       "data": [],
-      "shows": "The NBRGB Combination task on RGB, the color image Channel Composition makes of the Eagle Nebula's SII master in Red and OIII master in Green and Blue with Linear Match on, with the Ha master in Red at the default bandwidths and scale, in the Autostretch display mode with Linked channels",
-      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit,{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Sii_M_16.fit", "-Prepare", "Process > Color Spaces > Channel Composition|redChannel=stacked_3008x3004_Sii_M_16;greenChannel=stacked_3008x3004_Oiii_M_16;blueChannel=stacked_3008x3004_Oiii_M_16;linearMatchCheckBox=On", "-View", "@RGB...;%display=Autostretch;@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-composition\\nbrgb-combination.md", "-Set", "redImageSelector=stacked_3008x3004_Ha_M_16"]
+      "shows": "The NBRGB Combination task's column on RGB, the color image Channel Composition makes of the Eagle Nebula's SII master in Red and OIII master in Green and Blue with Linear Match on, with the Ha master in Red at the default bandwidths and scale, in the Autostretch display mode with Linked channels",
+      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit,{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Sii_M_16.fit", "-Prepare", "Process > Color Spaces > Channel Composition|redChannel=stacked_3008x3004_Sii_M_16;greenChannel=stacked_3008x3004_Oiii_M_16;blueChannel=stacked_3008x3004_Oiii_M_16;linearMatchCheckBox=On", "-View", "@RGB...;%display=Autostretch;@Autostretch Settings|linkedChannels=On", "-Page", "processes\\color-composition\\nbrgb-combination.md", "-Set", "redImageSelector=stacked_3008x3004_Ha_M_16", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/nb-color-mapper.webp",
       "page": "processes/color-composition/nb-color-mapper.md",
       "data": [],
-      "shows": "The NB Color Mapper task on the Eagle Nebula's Ha master, the Ha master in red at Saturation 1, Blackpoint 0.035 and Midtones 0.020 and the OIII master in cyan at Hue 180 and Blackpoint 0.036, Enable and Apply STF to combined output ticked, the canvas in the Linear display mode under Preview STF",
-      "options": ["-Open", "{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Ha_M_16.fit", "-View", "@stacked_3008x3004_Ha_M_16", "-Page", "processes\\color-composition\\nb-color-mapper.md", "-Set", "layerSaturation=1;layerBlackpoint=0.035;layerMidtones=0.02;addLayerButton;layerImageSelector=stacked_3008x3004_Oiii_M_16;layerHue=180;layerBlackpoint=0.036;backgroundEnabled=On;applyStfToCombinedOutput=On"]
+      "shows": "The NB Color Mapper task's column on the Eagle Nebula's Ha master, the Ha master in red at Saturation 1, Blackpoint 0.035 and Midtones 0.020 and the OIII master in cyan at Hue 180 and Blackpoint 0.036, Enable and Apply STF to combined output ticked, the canvas in the Linear display mode under Preview STF",
+      "options": ["-Open", "{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Ha_M_16.fit", "-View", "@stacked_3008x3004_Ha_M_16", "-Page", "processes\\color-composition\\nb-color-mapper.md", "-Set", "layerSaturation=1;layerBlackpoint=0.035;layerMidtones=0.02;addLayerButton;layerImageSelector=stacked_3008x3004_Oiii_M_16;layerHue=180;layerBlackpoint=0.036;backgroundEnabled=On;applyStfToCombinedOutput=On", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/narrowband-palette-composer.webp",
       "page": "processes/color-composition/narrowband-palette-composer.md",
       "data": [],
-      "shows": "The Narrowband Palette Composer task with the Eagle Nebula's Ha, OIII and SII masters in their boxes and every other control at its default, the palette grid in the canvas, SHO selected",
-      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit,{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Sii_M_16.fit", "-Page", "processes\\color-composition\\narrowband-palette-composer.md", "-Set", "haSourceSelector=stacked_3008x3004_Ha_M_16;oiiiSourceSelector=stacked_3008x3004_Oiii_M_16;siiSourceSelector=stacked_3008x3004_Sii_M_16", "-HoldSeconds", "30"]
+      "shows": "The Narrowband Palette Composer task's column with the Eagle Nebula's Ha, OIII and SII masters in their boxes and every other control at its default, the palette grid in the canvas, SHO selected",
+      "options": ["-Open", "{work}\\stacked_3008x3004_Ha_M_16.fit,{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Sii_M_16.fit", "-Page", "processes\\color-composition\\narrowband-palette-composer.md", "-Set", "haSourceSelector=stacked_3008x3004_Ha_M_16;oiiiSourceSelector=stacked_3008x3004_Oiii_M_16;siiSourceSelector=stacked_3008x3004_Sii_M_16", "-HoldSeconds", "30", "-Crop", "column", "-Height", "980"]
     }
   ]
 }

@@ -40,18 +40,17 @@ maps beside it, and can open each in a view. The source files are not changed.
 ```figure
 image: ../../assets/images/processes/stacking-integration/image-stacking.webp
 alt: >-
-  The Image Stacking task, a page that fills the centre of the main window under a header naming Image Stacking. At
-  the head of the page, a warning banner that begins Stacking completed with warnings. On the left, the preview of the
-  first bias of NGC 253, black in the Linear display mode, with its statistics: Min 1090, Max 3023, Median 1896. On
-  the right, the Stacking Settings card with Method Average, Normalization None, Weighting None (Equal), a disabled
-  Scale Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card with the Name
-  Template master_bias.fit, the path of the masters folder in Directory, Open after stacking unchecked and the Stack
-  Images button. Across the bottom, the Frames table of the 30 biases with Current Image 1 and Total Images 30, the
-  Frame Groups section with Filter checked, and the folded Advanced section. Reset and Close stand at the page's foot.
+  The Image Stacking task, a page under a header naming Image Stacking. At its head, an amber banner: Stacking
+  completed with warnings, and that the group Broadband was read whole once for each of 3 tiles. On the left, the
+  preview of the first bias of NGC 253, black in the Linear display mode, with its statistics: Min 1090, Max 3023,
+  Median 1896. On the right, the Stacking Settings card with Method Average, Normalization None, Weighting None
+  (Equal), a greyed Scale Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card
+  with the Name Template master_bias.fit, the masters folder in Directory, 64-bit, Open after stacking and Sum exposure
+  times unchecked, and the Stack Images button. Across the bottom, the Frames card's buttons with Current Image 1 and
+  Total Images 30, Frame Groups with Filter checked and the folded Advanced. Reset and Close stand at the page's foot.
 caption: >-
   Image Stacking after stacking the 30 biases of NGC 253 into master_bias.fit, with every other value as the task
   opens.
-owed: true
 ```
 
 ## Before you start

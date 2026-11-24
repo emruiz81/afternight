@@ -27,7 +27,7 @@
   <a href="CONTRIBUTING.md"><strong>Contribute</strong></a>
 </p>
 
-![The AfterNight dashboard with recently opened images: the Trifid Nebula, the Carina Nebula, the Pleiades, the Tarantula Nebula and M 83](docs/readme/dashboard.png)
+![AfterNight on Home, with the two images opened last - a master flat and the Carina Nebula master - under the actions that open an image, start a sequence, an integration or a project](docs/readme/dashboard.webp)
 
 AfterNight is a desktop application for processing astronomical images. It calibrates, registers and stacks a
 night's frames into a master, and then carries the master through the processes that finish it: background
@@ -41,41 +41,41 @@ written in C++20 and Qt 6, on an image engine of its own.
 
 ### Stack a night - or three
 
-![Image Integration holding 718 light frames of the Carina Nebula, grouped by filter and night](docs/user-guide/docs/en/assets/images/processes/stacking-integration/image-integration.png)
+![Image Integration's run sheet holding a night of NGC 253: 30 bias, 20 dark, 40 flat and 35 light frames, the lights in two groups](docs/user-guide/docs/en/assets/images/workflows/broadband-imaging.webp)
 
 **Image Integration** takes the bias, dark, flat and light frames as they came off the camera, groups them by
 filter, object and night, matches the lights to their calibration frames and runs the whole chain: calibration
 masters, calibration, star detection, registration, alignment, normalization and stacking, with rejection, weighting
 and drizzle. A stage whose inputs and settings have not changed is reused rather than run again, and the run ends in
-a report. The integration above holds 718 frames of the Carina Nebula through four filters, taken over three nights:
-twenty hours of exposure in 62.6 GB of files. **Image Integration Lite** is the same workflow behind a simpler
+a report. The integration above holds one night of NGC 253 from a colour camera: 35 lights and their bias, dark and
+flat frames, an hour and 45 minutes of exposure. **Image Integration Lite** is the same workflow behind a simpler
 page, and the Integration hub lists every integration run with where it stands.
 
 ### The picture is already in the data
 
 ![The Carina master as stacked, almost black, beside the live preview of its stretch](docs/readme/stretch-before-after.jpg)
 
-What a stack holds is linear: hours of light that still look like an empty frame. On the left, the colour master
-combined from that integration's stacks, as its file holds it. On the right, the same pixels in the live preview of
+What a stack holds is linear: hours of light that still look like an empty frame. On the left, the colour master of
+the Carina Nebula, combined from its stacks, as its file holds it. On the right, the same pixels in the live preview of
 **Statistical Stretch** at its default settings. Nothing has been applied yet - the left is the image, and the right
 is what **Apply** would make of it.
 
 ### Every change shows on the image while you make it
 
-![Curves Transformation with an S-curve and a preview area over the right half of the Carina Nebula](docs/readme/curves-live-preview.png)
+![Curves Transformation with a point of its curve dragged down, the stretched Carina Nebula previewed beside it](docs/readme/curves-live-preview.webp)
 
 A process opens as a page beside its image and previews on it as its controls move: drag a point of the curve and
 the picture follows.
-**Preview area** keeps the preview to a part of the frame, so one view holds both states - inside the red frame, the
+**Preview area** keeps the preview to a part of the frame, so one view holds both states: inside the frame, the
 curve being drawn; outside it, the image as it is. **Apply** then runs on the whole image.
 
-| ![The history of an image: its initial state, a stretch, SCNR and a curve, with the selected step shown](docs/readme/image-history.png) | ![Non-Local Bayes noise reduction previewed on part of a stacked master](docs/user-guide/docs/en/assets/images/interface/process-windows.png) |
+| ![The history of an image: its initial state, a stretch, a gamma and a curve, with the last step shown](docs/readme/image-history.webp) | ![Non-Local Bayes noise reduction previewed on part of a stacked master](docs/user-guide/docs/en/assets/images/interface/process-windows.webp) |
 | :---: | :---: |
 | Every applied step goes into the image's history, where an earlier state can be looked at again and returned to. | Noise reduction, previewed on part of a stacked master before it is applied. |
 
 ### An image that knows where it is
 
-![The Carina Nebula in the image view, with the equatorial grid and catalog star labels drawn over it](docs/readme/astrometry-overlay.jpg)
+![The Carina Nebula in the image view, with the equatorial grid of its plate solution drawn over it](docs/readme/astrometry-overlay.jpg)
 
 Plate solving against Gaia catalogs gives an image its place in the sky - a WCS solution with SIP distortion terms -
 and the view can draw it: the equatorial grid, catalog stars and deep-sky objects by name, the distortion map, the
@@ -86,8 +86,8 @@ measure the image's stars against Gaia DR3.
 
 ![The Carina Nebula, NGC 3372](docs/readme/carina-nebula.jpg)
 
-The Carina Nebula, NGC 3372, from the integration above: stacked, combined into colour, stretched and finished in
-AfterNight. The stretch, the curve and the history shown above are this picture being made.
+The Carina Nebula, NGC 3372, from 718 frames through four filters over three nights: stacked, combined into colour,
+stretched and finished in AfterNight. The stretch, the curve and the history shown above are this picture being made.
 
 ## What is in it
 

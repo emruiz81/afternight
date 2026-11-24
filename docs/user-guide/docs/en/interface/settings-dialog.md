@@ -18,7 +18,6 @@ the next file you open, save or process. The catalog buttons act at once, becaus
 disk, and so do the rows of the Interface page's **Colours and Size**, which [Appearance](appearance.md) describes.
 
 ```figure
-owed: true
 image: ../assets/images/interface/settings-dialog.webp
 alt: >-
   The Settings dialog on its General page. On the left, a search box over a list of ten pages with icons: General,
@@ -30,12 +29,12 @@ alt: >-
   at the bottom right.
 caption: The Settings dialog as it opens, on the General page of a new profile.
 pins:
-  - {n: 1, x: 3.6, y: 11.5}
-  - {n: 2, x: 3.6, y: 40.0}
-  - {n: 3, x: 27.0, y: 11.5}
+  - {n: 1, x: 3.6, y: 10.1}
+  - {n: 2, x: 14.8, y: 76.7}
+  - {n: 3, x: 59.2, y: 10.3}
   - {n: 4, x: 27.0, y: 22.0}
-  - {n: 5, x: 3.6, y: 92.9}
-  - {n: 6, x: 73.2, y: 92.9}
+  - {n: 5, x: 3.6, y: 92.7}
+  - {n: 6, x: 73.2, y: 92.7}
 ```
 
 ## What you see
@@ -88,7 +87,6 @@ A path whose check fails is saved all the same, and the process stays unavailabl
 version.
 
 ```figure
-owed: true
 image: ../assets/images/interface/settings-dialog-external-tools.webp
 alt: >-
   The Settings dialog on its External Tools page, chosen in the list of pages at the left. Under the title AI Star
@@ -121,14 +119,13 @@ Calibration opens the dialog on **Plate Solving**: the packs are on **Catalogs &
     does by default. Read the line before you press it.
 
 ```figure
-owed: true
 image: ../assets/images/interface/settings-dialog-catalogs.webp
 alt: >-
   The Settings dialog on its Catalogs and Data page, chosen in the list of pages at the left. Under Gaia DR3
   Astrometric Catalogs, a Catalog root path ending in catalogs, a green line naming the selected Gaia catalog G<=14, a
   Catalog pack box, Download Catalog and Evict buttons and a framed note. Under SPCC Calibration Data, a second Catalog
-  root path with an amber line saying the SPCC catalog cache is empty, a Catalog pack box, four buttons in two rows and
-  a framed note about on-demand catalog fetches.
+  root path with an amber line saying the SPCC catalog cache is empty, a Catalog pack box, and four buttons in two
+  rows, the lower two greyed, where the page scrolls on.
 caption: Catalogs & Data with the Gaia DR3 G<=14 pack installed and nothing downloaded for SPCC yet.
 ```
 

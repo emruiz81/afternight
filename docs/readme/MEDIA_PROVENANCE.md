@@ -1,21 +1,23 @@
 # README Media Provenance
 
-The images of the repository's `README.md` that are not user-guide assets. Each was captured on 2026-11-06 from
-AfterNight 1.0.0 on Windows, in the dark theme at 100% display scaling, from a profile of its own and the
-maintainer's own data, and is a project asset distributed under the repository licence. The user-guide screenshots
-the README also shows are recorded in
+The images of the repository's `README.md` that are not user-guide assets. Each window was captured on 2026-11-24
+from AfterNight 2.0.0 on Windows by `build/scripts/tools/capture_guide_screenshots.ps1` - its recipes are in
+[../user-guide/captures/readme.json](../user-guide/captures/readme.json) - in the dark theme, from a profile of its
+own and the maintainer's own data, and is a project asset distributed under the repository licence. A window is drawn
+at 150 % and kept at most 1600 pixels wide; a picture of the image view alone is drawn at 100 %, where the view shows
+the image's own pixels. The user-guide screenshots the README also shows are recorded in
 [../user-guide/docs/en/assets/MEDIA_PROVENANCE.md](../user-guide/docs/en/assets/MEDIA_PROVENANCE.md).
 
-No capture was retouched. Two were cut from a capture, and one joins two captures; the table says which.
+No capture was retouched. One joins two captures, and one was cut from a capture; the table says which.
 
 | Asset | Shows | Data and state | SHA-256 |
 | --- | --- | --- | --- |
-| `dashboard.png` | The Dashboard with seven recent files | Three finished PNG images (M 20, M 45, NGC 2070) and four display-stretched copies of stacked masters (Carina Nebula colour, luminance and red; M 83 luminance) written by `AfterNightCLI`. The copies stand in for the masters because a recent file's thumbnail is stretched only when the file records itself as linear, which these masters do not | `1274e23c1c68abd6cca6b95bf6b9a84b135359d2d7ca40d4897535401cbe2d28` |
-| `stretch-before-after.jpg` | The preview panel of Statistical Stretch showing Original, and showing Preview | The linear colour master of the Carina Nebula integration (718 frames loaded, 714 stacked); the process at its default settings. Two captures of one window, each cut to the preview panel and set side by side | `8a7001ebff912641153c0f873c82669347051abb57f929796204239376899335` |
-| `curves-live-preview.png` | Curves Transformation with Preview area over the right half of the image | The same image after Statistical Stretch at its defaults and SCNR (Average Neutral, amount 1), both applied in the session | `f2ab0236a87a946c2ff4ff3231afd8c5708115ddb2c604b198ee08bd599a3193` |
-| `image-history.png` | Image History after the three applied steps | The same image after the curve was applied | `1eeb1697697add8b33bdd1db7f2f02524177aa2be4cb194b54b999d7d53267c2` |
-| `astrometry-overlay.jpg` | The main window with the Equatorial Grid and Star Labels overlays | The same image; the plate solution is the one its file carries | `5b926ece443de871533988cf36aa9ec449fcd03dfb41eab2da3c6c18dd41a78a` |
-| `carina-nebula.jpg` | The processed image alone | A band cut from a capture of the image view, fitted to a 2560 x 1440 display | `edd2cf7bff1fcc98379252a50b9118ab247ad9134e701155a57d4f19ad309253` |
+| `dashboard.webp` | Home with the two images opened last under the actions that begin a session | The linear colour master of the Carina Nebula and a master flat of the same set, each opened and closed in the session | `1b0a7315830488c7eb3a2f03709d6c957197677efad82751f15fb136c9dcd95b` |
+| `stretch-before-after.jpg` | The preview panel of Statistical Stretch showing Original, and showing Preview | The linear colour master of the Carina Nebula integration (718 frames loaded, 714 stacked); the process at its default settings. Two captures of one task, each cut to the preview panel and set side by side | `5746267523b0daf08525e6c2cab6d5913dad5957c70bbe50cb5a8ba5ba6e0ae3` |
+| `curves-live-preview.webp` | Curves Transformation with an S-curve and a preview area over the right half of the image | The same image after Histogram Transformation (shadows 0.02, midtones 0.02) applied in the session | `8bb54b129dd979989e384964b19be7b5a5dc8ecc537e901e1b829d7804c46f23` |
+| `image-history.webp` | An image with three steps in its history strip | The same image after Histogram Transformation, Gamma Correction (0.8) and a curve, each applied in the session | `5f07ff75ba51081704bca1b87b0cd411bf38a5f05c46f0a055c2ad0a7cbf9487` |
+| `astrometry-overlay.jpg` | The image view with the equatorial grid and catalog star labels | The same linear master shown with Autostretch; the plate solution is the one its file carries | `9e8ce8410be834cf2158c5a1f506e7f45ec8ee85f3e4fb7b7377502660f961ba` |
+| `carina-nebula.jpg` | The processed image alone | Captured on 2026-11-06 from AfterNight 1.0.0: a band cut from a capture of the image view, fitted to a 2560 x 1440 display | `edd2cf7bff1fcc98379252a50b9118ab247ad9134e701155a57d4f19ad309253` |
 
 Recapture an image when the window it shows changes, and replace its digest
 (`Get-FileHash -Algorithm SHA256 docs/readme/<file>`). A capture shows only the maintainer's own images and file

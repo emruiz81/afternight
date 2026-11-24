@@ -41,16 +41,15 @@ stays as it was. The mask is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/analysis/range-selection.webp
 alt: >-
-  The Range Selection task. Its header reads Range Selection on the stretched master. The canvas at the left shows a
-  grayscale mask: a black background with the bright clouds of the nebula in soft-edged white, the word PREVIEW in its
-  corner and the floating toolbar near its foot. The column at the right opens with the compact readout of the mask,
-  then the Preview, Preview area and Processed toggles, Target Image, Lower limit at 0.450000 and Upper limit at
-  1.000000 with their sliders, the Link Range Limits check box, Fuzziness at 0.00 and Smoothness at 4.00, and the
-  Screening, Lightness and Invert check boxes with Lightness ticked. Reset, Cancel and OK stand in the footer.
+  The Range Selection task's column. At its top the compact readout of the mask: a small grayscale histogram, Clip
+  Low at 9.437 %, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the column's
+  header, the Preview box ticked, Preview area unticked and the Processed button, Target Image at RGB, Lower limit at
+  0.45 and Upper limit at 1.00 with their sliders, the Link Range Limits box unticked, Fuzziness at 0.00 and
+  Smoothness at 4.00 with their sliders, and the Screening, Lightness and Invert boxes with Lightness ticked. Reset,
+  Cancel and OK stand in its footer.
 caption: >-
   Range Selection on the stretched Carina master with Lower limit at 0.45 and Smoothness at 4, on the lightness. The
-  canvas, in the Linear display mode, shows the mask OK opens.
-owed: true
+  readout at the top is counted from the mask OK opens.
 ```
 
 ## Before you start

@@ -43,25 +43,24 @@ calibrated, registered and stacked image at the size it is written, from the lig
 ## Steps
 
 ```figure
-owed: true
 image: ../assets/images/workflows/broadband-imaging.webp
 alt: >-
-  The Image Integration task, a page that fills the centre of the main window. Its header names the job over its count
-  of frames and groups, with the disk space it needs, the Undo and Redo buttons, the button of its menus and Execute
-  Integration at the right. At the left of the page, the stage list headed Run sheet: Bias, Darks, Flats and Lights,
-  each with its count of frames, then Calibration, Registration, Stacking and Summary, with Lights selected, and at its
-  foot the Output Directory field and the Import, Export, Recent, Presets and Reset Settings buttons. Beside it, the
-  Lights page: the Add Files, Add Folder, Remove Selected and Remove All buttons and a search field over a list that
-  shows two groups of lights, one for the object NGC253 with 18 frames and one for the object Target with 17, Display set to Hierarchical
-  under the list, and at the right the preview of the selected light and the Group By box.
+  The Image Integration task. Its header names the job, last_session, over its 35 frames and 2 groups, with the disk
+  space it needs, the Undo and Redo buttons, the button of its menus and Execute Integration at the right. At the
+  left, the stage list headed Run Sheet: Bias, Darks, Flats and Lights, each with its count of frames, then
+  Calibration, Registration, Stacking and Summary, with Lights selected, and at its foot the Output Directory field and
+  the Import, Export, Recent, Presets and Reset Settings buttons. Beside it, the Lights page: the Add Files, Add
+  Folder, Remove Selected and Remove All buttons and a search field over a list that holds one closed row, Resolution
+  5544x3684, with Display set to Hierarchical under it. At the right an empty frame preview, the Group By box with
+  Filter, Object and Session ticked, and Frame Statistics counting 35 frames in 2 groups.
 caption: >-
-  Image Integration with a night on NGC 253 added: the Lights page in its Hierarchical display shows the two groups
-  that the headers make.
+  Image Integration with a night on NGC 253 added, on the Lights page in its Hierarchical display: the stage list
+  counts the two groups of lights that the headers make.
 pins:
-  - {n: 1, x: 23.8, y: 13.2}
-  - {n: 2, x: 19.9, y: 97.1}
-  - {n: 3, x: 0.7, y: 78.1}
-  - {n: 4, x: 82.8, y: 4.9}
+  - {n: 1, x: 21.9, y: 11.9}
+  - {n: 2, x: 15.1, y: 97.3}
+  - {n: 3, x: 0.7, y: 84.3}
+  - {n: 4, x: 84.0, y: 4.4}
 ```
 
 ### Add the frames to Image Integration
@@ -284,12 +283,11 @@ are done, and under `history` a folder for each run with its
 folder, with `.afternight`, which lets a later run reuse this one.
 
 ```figure
-owed: true
 image: ../assets/images/workflows/broadband-imaging-result.webp
 alt: >-
   The AfterNight main window with one image open, in a tab named stacked_5544x3684_NGC253: the galaxy NGC 253 seen
-  almost edge-on across the middle of the picture, its dust lanes dark against its disc, in a field of white stars on
-  an even dark gray background. The floating toolbar near the foot of the view shows Linear selected.
+  almost edge-on across the middle, in a field of white stars on an even dark gray background. The floating toolbar
+  shows Linear selected, and the history strip under the view ends at Color Saturation.
 caption: >-
   NGC 253 after the steps on this page, shown in the Linear display mode: the picture is in the image itself.
 ```

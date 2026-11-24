@@ -16,27 +16,26 @@ or not, and needs a [plate solution](../reference/glossary.md#plate-solution), t
 [Astrometry Overlays](astrometry-overlays.md) draw.
 
 ```figure
-owed: true
 image: ../assets/images/interface/annotate-image.webp
 alt: >-
   The Annotate Image window, titled Annotate Image <RGB>, under the heading ANALYSIS · RGB, Annotate Image and a line
   of description. On the left, a column of choices: under ANNOTATIONS, four level-of-detail buttons, Essential,
   Standard, Detailed and Complete, with Complete highlighted, six ticked check boxes for the layers and a Label text box
   reading Designation and name; then the STYLE section with a Palette box showing Aurora, and its TEXT and LINES
-  settings. On the right, a preview of the Carina Nebula with faint blue grid lines labelled at its edges, NGC 3372 and
-  Carina Nebula named over its core, white rings and HIP numbers on stars, η Car on the bright star of the core, a
-  compass at the top right, a scale bar reading 20′ at the bottom right and a panel titled Carina Nebula at the bottom
-  left. Under the preview, a line reads 18 objects and the picture's size. Reset stands at the bottom left; Close, Open
-  as Image and Export… at the bottom right.
+  settings. On the right, under four zoom buttons, a preview of the Carina Nebula with faint blue grid lines labelled
+  at its edges, a dashed red outline round the nebula, NGC 3372 and Carina Nebula named in red beside its core, HIP
+  numbers beside stars, η Car on the bright star of the core, a compass at the top right, a scale bar reading 20′ at
+  the bottom right and a panel titled Carina Nebula at the bottom left. Under the preview, a line reads 18 objects and
+  the picture's size. Reset stands at the bottom left; Close, Open as Image and Export… at the bottom right.
 caption: >-
   Annotate Image over the Carina master in Autostretch, at the Complete level of detail.
 pins:
-  - {n: 1, x: 1.3, y: 22.6}
-  - {n: 2, x: 1.3, y: 29.5}
-  - {n: 3, x: 1.3, y: 42.0}
+  - {n: 1, x: 1.3, y: 21.8}
+  - {n: 2, x: 12.9, y: 28.9}
+  - {n: 3, x: 1.3, y: 41.8}
   - {n: 4, x: 34.5, y: 22.0}
-  - {n: 5, x: 29.9, y: 91.4}
-  - {n: 6, x: 75.6, y: 95.5}
+  - {n: 5, x: 48.4, y: 91.3}
+  - {n: 6, x: 75.6, y: 95.4}
 ```
 
 ## What you see

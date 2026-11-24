@@ -43,18 +43,13 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/nl-bayes.webp
 alt: >-
-  The Non-Local Bayes Filter task. Its header names Non-Local Bayes Filter and the master. The canvas at the left shows the whole
-  nebula, the word PREVIEW in its corner and a small framed area labelled Preview: Non-Local Bayes Filter in its
-  middle, with a floating toolbar of zoom buttons, a channel box, the display mode at Autostretch and a settings button
-  near its foot. The column at the right holds the preview's small histogram and statistics, the toggles Preview,
-  Preview area and Processed, Target Image and Channel at RGB, the Sigma box at 5.0000, grayed, with its slider, then
-  five check boxes, of which Automatic Sigma Estimation and 1° Step Homogeneous Area are ticked, and the SOS
-  Iterations box at 1, SOS Rho at 0.80 and Amount at 1.00 with their sliders. Reset, Close and Apply stand in its
-  footer.
+  The Non-Local Bayes Filter task's column. At its top the compact readout of the preview, its histogram empty and
+  each figure a dash. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
+  button, Target Image and Channel at RGB, Sigma at 5.0000, grayed, with its slider, then five check boxes, of which
+  Automatic Sigma Estimation and 1° Step Homogeneous Area are ticked, and SOS Iterations at 1, SOS Rho at 0.80 and
+  Amount at 1.00, the last two with their sliders. Reset, Close and Apply stand in its footer.
 caption: >-
-  NL-Bayes on the linear Carina master with the task's defaults, the preview shown in the Autostretch display mode:
-  the framed preview area in the middle of the canvas is denoised, over the original.
-owed: true
+  NL-Bayes on the linear Carina master with the task's defaults, the preview area on.
 ```
 
 ## Before you start

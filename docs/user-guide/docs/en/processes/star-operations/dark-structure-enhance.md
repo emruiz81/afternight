@@ -40,15 +40,15 @@ the mask as an image of its own.
 ```figure
 image: ../../assets/images/processes/star-operations/dark-structure-enhance.webp
 alt: >-
-  The Dark Structure Enhance task. Its header names the process and the stretched master, and the column's header
-  reads Dark Structure Enhance. The canvas at the left shows a red nebula crossed by dark lanes on a gray background,
-  and a framed area in the middle shows the darkened result. The column at the right opens with the compact readout
-  of the preview, then the Preview and Preview area toggles ticked, Target Image and Channel at RGB, the Layers to
-  Remove, Amount and Iterations boxes with their sliders, the Scaling Function and Preview Mode lists, and Create mask
-  image unticked. Reset, Close and Apply stand in its footer.
+  The Dark Structure Enhance task's column. At its top the compact readout of the preview: the plate solution's scale,
+  a small histogram of three colored curves with spikes, the clipped fractions, and Min, Max, Mean, Median and StdDev,
+  the median at 0.2772. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
+  button, then the Target Image and Channel labels, an empty band under them and their lists, both at RGB, Layers to
+  Remove at 8, Scaling Function at 5x5 B3 Spline, Amount at 0.40 and Iterations at 1, Preview Mode at Processed image,
+  and Create mask image unticked. Reset, Close and Apply stand in its footer.
 caption: >-
-  Dark Structure Enhance on a stretched master at its defaults, with its preview area in the middle of the canvas.
-owed: true
+  Dark Structure Enhance on a stretched master at its defaults, the preview area on. The readout at the top is counted
+  from the preview.
 ```
 
 ## Before you start

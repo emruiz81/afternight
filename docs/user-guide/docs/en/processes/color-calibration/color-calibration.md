@@ -42,18 +42,15 @@ filter or camera response enters it. The task has no preview: its canvas shows t
 ```figure
 image: ../../assets/images/processes/color-calibration/color-calibration.webp
 alt: >-
-  The Color Calibration task. Its header reads Color Calibration on the master, with Float as window and Close at its
-  right. The canvas at the left shows the linear master itself, a pink nebula and blue-white stars on a gray
-  background. The column at the right, headed Color Calibration, opens with Target Image naming the master. Under the
-  White Reference heading, the Reference image box at <--TARGET IMAGE-->, Lower Limit at 0 and Upper Limit at 0.9 with
-  their sliders, and a ticked Region of interest group with Left 6000, Top 200, Width 1000, Height 1000 and a From
-  Selection button; further down, Manual White Balance, the Output White Reference Mask check box and the same rows of
-  the Background Reference, which the column scrolls to. Reset, Close and Apply stand in its footer.
+  The Color Calibration task's column under its header, Color Calibration, with Target Image naming the master. Under
+  the White Reference heading, the Reference image box at <--TARGET IMAGE-->, Lower Limit at 0 and Upper Limit at 0.9
+  with their sliders, and the Region of Interest section ticked, with Left 6000, Top 200, Width 1000, Height 1000 and
+  a From Selection button. Below, Manual White Balance unticked over its greyed Red, Green and Blue at 1, the Output
+  White Reference Mask check box, and the first rows of the Background Reference, where the column scrolls on. Reset,
+  Close and Apply stand in the footer.
 caption: >-
   Color Calibration on the linear Carina master with the star field of its top right corner, 1000 by 1000 pixels at
-  6000, 200, as both the white and the background reference: the canvas shows the image as it is, in the Autostretch
-  display with Linked channels on.
-owed: true
+  6000, 200, as the white reference's region of interest, the background reference at its defaults.
 ```
 
 ## Before you start

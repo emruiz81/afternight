@@ -44,16 +44,15 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
 alt: >-
-  The ArcSinh Stretch task. Its header names the process and the linear master, and the column's header reads
-  ArcSinh Stretch. The canvas at the left shows the stretched preview, a red nebula on a dark gray background. The
-  column at the right opens with the compact readout of the preview, then the Preview, Preview area and Processed
-  toggles, Target Image, a histogram with one peak near its left fifth and the lines Clipping Low and Clipping High
-  in its corner, its toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with their sliders, and
-  Human-weighted luminance checked. Reset, Close and Apply stand in its footer.
+  The ArcSinh Stretch task's column. At its top the compact readout of the preview: a small histogram, the clipped
+  fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median at 0.2062. Below it
+  the column's header, the Preview box ticked, Preview area unticked and the Processed button, then Target Image at
+  RGB, a histogram with one peak near its left fifth and the lines Clipping Low and Clipping High in its corner, its
+  toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with their sliders, and Human-weighted luminance
+  ticked. Reset, Close and Apply stand in its footer.
 caption: >-
-  ArcSinh Stretch on a linear master with Stretch Factor at 200 and Black Point at 0.02. The histogram is counted
-  from the stretched preview, and the canvas shows what Apply writes.
-owed: true
+  ArcSinh Stretch on a linear master with Stretch Factor at 200 and Black Point at 0.02. The histogram and the
+  readout at the top are counted from the stretched preview.
 ```
 
 ## Before you start

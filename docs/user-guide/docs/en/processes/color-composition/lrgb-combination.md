@@ -44,16 +44,17 @@ size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step
 ```figure
 image: ../../assets/images/processes/color-composition/lrgb-combination.webp
 alt: >-
-  The LRGB Combination task. Its header reads LRGB Combination on a stretched copy of the master. The canvas at the left shows
-  the preview, the red and white clouds of the nebula among its stars, with the word PREVIEW in its corner and the
-  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
-  Preview area and Processed toggles, RGB naming the color image, a histogram of three colored peaks over its toolbar,
-  Luminance naming a grayscale lightness image, the Channel Weights group with Lightness, Red, Green and Blue at 1.00, and the
-  Transfer Functions group with Lightness at 0.50 and Saturation at 0.40. Reset, Close and Apply stand in its footer.
+  The LRGB Combination task's column, scrolled to its histogram. At its top the compact readout of the preview: the
+  image's plate solution, a small histogram peaking near a quarter of the range, the clipped fractions, and Min, Max,
+  Mean, Median and StdDev with their change from the image, the median up 0.0031 to 0.2815. Below it the column's
+  header, Preview area unticked and the Processed button, a histogram with a tall green peak and broader red and blue
+  ones near a quarter of its range, 0.197 % clipped high, over its toolbar, Luminance at
+  stacked_8288x5644_Luminance_Carina_Nebula, and the Channel Weights group with Lightness, Red, Green and Blue at
+  1.00, Blue at the fold. Reset, Close and Apply stand in its footer.
 caption: >-
-  LRGB Combination on the stretched Carina master, with the master's own CIE lightness as its Luminance and
-  Saturation at 0.40. The canvas shows what Apply writes.
-owed: true
+  LRGB Combination on the stretched Carina master, with the luminance stack of the Carina set, stretched to the color
+  image's background, as its Luminance. The readout at the top is counted from the preview, whose median moves by
+  only 0.0031, as the worked example explains.
 ```
 
 ## Before you start

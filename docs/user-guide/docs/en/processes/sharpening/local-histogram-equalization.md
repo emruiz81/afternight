@@ -40,16 +40,15 @@ computes the samples.
 ```figure
 image: ../../assets/images/processes/sharpening/local-histogram-equalization.webp
 alt: >-
-  The Local Histogram Equalization task. Its header names the process and the stretched master. The canvas at the
-  left shows the stretched nebula, with a framed area in its middle that shows the equalized result. The column at
-  the right opens with the compact readout of the preview, then the Preview and Preview area toggles ticked, Target
-  Image and Channel at RGB, a histogram with three colored peaks and the lines Clipping Low and Clipping High in its
-  corner, a toolbar, the Strength, Radius, Sigma, Regularization and Amount boxes with their sliders, and the Reduce
-  Halos check box ticked. Reset, Close and Apply stand in its footer.
+  The Local Histogram Equalization task's column. At its top the compact readout of the preview: a small histogram,
+  the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it the
+  column's header, Preview and Preview area ticked and the Processed button, Target Image and Channel at RGB, a
+  histogram with three colored peaks and the lines Clipping Low and Clipping High in its corner, a toolbar,
+  and the Strength (%), Radius, Sigma and Regularization boxes with their sliders, at 75.00, 4, 100.00 and 8.00. The
+  top of the Amount row shows above Reset, Close and Apply in the footer.
 caption: >-
-  Local Histogram Equalization on a stretched master with its default values: the framed preview area in the canvas
-  shows what Apply writes there.
-owed: true
+  Local Histogram Equalization on a stretched master with its default values and the preview area ticked, as the
+  task opens. The readout at the top measures the preview, in which only that area is equalized.
 ```
 
 ## Before you start
