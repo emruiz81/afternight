@@ -117,7 +117,8 @@ def _trouble_cards(body):
 def _tutorial_steps(body):
     """A tutorial's Steps section: each `<h3>` step an item of `<ol class="tsteps">`, beside the section's figure when
     the text before the first step has one (`<div class="tut">`, the figure first so that a narrow page shows it
-    before the steps). A step whose number the figure does not pin is marked `nopin`."""
+    before the steps), above them when it is a wide one (`tut-wide`). A step whose number the figure does not pin is
+    marked `nopin`."""
     starts = [match.start() for match in _H3.finditer(body)]
     if not starts:
         return None
@@ -134,8 +135,12 @@ def _tutorial_steps(body):
         end = starts[index + 1] if index + 1 < len(starts) else len(body)
         marked = ' class="nopin"' if side and index + 1 not in pinned else ''
         items.append('<li%s>%s</li>' % (marked, body[start:end].strip()))
+    # A wide figure - a window at its size - stands above the steps at the page's width rather than beside them.
+    kind = ' nofig'
+    if side:
+        kind = ' tut-wide' if 'an-wide' in figure.group('classes') else ''
     return '%s<div class="tut%s">%s<ol class="tsteps">\n%s\n</ol></div>\n' % (
-        intro, '' if side else ' nofig', side, '\n'.join(items))
+        intro, kind, side, '\n'.join(items))
 
 
 def dress_sections(content, kind):

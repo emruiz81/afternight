@@ -1,7 +1,8 @@
 {#- The left navigation, which is also the drawer the menu button opens below 1024 px. A process page lists its nav
     group, then the other processes of its stage; any other page lists its section. The guide's other sections follow
     as folded groups. The drawer starts with the section links the header hides at that width. On a two-column page (a
-    layout that sets `two`) the page's table of contents and its actions are here, since it has no right rail. -#}
+    layout that sets `two`, or a page with a wide picture) the page's table of contents, a process page's controls and
+    the page's actions are here, since it has no right rail. -#}
 <aside class="side side-left" id="guide-drawer" aria-label="Guide navigation">
   <nav class="drawer-sections" aria-label="Sections, in the drawer">
     <ul>
@@ -43,6 +44,14 @@
       </ul>
       {%- endif %}
     </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if two and gp and gp.controls %}
+  <h2 class="side-title">Controls</h2>
+  <ul class="toc-list toc-controls">
+    {%- for control in gp.controls %}
+    <li><a href="#{{ control.id }}">{{ control.name|e }}</a></li>
     {%- endfor %}
   </ul>
   {%- endif %}

@@ -43,17 +43,33 @@ are described once, as recipes, so that the whole guide can be taken again when 
 ## The window the pictures show
 
 The script starts the application with a storage root of its own, which it removes afterwards: the dark theme, the
-default preset and the Compact density a new profile starts with, the menu bar hidden until Alt, in the `en_US` locale
-and without display scaling. It gives the main window a place and a size, 1440 x 900, before anything else.
+default preset and the Compact density a new profile starts with, the menu bar hidden until Alt, in the `en_US` locale.
+It gives the main window a place and a size before anything else - 1440 x 900 at 100 % unless a recipe says otherwise -
+and draws it at 150 % (`-Scale 1.5`, the toolkit's own factor, whatever the monitor is set to): the window lays out as
+it does at 100 %, and the picture has the pixels a high-density screen draws. The optimizing script writes the scale
+into the file it keeps, and a page lays the picture out at it, so its text stands as large as the window's own.
 
-A process opens as a **task**, a page of the main window, and its picture is that page: the task's header, the canvas
-at the left and the column at the right, cropped to them. The rail and the top bar are in a picture only on a page about
-them. What else a picture shows is said by `-Crop` and `-MainCrop`:
+What a picture shows decides how it is taken, so that a page never shrinks a window's text to fit it:
+
+- **A process page** shows the task's **column** - the readout of the preview, the process's controls and its footer
+  - cropped to it (`-Crop column`), at its own width (360 or 520 px), in a window 980 px tall at 100 %, the tallest
+  the screen holds at 150 %, so the column shows as much of itself as it can. The canvas is the worked example's pair.
+- **A full page** - Image Integration and Image Integration Lite, Image Calibration, Image Registration, Image Stacking,
+  Image List Analyzer - has no column: its picture is the task (`-Crop task`).
+- **A window at its size** - the main window, its centre, a full page, a menu over the window - is taken in a window
+  1280 x 900 at 100 % (`-Width 1280`). Wider than a figure stands among the text, it is a wide figure: its page leaves
+  its right rail for it, and a tutorial shows it above its steps rather than beside them.
+- **A dialog** is its own window, at the size it opens at.
+- **Image data** - a before-and-after pair, a crop of a view, a canvas - is taken at 100 % (`-Scale 1`): the image view
+  draws an image's pixels at the window's own scale, and at 150 % they would be stretched.
+
+The rail and the top bar are in a picture only on a page about them. What a picture shows is said by `-Crop` and
+`-MainCrop`:
 
 | Part | Shows |
 | --- | --- |
-| `task` | A task's page: its header, canvas and column (the default for a task) |
-| `column` | A task's column alone |
+| `task` | A task's page: its header, canvas and column (the default for a task; a full page's picture) |
+| `column` | A task's column alone (a process page's picture) |
 | `canvas` | A task's canvas alone |
 | `view` | The image of the image view the main window shows, without the margins beside it |
 | `window` | The whole main window, frame and title bar included |
@@ -135,7 +151,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   | `spccProcessAssignImageStateButton^Yes` | Presses a button that opens a message or a dialog, and answers it with the button of that name, in the first new window that has one. |
   | `%wait=Complete` | Waits, up to `-RunTimeoutSeconds`, for a run to end with a window whose title begins so, and answers it with OK; a window titled "Failed" or "Completed with Errors" stops the capture. |
   | `%shot=tasks@window` | Saves the main window, cropped to a part, while the task is still open: what a task draws over the image, or the task in its window. |
-  | `%until=btnOpenReport` | Waits, up to `-RunTimeoutSeconds`, until the control is shown and enabled: how a run on a page - Image Integration's - says it has ended. |
+  | `%until=btnOpenReport` | Waits, up to `-RunTimeoutSeconds`, until the control is shown and enabled: how a run on a page - Image Integration's - says it has ended. A run that opens what it made in a workspace takes the window there, and the task is brought back by its item on the rail. |
   | `%keys=Tab,Down,Down` | Posts keys to the window, without UI Automation: what a dialog too large for it - Settings, while it is modal - takes. |
   | `%type=Gauss` | Types a text into what has the keyboard: the command palette's field, a dialog's search. |
 
@@ -222,8 +238,12 @@ docs\user-guide\.venv\Scripts\python build\scripts\tools\optimize_guide_image.py
 
 It scales the capture down to the longest side the guide allows, writes it as WebP at quality 90, or as PNG when
 that is smaller, lowers the quality when the file is over the guide's weight, and refuses a picture that fits at no
-quality. The limits are `images` in `data/limits.yml`. It prints the file it wrote and the picture's row for the
-media provenance page. `-Optimize` runs it for every picture of the recipes it runs.
+quality. The limits are `images` in `data/limits.yml`, in the file's own pixels. `--scale 1.5` says the capture was
+drawn at 150 %: the file states its density - 144 dots per inch, less when it was scaled down to the longest side - in
+its Exif or pHYs chunk, and a page lays it out at that density (`guide_model.display_size`), its width and height
+attributes the window's own; a picture states no density at 100 %, and none above it is ever laid out larger than its
+pixels. It prints the file it wrote, its density and the size a page shows it at, and the picture's row for the media
+provenance page. `-Optimize` runs it for every picture of the recipes it runs, at the scale each was taken at.
 
 Paste the row into `docs/en/assets/MEDIA_PROVENANCE.md`, under the heading of the pages' group in "Captured
 windows", in the same change as the picture. A batch of pages writes its rows under its own heading, so two batches
@@ -299,7 +319,13 @@ Each of these cost time once. They are in the script; they are here for whoever 
   parameter. No variable of the script is named after one of its parameters.
 - **The locale comes from `LANG`.** With `LANG=en_US` the application writes `0.50`, not `0,50`, whatever the
   machine's regional format. `QT_ENABLE_HIGHDPI_SCALING=0` and `QT_FONT_DPI=96` give a picture at 100 % on any
-  monitor.
+  monitor, and `QT_SCALE_FACTOR` then sets the scale `-Scale` asks for.
+- **A window is never taller than its screen.** Windows holds a window to the height of the screen it is on - 1460 px
+  for a 1440 px screen - so at 150 % the main window can be at most about 970 px tall at 100 %, and at 200 % 710 px,
+  below the 864 px the interface is friendly at: the scale is 150 %. A window held shorter than asked stops the run.
+  The window's frame and title bar stay at the system's own size at any scale; the script grows what is inside them.
+- **A combo box scrolled out of the column's view takes no click.** The script gives it the focus and steps through it
+  with the keyboard first, and opens its list only when that does not reach the choice.
 - **`PrintWindow` with the full-content flag** reads the window's own content, so a window in front of it is not in
   the picture. The capture is cropped to the frame the window manager reports, which leaves out the margin kept for
   the shadow, and then to the part the picture shows, by the place UI Automation gives it. The pointer is not

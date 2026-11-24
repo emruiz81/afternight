@@ -100,6 +100,8 @@ CHOICE_KINDS = ('combo', 'radio')
 CHECKED_WORDS = ('on', 'checked', 'true', 'yes', 'selected', 'enabled')
 FIGURE_KEYS = ('image', 'alt', 'caption', 'pins', 'owed')
 PAIR_KEYS = ('images', 'caption', 'owed')
+# The width a figure stands at among the text (`figure.an-figure` in the theme's components.css), in the page's pixels.
+FIGURE_WIDTH = 760
 PAIR_ENTRY_KEYS = ('image', 'alt', 'label')
 PIN_KEYS = ('n', 'x', 'y')
 
@@ -398,7 +400,7 @@ def _image_size(image, folder, docs, line):
     if not os.path.isfile(path):
         raise FenceError('image %s does not exist' % image, line)
     try:
-        size = guide_model.image_size(path)
+        size = guide_model.display_size(path)
     except OSError as error:
         raise FenceError('image %s cannot be read: %s' % (image, error), line) from error
     if size is None:
@@ -559,6 +561,9 @@ def render_figure(figure):
     else:
         inner = _shot(figure['images'][0], figure['pins'], figure.get('owed', False))
         classes = 'an-figure'
+        # A picture wider than a figure stands is a wide one: its page gives it the right rail's width as well.
+        if (figure['images'][0]['width'] or 0) > FIGURE_WIDTH:
+            classes += ' an-wide'
     return '<figure class="%s">%s<figcaption>%s</figcaption></figure>' % (classes, inner, inline(figure['caption']))
 
 

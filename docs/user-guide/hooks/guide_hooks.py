@@ -270,7 +270,7 @@ def _home(page, pages, config):
         path = os.path.normpath(os.path.join(os.path.dirname(page.file.abs_src_path), hero['image']))
         size = None
         if os.path.isfile(path) and not os.path.relpath(path, os.path.abspath(config.docs_dir)).startswith('..'):
-            size = guide_model.image_size(path)
+            size = guide_model.display_size(path)
         if size is None:
             log.warning('%s: `hero.image` names %s, which is no PNG, WebP or JPEG file of the docs folder', where,
                         hero['image'])
@@ -552,6 +552,8 @@ def on_page_context(context, page, config, nav):
         'body': body,
         'toc': toc,
         'scripts': _state.scripts.get(page.file.src_uri, []),
+        # A picture wider than a figure stands among the text: the page takes two columns, as a tutorial does.
+        'wide_figure': guide_html.has_class(page.content or '', 'an-wide'),
     }
     return context
 

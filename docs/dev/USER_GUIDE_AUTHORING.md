@@ -301,7 +301,7 @@ that is not beside it). It loads neither MathJax nor Mermaid, which are checked 
     lede: One or two sentences under the title.
     actions:                     # one to three; the first is the main one
       - {label: Run the quick start, page: getting-started/quick-start.md}
-    image: assets/images/interface/hero-screenshot.png   # with alt and caption, or none of the three
+    image: assets/images/interface/hero-screenshot.webp   # with alt and caption, or none of the three
     alt: What the picture shows.
     caption: Its caption.
   notice: A sentence the reader must not miss.
@@ -712,17 +712,25 @@ written, links, credits and length.
 ## Media
 
 - **Format and size.** A picture is a WebP file at quality 90, or a PNG when that is smaller; a JPEG is accepted.
-  Its longest side is at most 1,600 px and it weighs at most 400 KB (`images` in `limits.yml`; rule R11). A
-  lossless PNG of a window with a sky image in it weighs from 400 KB to over 1 MB, and the same picture as WebP at
+  Its longest side is at most 1,600 px of the file and it weighs at most 400 KB (`images` in `limits.yml`; rule R11).
+  A lossless PNG of a window with a sky image in it weighs from 400 KB to over 1 MB, and the same picture as WebP at
   quality 90 between 130 and 280 KB.
+- **Density.** A window is captured at 150 % and its file states the density it was kept at (144 dots per inch, less
+  when it was scaled down to the longest side). A page lays a picture out at the density it states, so the window's
+  text stands as large on the page as on its own screen and a high-density screen draws every pixel; a picture is
+  never laid out larger than its file. Image data - a pair, a crop of a view - is captured at 100 %.
 - **Names.** A process page's window is `assets/images/processes/<group>/<page>.webp`; another page's is
   `assets/images/<section>/<page>.webp`; a second picture of a page is `<page>-<what>.webp`.
 - **The window.** The application runs as a new profile starts it - the dark theme, the default preset, the Compact
-  density - at 100 % scale, in the `en_US` locale, with an isolated profile (`AFTERNIGHT_TEST_STORAGE_ROOT`), its main
-  window 1440 x 900, the mouse outside it. A process opens as a task: its picture is the task's page - its header, the
-  canvas at the left and the column at the right - cropped to them, with the real-time preview on. The rail and the top
-  bar are in a picture only on a page about them; an interface page shows the whole window or the part it is about,
-  and a dialog is its own window.
+  density - drawn at 150 %, in the `en_US` locale, with an isolated profile (`AFTERNIGHT_TEST_STORAGE_ROOT`), its main
+  window 1440 x 900 at 100 %, the mouse outside it. A process opens as a task: a process page's picture is the task's
+  **column** - the readout of the preview, the controls, the footer - at its own width, in a window 980 px tall so that
+  it shows as much of itself as it can, with the real-time preview on; a full page (the integration processes) shows
+  the task whole. The rail and the top bar are in a picture only on a page about them; an interface page shows the
+  whole window, taken 1280 x 900, or the part it is about, and a dialog is its own window.
+- **Wide pictures.** A picture wider than a figure stands among the text (760 px) is a wide figure: its page leaves its
+  right rail for it - the table of contents and a process page's controls move under the left navigation - and a
+  tutorial shows it above its steps rather than beside them. A window's picture is wide; a column never is.
 - **The task at work.** A process page's opening picture shows the task in the state of the page's worked example,
   not as it opens: a stretch at its defaults shows a black preview and a histogram that is one spike, which tells a
   reader nothing of what the process is for. The caption names the settings, and the capture script sets them

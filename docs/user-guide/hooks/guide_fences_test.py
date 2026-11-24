@@ -12,6 +12,7 @@ import logging
 import os
 import pathlib
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -239,13 +240,40 @@ class FigureTests(unittest.TestCase):
         figure = self.parse('image: ../assets/window.png\nalt: The "window".\ncaption: What it shows.\n'
                             'pins:\n  - {n: 1, x: 15, y: 20.5}\n  - {n: 3, x: 100, y: 0}\n')
         html = fences.render_figure(figure)
-        self.assertTrue(html.startswith('<figure class="an-figure"><div class="shotwrap">'))
+        # 800 px is wider than a figure stands among the text: a wide one.
+        self.assertTrue(html.startswith('<figure class="an-figure an-wide"><div class="shotwrap">'))
         self.assertIn('<a class="glightbox" href="../assets/window.png" data-type="image"><img '
                       'src="../assets/window.png" alt="The &quot;window&quot;." width="800" height="500" '
                       'loading="lazy"></a>', html)
         self.assertIn('<span class="pin" style="left:15%;top:20.5%"><span class="visually-hidden">Step </span>1</span>',
                       html)
         self.assertIn('<figcaption>What it shows.</figcaption></figure>', html)
+
+    def write_png(self, name, width, height, dpi):
+        """A PNG's header and its pHYs chunk: all a figure reads of a picture."""
+        def chunk(kind, data):
+            return struct.pack('>I', len(data)) + kind + data + b'\x00' * 4
+        per_metre = round(dpi / 0.0254)
+        (self.root / 'docs' / 'assets' / name).write_bytes(
+            b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>II', width, height) + b'\x08\x06\x00\x00\x00') +
+            chunk(b'pHYs', struct.pack('>IIB', per_metre, per_metre, 1)) + chunk(b'IDAT', b''))
+
+    def test_a_picture_captured_above_100_percent_stands_at_the_windows_own_size(self):
+        self.write_png('column.png', 780, 1135, 144)
+        html = fences.render_figure(self.parse('image: ../assets/column.png\nalt: A column.\ncaption: C.\n'))
+        self.assertIn('width="520" height="757"', html)
+        self.assertTrue(html.startswith('<figure class="an-figure"><div'))
+
+    def test_a_picture_wider_than_a_figure_is_a_wide_one(self):
+        self.write_png('main.png', 1600, 1116, 121.39)
+        html = fences.render_figure(self.parse('image: ../assets/main.png\nalt: The window.\ncaption: C.\n'))
+        self.assertIn('width="1265" height="883"', html)
+        self.assertTrue(html.startswith('<figure class="an-figure an-wide">'))
+        # A pair fills the text's width whatever its pictures' sizes, and is never a wide figure.
+        pair = fences.render_figure(self.parse(
+            'images:\n  - {image: ../assets/main.png, alt: A., label: Before}\n'
+            '  - {image: ../assets/main.png, alt: B., label: After}\ncaption: C.\n'))
+        self.assertTrue(pair.startswith('<figure class="an-figure an-pair">'))
 
     def test_a_pair_draws_two_labelled_pictures(self):
         html = fences.render_figure(self.parse(
@@ -335,7 +363,7 @@ class FormatterTests(unittest.TestCase):
         html = self.render('Text.\n\n```controls\n' + control() + '```\n\n```figure\nimage: ../assets/window.png\n'
                            'alt: A.\ncaption: C.\n```\n')
         self.assertIn('<section class="ctls"', html)
-        self.assertIn('<figure class="an-figure">', html)
+        self.assertIn('<figure class="an-figure an-wide">', html)
         self.assertEqual(self.handler.messages, [])
 
     def test_a_yaml_error_warns_with_the_page_and_the_line_and_leaves_an_error_box(self):

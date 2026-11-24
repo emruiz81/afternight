@@ -240,6 +240,43 @@ class SizeTests(OptimizeCase):
         self.assertEqual(self.written(), [])
 
 
+class ScaleTests(OptimizeCase):
+    def test_a_capture_at_150_percent_states_its_density_and_a_page_lays_it_out_at_the_windows_size(self):
+        for name, image in (('column', panels(780, 1134)), ('sky', sky(780, 1134))):
+            with self.subTest(name):
+                code, lines = self.run_tool(self.capture(name + '.png', image), 'assets/images/' + name,
+                                            '--scale', '1.5')
+                path = str(self.picture('assets/images/' + name, code, lines))
+                self.assertAlmostEqual(self.model.image_density(path), 144.0, delta=0.05)
+                self.assertEqual(self.model.display_size(path), (520, 756))
+                self.assertIn('144 dpi (shown at 520 x 756)', lines[0])
+
+    def test_scaling_down_to_the_longest_side_lowers_the_density_it_states(self):
+        self.limit(longest_side=1600)
+        code, lines = self.run_tool(self.capture('main.png', panels(1898, 1324)), 'assets/images/main',
+                                    '--scale', '1.5')
+        path = str(self.picture('assets/images/main', code, lines))
+        self.assertEqual(self.model.image_size(path), (1600, 1116))
+        self.assertAlmostEqual(self.model.image_density(path), 96 * 1.5 * 1600 / 1898, delta=0.05)
+        self.assertEqual(self.model.display_size(path), (1265, 883))
+
+    def test_a_capture_at_100_percent_states_nothing(self):
+        for more in ((), ('--scale', '1')):
+            with self.subTest(more):
+                code, lines = self.run_tool(self.capture('flat.png', panels(400, 300)), 'assets/images/flat', *more)
+                path = str(self.picture('assets/images/flat', code, lines))
+                self.assertIsNone(self.model.image_density(path))
+                self.assertNotIn('dpi', lines[0])
+
+    def test_a_scale_below_1_or_above_3_is_refused(self):
+        for given in ('0.5', '4', 'one'):
+            with self.subTest(given):
+                code, lines = self.run_tool(self.capture('flat.png', panels(40, 30)), 'assets/images/flat',
+                                            '--scale', given)
+                self.assertEqual(code, 2)
+                self.assertEqual(self.written(), [])
+
+
 class WeightTests(OptimizeCase):
     def test_a_lower_quality_is_tried_until_the_picture_fits(self):
         image = sky(900, 600)
@@ -284,7 +321,7 @@ class ChoiceTests(unittest.TestCase):
         encodings that were asked for."""
         asked = []
 
-        def encoded(image, file_format, quality=None):
+        def encoded(image, file_format, quality=None, density=None):
             asked.append((file_format, quality))
             return b'\0' * (png if file_format == 'PNG' else webp[quality])
 

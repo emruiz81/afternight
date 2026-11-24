@@ -21,7 +21,11 @@ page can show:
      show less in it.
 
 The file is written where `--to` says, under the guide's docs folder, with the extension of the format that was kept
-(`.webp` or `.png`) whatever extension `--to` carries, and with no metadata of the capture. Its row for the media
+(`.webp` or `.png`) whatever extension `--to` carries, and with no metadata of the capture but one: a capture of an
+application drawn above 100 % (`--scale`, 1.5 for 150 %) states its density, 96 dots per inch times the scale it is
+kept at - lower when step 3 scaled it down - in a WebP's Exif chunk or a PNG's pHYs chunk. A page lays the picture
+out at that density (guide_model.display_size): the window's text as large as on its own screen, and every pixel
+drawn on a high-density one. Its row for the media
 provenance page (assets/MEDIA_PROVENANCE.md) is printed after it, to paste under the heading of the page's group:
 the picture's path as a page's `figure` block finds it recorded, what it shows, the data in it, the day it was
 captured with the application's commit, and the SHA-256 of the file.
@@ -35,7 +39,7 @@ and never in continuous integration:
 Usage, with the same Python:
     python build/scripts/tools/optimize_guide_image.py <source image> --to <destination>
         --shows "<what the picture shows>" --data "<the data in it>" [--commit <application commit>]
-        [--date YYYY-MM-DD] [--crop LEFT,TOP,WIDTH,HEIGHT] [--guide docs/user-guide]
+        [--date YYYY-MM-DD] [--crop LEFT,TOP,WIDTH,HEIGHT] [--scale 1.5] [--guide docs/user-guide]
 
 `--date` is today unless it is given, and `--commit` the short hash of this repository's HEAD: give the commit of the
 application that was captured when it is another. Exits 0 when the file was written; 1 when the source is not a
@@ -71,6 +75,10 @@ EIGHT_BIT_MODES = ('1', 'L', 'LA', 'La', 'P', 'PA', 'RGB', 'RGBA', 'RGBa', 'RGBX
 ALPHA_MODES = ('LA', 'La', 'PA', 'RGBA', 'RGBa')
 
 _DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+# A page's own density, which a picture at 100 % has and states nothing of.
+PAGE_DPI = 96.0
+# The largest scale a capture is taken at: a window drawn at 300 %.
+LARGEST_SCALE = 3.0
 
 
 class Refused(Exception):
@@ -119,6 +127,23 @@ def _crop(text):
     if width < 1 or height < 1:
         raise argparse.ArgumentTypeError('%r names a part without a width or a height' % text)
     return left, top, width, height
+
+
+def _scale(text):
+    try:
+        value = float(text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('%r is not a scale such as 1.5' % text) from error
+    if not 1.0 <= value <= LARGEST_SCALE:
+        raise argparse.ArgumentTypeError('%r is not a scale from 1 to %g' % (text, LARGEST_SCALE))
+    return value
+
+
+def density_of(scale, captured_width, kept_width):
+    """The dots per inch a picture states: the page's times the scale it was captured at, times what scaling it down
+    to the longest side kept of it. None for a picture at the page's own density or below it."""
+    density = PAGE_DPI * scale * kept_width / captured_width
+    return round(density, 2) if density >= PAGE_DPI + 0.5 else None
 
 
 def _said(text):
@@ -194,27 +219,37 @@ def prepared(image, crop, longest_side, modules):
     return image
 
 
-def encoded(image, file_format, quality=None):
-    """The picture's bytes as a WebP file of a quality, or as a PNG file."""
+def encoded(image, file_format, quality=None, density=None):
+    """The picture's bytes as a WebP file of a quality, or as a PNG file, stating `density` in dots per inch when it
+    is given: an Exif chunk's XResolution and YResolution in inches, or a pHYs chunk."""
     buffer = io.BytesIO()
     if file_format == 'WEBP':
-        image.save(buffer, 'WEBP', quality=quality, method=WEBP_METHOD)
+        extra = {}
+        if density is not None:
+            from PIL import Image as pil_image  # noqa: E402 - loaded by _load_pillow before any picture is encoded
+            exif = pil_image.Exif()
+            exif[0x0128] = 2  # ResolutionUnit: inches
+            exif[0x011A] = density  # XResolution
+            exif[0x011B] = density  # YResolution
+            extra['exif'] = exif.tobytes()
+        image.save(buffer, 'WEBP', quality=quality, method=WEBP_METHOD, **extra)
     else:
-        image.save(buffer, 'PNG', optimize=True)
+        extra = {'dpi': (density, density)} if density is not None else {}
+        image.save(buffer, 'PNG', optimize=True, **extra)
     return buffer.getvalue()
 
 
-def lightest(image, max_bytes):
+def lightest(image, max_bytes, density=None):
     """(format name, extension, bytes, WebP quality or None) of the file to keep: the smaller of WebP at the usual
     quality and PNG, or the first lower quality of WebP that is within `max_bytes`. Refused when none is."""
-    webp = encoded(image, 'WEBP', WEBP_QUALITY)
-    png = encoded(image, 'PNG')
+    webp = encoded(image, 'WEBP', WEBP_QUALITY, density)
+    png = encoded(image, 'PNG', density=density)
     kept = ('PNG', '.png', png, None) if len(png) < len(webp) else ('WebP', '.webp', webp, WEBP_QUALITY)
     if len(kept[2]) <= max_bytes:
         return kept
     smallest = len(kept[2])
     for quality in range(WEBP_QUALITY - WEBP_QUALITY_STEP, WEBP_QUALITY_FLOOR - 1, -WEBP_QUALITY_STEP):
-        data = encoded(image, 'WEBP', quality)
+        data = encoded(image, 'WEBP', quality, density)
         if len(data) <= max_bytes:
             return 'WebP', '.webp', data, quality
         smallest = min(smallest, len(data))
@@ -235,6 +270,8 @@ def main(argv=None, stream=None):
     parser.add_argument('--date', type=_date, help='the day it was captured, YYYY-MM-DD; default today')
     parser.add_argument('--crop', type=_crop, metavar='LEFT,TOP,WIDTH,HEIGHT', help='the part of the source to keep, '
                         'in its own pixels')
+    parser.add_argument('--scale', type=_scale, default=1.0, help='the scale the application was drawn at when it was '
+                        'captured, 1.5 for 150 %%; default 1, a picture at 100 %%')
     parser.add_argument('--guide', help='the guide folder that holds mkdocs.yml; default <repo>/docs/user-guide')
     try:
         arguments = parser.parse_args(argv)
@@ -274,9 +311,11 @@ def main(argv=None, stream=None):
                 opened.load()
                 source_size = opened.size
                 image = prepared(opened, arguments.crop, limits.image_longest_side, modules)
+                captured_width = arguments.crop[2] if arguments.crop else source_size[0]
+                density = density_of(arguments.scale, captured_width, image.width)
         except (OSError, ValueError, Image.DecompressionBombError) as error:
             raise Refused('%s is not a picture this can read: %s' % (_display(arguments.source), error)) from error
-        name, extension, data, quality = lightest(image, limits.image_max_bytes)
+        name, extension, data, quality = lightest(image, limits.image_max_bytes, density)
     except Refused as refusal:
         print(refusal, file=stream)
         return refusal.code
@@ -291,6 +330,9 @@ def main(argv=None, stream=None):
     said += ', %d bytes' % len(data)
     if quality is not None and quality != WEBP_QUALITY:
         said += ', quality %d' % quality
+    if density is not None:
+        said += ', %g dpi (shown at %d x %d)' % (density, round(image.width * PAGE_DPI / density),
+                                                round(image.height * PAGE_DPI / density))
     print(said, file=stream)
     for other in ('.webp', '.png'):
         if other != extension and os.path.isfile(stem + other):

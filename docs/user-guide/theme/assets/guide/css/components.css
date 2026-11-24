@@ -99,6 +99,10 @@
 /* A tutorial's steps: one card per step, numbered as the pins of the figure beside them. */
 .tut { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 32px; align-items: start; margin: 0 0 20px; }
 .tut.nofig { grid-template-columns: minmax(0, 1fr); }
+/* A wide figure - a window at its size - stands above the steps at the page's width, its pins still numbered. */
+.tut.tut-wide { grid-template-columns: minmax(0, 1fr); }
+.tut.tut-wide > .fig { grid-column: 1; grid-row: 1; position: static; }
+.tut.tut-wide > ol.tsteps { grid-column: 1; grid-row: 2; }
 .tut > .fig { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--nav-h) + 24px); margin: 0; max-width: none; }
 .tut > ol.tsteps { grid-column: 1; grid-row: 1; }
 .prose ol.tsteps { list-style: none; max-width: none; margin: 0; padding: 0; counter-reset: tstep; display: grid; gap: 14px; }
@@ -230,10 +234,19 @@
 
 .prose figure.an-figure { max-width: 760px; }
 .prose .tut > figure.an-figure, .prose figure.an-pair { max-width: none; }
-.shotwrap { position: relative; overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius); line-height: 0; }
+/* A picture wider than a figure stands among the text - a window at its size - takes the width of the page's two
+   columns, its pixels at the page's: the page leaves its right rail for it. */
+.prose figure.an-figure.an-wide { max-width: none; }
+/* A picture stands at the size its file states - its pixels at the density it was captured at - and never wider than
+   the text: a window's column at its own width, as the window draws it. The frame fits the picture, so a pin placed
+   in percent of it lands on the picture; the two halves of a pair fill their columns. */
+.shotwrap { position: relative; overflow: hidden; width: fit-content; max-width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius); line-height: 0; }
 .shotwrap > a { display: block; }
-.prose .shotwrap img { display: block; width: 100%; height: auto; border: 0; border-radius: 0; }
+.prose .shotwrap img { display: block; max-width: 100%; height: auto; border: 0; border-radius: 0; }
+.an-pair .shotwrap { width: auto; }
+.prose .an-pair .shotwrap img { width: 100%; }
 .shotwrap.owed {
+    width: auto;
     display: flex;
     flex-direction: column;
     justify-content: center;

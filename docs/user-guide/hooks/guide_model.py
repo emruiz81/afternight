@@ -1260,3 +1260,104 @@ def image_size(path):
                     return width, height
                 handle.seek(length - 2, os.SEEK_CUR)
     return None
+
+
+# The density a page lays a picture out at: one pixel of the file to one pixel of the page. A picture captured from an
+# application drawn at 150 % states 144 dots per inch, and the page shows it at two thirds of its pixels, so its text
+# stands as large as the window's own while a high-density screen draws every pixel of it.
+PAGE_DPI = 96.0
+# Reading a density stops at the first chunk of pixels of a PNG and after this many bytes of a file's metadata.
+_DENSITY_READ = 1 << 16
+
+
+def _tiff_density(data):
+    """Dots per inch an Exif block states horizontally (XResolution in ResolutionUnit), or None."""
+    if data.startswith(b'Exif\x00\x00'):
+        data = data[6:]
+    order = {b'II': '<', b'MM': '>'}.get(data[:2])
+    if order is None or len(data) < 8:
+        return None
+    first = struct.unpack(order + 'I', data[4:8])[0]
+    if first + 2 > len(data):
+        return None
+    count = struct.unpack(order + 'H', data[first:first + 2])[0]
+    resolution, unit = None, 2
+    for index in range(count):
+        at = first + 2 + 12 * index
+        if at + 12 > len(data):
+            return None
+        tag, kind = struct.unpack(order + 'HH', data[at:at + 4])
+        if tag == 0x011A and kind == 5:
+            offset = struct.unpack(order + 'I', data[at + 8:at + 12])[0]
+            if offset + 8 > len(data):
+                return None
+            numerator, denominator = struct.unpack(order + 'II', data[offset:offset + 8])
+            resolution = numerator / denominator if denominator else None
+        elif tag == 0x0128 and kind == 3:
+            unit = struct.unpack(order + 'H', data[at + 8:at + 10])[0]
+    if not resolution or unit not in (2, 3):
+        return None
+    return resolution if unit == 2 else resolution * 2.54
+
+
+def image_density(path):
+    """The dots per inch a PNG, WebP or JPEG file states for itself, or None when it states none: a PNG's pHYs chunk in
+    pixels per metre, a WebP's Exif chunk, a JPEG's JFIF header or Exif segment."""
+    with open(path, 'rb') as handle:
+        data = handle.read(_DENSITY_READ)
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        at = 8
+        while at + 8 <= len(data):
+            length = struct.unpack('>I', data[at:at + 4])[0]
+            kind = data[at + 4:at + 8]
+            if kind == b'pHYs' and length >= 9 and at + 17 <= len(data):
+                across, _, unit = struct.unpack('>IIB', data[at + 8:at + 17])
+                return across * 0.0254 if unit == 1 and across else None
+            if kind in (b'IDAT', b'IEND'):
+                return None
+            at += 12 + length
+        return None
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        # A WebP keeps its Exif chunk after the picture's data: its chunks are walked by their headers.
+        with open(path, 'rb') as handle:
+            handle.seek(12)
+            while True:
+                header = handle.read(8)
+                if len(header) < 8:
+                    return None
+                length = struct.unpack('<I', header[4:8])[0]
+                if header[:4] == b'EXIF':
+                    return _tiff_density(handle.read(min(length, _DENSITY_READ)))
+                handle.seek(length + (length & 1), os.SEEK_CUR)
+    if data[:2] == b'\xff\xd8':
+        at = 2
+        while at + 4 <= len(data) and data[at] == 0xFF:
+            code = data[at + 1]
+            length = struct.unpack('>H', data[at + 2:at + 4])[0]
+            segment = data[at + 4:at + 2 + length]
+            if code == 0xE0 and segment[:5] == b'JFIF\x00' and len(segment) >= 12:
+                unit, across = segment[7], struct.unpack('>H', segment[8:10])[0]
+                if unit in (1, 2) and across:
+                    return across if unit == 1 else across * 2.54
+            if code == 0xE1 and segment[:6] == b'Exif\x00\x00':
+                found = _tiff_density(segment)
+                if found:
+                    return found
+            if code == 0xDA:
+                return None
+            at += 2 + length
+    return None
+
+
+def display_size(path):
+    """(width, height) a page lays a picture out at, in its own pixels: the file's pixels at the density it states
+    when that is above the page's, else the file's pixels - a picture is never drawn larger than it is, and the 72 dpi
+    many tools stamp on a file is a print size, not a capture's scale. None when the file is no PNG, WebP or JPEG."""
+    size = image_size(path)
+    if size is None:
+        return None
+    density = image_density(path)
+    if not density or density < PAGE_DPI + 0.5:
+        return size
+    scale = density / PAGE_DPI
+    return max(1, round(size[0] / scale)), max(1, round(size[1] / scale))

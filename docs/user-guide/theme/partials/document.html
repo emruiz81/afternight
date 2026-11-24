@@ -2,7 +2,9 @@
     body - and the table of contents. A process page shows its place among the stages and, when it states one, its
     "At a glance" card between the lead and the body. A layout sets `crumbs` (show the breadcrumbs), `wide` (no
     table of contents and the left navigation only as the drawer) and `two` (two columns: the table of contents moves
-    under the left navigation and the page takes the right rail's width) before it includes this. -#}
+    under the left navigation and the page takes the right rail's width) before it includes this. A page that shows a
+    picture wider than a figure stands among the text (`gp.wide_figure`) takes two columns as well. -#}
+{%- set two = two or (gp and gp.wide_figure) %}
 <div class="wrap layout{% if wide %} layout-wide{% elif two %} layout-two{% endif %}">
   {% include "partials/nav-left.html" %}
   <main id="content" class="content" tabindex="-1">

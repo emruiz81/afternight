@@ -258,9 +258,13 @@ class ComponentSiteTests(unittest.TestCase):
         html = self.site('processes/stretching/levels.html')
         self.assertIn('<li class="chip warn"><i aria-hidden="true"></i>Replaces the target</li>', html)
         self.assertIn('<li class="chip"><b>Preview</b> real-time</li>', html)
-        self.assertIn('<figure class="an-figure"><div class="shotwrap"><a class="glightbox" '
+        self.assertIn('<figure class="an-figure an-wide"><div class="shotwrap"><a class="glightbox" '
                       'href="../../assets/window.png"', html)
-        self.assertLess(html.index('<figure class="an-figure">'), html.index('id="where-it-belongs"'))
+        self.assertLess(html.index('<figure class="an-figure an-wide">'), html.index('id="where-it-belongs"'))
+        # Its picture is wider than a figure stands among the text: the page leaves its right rail for it, and its
+        # controls are listed under the left navigation.
+        self.assertIn('class="wrap layout layout-two"', html)
+        self.assertNotIn('side-toc', html)
         self.assertLess(html.index('id="where-it-belongs"'), html.index('id="at-a-glance"'))
         self.assertLess(html.index('id="at-a-glance"'), html.index('id="before-you-start"'))
         self.assertIn('<dt>Enabled when</dt>', html)
@@ -318,7 +322,8 @@ class ComponentSiteTests(unittest.TestCase):
         self.assertIn('<li><a href="#add-the-frames">Add the frames</a></li>', tutorial)
         self.assertIn('<ul class="task-list need">', tutorial)
         self.assertIn('<ul class="branches">', tutorial)
-        self.assertIn('<div class="tut"><figure class="fig an-figure">', tutorial)
+        # A wide picture stands above the steps rather than beside them.
+        self.assertIn('<div class="tut tut-wide"><figure class="fig an-figure an-wide">', tutorial)
         self.assertIn('<li class="nopin"><h3 id="open-the-master">', tutorial)
         self.assertIn('<div class="admonition see">', tutorial)
         self.assertIn('<details class="wrong">', tutorial)
@@ -331,10 +336,13 @@ class ComponentSiteTests(unittest.TestCase):
 
     def test_an_interface_page_and_plain_markdown(self):
         viewer = self.site('interface/viewer.html')
-        self.assertIn('<figure class="an-figure">', viewer)
+        self.assertIn('<figure class="an-figure an-wide">', viewer)
+        self.assertIn('class="wrap layout layout-two"', viewer)
         self.assertIn('<dl class="tsc">', viewer)
         self.assertNotIn('class="steps"', viewer)
         markdown = self.site('reference/markdown.html')
+        # A page with no wide picture keeps its right rail.
+        self.assertIn('class="wrap layout"', markdown)
         self.assertEqual(markdown.count('<div class="table-wrap" tabindex="0"><table>'), 1)
         self.assertIn('<div class="admonition see">', markdown)
         self.assertIn('<details class="wrong">', markdown)

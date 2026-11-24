@@ -6,8 +6,8 @@ Captures the application's window for the user guide's pictures, the same way ev
 A page of the guide opens with a picture of what it describes. This script takes that picture from the application
 itself: it starts a deployment's application with a storage root of its own, so nobody's settings are in the
 picture and none are touched - the dark theme, the default preset and the Compact density a new profile starts
-with, at 100 % and in the en_US locale; gives the main window a fixed place and size, 1440 x 900 unless told
-otherwise; opens the images the pictures need through the application's own File > Open and the system's file
+with, at 150 % and in the en_US locale; gives the main window a fixed place and size, 1440 x 900 at 100 % unless
+told otherwise; opens the images the pictures need through the application's own File > Open and the system's file
 dialog; then, for each capture asked for, opens the process from the menu a person would use - the menu bar the
 window shows on Alt - waits until what it opened has stopped changing - its preview has landed - and saves it as a
 PNG. A process opens as a task, a page of the main window: its picture is the task, the canvas and the column,
@@ -16,9 +16,13 @@ is done.
 
 The picture is taken with PrintWindow, which reads the window's own content: another window in front of it does not
 get into the picture, and the pointer is never in it. The pointer is moved out of the frame while a picture is
-taken, because what it hovers over is drawn highlighted, and put back afterwards. The application is run without
-display scaling and in the en_US locale, so a picture is at 100 % and writes its numbers with a decimal point, as
-the guide does, whatever the machine is set to.
+taken, because what it hovers over is drawn highlighted, and put back afterwards. The application is run in the
+en_US locale and at the scale -Scale names whatever the monitor is set to - 1.5 unless told otherwise, the window
+drawn at 150 % - so a picture writes its numbers with a decimal point, as the guide does, and has the pixels a
+high-density screen draws. -Width and -Height are the window's size at 100 %: at another scale its frame keeps the
+system's size and what is inside it grows by the scale, so the window lays out alike at every scale. A window that
+cannot be as tall as that on the screen stops the run. -Scale 1 takes a picture of image data - a crop of a view -
+whose pixels the view draws at 100 %.
 
 -Display <mode> chooses how the opened image is shown before anything is captured - `Autostretch` for a linear
 master, which is nearly black without it - through the display mode of the floating toolbar, and waits until the
@@ -68,7 +72,9 @@ A task is captured as it opens unless -Set says what to do in it first:
                              button. `%wait=<title>` waits, up to -RunTimeoutSeconds, for a message whose title
                              starts with <title> and answers it with OK; one titled Failed stops the capture.
                              `%until=<control>` waits, up to -RunTimeoutSeconds, until the control is shown and
-                             enabled: Image Integration's btnOpenReport once its run has ended.
+                             enabled: Image Integration's btnOpenReport once its run has ended. A run that opens
+                             what it made in a workspace takes the window there; the task is brought back by its
+                             item on the rail.
                              `%keys=<key>[,<key>...]` posts keys to the window - Tab, Down, Return and the
                              like - and `%type=<text>` types a text into what has the keyboard: what a dialog too
                              large for UI Automation, Settings, takes while it is modal.
@@ -140,7 +146,7 @@ Usage (Windows PowerShell 5.1, which carries UI Automation):
         [-MainWindow <name> [-MainCrop <part>]] [-Set "<control>=<value>[;...]"]
         [-Prepare "<menu path>|<control>=<value>[;...]"] [-View "<menu path>[;...]"] [-AfterView "<actions>"]
         [-Apply] [-List] [-WhatIf] [-Storage <new folder> | -Storage <kept folder> -ReuseStorage]
-        [-Guide docs\user-guide] [-Left 80] [-Top 60] [-Width 1440] [-Height 900] [-SettleSeconds 20]
+        [-Guide docs\user-guide] [-Left 80] [-Top 60] [-Width 1440] [-Height 900] [-Scale 1.5] [-SettleSeconds 20]
         [-OpenTimeoutSeconds 180] [-RunTimeoutSeconds 3600] [-OpenAnswer No] [-HoldSeconds 0]
     ... -File build\scripts\tools\capture_guide_screenshots.ps1 -Recipes docs\user-guide\captures
         [-Only <pattern>[,...]] [-WhatIf] -Application <exe> -Output <folder> -Data "<role>=<path>[;...]"
@@ -183,6 +189,7 @@ param(
     [int]$Top = 60,
     [int]$Width = 1440,
     [int]$Height = 900,
+    [double]$Scale = 1.5,
     [int]$SettleSeconds = 20,
     [int]$OpenTimeoutSeconds = 180,
     [int]$RunTimeoutSeconds = 3600,
@@ -292,6 +299,11 @@ if ($Recipes) {
         $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath, '-Application', $Application,
                        '-Output', $folder, '-Guide', $Guide, '-SettleSeconds', $SettleSeconds,
                        '-OpenTimeoutSeconds', $OpenTimeoutSeconds, '-RunTimeoutSeconds', $RunTimeoutSeconds)
+        # A recipe that states its scale - a picture of image data at 1 - is taken at it, every other at this run's.
+        $recipeScale = $Scale
+        $stated = [Array]::IndexOf([string[]]@($recipe.options), '-Scale')
+        if ($stated -ge 0) { $recipeScale = [double]$recipe.options[$stated + 1] }
+        else { $arguments += @('-Scale', $Scale.ToString([System.Globalization.CultureInfo]::InvariantCulture)) }
         if ($files.Count -gt 0) { $arguments += @('-Open', ($files -join ',')) }
         # Windows PowerShell hands an argument to a program without escaping the quotes inside it: a file dialog's
         # answer of several files, `"a.fits" "b.fits"`, would lose them.
@@ -321,7 +333,8 @@ if ($Recipes) {
             if ($half.picture.StartsWith('docs/')) { $base = $repository }
             $target = Join-Path $base ($half.picture -replace '\.(webp|png|jpg)$', '' -replace '/', '\')
             $optimizer = Join-Path $PSScriptRoot 'optimize_guide_image.py'
-            $row = & $Optimize $optimizer $png --to $target --shows $half.shows --data $described --commit $Commit
+            $row = & $Optimize $optimizer $png --to $target --shows $half.shows --data $described --commit $Commit `
+                --scale $recipeScale.ToString([System.Globalization.CultureInfo]::InvariantCulture)
             if ($LASTEXITCODE -ne 0) { $failedRecipes.Add($half.picture); continue }
             Add-Content -LiteralPath $rows -Value (@("### $($recipe.group): $($half.picture)") + @($row)) -Encoding UTF8
         }
@@ -372,6 +385,7 @@ public static class AnCaptureNative
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out Rect rect);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
@@ -515,6 +529,18 @@ public sealed class AnScreenshots
         if (edit == IntPtr.Zero) throw new InvalidOperationException("the file dialog has no name box");
         IntPtr ignored;
         AnCaptureNative.SendMessageTimeout(edit, 0x000C, IntPtr.Zero, path, 2, 5000, out ignored);
+        // A folder is what a folder picker takes; a dialog that opens files goes into it instead, and is given the
+        // folder's files, every one quoted with its whole path, as a person selects them all.
+        // A folder a run is to write into - `{work}\masters` - is made first: a folder picker takes only one that exists.
+        // A list of files - `"a.fits" "b.fits"` - is no path: it is answered as it is.
+        bool single = path.IndexOfAny(System.IO.Path.GetInvalidPathChars()) < 0 && !path.Contains("\"");
+        if (single && !System.IO.File.Exists(path) && !System.IO.Directory.Exists(path) &&
+            System.IO.Path.GetExtension(path).Length == 0)
+        {
+            string parent = System.IO.Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(parent) && System.IO.Directory.Exists(parent)) System.IO.Directory.CreateDirectory(path);
+        }
+        bool folder = single && System.IO.Directory.Exists(path);
         for (int attempt = 0; attempt < 4; ++attempt)
         {
             AnCaptureNative.PostMessage(dialog.Handle, 0x0111, (IntPtr)1, IntPtr.Zero);
@@ -523,6 +549,20 @@ public sealed class AnScreenshots
             {
                 if (!IsShown(dialog.Handle)) return;
                 Thread.Sleep(50);
+            }
+            if (folder && attempt == 0)
+            {
+                // A folder picker that went into the folder takes it with an empty name box.
+                AnCaptureNative.SendMessageTimeout(edit, 0x000C, IntPtr.Zero, "", 2, 5000, out ignored);
+            }
+            else if (folder)
+            {
+                string[] files = System.IO.Directory.GetFiles(path);
+                Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+                if (files.Length == 0) break;
+                string all = "\"" + string.Join("\" \"", files) + "\"";
+                AnCaptureNative.SendMessageTimeout(edit, 0x000C, IntPtr.Zero, all, 2, 5000, out ignored);
+                folder = false;
             }
         }
         throw new TimeoutException("the file dialog did not accept " + path);
@@ -583,12 +623,30 @@ public sealed class AnScreenshots
         AnCaptureNative.PostMessage(handle, 0x0202, IntPtr.Zero, end);
     }
 
-    /// Restores a window that opened maximized and gives it a place and a size, without bringing it to the front.
-    public void Place(IntPtr handle, int left, int top, int width, int height)
+    /// Restores a window that opened maximized and gives it a place and a size, without bringing it to the front: the
+    /// size it has at 100 %, whose inside grows by `scale` while its frame keeps the system's size. Returns the size
+    /// the window took; the system holds a window to the screen's height, and a window it held shorter stops the run.
+    public Size Place(IntPtr handle, int left, int top, int width, int height, double scale)
     {
         AnCaptureNative.ShowWindow(handle, 4);
         AnCaptureNative.ShowWindow(handle, 9);
         AnCaptureNative.SetWindowPos(handle, IntPtr.Zero, left, top, width, height, 0x0004 | 0x0010);
+        AnCaptureNative.Rect outer, inner;
+        AnCaptureNative.GetWindowRect(handle, out outer);
+        AnCaptureNative.GetClientRect(handle, out inner);
+        int frameWidth = (outer.Right - outer.Left) - (inner.Right - inner.Left);
+        int frameHeight = (outer.Bottom - outer.Top) - (inner.Bottom - inner.Top);
+        Size wanted = new Size((int)Math.Round((width - frameWidth) * scale) + frameWidth,
+                               (int)Math.Round((height - frameHeight) * scale) + frameHeight);
+        if (wanted.Width != width || wanted.Height != height)
+            AnCaptureNative.SetWindowPos(handle, IntPtr.Zero, left, top, wanted.Width, wanted.Height, 0x0004 | 0x0010);
+        AnCaptureNative.GetWindowRect(handle, out outer);
+        Size taken = new Size(outer.Right - outer.Left, outer.Bottom - outer.Top);
+        if (taken != wanted)
+            throw new InvalidOperationException(string.Format("the main window is {0} x {1} px where {2} x {3} were " +
+                "asked: the screen holds no larger window; take a lower -Scale or -Height", taken.Width, taken.Height,
+                wanted.Width, wanted.Height));
+        return taken;
     }
 
     /// The window's frame on the screen: what a person sees of it, without the margin the system keeps around a
@@ -621,13 +679,53 @@ public sealed class AnScreenshots
             foreach (AnShownWindow menu in menus)
             {
                 AnCaptureNative.Rect place = Frame(menu.Handle);
-                using (Bitmap drawn = Picture(menu.Handle))
+                using (Bitmap opaque = Picture(menu.Handle))
+                using (Bitmap drawn = opaque.Clone(new Rectangle(0, 0, opaque.Width, opaque.Height), PixelFormat.Format32bppArgb))
                 {
+                    // A menu is a translucent window whose margin holds its shadow, around a panel with rounded
+                    // corners; drawn by itself, what is translucent comes out black. The menu is laid over the window
+                    // without it: the black reached from the picture's edge is made transparent, and a panel is never
+                    // pure black at its own edge.
+                    ClearOuterBlack(drawn);
                     graphics.DrawImageUnscaled(drawn, place.Left - frame.Left, place.Top - frame.Top);
                 }
             }
         }
         return picture;
+    }
+
+    /// Makes transparent every pure black pixel of a picture that is reached from its edge through pure black pixels:
+    /// the margin a translucent window comes out with when it is drawn by itself, and the corners its rounded frame
+    /// leaves. Black inside what the window drew is kept.
+    public static void ClearOuterBlack(Bitmap bitmap)
+    {
+        int width = bitmap.Width, height = bitmap.Height;
+        Rectangle all = new Rectangle(0, 0, width, height);
+        BitmapData data = bitmap.LockBits(all, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            int[] pixels = new int[width * height];
+            for (int y = 0; y < height; ++y) Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), pixels, y * width, width);
+            Stack<int> open = new Stack<int>();
+            for (int x = 0; x < width; ++x) { open.Push(x); open.Push((height - 1) * width + x); }
+            for (int y = 0; y < height; ++y) { open.Push(y * width); open.Push(y * width + width - 1); }
+            while (open.Count > 0)
+            {
+                int at = open.Pop();
+                if ((pixels[at] & 0x00FFFFFF) != 0 || (pixels[at] >> 24) == 0) continue;
+                pixels[at] = 0;
+                int x = at % width, y = at / width;
+                if (x > 0) open.Push(at - 1);
+                if (x < width - 1) open.Push(at + 1);
+                if (y > 0) open.Push(at - width);
+                if (y < height - 1) open.Push(at + width);
+            }
+            for (int y = 0; y < height; ++y) Marshal.Copy(pixels, y * width, IntPtr.Add(data.Scan0, y * data.Stride), width);
+        }
+        finally
+        {
+            bitmap.UnlockBits(data);
+        }
     }
 
     /// Rests the pointer on the middle of an element, so the toolkit draws it highlighted: the pointer is put there,
@@ -837,10 +935,26 @@ public sealed class AnScreenshots
         for (int attempt = 0; attempt < 4; ++attempt)
         {
             if (MenuBarShown(main)) return;
+            // Alt shows the bar only when the window's own widget has the keyboard: views a menu just made - three
+            // channels extracted - may hold it, and the window is given it back first.
+            if (attempt > 0)
+            {
+                // A menu a choice left open holds the keyboard as well: it is closed first.
+                if (HasPopup()) { CloseOpenMenus(); Thread.Sleep(500); }
+                try { main.SetFocus(); } catch (Exception) { }
+                Thread.Sleep(300);
+            }
             AnCaptureNative.PostMessage(handle, 0x0104, (IntPtr)0x12, (IntPtr)0x20380001);
             Thread.Sleep(80);
             AnCaptureNative.PostMessage(handle, 0x0105, (IntPtr)0x12, (IntPtr)unchecked((int)0xC0380001));
-            Thread.Sleep(600);
+            // Alt shows and hides the bar in turn: a busy window - three views just made - is given time to show it
+            // before Alt is pressed again, which would hide it.
+            Stopwatch shown = Stopwatch.StartNew();
+            while (shown.ElapsedMilliseconds < 3000)
+            {
+                Thread.Sleep(150);
+                if (MenuBarShown(main)) return;
+            }
         }
         if (!MenuBarShown(main)) throw new InvalidOperationException("the menu bar did not show on Alt");
     }
@@ -1125,9 +1239,17 @@ public sealed class AnScreenshots
 
     public string ValueOf(AutomationElement element)
     {
-        object pattern;
-        if (element.TryGetCurrentPattern(ValuePattern.Pattern, out pattern)) return ((ValuePattern)pattern).Current.Value;
-        return element.Current.Name;
+        try
+        {
+            object pattern;
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out pattern)) return ((ValuePattern)pattern).Current.Value;
+            return element.Current.Name;
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The toolkit gave the control a new element - a list it filled again: it is read again by its name.
+            return null;
+        }
     }
 
     /// Chooses an item of a combo box as a person does with the keyboard: a click opens its list, Home and Down
@@ -1135,6 +1257,30 @@ public sealed class AnScreenshots
     /// tried in turn until the box shows the one wanted.
     public bool ChooseInComboBox(IntPtr window, AutomationElement combo, string wanted)
     {
+        // A box scrolled out of its column's view takes no click: it is given the focus and stepped through with the
+        // keyboard, which a closed box answers by choosing the next item.
+        if (ValueOf(combo) == wanted) return true;
+        // Only a box that has the keyboard focus is stepped through: a key a box did not take would go to the control
+        // that kept the focus - another box of the column - and change it.
+        bool focused = false;
+        try
+        {
+            combo.SetFocus();
+            Thread.Sleep(300);
+            focused = combo.Current.HasKeyboardFocus;
+        }
+        catch (Exception) { }
+        for (int item = 0; focused && item < 12; ++item)
+        {
+            PostKey(window, 0x24);
+            for (int down = 0; down < item; ++down)
+            {
+                Thread.Sleep(80);
+                PostKey(window, 0x28);
+            }
+            Thread.Sleep(500);
+            if (ValueOf(combo) == wanted) return true;
+        }
         for (int item = 0; item < 12; ++item)
         {
             if (ValueOf(combo) == wanted) return true;
@@ -1165,6 +1311,7 @@ public sealed class AnScreenshots
 
     public bool IsEnabled(AutomationElement element)
     {
+        if (element == null) return false;
         try { return element.Current.IsEnabled; } catch (ElementNotAvailableException) { return false; }
     }
 
@@ -1210,7 +1357,7 @@ public sealed class AnScreenshots
         // A window with tabs holds a control of one name on each - Image Integration's Add Folder on every source
         // tab - so the one shown wins; of the controls named by what they show, a tab wins.
         AutomationElement root = Root(window);
-        AutomationElement hiddenObject = null, tab = null, shown = null, hiddenShown = null;
+        AutomationElement hiddenObject = null, tab = null, shown = null, hiddenShown = null, row = null;
         foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, Condition.TrueCondition))
         {
             try
@@ -1222,6 +1369,12 @@ public sealed class AnScreenshots
                     if (hiddenObject == null) hiddenObject = element;
                     continue;
                 }
+                // A list's row says its title and then its state - Image Integration's run sheet: "Darks, done, 20
+                // frames" - and is named by its title, or by its title and a comma, "Summary,", when another control
+                // has that title for its whole name.
+                string title = name.EndsWith(",") ? name.Substring(0, name.Length - 1) : name;
+                if (row == null && element.Current.ControlType == ControlType.ListItem &&
+                    element.Current.Name.StartsWith(title + ", ", StringComparison.Ordinal)) row = element;
                 if (element.Current.Name != name || element.Current.ControlType == ControlType.Text) continue;
                 if (element.Current.ControlType == ControlType.TabItem && !offscreen) { if (tab == null) tab = element; }
                 else if (!offscreen) { if (shown == null) shown = element; }
@@ -1229,7 +1382,7 @@ public sealed class AnScreenshots
             }
             catch (ElementNotAvailableException) { }
         }
-        return hiddenObject ?? tab ?? shown ?? hiddenShown;
+        return hiddenObject ?? tab ?? shown ?? hiddenShown ?? row;
     }
 
     /// Presses a control on a thread of its own, as Choose does a menu item: a button may open a modal dialog.
@@ -1246,6 +1399,20 @@ public sealed class AnScreenshots
         }
         if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
         if (!IsEnabled(control)) throw new InvalidOperationException("'" + name + "' is disabled");
+        // A list's row is clicked, as a person chooses it: selecting it through UI Automation does not tell the list's
+        // owner - Image Integration's run sheet would not show the stage.
+        if (control.Current.ControlType == ControlType.ListItem)
+        {
+            BringIntoView(window, control);
+            control = Control(window, name) ?? control;
+            System.Windows.Rect item = control.Current.BoundingRectangle;
+            if (!item.IsEmpty)
+            {
+                PostClick(window, (int)(item.X + item.Width / 2), (int)(item.Y + item.Height / 2));
+                Thread.Sleep(500);
+                return Task.FromResult(0);
+            }
+        }
         bool isTab = control.Current.ControlType == ControlType.TabItem;
         Task pressing = Task.Run(delegate
         {
@@ -1368,6 +1535,9 @@ public sealed class AnScreenshots
         AutomationElement control = Control(window, name);
         if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
         if (!IsEnabled(control)) throw new InvalidOperationException("'" + name + "' is disabled");
+        // Scrolling may make the toolkit give the control a new element: it is looked for again.
+        BringIntoView(window, control);
+        control = Control(window, name) ?? control;
         object pattern;
         if (control.Current.ControlType == ControlType.ComboBox)
         {
@@ -1497,11 +1667,57 @@ public sealed class AnScreenshots
 
     /// Clicks in a control, at a place given in percent of its width and its height from its top left corner: a
     /// control drawn by the application - a curve, a plot - takes a point where a person clicks it.
+    /// Scrolls the body a control lies in until the control is in its view: a task's column scrolls, and a control
+    /// below its fold takes neither a click nor the focus. The scroll bar beside the control, to its right and as tall
+    /// as the part of the body it shows, is moved by the distance the control lies outside it, in the bar's own units
+    /// (its page step is the height it shows). Nothing happens to a control already in view or with no such bar.
+    public void BringIntoView(IntPtr window, AutomationElement control)
+    {
+        try
+        {
+            for (int pass = 0; pass < 3; ++pass)
+            {
+                System.Windows.Rect place = control.Current.BoundingRectangle;
+                if (place.IsEmpty || place.Height < 1) return;
+                AutomationElementCollection bars = Root(window).FindAll(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ScrollBar));
+                AutomationElement beside = null;
+                System.Windows.Rect barPlace = System.Windows.Rect.Empty;
+                foreach (AutomationElement bar in bars)
+                {
+                    System.Windows.Rect at = bar.Current.BoundingRectangle;
+                    if (at.IsEmpty || at.Height <= at.Width || at.Left < place.Left) continue;
+                    if (place.Top + place.Height / 2 < at.Top - 4000 || at.Left - place.Right > 1200) continue;
+                    if (beside == null || at.Left < barPlace.Left) { beside = bar; barPlace = at; }
+                }
+                if (beside == null) return;
+                // In view with a margin: a footer over the body's foot - Reset, Close, Apply - may cover its last rows.
+                double margin = Math.Min(120, barPlace.Height / 6);
+                if (place.Top >= barPlace.Top + margin && place.Bottom <= barPlace.Bottom - margin) return;
+                object pattern;
+                if (!beside.TryGetCurrentPattern(RangeValuePattern.Pattern, out pattern)) return;
+                RangeValuePattern range = (RangeValuePattern)pattern;
+                if (range.Current.IsReadOnly || range.Current.LargeChange <= 0) return;
+                double perUnit = barPlace.Height / range.Current.LargeChange;
+                // The control is brought to the middle of what the body shows.
+                double distance = (place.Top + place.Height / 2) - (barPlace.Top + barPlace.Height / 2);
+                double wanted = range.Current.Value + distance / perUnit;
+                wanted = Math.Max(range.Current.Minimum, Math.Min(range.Current.Maximum, Math.Round(wanted)));
+                if (wanted == range.Current.Value) return;
+                range.SetValue(wanted);
+                Thread.Sleep(400);
+            }
+        }
+        catch (Exception) { }
+    }
+
     public string ClickIn(IntPtr window, string name, double xPercent, double yPercent)
     {
         AutomationElement control = Control(window, name);
         if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
         if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) throw new InvalidOperationException("a click is placed in percent of the control, 0 to 100");
+        BringIntoView(window, control);
+        control = Control(window, name) ?? control;
         System.Windows.Rect place = control.Current.BoundingRectangle;
         if (place.IsEmpty || place.Width < 1 || place.Height < 1) throw new InvalidOperationException("'" + name + "' is not on the screen");
         int x = (int)Math.Round(place.X + (place.Width - 1) * xPercent / 100.0);
@@ -1790,6 +2006,10 @@ foreach ($name in @('QT_PLUGIN_PATH', 'QT_QPA_PLATFORM', 'QT_SCALE_FACTOR', 'QT_
 # machine's regional format is: the toolkit takes its locale from LANG.
 $start.EnvironmentVariables['QT_ENABLE_HIGHDPI_SCALING'] = '0'
 $start.EnvironmentVariables['QT_FONT_DPI'] = '96'
+# The scale is the toolkit's own factor, which applies whatever the monitor's scaling is, written with a decimal point
+# whatever the machine's regional format is.
+$scaleText = $Scale.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+if ($Scale -ne 1) { $start.EnvironmentVariables['QT_SCALE_FACTOR'] = $scaleText }
 $start.EnvironmentVariables['LANG'] = 'en_US'
 
 $failed = $false
@@ -1967,9 +2187,9 @@ try {
     $main = $shots.MainWindow(120000)
     $mainHandle = [IntPtr]$main.Current.NativeWindowHandle
     Start-Sleep -Milliseconds 1500
-    $shots.Place($mainHandle, $Left, $Top, $Width, $Height)
+    $placed = $shots.Place($mainHandle, $Left, $Top, $Width, $Height, $Scale)
     Start-Sleep -Milliseconds 800
-    $shots.Note("main window placed at $Left,$Top, $Width x $Height")
+    $shots.Note("main window placed at $Left,$Top, $Width x $Height at 100 %, $($placed.Width) x $($placed.Height) px at $scaleText")
 
     foreach ($image in $images) {
         $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
@@ -2121,12 +2341,25 @@ try {
                 }
                 elseif ($change.ContainsKey('until')) {
                     # A run that shows its end by a control - Image Integration's Open Report, enabled once its run
-                    # ends - is waited for, up to -RunTimeoutSeconds.
+                    # ends - is waited for, up to -RunTimeoutSeconds. A run whose end opens what it made in a workspace
+                    # takes the window there; its task is brought back by its item on the rail, named after the
+                    # process, as a person would.
                     $asked = [System.Diagnostics.Stopwatch]::StartNew()
+                    $railName = (($shot.menu -split '>')[-1]).Trim()
                     while ($asked.ElapsedMilliseconds -lt ($RunTimeoutSeconds * 1000)) {
                         $shots.CheckAlive()
                         $ready = $false
                         try {
+                            if ($isTask -and $railName -and $shots.TaskPageId($main) -ne $openedTask) {
+                                Start-Sleep -Milliseconds 3000
+                                [void]$shots.PressMainButton($main, "$railName...", 10000)
+                                Start-Sleep -Milliseconds 1500
+                                $page = $shots.TaskPage($main)
+                                if ($page) {
+                                    $shots.SetScope($mainHandle, $page)
+                                    $shots.Note("the task brought back from the place its run ended in")
+                                }
+                            }
                             $control = $shots.Control($window.Handle, $change.control)
                             $ready = $control -and -not $control.Current.IsOffscreen -and $shots.IsEnabled($control)
                         }
@@ -2251,6 +2484,13 @@ try {
                 if ($shots.Control($window.Handle, 'Apply')) { $applyButton = 'Apply' }
                 elseif ($shots.Control($window.Handle, 'OK')) { $applyButton = 'OK' }
                 if ($applyButton) {
+                    # A task that computes before it can apply - Auto Gradient Removal's model - enables Apply when it
+                    # is done.
+                    $enabling = [System.Diagnostics.Stopwatch]::StartNew()
+                    while (-not $shots.IsEnabled($shots.Control($window.Handle, $applyButton)) -and $enabling.Elapsed.TotalSeconds -lt $OpenTimeoutSeconds) {
+                        $shots.CheckAlive()
+                        Start-Sleep -Milliseconds 500
+                    }
                     $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
                     foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
                     [void]$shots.Press($window.Handle, $applyButton)
@@ -2338,12 +2578,22 @@ try {
                 $clock.Restart()
                 while ($shots.IsShown($floated.Handle) -and $clock.ElapsedMilliseconds -lt 5000) { Start-Sleep -Milliseconds 100 }
             }
+            $beforeClose = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+            foreach ($shown in $shots.Windows()) { [void]$beforeClose.Add($shown.Handle) }
             if ($shots.TaskPageId($main) -eq $openedTask -and $shots.Control($mainHandle, 'taskHeaderClose')) {
                 [void]$shots.Press($mainHandle, 'taskHeaderClose')
             }
             $shots.ClearScope($mainHandle)
             $clock.Restart()
-            while ($shots.TaskPageId($main) -and $clock.ElapsedMilliseconds -lt 5000) { Start-Sleep -Milliseconds 100 }
+            while ($shots.TaskPageId($main) -and $clock.ElapsedMilliseconds -lt 5000) {
+                # A task that holds results asks before it closes - "Close Star Profiler" - and is told Yes, as a
+                # person who has taken the picture does.
+                foreach ($shown in $shots.Windows()) {
+                    if ($beforeClose.Contains($shown.Handle) -or -not $shown.Title -or -not $shown.Title.StartsWith('Close ')) { continue }
+                    try { if ($shots.Control($shown.Handle, 'Yes')) { [void]$shots.Press($shown.Handle, 'Yes'); $shots.Note("answered '$($shown.Title)' with Yes") } } catch { }
+                }
+                Start-Sleep -Milliseconds 100
+            }
             if ($shots.TaskPageId($main)) {
                 $others = @($shots.Windows() | Where-Object { $_.Handle -ne $mainHandle -and $_.Title } | ForEach-Object { "'$($_.Title)'" })
                 $beside = ''
@@ -2413,6 +2663,10 @@ try {
 catch {
     $failed = $true
     Write-Output "capture failed: $($_.Exception.Message)"
+    # An exception of the automation layer may carry no message: its type and where it was thrown say what failed.
+    $inner = $_.Exception
+    while ($inner.InnerException) { $inner = $inner.InnerException }
+    if (-not $inner.Message) { Write-Output "  ($($inner.GetType().FullName) at $(($inner.StackTrace -split "`n" | Select-Object -First 3) -join ' / '))" }
 }
 finally {
     # Nothing of the session is kept: the application is stopped as it stands, without its questions about saving.

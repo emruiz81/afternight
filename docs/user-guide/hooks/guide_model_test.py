@@ -432,6 +432,78 @@ class ImageSizeTests(TempDir):
         self.assertIsNone(model.image_size(self.write('b.jpg', b'\xff\xd8\xff')))
 
 
+def _png(width, height, density_ppm=None, unit=1):
+    """A PNG's signature, header and, when given, its pHYs chunk, ahead of an empty IDAT chunk."""
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + b'\x00' * 4
+    phys = chunk(b'pHYs', struct.pack('>IIB', density_ppm, density_ppm, unit)) if density_ppm else b''
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>II', width, height) + b'\x08\x06\x00\x00\x00') +
+            phys + chunk(b'IDAT', b''))
+
+
+def _exif(dpi, order='>', unit=2):
+    """A TIFF block of an Exif chunk: XResolution as a rational and ResolutionUnit, in either byte order."""
+    head = (b'MM' if order == '>' else b'II') + struct.pack(order + 'HI', 42, 8)
+    entries = 2
+    rational_at = 8 + 2 + entries * 12 + 4
+    ifd = struct.pack(order + 'H', entries)
+    ifd += struct.pack(order + 'HHII', 0x011A, 5, 1, rational_at)
+    ifd += struct.pack(order + 'HHIHH', 0x0128, 3, 1, unit, 0)
+    ifd += struct.pack(order + 'I', 0)
+    return head + ifd + struct.pack(order + 'II', int(dpi * 100), 100)
+
+
+def _webp(width, height, exif=None, pixels=0):
+    """An extended WebP: its VP8X chunk, a lossy frame of `pixels` bytes of data and, after it, an Exif chunk."""
+    flags = b'\x08\x00\x00\x00' if exif else b'\x00\x00\x00\x00'
+    vp8x = flags + (width - 1).to_bytes(3, 'little') + (height - 1).to_bytes(3, 'little')
+    frame = b'\x00\x00\x00\x9d\x01\x2a' + struct.pack('<HH', width, height) + b'\x00' * pixels
+    body = b'VP8X' + struct.pack('<I', len(vp8x)) + vp8x + b'VP8 ' + struct.pack('<I', len(frame)) + frame
+    if len(frame) & 1:
+        body += b'\x00'
+    if exif:
+        body += b'EXIF' + struct.pack('<I', len(exif)) + exif + (b'\x00' if len(exif) & 1 else b'')
+    return b'RIFF' + struct.pack('<I', 4 + len(body)) + b'WEBP' + body
+
+
+class ImageDensityTests(TempDir):
+    def test_a_png_states_its_density_in_pixels_per_metre(self):
+        path = self.write('a.png', _png(780, 1135, density_ppm=5669))
+        self.assertAlmostEqual(model.image_density(path), 144.0, places=0)
+        self.assertEqual(model.display_size(path), (520, 757))
+
+    def test_a_png_without_a_physical_unit_states_none(self):
+        self.assertIsNone(model.image_density(self.write('a.png', _png(10, 10, density_ppm=5669, unit=0))))
+        self.assertIsNone(model.image_density(self.write('b.png', _png(10, 10))))
+
+    def test_a_webp_states_it_in_an_exif_chunk_after_its_pixels(self):
+        # The chunk lies past the first 64 KB of the file, as it does after a large picture's data.
+        path = self.write('a.webp', _webp(1600, 1116, exif=_exif(121.39), pixels=70000))
+        self.assertAlmostEqual(model.image_density(path), 121.39, places=2)
+        self.assertEqual(model.display_size(path), (1265, 883))
+
+    def test_either_byte_order_and_centimetres(self):
+        little = self.write('a.webp', _webp(300, 200, exif=_exif(144, order='<')))
+        self.assertAlmostEqual(model.image_density(little), 144.0, places=2)
+        metric = self.write('b.webp', _webp(300, 200, exif=_exif(56.7, unit=3)))
+        self.assertAlmostEqual(model.image_density(metric), 144.0, places=0)
+
+    def test_a_jpeg_states_it_in_its_jfif_header(self):
+        app0 = b'\xff\xe0' + struct.pack('>H', 16) + b'JFIF\x00' + b'\x01\x02' + b'\x01' + struct.pack('>HH', 192, 192) + b'\x00\x00'
+        sof = b'\xff\xc0' + struct.pack('>H', 17) + b'\x08' + struct.pack('>HH', 400, 600) + b'\x03' + b'\x00' * 9
+        path = self.write('a.jpg', b'\xff\xd8' + app0 + sof + b'\xff\xd9')
+        self.assertEqual(model.image_density(path), 192)
+        self.assertEqual(model.display_size(path), (300, 200))
+
+    def test_a_picture_is_never_laid_out_larger_than_its_pixels(self):
+        # 72 dpi is the print size many tools stamp, not a capture's scale; the page's own 96 is no scale either.
+        for dpi in (72, 96):
+            path = self.write('p%d.webp' % dpi, _webp(800, 600, exif=_exif(dpi)))
+            self.assertEqual(model.display_size(path), (800, 600))
+        self.assertEqual(model.display_size(self.write('none.webp', _webp(800, 600))), (800, 600))
+        self.assertIsNone(model.display_size(self.write('a.gif', b'GIF89a' + b'\x00' * 20)))
+
+
 PROSE = """# Title
 
 Opening with `code` and \\( x^2 \\) and a [link](../page.md "Title").
