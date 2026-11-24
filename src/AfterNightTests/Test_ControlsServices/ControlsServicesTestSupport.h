@@ -513,6 +513,13 @@ public:
     }
     void openRecentSingleFile(const QString&) override {}
     void openDroppedFiles(const QStringList&) override {}
+    void openRunResults(const QStringList&, std::function<void()> finished) override
+    {
+        if (finished)
+        {
+            finished();
+        }
+    }
     [[nodiscard]] QString selectThumbnailPath(const QString&) const override
     {
         return {};

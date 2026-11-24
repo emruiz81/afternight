@@ -59,6 +59,7 @@ public:
         std::function<void(const QString& themeId)> applyTheme;
         std::function<void(const QString& filePath)> openRecentSingleFile;
         std::function<void(const QStringList& files)> openDroppedFiles;
+        std::function<void(const QStringList& files, std::function<void()> finished)> openRunResults;
     };
 
     /// @param core the application core; it outlives the context.
@@ -150,6 +151,7 @@ public:
     [[nodiscard]] std::deque<std::string> getRecentFilesList() const override;
     void openRecentSingleFile(const QString& filePath) override;
     void openDroppedFiles(const QStringList& files) override;
+    void openRunResults(const QStringList& files, std::function<void()> finished) override;
 
     // ---- IThumbnailPathProvider
     [[nodiscard]] QString selectThumbnailPath(const QString& filePath) const override;

@@ -328,6 +328,8 @@ struct ObservatoryWindow::Impl
     // The transient message at the foot of the centre, and what its action does.
     an::ui::AnSnackbar* snackbar = nullptr;
     std::function<void()> snackbarAction;
+    // The images a process or a run made that the transient message says landed, while it says so.
+    std::vector<QPointer<ImageViewControl>> landed;
     // Where a click on each part of the breadcrumb goes, in the parts' order.
     std::vector<std::function<void()>> crumbPlaces;
     // What the window does about projects, and whether what the start's restore came to was said.
@@ -500,6 +502,16 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
         }
     };
     contextDeps.openDroppedFiles = [this](const QStringList& files) { openFiles(files); };
+    contextDeps.openRunResults = [this](const QStringList& files, std::function<void()> finished) {
+        if (m_impl->fileManager)
+        {
+            m_impl->fileManager->openRunResults(files, std::move(finished));
+        }
+        else if (finished)
+        {
+            finished();
+        }
+    };
     core.context()->setDependencies(std::move(contextDeps));
 
     // The application's actions are the core's; the window holds them while it lives.
@@ -967,6 +979,7 @@ void ObservatoryWindow::buildRegions()
             act();
         }
     });
+    QObject::connect(impl.snackbar, &an::ui::AnSnackbar::dismissed, this, [this]() { m_impl->landed.clear(); });
 
     // Home: Controls' Home parts on a page.
     impl.homePage = new HomePage(impl.centre);
@@ -1315,8 +1328,9 @@ void ObservatoryWindow::makeUnits()
     fileDeps.persistLastOpenDirectory = [this](const QString& path) { m_impl->core.setLastOpenDirectory(path); };
     fileDeps.switchToDockManager = [this]() { showViews(); };
     fileDeps.thumbnailsDirPath = [this]() { return m_impl->core.runtimeStorage().getThumbnailsDirPath(); };
-    // A file the person opens is shown in a view of theirs.
+    // A file the person opens is shown in a view of theirs; what a run wrote, in views of the run's.
     fileDeps.viewFactory = &core.viewService().userViews();
+    fileDeps.resultViewFactory = &core.viewService();
     impl.fileManager = std::make_unique<an::ui::FileManager>(fileDeps);
 
     an::ui::ImageOperationsCoordinator::Dependencies imageDeps;
@@ -1945,26 +1959,7 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
     if ((isTaskPageShown() || isIntegrationHubShown()) && placement.origin == an::ui::shell::ViewOrigin::Process)
     {
         updateWorkspacePage();
-        const QString where =
-            impl.workspaces->workspaceName(workspace.isEmpty() ? impl.workspaces->current() : workspace);
-        QPointer<ImageViewControl> made(&view);
-        showSnackbar(tr("%1 opened in %2").arg(QString::fromUtf8(view.getUniqueName()), where), QString(), tr("Show"),
-                     [this, made]() {
-                         if (made.isNull())
-                         {
-                             return;
-                         }
-                         const QString in = m_impl->workspaces->workspaceOf(*made);
-                         if (in.isEmpty())
-                         {
-                             showViews();
-                         }
-                         else
-                         {
-                             showWorkspace(in);
-                         }
-                         m_impl->core.viewService().setActiveImageViewControl(made.data());
-                     });
+        sayLanded(view);
         return;
     }
     if (workspace.isEmpty())
@@ -4510,6 +4505,8 @@ void ObservatoryWindow::showSnackbar(const QString& text, const QString& detail,
                                      std::function<void()> act)
 {
     Impl& impl = *m_impl;
+    // A message replaces the one on screen, and what that one said landed with it.
+    impl.landed.clear();
     impl.snackbarAction = std::move(act);
     impl.snackbar->setText(text);
     impl.snackbar->setDetail(detail);
@@ -4517,6 +4514,68 @@ void ObservatoryWindow::showSnackbar(const QString& text, const QString& detail,
     impl.snackbar->present();
     placeSnackbar();
     impl.snackbar->raise();
+}
+
+void ObservatoryWindow::sayLanded(ImageViewControl& view)
+{
+    Impl& impl = *m_impl;
+    // An image that lands while the message about the ones before it is on screen joins that message: what a run wrote
+    // is said once.
+    std::vector<QPointer<ImageViewControl>> landed;
+    if (!impl.snackbar->isHidden())
+    {
+        landed = impl.landed;
+    }
+    std::erase_if(landed, [](const QPointer<ImageViewControl>& made) { return made.isNull(); });
+    landed.emplace_back(&view);
+
+    // The workspace they are in, when they share one.
+    const auto workspaceOf = [&impl](ImageViewControl& made) {
+        const QString in = impl.workspaces->workspaceOf(made);
+        return in.isEmpty() ? impl.workspaces->current() : in;
+    };
+    QString where = workspaceOf(*landed.front());
+    for (const QPointer<ImageViewControl>& made : landed)
+    {
+        if (workspaceOf(*made) != where)
+        {
+            where.clear();
+            break;
+        }
+    }
+    QString text;
+    if (landed.size() == 1u)
+    {
+        text =
+            tr("%1 opened in %2").arg(QString::fromUtf8(view.getUniqueName()), impl.workspaces->workspaceName(where));
+    }
+    else if (where.isEmpty())
+    {
+        text = tr("%1 images opened").arg(static_cast<qulonglong>(landed.size()));
+    }
+    else
+    {
+        text = tr("%1 images opened in %2")
+                   .arg(QString::number(static_cast<qulonglong>(landed.size())), impl.workspaces->workspaceName(where));
+    }
+    // Show goes to the first of them: a run's master, before the maps docked beside it.
+    showSnackbar(text, QString(), tr("Show"), [this, made = landed.front()]() {
+        if (made.isNull())
+        {
+            return;
+        }
+        const QString in = m_impl->workspaces->workspaceOf(*made);
+        if (in.isEmpty())
+        {
+            showViews();
+        }
+        else
+        {
+            showWorkspace(in);
+        }
+        m_impl->core.viewService().setActiveImageViewControl(made.data());
+    });
+    impl.landed = std::move(landed);
 }
 
 void ObservatoryWindow::placeSnackbar()

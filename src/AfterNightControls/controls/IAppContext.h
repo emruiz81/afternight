@@ -19,6 +19,7 @@
 #include <cassert>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -342,6 +343,15 @@ public:
     [[nodiscard]] virtual std::deque<std::string> getRecentFilesList() const = 0;
     virtual void openRecentSingleFile(const QString& filePath) = 0;
     virtual void openDroppedFiles(const QStringList& files) = 0;
+
+    /// Opens images a run wrote, one after another, each docked beside the first, as views of the run's and not the
+    /// person's: a shell keeps the place it shows and no progress window opens. Each file enters the recent list as
+    /// an opened file does, and the first view is the active one once the open ends. Called on the GUI thread;
+    /// returns at once.
+    ///
+    /// @param files the files.
+    /// @param finished told on the GUI thread once the open has ended, whatever it came to; may be empty.
+    virtual void openRunResults(const QStringList& files, std::function<void()> finished) = 0;
 };
 
 // ---------------------------------------------------------------------------

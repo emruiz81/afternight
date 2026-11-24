@@ -35,6 +35,7 @@
 #include <QPointer>
 #include <QThreadPool>
 
+#include <cstdint>
 #include <optional>
 #include <stop_token>
 #include <utility>
@@ -115,13 +116,27 @@ struct OpenedFile
     an::Status failure = an::Status::success();
 };
 
+/// What asked for an open, which decides what the open remembers and what it tells the shell.
+enum class OpenOrigin : std::uint8_t
+{
+    /// Files the person chose or dropped: their folder is the last one opened once the open ends.
+    Chosen,
+
+    /// A file of the recent list: its folder is the last one opened, and it leaves the list when it cannot be read.
+    Recent,
+
+    /// Images a run wrote: each one's folder is the last one opened, the place shown stays, and the first view is the
+    /// active one once the open ends.
+    Result
+};
+
 /// One open of files, carried from step to step on the GUI thread.
 struct OpenRun
 {
     FileWorkflowRunner::Dependencies dependencies;
     QStringList files;
     QString directory;
-    bool recent = false;
+    OpenOrigin origin = OpenOrigin::Chosen;
     QPointer<ProgressDialogControl> progress;
     std::stop_token stop;
     const an::consumer::EngineSession* session = nullptr;
@@ -146,11 +161,19 @@ void closeOpenProgress(OpenRun& run)
 
 void finishOpen(const std::shared_ptr<OpenRun>& run)
 {
-    if (!run->recent && run->dependencies.persistLastOpenDirectory)
+    if (run->origin == OpenOrigin::Chosen && run->dependencies.persistLastOpenDirectory)
     {
         run->dependencies.persistLastOpenDirectory(run->directory);
     }
     closeOpenProgress(*run);
+    // A run's results are seen from their first image - the master its maps were docked beside - not from the last.
+    if (run->origin == OpenOrigin::Result && run->neighbour)
+    {
+        if (IViewRegistry* const registry = process_utils::currentViewRegistry())
+        {
+            registry->setActiveImageViewControl(run->neighbour.data());
+        }
+    }
     if (run->dependencies.updateImageViewControlList)
     {
         run->dependencies.updateImageViewControlList();
@@ -170,7 +193,7 @@ void failOpen(const std::shared_ptr<OpenRun>& run, const QString& path, const QS
     LOG_ERROR(text.toStdString());
     process_utils::notifyErrorMessageAsync(resolveDialogParent(run->dependencies), QStringLiteral("File open error"),
                                            text);
-    if (run->recent && run->dependencies.removeRecentFile)
+    if (run->origin == OpenOrigin::Recent && run->dependencies.removeRecentFile)
     {
         run->dependencies.removeRecentFile(path.toUtf8().toStdString());
     }
@@ -180,7 +203,8 @@ void failOpen(const std::shared_ptr<OpenRun>& run, const QString& path, const QS
 void viewMade(const std::shared_ptr<OpenRun>& run, const QString& path, ImageViewControl* view)
 {
     ++run->outcome.opened;
-    if (run->dependencies.switchToDockManager)
+    // A view a run's results are shown in leaves the person where they are.
+    if (run->origin != OpenOrigin::Result && run->dependencies.switchToDockManager)
     {
         run->dependencies.switchToDockManager();
     }
@@ -192,7 +216,7 @@ void viewMade(const std::shared_ptr<OpenRun>& run, const QString& path, ImageVie
     {
         closeOpenProgress(*run);
     }
-    if (run->recent && run->dependencies.persistLastOpenDirectory)
+    if (run->origin != OpenOrigin::Chosen && run->dependencies.persistLastOpenDirectory)
     {
         run->dependencies.persistLastOpenDirectory(QFileInfo(path).path());
     }
@@ -427,7 +451,7 @@ void continueOpen(const std::shared_ptr<OpenRun>& run)
 
 /// Starts an open of files on the GUI thread.
 void startOpen(const FileWorkflowRunner::Dependencies& dependencies, QStringList files, QString directory,
-               ProgressDialogControl* progress, const bool recent)
+               ProgressDialogControl* progress, const OpenOrigin origin)
 {
     auto run = std::make_shared<OpenRun>();
     run->dependencies = dependencies;
@@ -437,7 +461,7 @@ void startOpen(const FileWorkflowRunner::Dependencies& dependencies, QStringList
     }
     run->files = std::move(files);
     run->directory = std::move(directory);
-    run->recent = recent;
+    run->origin = origin;
     run->progress = progress;
     run->stop = progress != nullptr ? progress->stopToken() : std::stop_token{};
     run->session = currentSession();
@@ -461,12 +485,17 @@ void startOpen(const FileWorkflowRunner::Dependencies& dependencies, QStringList
 void FileWorkflowRunner::openFiles(const Dependencies& dependencies, QStringList files, QString directory,
                                    ProgressDialogControl* progress)
 {
-    startOpen(dependencies, std::move(files), std::move(directory), progress, false);
+    startOpen(dependencies, std::move(files), std::move(directory), progress, OpenOrigin::Chosen);
 }
 
 void FileWorkflowRunner::openRecentFile(const Dependencies& dependencies, QString file, ProgressDialogControl* progress)
 {
-    startOpen(dependencies, QStringList{std::move(file)}, QString(), progress, true);
+    startOpen(dependencies, QStringList{std::move(file)}, QString(), progress, OpenOrigin::Recent);
+}
+
+void FileWorkflowRunner::openResults(const Dependencies& dependencies, QStringList files)
+{
+    startOpen(dependencies, std::move(files), QString(), nullptr, OpenOrigin::Result);
 }
 
 void FileWorkflowRunner::saveFile(const Dependencies& dependencies, ImageViewControl& view, QStringList files,

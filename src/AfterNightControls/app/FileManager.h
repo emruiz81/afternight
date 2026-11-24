@@ -189,6 +189,10 @@ public:
 
         /// What makes the views a file opened is shown in; null, the application context's.
         IViewFactory* viewFactory = nullptr;
+
+        /// What makes the views a run's results are shown in - views of the run's, not the person's; null, the
+        /// application context's.
+        IViewFactory* resultViewFactory = nullptr;
         std::function<void()> updateImageViewControlList;
 
         /// How many files the recent list keeps; empty, twenty.
@@ -233,6 +237,13 @@ public:
 
     /// Opens files as the file dialog or a drop does, without a dialog.
     void openFiles(const QStringList& files, const QString& directory) const;
+
+    /// Opens images a run wrote, each docked beside the first, in views of the run's
+    /// (`FileWorkflowRunner::openResults`): no progress window, and the place shown stays.
+    ///
+    /// @param files the files.
+    /// @param finished told once the open has ended, after `openFinished`; may be empty.
+    void openRunResults(const QStringList& files, std::function<void()> finished) const;
 
     /// Writes what a view shows to a file as Save does, without a dialog.
     void saveViewToFile(ImageViewControl& view, const QString& path) const;

@@ -175,7 +175,8 @@ stop. What was finished by then is kept and reported.
 ### Look at the result
 
 With **Open results when complete** on, the master opens in a view of its own in a
-[workspace](../reference/glossary.md#workspace), and the centre shows it. It is
+[workspace](../reference/glossary.md#workspace) while the task's page stays on the run. The message at the foot of
+the centre says where it opened: choose **Show** in it. It is
 [linear](../reference/glossary.md#linear-image), so it looks nearly black: choose
 [**Autostretch**](../reference/glossary.md#autostretch) in the floating toolbar near the foot of the view. That changes
 the display only, not the image.

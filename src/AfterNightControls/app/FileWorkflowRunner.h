@@ -98,6 +98,8 @@ public:
         std::function<std::shared_ptr<const RawOpenPolicy>()> rawOpenPolicy;
 
         std::function<void(const QString&)> persistLastOpenDirectory;
+
+        /// Shows the place that holds the views, after a view of an open the person asked for is made.
         std::function<void()> switchToDockManager;
 
         /// What makes the views an open shows; null, the application context's.
@@ -134,6 +136,14 @@ public:
     /// @param file the file.
     /// @param progress the progress dialog, closed when the open ends.
     static void openRecentFile(const Dependencies& dependencies, QString file, ProgressDialogControl* progress);
+
+    /// Opens images a run wrote as `openFiles` opens files, with no progress dialog: each enters the recent list and
+    /// its folder becomes the last one opened, the place shown is never switched (`switchToDockManager` is not
+    /// called), and the first view is made the active one once the open ends.
+    ///
+    /// @param dependencies what the open reports to; its view factory makes views of the run's.
+    /// @param files the files.
+    static void openResults(const Dependencies& dependencies, QStringList files);
 
     /// Writes what a view shows to files: its image through the output transaction with the intent the export settings
     /// give, or its sequence through the sequence's own writer. Called on the GUI thread; returns at once.

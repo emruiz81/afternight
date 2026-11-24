@@ -188,6 +188,13 @@ public:
     {
         m_application.openDroppedFiles(files);
     }
+    void openRunResults(const QStringList&, std::function<void()> finished) override
+    {
+        if (finished)
+        {
+            finished();
+        }
+    }
     [[nodiscard]] QString selectThumbnailPath(const QString& filePath) const override
     {
         return m_application.getThumbnailPersistence()->select(filePath);

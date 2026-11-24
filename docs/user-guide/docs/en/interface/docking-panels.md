@@ -53,8 +53,10 @@ pins:
   are tabs of one group.
 - An image made from another - a duplicate, an extracted channel or frame, a converted copy, a snapshot of a task's
   preview - opens as a tab beside it, in its workspace.
-- A new image a task makes opens beside its neighbour too. While the task's page is shown, a message such as
-  "stars_only opened in Workspace 1" says where, with **Show**.
+- A new image a task makes opens beside its neighbour too, and so do the
+  [masters](../reference/glossary.md#master) a run of Image Integration writes. While the task's page is shown, a
+  message such as "stars_only opened in Workspace 1" says where, with **Show**. Images that open together are one
+  message, such as "3 images opened in Workspace 1".
 - Opening an image while another is maximized restores that one first.
 
 Click a tab, or anywhere in an image, to make it the [active image](../reference/glossary.md#active-image). The

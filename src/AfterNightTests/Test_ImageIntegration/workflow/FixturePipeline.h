@@ -8,7 +8,8 @@
 /// registration - that read no image and write none. Each reports the progress it was scripted with, one report at a
 /// time, and waits before each for the case to let it pass (`RunGate`), so a case sees the front end at every step of
 /// the run and never races it. The manifest that goes with it names the two stages and an output folder, where the
-/// run leaves its record as any run does.
+/// run leaves its record as any run does. A pipeline with a stack at its end leaves a small image there, as a run
+/// leaves its master.
 
 #include "processes/ImageIntegration/workflow/CancellationToken.h"
 #include "processes/ImageIntegration/workflow/ProgressReporter.h"
@@ -16,6 +17,7 @@
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
 #include "processes/ImageIntegration/workflow/stages/IWorkflowStage.h"
 
+#include <QByteArray>
 #include <QDir>
 #include <QFile>
 #include <QString>
@@ -23,6 +25,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -173,9 +176,43 @@ inline constexpr int kFixtureReports = 5;
 /// The file a fixture run that stacks leaves in its output folder.
 inline constexpr char kFixtureStackedFile[] = "stacked_fixture.fit";
 
-/// A stacking stage of the suites' own: one report, once the gate lets it, then a file written into the run's output
-/// folder and named in the stage's result as a stack names its master. The file holds no image: it is there to be
-/// found.
+/// Writes the image a fixture run's stack leaves: a FITS file of one grey Float32 image of 8 x 4 samples, its bytes
+/// written here so that the stage needs no engine; whether it was written whole.
+[[nodiscard]] inline bool writeFixtureStack(const QString& path)
+{
+    constexpr int kWidth = 8;
+    constexpr int kHeight = 4;
+    constexpr int kBlock = 2880;
+    QByteArray header;
+    const auto card = [&header](const QByteArray& keyword, const QByteArray& value) {
+        header.append((keyword.leftJustified(8, ' ') + "= " + value.rightJustified(20, ' ')).leftJustified(80, ' '));
+    };
+    card("SIMPLE", "T");
+    card("BITPIX", "-32");
+    card("NAXIS", "2");
+    card("NAXIS1", QByteArray::number(kWidth));
+    card("NAXIS2", QByteArray::number(kHeight));
+    header.append(QByteArray("END").leftJustified(80, ' '));
+    header = header.leftJustified(kBlock, ' ');
+    // Every sample a quarter of full scale, stored big-endian as FITS stores it.
+    QByteArray data;
+    const float sample = 0.25f;
+    quint32 bits = 0;
+    std::memcpy(&bits, &sample, sizeof(bits));
+    for (int index = 0; index < kWidth * kHeight; ++index)
+    {
+        for (int shift = 24; shift >= 0; shift -= 8)
+        {
+            data.append(static_cast<char>((bits >> shift) & 0xFFu));
+        }
+    }
+    data = data.leftJustified(kBlock, '\0');
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(header) == header.size() && file.write(data) == data.size();
+}
+
+/// A stacking stage of the suites' own: one report, once the gate lets it, then an image written into the run's
+/// output folder (`writeFixtureStack`) and named in the stage's result as a stack names its master.
 class ScriptedStackingStage final : public IWorkflowStage
 {
 public:
@@ -206,12 +243,10 @@ public:
         group.groupKey = QStringLiteral("fixture-integration");
         group.outputFilename = QString::fromLatin1(kFixtureStackedFile);
         group.outputPath = QDir(manifest.outputDirectory).filePath(group.outputFilename);
-        QFile stacked(group.outputPath);
-        if (!stacked.open(QIODevice::WriteOnly) || stacked.write("stack") < 0)
+        if (!writeFixtureStack(group.outputPath))
         {
             return StageResult::failure(QStringLiteral("The fixture's stacked file was not written"));
         }
-        stacked.close();
         group.success = true;
         StageResult result = StageResult::success();
         result.groupResults.push_back(std::move(group));

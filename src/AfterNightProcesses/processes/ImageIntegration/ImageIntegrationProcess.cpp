@@ -373,6 +373,11 @@ namespace
     return result.generatedBiasMasters + result.generatedDarkMasters + result.generatedFlatMasters +
            result.generatedLightMasters;
 }
+
+/// Opens what a run that succeeded wrote in views of the run's - they land in a workspace and the run's page stays -
+/// the masters when `openIntegratedFiles` asks for them.
+void openWhatTheRunWrote(const WorkflowManifest& manifest, const WorkflowExecutor::Result& result,
+                         bool openIntegratedFiles);
 } // namespace
 
 /// What the page's header says of the job, and what it was last read from.
@@ -1243,13 +1248,15 @@ bool ImageIntegrationProcess::startRun(const WorkflowManifest& manifest,
     WorkflowExecutionController executionController(m_model.get(), this);
     executionController.setPipeline(std::move(pipeline));
     const QPointer<ImageIntegrationProcess> self(this);
-    return executionController.runAsyncPrevalidated(manifest, [self](const WorkflowExecutor::Result& result) {
-        if (self)
-        {
-            self->recordRunOutputs(runOutputs(result));
-            self->refreshAfterRun();
-        }
-    });
+    const bool openIntegratedFiles = m_stackingTab ? m_stackingTab->isOpenIntegratedFilesEnabled() : true;
+    return executionController.runAsyncPrevalidated(
+        manifest, [self, manifest, openIntegratedFiles](const WorkflowExecutor::Result& result) {
+            if (self)
+            {
+                self->endRun(runOutputs(result), result.success,
+                             [&]() { openWhatTheRunWrote(manifest, result, openIntegratedFiles); });
+            }
+        });
 }
 
 void ImageIntegrationProcess::joinProjectForRun(const QString& outputDirectory)
@@ -3963,7 +3970,32 @@ struct IntegratedOutputOpenPlan
     plan.extraOutputFiles.removeDuplicates();
     return plan;
 }
+
+void openWhatTheRunWrote(const WorkflowManifest& manifest, const WorkflowExecutor::Result& result,
+                         const bool openIntegratedFiles)
+{
+    const IntegratedOutputOpenPlan openPlan = buildIntegratedOutputOpenPlan(manifest, result);
+    ImageIntegration::openIntegratedOutputsForManifest(QDir(manifest.outputDirectory), manifest.integrationGroups,
+                                                       openIntegratedFiles, openPlan.skipIntegrationGroupKeys,
+                                                       openPlan.extraOutputFiles);
+}
 } // namespace
+
+void ImageIntegrationProcess::endRun(const QStringList& outputs, const bool succeeded,
+                                     const std::function<void()>& openWhatItWrote)
+{
+    recordRunOutputs(outputs);
+    if (succeeded && m_summaryTab && m_model)
+    {
+        const int lightCount = static_cast<int>(m_model->lightFrames().size());
+        m_summaryTab->setLastSuccessfulRun(QDateTime::currentDateTimeUtc(), lightCount, m_model->outputDirectory());
+    }
+    refreshAfterRun();
+    if (succeeded && openWhatItWrote)
+    {
+        openWhatItWrote();
+    }
+}
 
 void ImageIntegrationProcess::applyExecutionOptions(WorkflowManifest& manifest) const
 {
@@ -4074,32 +4106,10 @@ void ImageIntegrationProcess::onExecute()
                     (void)executionController.runAsyncPrevalidated(
                         manifest,
                         [self, manifest, openIntegratedFiles](const WorkflowExecutor::Result& result) {
-                            if (!self)
+                            if (self)
                             {
-                                return;
-                            }
-                            self->recordRunOutputs(runOutputs(result));
-                            self->refreshAfterRun();
-                            if (!result.success)
-                            {
-                                return;
-                            }
-
-                            if (self->m_summaryTab && self->m_model)
-                            {
-                                const int lightCount = static_cast<int>(self->m_model->lightFrames().size());
-                                self->m_summaryTab->setLastSuccessfulRun(QDateTime::currentDateTimeUtc(), lightCount,
-                                                                         self->m_model->outputDirectory());
-                            }
-
-                            if (self->m_model)
-                            {
-                                const QDir outputDir(self->m_model->outputDirectory());
-                                const IntegratedOutputOpenPlan openPlan =
-                                    buildIntegratedOutputOpenPlan(manifest, result);
-                                ImageIntegration::openIntegratedOutputsForManifest(
-                                    outputDir, manifest.integrationGroups, openIntegratedFiles,
-                                    openPlan.skipIntegrationGroupKeys, openPlan.extraOutputFiles);
+                                self->endRun(runOutputs(result), result.success,
+                                             [&]() { openWhatTheRunWrote(manifest, result, openIntegratedFiles); });
                             }
                         },
                         preparation_timing, std::move(preparation_snapshot));
@@ -4211,30 +4221,11 @@ void ImageIntegrationProcess::onRunIntegrationForGroup(const QString& integratio
                     (void)executionController.runAsyncPrevalidated(
                         manifest,
                         [self, manifest, openIntegratedFiles](const WorkflowExecutor::Result& result) {
-                            if (!self)
+                            if (self)
                             {
-                                return;
+                                self->endRun(runOutputs(result), result.success,
+                                             [&]() { openWhatTheRunWrote(manifest, result, openIntegratedFiles); });
                             }
-                            self->recordRunOutputs(runOutputs(result));
-
-                            if (result.success && self->m_summaryTab && self->m_model)
-                            {
-                                const int lightCount = static_cast<int>(self->m_model->lightFrames().size());
-                                self->m_summaryTab->setLastSuccessfulRun(QDateTime::currentDateTimeUtc(), lightCount,
-                                                                         self->m_model->outputDirectory());
-                            }
-
-                            if (result.success && self->m_model)
-                            {
-                                const QDir outputDir(self->m_model->outputDirectory());
-                                const IntegratedOutputOpenPlan openPlan =
-                                    buildIntegratedOutputOpenPlan(manifest, result);
-                                ImageIntegration::openIntegratedOutputsForManifest(
-                                    outputDir, manifest.integrationGroups, openIntegratedFiles,
-                                    openPlan.skipIntegrationGroupKeys, openPlan.extraOutputFiles);
-                            }
-
-                            self->refreshAfterRun();
                         },
                         preparation_timing, std::move(preparation_snapshot));
                 });

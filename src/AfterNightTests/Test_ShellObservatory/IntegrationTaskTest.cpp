@@ -18,6 +18,7 @@
 #include "pages/IntegrationHubPage.h"
 #include "pages/TaskPage.h"
 #include "tasks/TaskPresenter.h"
+#include "workspaces/WorkspaceHost.h"
 
 #include "components/AnIconRail.h"
 #include "components/AnSnackbar.h"
@@ -390,6 +391,54 @@ TEST_F(IntegrationTask, TheEndOfARunIsSaidWhereAnotherPlaceIsShown)
     ASSERT_NE(process->runView(), nullptr);
     EXPECT_TRUE(process->runView()->isVisible());
     EXPECT_TRUE(process->runView()->wasSuccessful());
+}
+
+// What a run wrote opens in a workspace and the person stays on the run's page, its end and its buttons in view - no
+// window stands over it - and the window's transient message says where the image is, its Show going there.
+TEST_F(IntegrationTask, WhatARunWroteOpensInAWorkspaceAndThePageStays)
+{
+    ImageIntegrationProcess* const process = launchOnTheOutputFolder();
+    ASSERT_NE(process, nullptr);
+    const TaskId id = taskId();
+    ASSERT_TRUE(runWithAStack());
+    m_gate->open();
+    ASSERT_TRUE(ends());
+
+    const QString stacked = QDir(output()).filePath(QString::fromLatin1(an::tests::integration::kFixtureStackedFile));
+    ImageViewControl* made = nullptr;
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&made, &stacked]() {
+            for (ImageViewControl* view : core().viewService().getListOfViewControls())
+            {
+                if (QFileInfo(view->document().names().sourcePath) == QFileInfo(stacked))
+                {
+                    made = view;
+                    return true;
+                }
+            }
+            return false;
+        },
+        kWaitMs))
+        << "the run's stacked image did not open";
+    settle();
+    EXPECT_TRUE(window().isTaskPageShown()) << "what the run wrote took the person off its page";
+    EXPECT_EQ(window().shownTask(), id);
+    WorkflowRunView* const view = process->runView();
+    ASSERT_NE(view, nullptr);
+    EXPECT_TRUE(view->isVisible()) << "the run's view, with its end and its buttons, is out of sight";
+    EXPECT_TRUE(view->wasSuccessful());
+    EXPECT_EQ(QApplication::activeModalWidget(), nullptr) << "a window stands over the page";
+    EXPECT_FALSE(window().workspaces().workspaceOf(*made).isEmpty()) << "the image is in no workspace";
+
+    an::ui::AnSnackbar* const snackbar = window().snackbar();
+    ASSERT_TRUE(snackbar->isVisible());
+    EXPECT_TRUE(snackbar->text().startsWith(QStringLiteral("stacked_fixture opened in ")))
+        << snackbar->text().toStdString();
+    EXPECT_EQ(snackbar->actionText(), QStringLiteral("Show"));
+    snackbar->actionButton()->click();
+    settle();
+    EXPECT_TRUE(window().isWorkspaceShown());
+    EXPECT_EQ(core().viewService().getActiveImageViewControl(), made);
 }
 
 // A run stopped from the page ends as stopped, and the task can be closed again.

@@ -633,6 +633,15 @@ void ExtensionAppContext::openRecentSingleFile(const QString&) {}
 
 void ExtensionAppContext::openDroppedFiles(const QStringList&) {}
 
+void ExtensionAppContext::openRunResults(const QStringList&, std::function<void()> finished)
+{
+    // The host shows no image: the open ends having shown nothing.
+    if (finished)
+    {
+        finished();
+    }
+}
+
 QString ExtensionAppContext::selectThumbnailPath(const QString&) const
 {
     return {};

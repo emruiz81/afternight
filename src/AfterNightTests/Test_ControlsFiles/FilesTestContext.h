@@ -242,6 +242,9 @@ public:
             deps.thumbnailRecorded = [this](const std::string& file, const QString& thumbnail) {
                 recordedThumbnails.emplace_back(file, thumbnail);
             };
+            deps.viewFactory = userViews;
+            deps.resultViewFactory = resultViews;
+            deps.switchToDockManager = [this]() { ++placeSwitches; };
             m_manager = std::make_unique<an::ui::FileManager>(deps);
         }
         return *m_manager;
@@ -280,6 +283,14 @@ public:
     std::deque<std::string> recentFiles;
     std::string lastOpenDirectory;
     std::shared_ptr<const an::ui::RawOpenPolicy> policy;
+
+    /// The factories of the person's views and of a run's, as the manager is handed them; null, the context's. Read
+    /// when the manager is made.
+    an::ui::IViewFactory* userViews = nullptr;
+    an::ui::IViewFactory* resultViews = nullptr;
+
+    /// How many times the manager asked for the place that holds the views to be shown.
+    int placeSwitches = 0;
     int policiesTaken = 0;
     int thumbnailReloads = 0;
     std::vector<an::ui::FileOpenOutcome> opens;

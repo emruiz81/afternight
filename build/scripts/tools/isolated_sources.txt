@@ -2793,6 +2793,7 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/widgets/TableWidget.h
     header   src/AfterNightControls/widgets/ViewPresentation.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightShellCore/AfterNightShellCoreExport.h
     header   src/AfterNightShellCore/actions/ActionCatalogue.h
@@ -6015,6 +6016,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowPreparation.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowProgressController.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRawLoadPolicy.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowResultOpener.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunArchive.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunStateStore.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowStageCompanions.h

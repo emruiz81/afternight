@@ -245,6 +245,15 @@ public:
 
 private:
     static constexpr int kFrameTabCount = 4;
+
+    /// What every run does when it ends, on the GUI thread: the files it made recorded as the project's images, the
+    /// job's last success said when it succeeded, the pages read again, and then - when it succeeded - what it wrote
+    /// opened.
+    ///
+    /// @param outputs the masters and stacked images the run made; none for a run that did not succeed.
+    /// @param succeeded whether the run succeeded.
+    /// @param openWhatItWrote opens what the run wrote in views of the run's; called only for a run that succeeded.
+    void endRun(const QStringList& outputs, bool succeeded, const std::function<void()>& openWhatItWrote);
     static constexpr int kLogicalTabCount = 8;
 
     void closeEvent(QCloseEvent* evt) override;

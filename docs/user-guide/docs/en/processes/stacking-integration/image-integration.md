@@ -144,8 +144,10 @@ caption: >-
     the **Execution Plan**, then choose **Run**.
 11. **Follow the run.** The run's view takes the place of the stage's page and names each stage and file, and
     **Cancel** stops at the next safe point. It reads "Workflow Completed Successfully" at the end.
-12. **Look at the masters.** With **Open integrated files** on, each master opens in its own view, nearly black until
-    you choose [Autostretch](../../reference/glossary.md#autostretch). **Open Report** shows the run's
+12. **Look at the masters.** With **Open integrated files** on, each master opens in its own view in a
+    [workspace](../../reference/glossary.md#workspace) while the page stays on the run's view; **Show** in the message
+    at the foot of the centre shows them. A master is nearly black until you choose
+    [Autostretch](../../reference/glossary.md#autostretch). **Open Report** shows the run's
     [report](integration-report.md), and **Close** puts the run's view away.
 
 ## Controls

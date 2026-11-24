@@ -84,7 +84,7 @@ registered onto one reference, then each filter is stacked on its own.
 
 !!! see "You should see"
     The run's view reads "Workflow Completed Successfully". The three masters open, each in its own view in a
-    [workspace](../reference/glossary.md#workspace), which the centre shows:
+    [workspace](../reference/glossary.md#workspace), and **Show** in the message at the foot of the centre shows them:
     `stacked_3008x3004_Ha_M_16.fit`, `stacked_3008x3004_Oiii_M_16.fit` and `stacked_3008x3004_Sii_M_16.fit`. On the
     guide's data the registration chose one OIII light as the reference of all 64.
 

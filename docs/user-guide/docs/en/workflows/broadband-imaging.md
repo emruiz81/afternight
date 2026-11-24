@@ -130,7 +130,8 @@ the run ends. **Cancel** stops at the next safe point, and the groups finished b
 !!! see "You should see"
     The run's view takes the place of the stage's page, marks each stage from **Bias** to **Stacking**, and reads
     "Workflow Completed Successfully" at the end. The master `stacked_5544x3684_NGC253.fit` opens in its own view in a
-    [workspace](../reference/glossary.md#workspace). It is a [linear image](../reference/glossary.md#linear-image),
+    [workspace](../reference/glossary.md#workspace), and the message at the foot of the centre says where, with
+    **Show**. It is a [linear image](../reference/glossary.md#linear-image),
     nearly black: choose [Autostretch](../reference/glossary.md#autostretch) in the floating toolbar of its view,
     which changes the display only.
 

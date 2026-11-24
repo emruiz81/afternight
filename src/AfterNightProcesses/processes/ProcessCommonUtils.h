@@ -44,6 +44,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <optional>
 #include <string>
 #include <utility>
@@ -464,6 +465,21 @@ inline void openRecentSingleFile(const QString& filePath)
     if (auto* recentFilesService = currentRecentFilesService())
     {
         recentFilesService->openRecentSingleFile(filePath);
+    }
+}
+
+/// Opens images a run wrote in views of the run's, each docked beside the first, leaving the person where they are
+/// (`IRecentFilesService::openRunResults`). With no service the open ends at once, having shown nothing.
+inline void openRunResults(const QStringList& files, std::function<void()> finished)
+{
+    if (auto* recentFilesService = currentRecentFilesService())
+    {
+        recentFilesService->openRunResults(files, std::move(finished));
+        return;
+    }
+    if (finished)
+    {
+        finished();
     }
 }
 

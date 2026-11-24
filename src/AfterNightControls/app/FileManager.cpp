@@ -629,6 +629,32 @@ void FileManager::openRecentSingleFile(const QString& filePath) const
     FileWorkflowRunner::openRecentFile(workflowDependencies(), filePath, progress);
 }
 
+void FileManager::openRunResults(const QStringList& files, std::function<void()> finished) const
+{
+    if (files.isEmpty())
+    {
+        if (finished)
+        {
+            finished();
+        }
+        return;
+    }
+    FileWorkflowRunner::Dependencies workflow = workflowDependencies();
+    workflow.viewFactory = m_deps.resultViewFactory;
+    workflow.openFinished = [told = m_deps.openFinished,
+                             finished = std::move(finished)](const FileOpenOutcome& outcome) {
+        if (told)
+        {
+            told(outcome);
+        }
+        if (finished)
+        {
+            finished();
+        }
+    };
+    FileWorkflowRunner::openResults(workflow, files);
+}
+
 void FileManager::saveFile() const
 {
     if (!m_deps.lastOpenDirectory)

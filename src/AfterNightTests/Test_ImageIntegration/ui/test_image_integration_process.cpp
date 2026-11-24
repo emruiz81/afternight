@@ -159,9 +159,9 @@ TEST_F(ImageIntegrationProcessTest, RegistrationOnlyUpdatesAutoReferenceWithoutF
               allGroups.indexOf(QStringLiteral("finishRegistrationOnlyRun")));
 }
 
-// Every run - the whole workflow, one integration group, a re-run from a run's archive and a registration alone - ends
-// by reading again the records it wrote: the Stacking tab's Frame Quality panel otherwise went on saying that the
-// figures were not available until the window was opened again.
+// Every run - the whole workflow, one integration group, a run started from a manifest, a re-run from a run's archive
+// and a registration alone - ends by reading again the records it wrote: the Stacking tab's Frame Quality panel
+// otherwise went on saying that the figures were not available until the window was opened again.
 TEST_F(ImageIntegrationProcessTest, EveryRunEndsByReadingAgainWhatItWrote)
 {
     const QString source = readRepoSourceFile(
@@ -169,16 +169,28 @@ TEST_F(ImageIntegrationProcessTest, EveryRunEndsByReadingAgainWhatItWrote)
     ASSERT_FALSE(source.isEmpty());
     const QString refresh = QStringLiteral("refreshAfterRun()");
 
+    // The whole workflow's run, one group's and a run started from a manifest end through the one end they share.
+    const QString end = functionSource(source, QStringLiteral("void ImageIntegrationProcess::endRun"),
+                                       QStringLiteral("void ImageIntegrationProcess::applyExecutionOptions"));
+    ASSERT_FALSE(end.isEmpty());
+    EXPECT_TRUE(end.contains(refresh)) << "the end the runs share";
+    const QString ends = QStringLiteral("endRun(");
+
     const QString whole = functionSource(source, QStringLiteral("void ImageIntegrationProcess::onExecute()"),
                                          QStringLiteral("void ImageIntegrationProcess::onRunIntegrationForGroup"));
     ASSERT_FALSE(whole.isEmpty());
-    EXPECT_TRUE(whole.contains(refresh)) << "the whole workflow's run";
+    EXPECT_TRUE(whole.contains(ends)) << "the whole workflow's run";
 
     const QString group =
         functionSource(source, QStringLiteral("void ImageIntegrationProcess::onRunIntegrationForGroup"),
                        QStringLiteral("applyAutoReferenceFromMetricsDb(IntegrationDataModel& model"));
     ASSERT_FALSE(group.isEmpty());
-    EXPECT_TRUE(group.contains(refresh)) << "one integration group's run";
+    EXPECT_TRUE(group.contains(ends)) << "one integration group's run";
+
+    const QString started = functionSource(source, QStringLiteral("bool ImageIntegrationProcess::startRun"),
+                                           QStringLiteral("void ImageIntegrationProcess::joinProjectForRun"));
+    ASSERT_FALSE(started.isEmpty());
+    EXPECT_TRUE(started.contains(ends)) << "a run started from a manifest";
 
     const QString rerun =
         functionSource(source, QStringLiteral("runAsyncValidated(archivedManifest"), QStringLiteral("if (!launched"));

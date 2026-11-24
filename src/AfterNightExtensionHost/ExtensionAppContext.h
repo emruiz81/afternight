@@ -173,6 +173,7 @@ public:
     [[nodiscard]] std::deque<std::string> getRecentFilesList() const override;
     void openRecentSingleFile(const QString& filePath) override;
     void openDroppedFiles(const QStringList& files) override;
+    void openRunResults(const QStringList& files, std::function<void()> finished) override;
 
     [[nodiscard]] QString selectThumbnailPath(const QString& filePath) const override;
 

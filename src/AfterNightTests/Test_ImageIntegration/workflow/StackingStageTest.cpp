@@ -29,6 +29,7 @@
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/StackingParamsUtils.h"
 #include "processes/ImageIntegration/workflow/ArtifactTracker.h"
+#include "processes/ImageIntegration/workflow/WorkflowResultOpener.h"
 #include "processes/ImageIntegration/workflow/stages/LightsAlignmentStage.h"
 #include "processes/ImageIntegration/workflow/stages/LightsDrizzleStage.h"
 #include "processes/ImageIntegration/workflow/stages/LightsNormalizationStage.h"
@@ -763,6 +764,76 @@ TEST_F(LightsStackingTest, TheMapsBelongToTheirMasterByItsIdentityNotByTheirTime
     }
     const ArtifactTracker reread(m_manifest.outputDirectory, nullptr, sessionArtifactStampReader(m_run.session()));
     EXPECT_FALSE(ImageIntegration::isStackingAuxiliaryOutputCurrent(reread, masterPath(), map));
+}
+
+// What the end of a run opens is the master with the map written with it after it, so the map docks beside the
+// master; the map opens whatever Open integrated files says, the master only when it asks.
+TEST_F(LightsStackingTest, TheRunOpensTheMasterWithItsMapBesideIt)
+{
+    std::vector<QString> lights;
+    for (std::uint64_t index = 0; index < 5u; ++index)
+    {
+        lights.push_back(writeFlatLight(QStringLiteral("o%1").arg(index), 0.2, 0.02, 31u + index));
+    }
+    useUnregisteredLights(lights);
+    updateGroup([](auto& group) {
+        group.stacking.rejectionMethod = QStringLiteral("Sigma Clipping");
+        group.stacking.sigmaLow = 1.5;
+        group.stacking.sigmaHigh = 1.5;
+        group.stacking.createRejectionMaps = true;
+        group.stacking.mergeRejectionMaps = true;
+    });
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.front().rejectionMaps.size(), 1u);
+    const QString map = QFileInfo(result.groupResults.front().rejectionMaps.front().path).absoluteFilePath();
+    const QString master = QFileInfo(masterPath()).absoluteFilePath();
+
+    const QDir output(m_manifest.outputDirectory);
+    const std::vector<QStringList> sets =
+        ImageIntegration::integratedOutputSets(output, m_manifest.integrationGroups, true);
+    ASSERT_EQ(sets.size(), 1u);
+    EXPECT_EQ(sets.front(), (QStringList{master, map}));
+    const std::vector<QStringList> mapsOnly =
+        ImageIntegration::integratedOutputSets(output, m_manifest.integrationGroups, false);
+    ASSERT_EQ(mapsOnly.size(), 1u);
+    EXPECT_EQ(mapsOnly.front(), QStringList{map});
+}
+
+// Each group's master is a set of its own, in the groups' order; a group a combined color master stands for and a
+// master that was not written open nothing; an added output is a set of its own, opened only when Open integrated
+// files asks; nothing of a group opens when it does not and the group has no maps.
+TEST(IntegratedOutputSets, EachMasterIsASetAndTheLeftOutOnesOpenNothing)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    const QDir output(folder.path());
+    const auto write = [&output](const QString& name) {
+        QFile file(output.filePath(name));
+        EXPECT_TRUE(file.open(QIODevice::WriteOnly));
+        return QFileInfo(output.filePath(name)).absoluteFilePath();
+    };
+    const QString red = write(QStringLiteral("stacked_R.fit"));
+    const QString green = write(QStringLiteral("stacked_G.fit"));
+    const QString blue = write(QStringLiteral("stacked_B.fit"));
+    const QString combined = write(QStringLiteral("stacked_RGB.fit"));
+
+    std::vector<WorkflowManifest::IntegrationGroup> groups;
+    for (const QString& name : {QStringLiteral("R"), QStringLiteral("G"), QStringLiteral("B"), QStringLiteral("L")})
+    {
+        WorkflowManifest::IntegrationGroup group;
+        group.groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("int|lights|") + name}};
+        group.outputFilename = QStringLiteral("stacked_%1.fit").arg(name);
+        groups.push_back(group);
+    }
+    const QSet<QString> skipped{groups[1].groupKey.toString()};
+    const QStringList added{combined, output.filePath(QStringLiteral("stacked_missing.fit"))};
+
+    EXPECT_EQ(ImageIntegration::integratedOutputSets(output, groups, true, skipped, added),
+              (std::vector<QStringList>{QStringList{red}, QStringList{blue}, QStringList{combined}}));
+    EXPECT_EQ(ImageIntegration::integratedOutputSets(output, groups, true),
+              (std::vector<QStringList>{QStringList{red}, QStringList{green}, QStringList{blue}}));
+    EXPECT_TRUE(ImageIntegration::integratedOutputSets(output, groups, false, skipped, added).empty());
 }
 
 TEST_F(LightsStackingTest, TheQualityRecordKeepsClusteredPixelsAndEveryRejectedElementApart)

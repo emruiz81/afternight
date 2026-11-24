@@ -78,8 +78,8 @@ that needs a color image is disabled in the menu while a grayscale image is acti
 :   The message at the foot of the centre when a run of a task in the main window has finished. **Undo** undoes it on
     the target. The task header, floating or not, says "applied 2.8 s ago" for a minute.
 
-"stars_only opened in Workspace 1", with **Show**
-:   A run made a new image, which opened in a [workspace](../reference/glossary.md#workspace) while you stayed on the task. **Show** shows it.
+"stars_only opened in Workspace 1" or "3 images opened in Workspace 1", with **Show**
+:   A run made new images, which opened in a [workspace](../reference/glossary.md#workspace) while you stayed on the task. **Show** shows the first of them.
 
 "Image Integration finished", "failed" or "stopped", with **Show**
 :   A task that fills its page whole ended its run while another place was shown. **Show** shows the task.

@@ -404,6 +404,20 @@ void ApplicationContext::openDroppedFiles(const QStringList& files)
     }
 }
 
+void ApplicationContext::openRunResults(const QStringList& files, std::function<void()> finished)
+{
+    if (m_dependencies.openRunResults)
+    {
+        m_dependencies.openRunResults(files, std::move(finished));
+        return;
+    }
+    // With no window to show them in, the open ends having shown nothing.
+    if (finished)
+    {
+        finished();
+    }
+}
+
 // ---- IThumbnailPathProvider
 
 QString ApplicationContext::selectThumbnailPath(const QString& filePath) const

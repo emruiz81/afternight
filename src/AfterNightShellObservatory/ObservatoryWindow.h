@@ -428,6 +428,10 @@ private:
     void refreshTaskHeader(an::ui::shell::TaskId id);
     /// Shows a transient message; `act` is what its action does.
     void showSnackbar(const QString& text, const QString& detail, const QString& action, std::function<void()> act);
+
+    /// Says in the transient message that an image a process or a run made landed in a workspace, with Show; an
+    /// image that lands while the message is on screen for the ones before it joins that message.
+    void sayLanded(ImageViewControl& view);
     void placeSnackbar();
     /// Runs the current task's primary action.
     void applyCurrentTask();

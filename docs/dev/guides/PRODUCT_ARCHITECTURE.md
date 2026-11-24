@@ -1923,10 +1923,14 @@ a view added, placed beside the neighbour it was made from, activated, removed (
 the name it had), maximized and restored, and home once the last one goes - and shows the active view's state through
 `IStatusDisplay`. A view made through it as the context's `IViewFactory` is a process's (`ViewOrigin::Process`): the
 shell keeps its place on screen. The file workflows are handed `userViews()`, a factory whose views are the person's
-(`ViewOrigin::User`), and the shell is asked to show its views right after it hears of one. `subjectView()` is the
-view the image actions act on and `lookingView()` the one the looking actions act on: the active view, unless a shell
-showing a task names the task's target and canvas (`setTaskSubject`), until it clears them or one of them goes. A task
-with no single target names none: the image actions then act on no view and the looking ones on its canvas alone.
+(`ViewOrigin::User`), and the shell is asked to show its views right after it hears of one. What a run wrote - Image
+Integration's masters and the maps beside them - is opened through the file workflows too, but as the run's
+(`IRecentFilesService::openRunResults`, `FileWorkflowRunner::openResults`): the views are the service's own, the place
+shown is never switched, no progress window opens, each set's views dock beside its first, and that first is the
+active view once the open ends. `subjectView()` is the view the image actions act on and `lookingView()` the one the
+looking actions act on: the active view, unless a shell showing a task names the task's target and canvas
+(`setTaskSubject`), until it clears them or one of them goes. A task with no single target names none: the image actions
+then act on no view and the looking ones on its canvas alone.
 `services/ProcessLaunchService.h` launches the registry's processes - one that acts on an image acts on the subject
 view - prepares an extension's environment before it launches the extension's process, and lists the extensions once
 each, by name (`extensionFamilies`). `services/ExtensionService.h` is the installed extensions: it registers the

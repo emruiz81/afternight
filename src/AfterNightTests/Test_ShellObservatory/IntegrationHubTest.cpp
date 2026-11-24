@@ -535,4 +535,47 @@ TEST_F(IntegrationHub, AViewAProcessMakesDoesNotTakeThePersonOffTheHub)
     EXPECT_TRUE(window().isWorkspaceShown());
 }
 
+// Images that land one after another - a run's master and the maps beside it - are one message, saying how many and
+// where; its Show goes to the first of them.
+TEST_F(IntegrationHub, ImagesThatLandTogetherAreOneMessage)
+{
+    showTheHub();
+    std::vector<ImageViewControl*> made;
+    for (const QString& name : {QStringLiteral("hub_master_together"), QStringLiteral("hub_map_together")})
+    {
+        std::optional<an::ui::ImageDocument> document = an::tests::app::filledDocument(session(), name, 0.5f);
+        ASSERT_TRUE(document.has_value());
+        ImageViewControl* const view = core().viewService().createNewImageViewControlFromImage(
+            nullptr, std::move(*document), nullptr, name.toStdString(), ViewControlMode::standard,
+            made.empty() ? nullptr : made.front(), false, false);
+        ASSERT_NE(view, nullptr);
+        made.push_back(view);
+        QCoreApplication::processEvents();
+    }
+    EXPECT_TRUE(window().isIntegrationHubShown()) << "the person was taken off the hub";
+    an::ui::AnSnackbar* const snackbar = window().snackbar();
+    ASSERT_TRUE(snackbar->isVisible());
+    const QString where = window().workspaces().workspaceOf(*made.front());
+    ASSERT_EQ(window().workspaces().workspaceOf(*made.back()), where) << "the second did not land beside the first";
+    EXPECT_EQ(snackbar->text(),
+              QStringLiteral("2 images opened in %1").arg(window().workspaces().workspaceName(where)));
+    snackbar->actionButton()->click();
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(window().isWorkspaceShown());
+    EXPECT_EQ(core().viewService().getActiveImageViewControl(), made.front());
+
+    // A message about something else is not joined: the next image is said alone.
+    window().showIntegrationHub();
+    QCoreApplication::processEvents();
+    std::optional<an::ui::ImageDocument> later =
+        an::tests::app::filledDocument(session(), QStringLiteral("hub_later"), 0.5f);
+    ASSERT_TRUE(later.has_value());
+    ImageViewControl* const alone = core().viewService().createNewImageViewControlFromImage(
+        nullptr, std::move(*later), nullptr, "hub_later", ViewControlMode::standard, nullptr, false, false);
+    ASSERT_NE(alone, nullptr);
+    QCoreApplication::processEvents();
+    ASSERT_TRUE(snackbar->isVisible());
+    EXPECT_TRUE(snackbar->text().startsWith(QStringLiteral("hub_later opened in "))) << snackbar->text().toStdString();
+}
+
 } // namespace an::tests::observatory
