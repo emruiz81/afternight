@@ -38,6 +38,7 @@
 #include <AfterNightEngine/Interop/StarProfileDocument.h>
 
 #include <QAbstractButton>
+#include <QAccessible>
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -46,6 +47,7 @@
 #include <QScrollArea>
 #include <QTemporaryDir>
 #include <QThreadPool>
+#include <QToolButton>
 
 #include <gtest/gtest.h>
 
@@ -771,6 +773,42 @@ TEST_F(CombinationsProcessCase, ImageCompareCountsAHistogramPerImage)
     EXPECT_EQ(opened.compare->primaryHistogram()->getHistogramResolution(),
               opened.compare->secondaryHistogram()->getHistogramResolution());
     ASSERT_TRUE(settleComparison(*opened.compare));
+    opened.window.reset();
+    dropTargets(context(), opened.targets);
+}
+
+// A mode button checked without a click - the toggle a screen reader or UI Automation asks of it - sets the mode it
+// shows: the split, its second histogram and both captions, as a click would.
+TEST_F(CombinationsProcessCase, ImageCompareTakesTheModeItsButtonShowsHoweverItWasChecked)
+{
+    OpenedComparison opened = openComparison(context());
+    ASSERT_NE(opened.widget, nullptr);
+    ASSERT_TRUE(settleComparison(*opened.compare));
+    ASSERT_EQ(opened.compare->compareMode(), an::ui::processes::ImageCompareMode::Toggle);
+    auto* const split = opened.window->findChild<QToolButton*>(QStringLiteral("horizontalSplitButton"));
+    ASSERT_NE(split, nullptr);
+    QAccessibleInterface* const accessible = QAccessible::queryAccessibleInterface(split);
+    ASSERT_NE(accessible, nullptr);
+    ASSERT_NE(accessible->actionInterface(), nullptr);
+    accessible->actionInterface()->doAction(QAccessibleActionInterface::toggleAction());
+    ASSERT_TRUE(split->isChecked());
+    ASSERT_TRUE(settleComparison(*opened.compare));
+    EXPECT_EQ(opened.compare->compareMode(), an::ui::processes::ImageCompareMode::HorizontalSplit)
+        << "the mode is the one its button shows";
+    EXPECT_TRUE(opened.compare->secondaryHistogram()->isVisibleTo(opened.window.get()));
+    bool captioned = false;
+    for (const QLabel* label : opened.window->findChildren<QLabel*>())
+    {
+        captioned = captioned || label->text() == QStringLiteral("Image 2: second");
+    }
+    EXPECT_TRUE(captioned) << "the second histogram is captioned with its image";
+
+    auto* const toggle = opened.window->findChild<QToolButton*>(QStringLiteral("toggleModeButton"));
+    ASSERT_NE(toggle, nullptr);
+    toggle->setChecked(true);
+    ASSERT_TRUE(settleComparison(*opened.compare));
+    EXPECT_EQ(opened.compare->compareMode(), an::ui::processes::ImageCompareMode::Toggle);
+    EXPECT_FALSE(opened.compare->secondaryHistogram()->isVisibleTo(opened.window.get()));
     opened.window.reset();
     dropTargets(context(), opened.targets);
 }

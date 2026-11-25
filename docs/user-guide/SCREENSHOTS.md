@@ -152,8 +152,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   | `%wait=Complete` | Waits, up to `-RunTimeoutSeconds`, for a run to end with a window whose title begins so, and answers it with OK; a window titled "Failed" or "Completed with Errors" stops the capture. |
   | `%shot=tasks@window` | Saves the main window, cropped to a part, while the task is still open: what a task draws over the image, or the task in its window. |
   | `%until=btnOpenReport` | Waits, up to `-RunTimeoutSeconds`, until the control is shown and enabled: how a run on a page - Image Integration's - says it has ended. A run that opens what it made in a workspace takes the window there, and the task is brought back by its item on the rail. |
-  | `%keys=Tab,Down,Down` | Posts keys to the window, without UI Automation: what a dialog too large for it - Settings, while it is modal - takes. |
+  | `%keys=Tab,Down,Down` | Posts keys to the window, without UI Automation, which takes them as a person's. |
   | `%type=Gauss` | Types a text into what has the keyboard: the command palette's field, a dialog's search. |
+  | `%show=layersTable` | Scrolls the task's column until the control is in the middle of what it shows, and changes nothing: a control set further down leaves the column scrolled to it. |
 
 - `-Apply` takes the pair, from the image's own view. Before the task opens it saves the upper two thirds of the view,
   clear of its floating toolbar, as `<name>-before.png`; after the task's picture it presses the task's **Apply**, waits
@@ -286,9 +287,14 @@ Each of these cost time once. They are in the script; they are here for whoever 
 - **A process opens as a task, not as a window.** Its page is the centre's current page, an element whose object name
   begins with `observatoryTaskPage.`; the script looks for a task's controls in that page alone, and closes it by its
   header's **Close**.
-- **A modal dialog holds the choice that opened it.** The invocation of a menu item whose action opens a modal dialog -
-  Settings - does not return until the dialog closes, and UI Automation then answers nothing else of the application
-  for a minute: the script looks only at the windows the system lists until the choice returns.
+- **A modal dialog holds the choice that opened it.** The invocation of a menu item through UI Automation whose action
+  opens a modal dialog - Settings, which **Manage Extensions** opens on its Extensions page - does not return until the
+  dialog closes, and UI Automation then answers nothing else of the application for a minute. The script chooses the
+  last item of a menu path with the keyboard instead: Down, posted to the menu, until UI Automation tells the item as
+  the focus, then Return. A posted click is not used: the press is followed by the leave of a pointer that is
+  elsewhere, which can take the item from the menu before the release, and the menu then closes having chosen
+  nothing. An item the keys do not reach is invoked, and the script then looks only at the windows the system lists
+  until the choice returns.
 - **The application takes no file argument.** A file opens through **File > Open** and the system's dialog: the
   path goes into the dialog's name box (control 1152, or 1148) and the dialog is accepted with its default button.
 - **A dialog is looked for among the application's own windows,** never by its window class alone: other programs
@@ -324,8 +330,11 @@ Each of these cost time once. They are in the script; they are here for whoever 
   for a 1440 px screen - so at 150 % the main window can be at most about 970 px tall at 100 %, and at 200 % 710 px,
   below the 864 px the interface is friendly at: the scale is 150 %. A window held shorter than asked stops the run.
   The window's frame and title bar stay at the system's own size at any scale; the script grows what is inside them.
-- **A combo box scrolled out of the column's view takes no click.** The script gives it the focus and steps through it
-  with the keyboard first, and opens its list only when that does not reach the choice.
+- **A combo box scrolled out of the column's view takes no click,** and UI Automation cannot give it the keyboard: a
+  Qt box's accessible actions have no focus action. The script scrolls the column first, by the vertical bar past the
+  control's right edge; a table's or a list's own bar, inside it, is passed over. The bar states its single step - 20
+  - as its large change, not its page, so the script measures how far a unit moves the control on a first move. A
+  table's own element has no rectangle: its first header places it.
 - **`PrintWindow` with the full-content flag** reads the window's own content, so a window in front of it is not in
   the picture. The capture is cropped to the frame the window manager reports, which leaves out the margin kept for
   the shadow, and then to the part the picture shows, by the place UI Automation gives it. The pointer is not

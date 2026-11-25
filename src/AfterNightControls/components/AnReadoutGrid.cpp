@@ -67,10 +67,13 @@ void AnReadoutGrid::setCells(std::vector<ReadoutCell> cells)
     {
         return;
     }
+    // A cell's height counts a line for the change under its figure whenever one cell has one: cells that bring their
+    // changes after cells that had none are taller, though as many.
+    const int height = heightForWidth(width());
     const bool reshaped = cells.size() != m_cells.size();
     m_cells = std::move(cells);
     describe();
-    if (reshaped)
+    if (reshaped || heightForWidth(width()) != height)
     {
         updateGeometry();
     }

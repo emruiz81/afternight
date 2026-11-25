@@ -1047,6 +1047,38 @@ TEST(CompactReadout, TheFiveCellsCarryTheirChangeAgainstTheOriginal)
     EXPECT_TRUE(readout.cells()->cells()[0].note.isEmpty());
 }
 
+// The change against the original is a line under each figure: figures that bring it after figures that came without
+// it make the cells taller, so that the second row beside the histogram reads whole - its figures and their changes -
+// and its last cell lies inside the cells. The changes here are "Δ ±0", narrower than the figures, so the cells keep
+// their width and their arrangement.
+TEST(CompactReadout, AChangeThatComesLaterGivesEveryRowItsLine)
+{
+    an::ui::AnCompactReadout readout;
+    const an::ui::ImageStatisticsReport preview = reportOf({0.4});
+    const an::ui::ImageStatisticsReport original = preview;
+    readout.setFigures(preview, std::nullopt);
+    readout.resize(520, readout.sizeHint().height());
+    showOffScreen(readout);
+    readout.resize(520, readout.sizeHint().height());
+    QCoreApplication::processEvents();
+    ASSERT_TRUE(readout.isWide());
+    an::ui::AnReadoutGrid& cells = *readout.cells();
+    ASSERT_LT(cells.columns(), 5) << "two rows of cells beside the histogram";
+    const int without = cells.height();
+    EXPECT_GE(without, cells.cellRect(4).bottom() + 1) << "without a change every cell is whole";
+
+    readout.setFigures(preview, original);
+    QCoreApplication::processEvents();
+    ASSERT_FALSE(cells.cells()[4].note.isEmpty());
+    EXPECT_GT(cells.height(), without) << "the cells grew by the line of their change";
+    EXPECT_GE(cells.height(), cells.cellRect(4).bottom() + 1)
+        << "the last cell, StdDev, lies inside the cells with its change";
+
+    readout.setFigures(preview, std::nullopt);
+    QCoreApplication::processEvents();
+    EXPECT_EQ(cells.height(), without) << "without the change the cells are as low as before";
+}
+
 // The mode says the channels and the resolution; the clipping is the counts' share at either end; the astrometry line
 // shows the target's solution and nothing when it has none; the histogram is tagged "Preview"; the chevron asks for the
 // full readout.

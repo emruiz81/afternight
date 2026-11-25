@@ -34,7 +34,7 @@
       "page": "processes/color-composition/nb-color-mapper.md",
       "data": [],
       "shows": "The NB Color Mapper task's column on the Eagle Nebula's Ha master, the Ha master in red at Saturation 1, Blackpoint 0.035 and Midtones 0.020 and the OIII master in cyan at Hue 180 and Blackpoint 0.036, Enable and Apply STF to combined output ticked, the canvas in the Linear display mode under Preview STF",
-      "options": ["-Open", "{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Ha_M_16.fit", "-View", "@stacked_3008x3004_Ha_M_16", "-Page", "processes\\color-composition\\nb-color-mapper.md", "-Set", "layerSaturation=1;layerBlackpoint=0.035;layerMidtones=0.02;addLayerButton;layerImageSelector=stacked_3008x3004_Oiii_M_16;layerHue=180;layerBlackpoint=0.036;backgroundEnabled=On;applyStfToCombinedOutput=On", "-Crop", "column", "-Height", "980"]
+      "options": ["-Open", "{work}\\stacked_3008x3004_Oiii_M_16.fit,{work}\\stacked_3008x3004_Ha_M_16.fit", "-View", "@stacked_3008x3004_Ha_M_16", "-Page", "processes\\color-composition\\nb-color-mapper.md", "-Set", "layerSaturation=1;layerBlackpoint=0.035;layerMidtones=0.02;addLayerButton;layerImageSelector=stacked_3008x3004_Oiii_M_16;layerHue=180;layerBlackpoint=0.036;backgroundEnabled=On;applyStfToCombinedOutput=On;%show=layersTable", "-Crop", "column", "-Height", "980"]
     },
     {
       "picture": "assets/images/processes/color-composition/narrowband-palette-composer.webp",

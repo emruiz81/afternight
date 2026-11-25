@@ -105,8 +105,15 @@ ImageCompareProcess::ImageCompareProcess(ImageViewControl* control)
 
     QObject::connect(m_ui.secondImageSelector, &QComboBox::currentTextChanged, this,
                      &ImageCompareProcess::on_secondImageSelector_currentTextChanged);
-    QObject::connect(m_ui.compareModeGroup, &QButtonGroup::idClicked, this,
-                     &ImageCompareProcess::on_compareModeChanged);
+    // The mode is the one its button shows, however the button was checked: a click, the keyboard, or the toggle an
+    // accessibility client asks of it, which checks it without a click.
+    QObject::connect(m_ui.compareModeGroup, &QButtonGroup::idToggled, this,
+                     [this](const int modeId, const bool checked) {
+                         if (checked)
+                         {
+                             on_compareModeChanged(modeId);
+                         }
+                     });
 
     updateWindowTitle();
 

@@ -76,11 +76,12 @@ A task is captured as it opens unless -Set says what to do in it first:
                              what it made in a workspace takes the window there; the task is brought back by its
                              item on the rail.
                              `%keys=<key>[,<key>...]` posts keys to the window - Tab, Down, Return and the
-                             like - and `%type=<text>` types a text into what has the keyboard: what a dialog too
-                             large for UI Automation, Settings, takes while it is modal.
+                             like - and `%type=<text>` types a text into what has the keyboard.
                              `%shot=<name>` saves a picture of the main window as <name>.png while the task is still
                              open - what a task draws over the image is there only then - and `%shot=<name>@<part>`
-                             crops it to a part, as -Crop does.
+                             crops it to a part, as -Crop does. `%show=<control>` scrolls the task's column until
+                             the control is in the middle of what it shows, and changes nothing: a control set
+                             further down leaves the column scrolled to it.
   -List                      prints the controls of each task or dialog it captures - type, object name and name -
                              which is what -Set can name.
   -Prepare "<menu path>|<control>=<value>[;...]"
@@ -390,6 +391,7 @@ public static class AnCaptureNative
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern bool ScreenToClient(IntPtr hwnd, ref Point point);
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(Point point);
     [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out Rect value, int size);
 }
@@ -1257,8 +1259,9 @@ public sealed class AnScreenshots
     /// tried in turn until the box shows the one wanted.
     public bool ChooseInComboBox(IntPtr window, AutomationElement combo, string wanted)
     {
-        // A box scrolled out of its column's view takes no click: it is given the focus and stepped through with the
-        // keyboard, which a closed box answers by choosing the next item.
+        // A box that takes the keyboard from UI Automation is stepped through with keys, which a closed box answers by
+        // choosing the next item. A Qt box does not take it - its accessible actions have no focus action - and is
+        // clicked, once SetControl has scrolled it into its column's view.
         if (ValueOf(combo) == wanted) return true;
         // Only a box that has the keyboard focus is stepped through: a key a box did not take would go to the control
         // that kept the focus - another box of the column - and change it.
@@ -1667,48 +1670,118 @@ public sealed class AnScreenshots
 
     /// Clicks in a control, at a place given in percent of its width and its height from its top left corner: a
     /// control drawn by the application - a curve, a plot - takes a point where a person clicks it.
-    /// Scrolls the body a control lies in until the control is in its view: a task's column scrolls, and a control
-    /// below its fold takes neither a click nor the focus. The scroll bar beside the control, to its right and as tall
-    /// as the part of the body it shows, is moved by the distance the control lies outside it, in the bar's own units
-    /// (its page step is the height it shows). Nothing happens to a control already in view or with no such bar.
+    /// Scrolls the body a control lies in until the control is in the middle of its view: a task's column scrolls, and
+    /// a control below its fold takes neither a click nor the focus. The bar that scrolls it is a vertical one past the
+    /// control's right edge, the nearest first; one that does not move the control is passed over for the next. How
+    /// far the control moves for a unit of the bar is measured on the first move: the bar's units are the toolkit's
+    /// pixels, not the screen's, and the large change it states is its single step - 20 - not its page. A control the
+    /// toolkit gives no rectangle - a table - is placed by its first part that has one, its first header. Nothing
+    /// happens to a control already in view or with no such bar.
     public void BringIntoView(IntPtr window, AutomationElement control)
     {
         try
         {
-            for (int pass = 0; pass < 3; ++pass)
+            AutomationElement anchor = PlacedPart(window, control);
+            if (anchor == null) return;
+            List<AutomationElement> passed = new List<AutomationElement>();
+            AutomationElement bar = null;
+            double pixelsPerUnit = 0;
+            for (int pass = 0; pass < 8; ++pass)
             {
-                System.Windows.Rect place = control.Current.BoundingRectangle;
+                System.Windows.Rect place = anchor.Current.BoundingRectangle;
                 if (place.IsEmpty || place.Height < 1) return;
-                AutomationElementCollection bars = Root(window).FindAll(TreeScope.Descendants,
-                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ScrollBar));
-                AutomationElement beside = null;
-                System.Windows.Rect barPlace = System.Windows.Rect.Empty;
-                foreach (AutomationElement bar in bars)
+                if (bar == null)
                 {
-                    System.Windows.Rect at = bar.Current.BoundingRectangle;
-                    if (at.IsEmpty || at.Height <= at.Width || at.Left < place.Left) continue;
-                    if (place.Top + place.Height / 2 < at.Top - 4000 || at.Left - place.Right > 1200) continue;
-                    if (beside == null || at.Left < barPlace.Left) { beside = bar; barPlace = at; }
+                    bar = BarBeside(window, place, passed);
+                    pixelsPerUnit = 0;
+                    if (bar == null) return;
                 }
-                if (beside == null) return;
+                System.Windows.Rect barPlace = bar.Current.BoundingRectangle;
                 // In view with a margin: a footer over the body's foot - Reset, Close, Apply - may cover its last rows.
                 double margin = Math.Min(120, barPlace.Height / 6);
                 if (place.Top >= barPlace.Top + margin && place.Bottom <= barPlace.Bottom - margin) return;
                 object pattern;
-                if (!beside.TryGetCurrentPattern(RangeValuePattern.Pattern, out pattern)) return;
+                if (!bar.TryGetCurrentPattern(RangeValuePattern.Pattern, out pattern) ||
+                    ((RangeValuePattern)pattern).Current.IsReadOnly)
+                {
+                    passed.Add(bar);
+                    bar = null;
+                    continue;
+                }
                 RangeValuePattern range = (RangeValuePattern)pattern;
-                if (range.Current.IsReadOnly || range.Current.LargeChange <= 0) return;
-                double perUnit = barPlace.Height / range.Current.LargeChange;
-                // The control is brought to the middle of what the body shows.
+                // Until a move is measured, a unit is taken for a pixel of the screen, which is never more than the
+                // toolkit's own pixel.
                 double distance = (place.Top + place.Height / 2) - (barPlace.Top + barPlace.Height / 2);
-                double wanted = range.Current.Value + distance / perUnit;
+                double from = range.Current.Value;
+                double wanted = from + distance / (pixelsPerUnit > 0 ? pixelsPerUnit : 1.0);
                 wanted = Math.Max(range.Current.Minimum, Math.Min(range.Current.Maximum, Math.Round(wanted)));
-                if (wanted == range.Current.Value) return;
-                range.SetValue(wanted);
-                Thread.Sleep(400);
+                double shift = 0;
+                if (wanted != from)
+                {
+                    range.SetValue(wanted);
+                    Thread.Sleep(400);
+                    System.Windows.Rect moved = anchor.Current.BoundingRectangle;
+                    if (moved.IsEmpty) return;
+                    shift = place.Top - moved.Top;
+                }
+                if (Math.Abs(shift) < 1)
+                {
+                    // A bar at its end once it has moved the control can do no more; one that never moved it is not
+                    // the one that scrolls it.
+                    if (pixelsPerUnit > 0) return;
+                    passed.Add(bar);
+                    bar = null;
+                    continue;
+                }
+                pixelsPerUnit = shift / (wanted - from);
             }
         }
         catch (Exception) { }
+    }
+
+    /// The control, or when the toolkit gives it no rectangle its first part that has one: a part below it, or one
+    /// beside it that carries its identifier - a table's headers and cells. Null for none.
+    private AutomationElement PlacedPart(IntPtr window, AutomationElement control)
+    {
+        System.Windows.Rect place = control.Current.BoundingRectangle;
+        if (!place.IsEmpty && place.Height >= 1) return control;
+        foreach (AutomationElement part in control.FindAll(TreeScope.Descendants, Condition.TrueCondition))
+        {
+            System.Windows.Rect at = part.Current.BoundingRectangle;
+            if (!at.IsEmpty && at.Height >= 1) return part;
+        }
+        string id = control.Current.AutomationId;
+        if (string.IsNullOrEmpty(id)) return null;
+        foreach (AutomationElement part in Root(window).FindAll(TreeScope.Descendants,
+                     new PropertyCondition(AutomationElement.AutomationIdProperty, id)))
+        {
+            System.Windows.Rect at = part.Current.BoundingRectangle;
+            if (!at.IsEmpty && at.Height >= 1) return part;
+        }
+        return null;
+    }
+
+    /// The nearest vertical bar past a place's right edge, and near it, that is not among those passed over; null for
+    /// none. A table's or a list's own bar lies inside it and scrolls what it holds.
+    private AutomationElement BarBeside(IntPtr window, System.Windows.Rect place, List<AutomationElement> passed)
+    {
+        AutomationElement beside = null;
+        System.Windows.Rect besidePlace = System.Windows.Rect.Empty;
+        foreach (AutomationElement bar in Root(window).FindAll(TreeScope.Descendants,
+                     new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ScrollBar)))
+        {
+            System.Windows.Rect at = bar.Current.BoundingRectangle;
+            if (at.IsEmpty || at.Height <= at.Width || at.Left < place.Right - 2) continue;
+            if (place.Top + place.Height / 2 < at.Top - 4000 || at.Left - place.Right > 1200) continue;
+            bool skipped = false;
+            foreach (AutomationElement earlier in passed)
+            {
+                if (Automation.Compare(earlier, bar)) { skipped = true; break; }
+            }
+            if (skipped) continue;
+            if (beside == null || at.Left < besidePlace.Left) { beside = bar; besidePlace = at; }
+        }
+        return beside;
     }
 
     public string ClickIn(IntPtr window, string name, double xPercent, double yPercent)
@@ -1786,10 +1859,50 @@ public sealed class AnScreenshots
         try { element.SetFocus(); } catch (Exception) { }
     }
 
-    /// Chooses a menu item on a thread of its own: an item whose action opens a modal dialog does not return until
-    /// the dialog closes.
+    /// Chooses a menu item as a person does with the keyboard, in the menu that shows it: the action runs from the
+    /// application's own events, and a modal dialog it opens - Settings, which Manage Extensions opens on its
+    /// Extensions page - waits with UI Automation free to answer. An item chosen through UI Automation does not return
+    /// until such a dialog closes, and every other question to the application times out meanwhile. An item no menu
+    /// of the application shows - one of the menu bar's own - or one the keys do not reach is still chosen through UI
+    /// Automation, on a thread of its own.
     public Task Choose(AutomationElement item)
     {
+        try
+        {
+            System.Windows.Rect place = item.Current.BoundingRectangle;
+            if (!place.IsEmpty && place.Width >= 1 && place.Height >= 1)
+            {
+                AnCaptureNative.Point at;
+                at.X = (int)Math.Round(place.X + place.Width / 2);
+                at.Y = (int)Math.Round(place.Y + place.Height / 2);
+                IntPtr menu = AnCaptureNative.WindowFromPoint(at);
+                uint owner = 0;
+                if (menu != IntPtr.Zero) AnCaptureNative.GetWindowThreadProcessId(menu, out owner);
+                StringBuilder cls = new StringBuilder(256);
+                if (menu != IntPtr.Zero) AnCaptureNative.GetClassName(menu, cls, 256);
+                if (owner == m_pid && cls.ToString().Contains("QWindowPopup"))
+                {
+                    // Down moves the menu's highlight, which the toolkit tells UI Automation as the focus, until the
+                    // item has it; Return chooses it. A posted click is not used: the press is followed by the leave
+                    // of a pointer that is elsewhere, which can take the item from the menu before the release.
+                    AutomationElementCollection siblings = TreeWalker.ControlViewWalker.GetParent(item)
+                        .FindAll(TreeScope.Children, Condition.TrueCondition);
+                    for (int step = 0; step <= siblings.Count + 1; ++step)
+                    {
+                        if (item.Current.HasKeyboardFocus)
+                        {
+                            PostKey(menu, 0x0D);
+                            Stopwatch closing = Stopwatch.StartNew();
+                            while (AnCaptureNative.IsWindowVisible(menu) && closing.ElapsedMilliseconds < 3000) Thread.Sleep(50);
+                            return Task.FromResult(true);
+                        }
+                        PostKey(menu, 0x28);
+                        Thread.Sleep(150);
+                    }
+                }
+            }
+        }
+        catch (ElementNotAvailableException) { }
         return Task.Run(delegate
         {
             try { ((InvokePattern)item.GetCurrentPattern(InvokePattern.Pattern)).Invoke(); }
@@ -1847,6 +1960,9 @@ function Read-Changes([string[]]$given, [string]$option) {
         }
         elseif ($one -match '^%shot=([^@]+)(?:@(.+))?$') {
             $read.Add(@{ control = '%shot'; value = $null; shot = $Matches[1].Trim(); part = "$($Matches[2])".Trim() })
+        }
+        elseif ($one -match '^%show=(.+)$') {
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null; show = $true })
         }
         elseif ($one -match '^([^=?@!^]+)\^(.+)$') {
             $read.Add(@{ control = $Matches[1].Trim(); value = $null; reply = $Matches[2].Trim() })
@@ -2073,9 +2189,9 @@ function Save-MainPicture([string]$name, [string]$part, [double]$fraction = 1.0)
     }
 }
 
-# Chooses the items of a menu path from the menu bar, which shows on Alt. Returns the choice of the last one, which is
-# done while what it opened is modal: a dialog's run keeps it, and UI Automation answers nothing else of the
-# application until it returns.
+# Chooses the items of a menu path from the menu bar, which shows on Alt. Returns the choice of the last one: done at
+# once when the keyboard chose it, and while what it opened is modal when UI Automation had to - a dialog's run keeps
+# that choice, and UI Automation answers nothing else of the application until it returns.
 function Invoke-MenuPath([string]$menuPath) {
     $path = [string[]]($menuPath -split [regex]::Escape($menuSeparator) | ForEach-Object { $_.Trim() })
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
@@ -2087,7 +2203,7 @@ function Invoke-MenuPath([string]$menuPath) {
             # The menus open now are no window the choice opens.
             $script:openMenus = @($shots.Windows() | ForEach-Object { $_.Handle })
             $choice = $shots.Choose($last)
-            # A choice through UI Automation leaves its menus open, as a click would not: they are closed, by keys
+            # A choice through UI Automation leaves its menus open, as the keyboard would not: they are closed, by keys
             # posted to them, which a modal dialog the choice opened does not hold up.
             Start-Sleep -Milliseconds 400
             $shots.CloseOpenMenus()
@@ -2264,8 +2380,8 @@ try {
             foreach ($handle in $script:openMenus) { [void]$before.Add($handle) }
         }
 
-        # A modal dialog keeps the choice from returning, and a task is looked for only once it has: until then UI
-        # Automation would wait for the dialog with every question.
+        # A modal dialog keeps a choice made through UI Automation from returning, and a task is looked for only once it
+        # has: until then UI Automation would wait for the dialog with every question.
         $clock = [System.Diagnostics.Stopwatch]::StartNew()
         $window = $null
         $task = $null
@@ -2328,8 +2444,8 @@ try {
             if ($throughAutomation) { $focused = $shots.Focused() }
             foreach ($change in $shot.changes) {
                 if ($change.ContainsKey('keys')) {
-                    # Keys posted to the window, which a dialog too large for UI Automation takes: its search field has
-                    # the keyboard, Tab reaches its list, Down moves in it.
+                    # Keys posted to the window, which a dialog takes as a person's: its search field has the keyboard,
+                    # Tab reaches its list, Down moves in it.
                     $codes = @{ Tab = 0x09; Return = 0x0D; Escape = 0x1B; Space = 0x20; PageUp = 0x21; PageDown = 0x22
                                 End = 0x23; Home = 0x24; Left = 0x25; Up = 0x26; Right = 0x27; Down = 0x28 }
                     foreach ($key in $change.keys) {
@@ -2379,6 +2495,13 @@ try {
                     # The main window as it is now, the task still open.
                     $picture = Save-MainPicture $change.shot $change.part
                     $picture.Dispose()
+                }
+                elseif ($change.ContainsKey('show')) {
+                    # The column scrolled to a control the picture is to show, which is left as it is.
+                    $shown = $shots.Control($window.Handle, $change.control)
+                    if (-not $shown) { throw "the window has no control '$($change.control)'" }
+                    $shots.BringIntoView($window.Handle, $shown)
+                    $shots.Note("$($change.control) brought into view")
                 }
                 elseif ($change.ContainsKey('awaited')) {
                     # A run that ends with a message - Image Integration's "Complete" - is waited for, up to
