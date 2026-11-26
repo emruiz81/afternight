@@ -40,17 +40,16 @@ The task has no **Apply**. It changes neither image, adds no step to a
 ```figure
 image: ../../assets/images/processes/analysis/image-compare.webp
 alt: >-
-  The Image Compare task. Its header reads Image Compare on the stretched master. In the canvas at the left an upright
-  line with a round handle cuts the picture in two: the left half, labelled IMAGE 1, shows a red nebula, and the right
-  half, labelled IMAGE 2, is nearly black. The floating toolbar lies near the canvas's foot. The column at the right
-  opens with the compact readout, then Preview area and the Image 1 toggle, the Image 1 box naming the stretched
-  master, and two histograms one above the other, captioned Image 1 and Image 2: the upper one a peak a little way in
-  from its left edge, the lower one a spike at the edge. Under them the histogram toolbar, the Mode row of three
-  buttons with the second one pressed, and the Image 2 box naming the linear master. Close stands alone in the footer.
+  The Image Compare task's column. At its top the compact readout: a small histogram, the clipped fractions, the
+  astrometry line Solved 1.095″/px · SIP 4/4, and Min, Max, Mean, Median and StdDev, each with a change of ±0. Below
+  it the column's header, Preview area unticked and the Image 1 toggle, the Image 1 box at RGB, and two histograms one
+  above the other, captioned Image 1: RGB and Image 2: RGB-linear: the upper one a peak a little way in from its left
+  edge, the lower one a spike at the edge, each with its clipping in its corner. Under them the histogram toolbar and
+  the Mode row of three buttons with the second one pressed. The Image 2 box, at RGB-linear, sits at the column's
+  foot, and Close stands alone in the footer.
 caption: >-
   Image Compare with the Carina master after Histogram Transformation as Image 1 and the linear master as Image 2,
-  side by side in the canvas in the Linear display mode.
-owed: true
+  split side by side: each image's histogram under its name.
 ```
 
 ## Before you start

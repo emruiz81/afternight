@@ -45,17 +45,16 @@ recorded as nonlinear. The sources stay as they are.
 ```figure
 image: ../../assets/images/processes/color-composition/nb-color-mapper.webp
 alt: >-
-  The NB Color Mapper task. Its header reads NB Color Mapper on the Ha master. The canvas at the left shows the
-  preview, the Eagle Nebula in red over a teal background with many stars, with the word PREVIEW in its corner and the
-  floating toolbar near its foot. The column at the right opens with the compact readout of the preview, then the
-  Preview area and Processed toggles, the Histogram Controls section with a histogram of three peaks close together
-  over its toolbar, Midtones at 0.020 and Blackpoint at 0.036, and the Layers section with two rows: the Ha master at
-  H 0 / S 1.00 and the OIII master at H 180 / S 1.00, the second selected. The body scrolls on to the other sections,
-  and Reset, Close and Apply stand in its footer.
+  The NB Color Mapper task's column. At its top the compact readout of the preview: a small histogram with a red and a
+  blue peak, the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median
+  up 0.2040 to 0.2419. Below it the column's header, Preview area unticked and the Processed button. The body is
+  scrolled to the foot of the Histogram Controls section - the foot of its histogram, its toolbar, Midtones at 0.020
+  and Blackpoint at 0.036 - and the Layers section: a table of two rows, #1 the Ha master and #2 the OIII master, the
+  second selected, with Add and Remove under it. The Layer Settings section begins below, and Reset, Close and Apply
+  stand in the footer.
 caption: >-
-  NB Color Mapper with the Ha master in red and the OIII master in cyan, each stretched on its own, the background
-  neutralized, and the canvas in the Linear display mode under Preview STF.
-owed: true
+  NB Color Mapper with the Ha master in red and the OIII master in cyan, each stretched on its own and the background
+  neutralized. The histogram and the readout at the top are counted from the preview.
 ```
 
 ## Before you start

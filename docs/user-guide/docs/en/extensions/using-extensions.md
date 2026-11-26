@@ -18,27 +18,29 @@ run, the Python environment it needs, and its settings. You install, update and 
 tab, which [Extension Marketplace](extension-marketplace.md) describes.
 
 ```figure
-owed: true
-image: ../assets/images/extensions/using-extensions.webp
+image: ../assets/images/extensions/using-extensions.png
 alt: >-
-  The Extensions window, a window of its own in front of the main window, on its Installed tab. Under its heading,
-  Extensions, the tabs Browse and Installed; under them, a banner counts the packages found, and a Refresh Status
-  button sits below it. Two package cards follow. Each card shows the package's name with a green Available badge and
-  a version badge, then the buttons Uninstall, Reveal Package and Details on the right, with Settings on the card of a
-  package that has settings, and under the name a line with the source, the host mode and the identifier. The first
-  card is open on its details: the package's folders, its runtime targets, its last check, its last launch and its
-  last stop. Reset Tab at the left and Close at the right run along the bottom.
+  The Extensions window, a window of its own, on its Installed tab. Under its heading, Extensions, the tabs Browse and
+  Installed; under them a banner reads 5 extension package(s) discovered: 5 available, 0 bootstrapping, 0
+  incompatible, 0 needing attention. A Refresh Status button sits below it, then a note that the tab looks for the
+  packages again when it is refreshed. The package cards follow. Each card shows the package's name with a green
+  Available badge and a version badge, the buttons Uninstall, Settings on a package that has settings, Reveal Package
+  and Details on the right, and under the name a line with the source, the host mode and the identifier. The first
+  card, Continuum Subtraction, is open on its details: its package root and manifest file, its environment path and
+  runtime targets, the result of its last check, what install or repair it needs, its last launch and its last crash
+  or termination. The second, Gaia Glow Subtraction, is closed, and a third begins under it. Reset Tab at the left and
+  Close at the right run along the bottom.
 caption: >-
-  The Installed tab with two packages installed from the official repository, the first open on its details.
+  The Installed tab with the packages installed on this computer, every one available, the first open on its details.
 pins:
-  - {n: 1, x: 39.0, y: 4.5}
-  - {n: 2, x: 88.0, y: 11.0}
-  - {n: 3, x: 20.0, y: 17.5}
-  - {n: 4, x: 3.5, y: 28.5}
-  - {n: 5, x: 57.0, y: 28.5}
-  - {n: 6, x: 3.5, y: 33.0}
-  - {n: 7, x: 3.5, y: 42.0}
-  - {n: 8, x: 14.0, y: 95.5}
+  - {n: 1, x: 38.0, y: 12.6}
+  - {n: 2, x: 65.0, y: 16.9}
+  - {n: 3, x: 16.0, y: 23.0}
+  - {n: 4, x: 3.0, y: 38.0}
+  - {n: 5, x: 60.0, y: 38.0}
+  - {n: 6, x: 50.0, y: 42.4}
+  - {n: 7, x: 3.0, y: 50.0}
+  - {n: 8, x: 14.0, y: 94.8}
 ```
 
 ## What you see

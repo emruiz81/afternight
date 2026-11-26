@@ -2,11 +2,11 @@
   "group": "Extensions",
   "captures": [
     {
-      "picture": "assets/images/extensions/using-extensions.webp",
+      "picture": "assets/images/extensions/using-extensions.png",
       "page": "extensions/using-extensions.md",
       "data": [],
-      "note": "extensions is a kept profile whose storage root's path names nothing personal, since the cards' details show it. It holds two packages installed from the official repository, VeraLux Suite and GraXpert AI, each with its environment prepared (Available on the Installed tab) and its parameters read. The first card in the tab's order is opened on its details. The page's pins were placed for the 1.1 window and are to be checked on the picture.",
-      "shows": "The Extensions window on its Installed tab with two packages installed from the official repository, the first open on its details",
+      "note": "extensions is a kept profile whose storage root's path names nothing personal, since the cards' details show it. It holds four packages - Continuum Subtraction, GAIA Glow Subtraction, HDR Multiscale and Narrowband Normalization - and a local repository, each environment prepared, so that the Installed tab counts them all available. An environment is prepared for one build of AfterNight: after a new build each card reads Repair Needed until its Repair Environment is pressed, or the package launched, once. The first card in the tab's order is opened on its details. The page's pins follow this picture.",
+      "shows": "The Extensions window on its Installed tab with the guide's kept packages, every one available, the first open on its details",
       "options": ["-Storage", "{extensions}", "-ReuseStorage", "-Capture", "using-extensions=Extensions > Manage Extensions...", "-Set", "Installed;%until=Refresh Status;Details", "-Width", "1280"]
     },
     {
