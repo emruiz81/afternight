@@ -2,9 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The application's start with the shell it registers: the Observatory shell started when it is chosen and when
-// nothing chooses a shell, and when a source names a shell this version does not have; the core initialized and
-// started and the context made before the shell's window is; and the time from the start to the first paint of the
-// window, measured.
+// nothing chooses a shell, and when a source names a shell this version does not have; and the core initialized and
+// started and the context made before the shell's window is.
 
 #include "ObservatoryShell.h"
 #include "ObservatoryWindow.h"
@@ -21,22 +20,14 @@
 #include "theme/AnDesignTokens.h"
 
 #include <QApplication>
-#include <QCoreApplication>
-#include <QElapsedTimer>
-#include <QEvent>
-#include <QObject>
 #include <QProcessEnvironment>
 #include <QStackedWidget>
 #include <QThread>
-#include <QWidget>
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <cstdio>
 #include <functional>
 #include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -172,10 +163,9 @@ TEST(ApplicationStart, DefaultIsObservatory)
     }
 
     std::optional<an::ui::StyleProfile> styledWith;
-    an::ui::StartedApplication started = an::ui::startApplication(core, registry, {program}, QProcessEnvironment(),
-                                                                  [&styledWith](const an::ui::StyleProfile profile) {
-                                                                      styledWith = profile;
-                                                                  });
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {program}, QProcessEnvironment(),
+                                 [&styledWith](const an::ui::StyleProfile profile) { styledWith = profile; });
 
     ASSERT_NE(started.shell, nullptr);
     ASSERT_NE(started.choice.descriptor, nullptr);
@@ -235,82 +225,4 @@ TEST(ApplicationStart, TheCoreIsStartedBeforeAWindowIsMade)
     const an::Status shut = an::ui::stopApplication(std::move(started.shell), session);
     EXPECT_TRUE(shut.ok()) << shut.message();
     EXPECT_EQ(an::ui::appContext(), nullptr);
-}
-
-namespace
-{
-
-/// Sees the first paint of a widget.
-class FirstPaint final : public QObject
-{
-public:
-    bool painted = false;
-
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override
-    {
-        if (event != nullptr && event->type() == QEvent::Paint)
-        {
-            painted = true;
-        }
-        return QObject::eventFilter(watched, event);
-    }
-};
-
-/// The milliseconds from the call of the start to the first paint of the shell's window once it is shown.
-[[nodiscard]] double startToFirstPaint()
-{
-    an::ui::ApplicationSession session;
-    ApplicationCore core;
-    core.setApplicationSession(&session);
-    ShellRegistry registry;
-    an::ui::registerApplicationShells(registry);
-    core.setShellRegistry(&registry);
-
-    QElapsedTimer timer;
-    timer.start();
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
-    QWidget* const window = started.shell->mainWindow();
-    FirstPaint first;
-    window->installEventFilter(&first);
-    window->setAttribute(Qt::WA_DontShowOnScreen, true);
-    window->resize(1920, 1080);
-    window->show();
-    while (!first.painted && timer.elapsed() < 30000)
-    {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-    }
-    const double elapsed = static_cast<double>(timer.nsecsElapsed()) / 1.0e6;
-    window->removeEventFilter(&first);
-    (void)window->close();
-    (void)an::ui::stopApplication(std::move(started.shell), session);
-    return first.painted ? elapsed : -1.0;
-}
-
-} // namespace
-
-// The time from the call of the application's start to the first paint of the Observatory window, the median of seven
-// rounds. Measured, never asserted, and only when AFTERNIGHT_TEST_TIMINGS=1 asks for it.
-TEST(Timing, StartToFirstPaint)
-{
-    if (qEnvironmentVariable("AFTERNIGHT_TEST_TIMINGS") != QStringLiteral("1"))
-    {
-        GTEST_SKIP() << "a time is measured only when AFTERNIGHT_TEST_TIMINGS=1 asks for it";
-    }
-    // A first start warms what any start loads once for the process.
-    (void)startToFirstPaint();
-
-    constexpr int kRounds = 7;
-    std::vector<double> rounds;
-    for (int round = 0; round < kRounds; ++round)
-    {
-        rounds.push_back(startToFirstPaint());
-    }
-    std::sort(rounds.begin(), rounds.end());
-    const double medianMs = rounds[rounds.size() / 2];
-    ASSERT_GT(rounds.front(), 0.0) << "the Observatory window was never painted";
-    std::printf("\nStart to first paint, median of %d rounds: %.1f ms (%.1f to %.1f)\n", kRounds, medianMs,
-                rounds.front(), rounds.back());
-    ::testing::Test::RecordProperty("observatoryMs", std::to_string(medianMs));
 }

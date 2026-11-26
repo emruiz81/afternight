@@ -14,7 +14,7 @@ namespace an::ui
 /// the accessibility "Disable animations" preference is respected everywhere.
 ///
 /// Usage in animated components:
-///   m_animation->setDuration(AnimationUtils::duration(170)); // 170ms or 0
+///   m_animation->setDuration(AnimationUtils::duration(AnimationUtils::kMovementMs)); // 150 ms or 0
 ///   if (!AnimationUtils::animationsEnabled()) { applyInstantly(); return; }
 ///
 /// The switch is the Controls library's own: every library and executable that reads or sets it reaches the one the
@@ -23,6 +23,10 @@ namespace an::ui
 class AFTERNIGHTCONTROLS_API AnimationUtils
 {
 public:
+    /// The longest a movement of the interface lasts - a section that opens or closes - so that it answers a click
+    /// rather than keeping the person waiting for what it shows.
+    static constexpr int kMovementMs = 150;
+
     /// Returns true if UI animations are currently enabled (default: true).
     [[nodiscard]] static bool animationsEnabled();
 

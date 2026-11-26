@@ -100,7 +100,7 @@ AnCollapsibleSection::AnCollapsibleSection(const QString& title, QWidget* parent
     rootLayout->addWidget(m_contentWidget);
 
     m_contentAnimation = new QPropertyAnimation(m_contentWidget, "maximumHeight", this);
-    m_contentAnimation->setDuration(AnimationUtils::duration(170));
+    m_contentAnimation->setDuration(AnimationUtils::duration(AnimationUtils::kMovementMs));
     m_contentAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
     connect(m_toggleButton, &QToolButton::clicked, this, [this](const bool checked) { setExpanded(checked); });

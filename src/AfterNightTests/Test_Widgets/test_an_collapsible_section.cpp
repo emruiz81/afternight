@@ -213,3 +213,17 @@ TEST(WidgetsComponentsAnCollapsibleSection, AnCollapsibleSection_ExpandedHeightI
 
     EXPECT_EQ(section.contentWidget()->minimumHeight(), needed);
 }
+
+// A section opens and closes in at most 150 ms, the longest any movement of the interface lasts, so that it answers a
+// click rather than keeping the person waiting for the content.
+TEST(WidgetsComponentsAnCollapsibleSection, AnCollapsibleSection_MovesWithinTheLongestMovement)
+{
+    const bool wereEnabled = an::ui::AnimationUtils::animationsEnabled();
+    an::ui::AnimationUtils::setAnimationsEnabled(true);
+    {
+        const an::ui::AnCollapsibleSection section(QStringLiteral("Output"));
+        EXPECT_GT(section.animationDuration(), 0) << "a section moves while the animations are on";
+        EXPECT_LE(section.animationDuration(), 150);
+    }
+    an::ui::AnimationUtils::setAnimationsEnabled(wereEnabled);
+}
