@@ -4,15 +4,16 @@
 # adds. A record names the cases that prove the capability:
 #
 #   shared       cases of code every shell uses - a dialog, a control, a model
-#   observatory  cases that drive the Observatory shell's own window; `pending` until they are written
+#   observatory  cases that drive the Observatory shell's own window; every capability names at least one
 #
 # A case is named as Google Test names it: `Suite.Case`, and a parity scenario run for one shell
 # `ShellScenario.Case/<shell>`. The cases named are the ones that most directly prove the capability, three of a kind at
 # most: the register says where a capability is proved, not everything that touches it.
 #
 # build/scripts/tools/check_shell_capabilities.py holds the register to the suites: every case it names exists, no
-# capability is listed twice, and every capability has an `observatory` line. A capability the interface gains is added
-# here in the change that adds it; one it loses goes with it.
+# capability is listed twice, and every capability has an `observatory` line; run with `--require-shell observatory`,
+# as the checks run it, it refuses an Observatory line that is empty or `pending`. A capability the interface gains is
+# added here in the change that adds it; one it loses goes with it.
 
 # ---- Files
 

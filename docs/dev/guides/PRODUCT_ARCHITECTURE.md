@@ -2763,12 +2763,12 @@ pressed - so the case does not race the run. A shell that cannot yet do what a s
 a shell that is retired leaves the instantiation and the scenarios stay.
 
 `Test_ShellParity/Capabilities.txt` is the register of the interface's capabilities, a record each: the `shared` cases
-of code every shell uses, and on its `observatory` line the cases that drive the Observatory window - `pending` while
-it has none. `check_shell_capabilities.py` holds it to the suites: every case it names is defined, a scenario is named
-on the line of the shell it ran for, no capability is listed twice, every capability has an `observatory` line, and a
-line of another kind is refused;
-`--require-shell <shell>` leaves nothing of that shell pending. A capability the interface gains is added to the
-register in the change that adds it.
+of code every shell uses, and on its `observatory` line the cases that drive the Observatory window - every capability
+names at least one. `check_shell_capabilities.py` holds it to the suites: every case it names is defined, a scenario is
+named on the line of the shell it ran for, no capability is listed twice, every capability has an `observatory` line,
+and a line of another kind is refused; `--require-shell observatory`, as the checks run it, refuses an Observatory line
+that is empty or `pending`. A capability the interface gains is added to the register in the change that adds it, and
+one it loses goes with it.
 
 ### The runtime backend (`src/AfterNightExtensionRuntimeBackend/`)
 

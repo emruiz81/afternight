@@ -303,11 +303,13 @@ for each shell id (`ShellScenario.ViewMenuEntries/observatory`), started and end
 it, and driven through that shell's `ShellDriver`. A scenario reads the records above where a record holds what it
 shows.
 
-`Test_ShellParity/Capabilities.txt` names, for each capability of the interface, the cases that prove it - the
-`shared` ones, of code every shell uses, and the `observatory` ones, which drive the Observatory window - and
-`check_shell_capabilities.py` holds every name to a case the suites define and refuses a line of another kind. A
-capability with no shared case is an empty `shared` line, and one the Observatory window has no case of yet is
-`pending` on its line.
+`Test_ShellParity/Capabilities.txt` is the register of the interface's capabilities: for each, the cases that prove
+it - the `shared` ones, of code every shell uses, and the `observatory` ones, which drive the Observatory window. A
+capability with no shared case is an empty `shared` line; every capability names at least one Observatory case. A
+change that gives the interface a capability adds its record with the cases that prove it, one that takes a capability
+away removes the record, and one that moves where a capability is proved moves its names, in the same change.
+`check_shell_capabilities.py --require-shell observatory` holds every name to a case the suites define, refuses a line
+of another kind, and refuses an Observatory line that is empty or `pending`.
 
 ## The source guards
 
@@ -476,7 +478,7 @@ Windows and Linux. Most need nothing but a checkout; three read the generated pr
 | What is built, deployed and shipped | `check_deployed_runtimes.py`, `check_installer_payload.py`, `check_gpu_backend_optionality.py`, `remove_gpu_proof.py` |
 | Dependencies and safety | `check_dependency_provenance.py`, `check_safety_register.py` |
 | The product's layering, state and targets | `check_consumer_layering.py`, `check_consumer_state.py`, `consumer_targets.py check`, `product_measurement.py check` |
-| The interface's capabilities | `check_shell_capabilities.py`, which fails a case the capability register names that no suite defines, a scenario named on another shell's line, a capability listed twice, one with no `observatory` line and a line of another kind |
+| The interface's capabilities | `check_shell_capabilities.py --require-shell observatory`, which fails a case the capability register names that no suite defines, a scenario named on another shell's line, a capability listed twice, one with no `observatory` line or with an empty or `pending` one, and a line of another kind |
 | The campaigns' registries | the `--check` mode of each campaign runner and of `run_performance_campaign.py`, and `generate_skimage_goldens.py check` |
 | The licence of every source | `check_license_headers.py`, which fails a source file that does not open with its SPDX licence and copyright lines, or states a licence other than its own |
 | The links of the developer documents | `check_markdown_links.py`, which fails a link in `docs/dev/`, the contributor guides, the README or the repository's root documents that leads to no file |
