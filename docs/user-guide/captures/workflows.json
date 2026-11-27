@@ -36,7 +36,7 @@
       "picture": "assets/images/workflows/planetary-imaging-result.webp",
       "page": "workflows/planetary-imaging.md",
       "data": ["work"],
-      "note": "The master jupiter.fit that the page's registration, alignment and stacking write into the work folder from the jupiter video; no recipe writes it.",
+      "note": "The master jupiter.fit that the page's own steps write into the work folder from the jupiter video, which no recipe here writes: Extract Sequence of frames 11 to 110 and File > Save as... {work}\\jupiter\\jupiter.anseq (-Prepare, then -View with `?`); Image Registration of the frames folder's files by Phase Correlation into {work}\\jupiter\\registered, Register then Align; Image Stacking of the registered frames at its defaults into {work}\\jupiter.fit.",
       "shows": "Jupiter stacked from the guide's video, color-balanced on a square inside the disc and sharpened with Multiscale Linear Transform, in the Linear display mode",
       "options": ["-Open", "{work}\\jupiter.fit", "-Prepare", "Process > Color Calibration > Color Calibration|whiteRoiGroupBox@3,4;whiteRoiLeftValue=118;whiteRoiTopValue=120;whiteRoiWidthValue=200;whiteRoiHeightValue=200||Process > Multiscale > Multiscale Linear Transform|biasSpinBox=0.05;deringingGroup=On", "-MainWindow", "planetary-imaging-result", "-Width", "1280"]
     }

@@ -43,8 +43,9 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/nl-bayes.webp
 alt: >-
-  The Non-Local Bayes Filter task's column. At its top the compact readout of the preview, its histogram empty and
-  each figure a dash. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
+  The Non-Local Bayes Filter task's column. At its top the compact readout of the preview: the image's plate
+  solution, a small histogram with one narrow peak at its left edge, Clip Low at 0.000 % and Clip High at 0.019 %, and
+  Min, Max, Mean, Median and StdDev, each with a change of ±0 from the image. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
   button, Target Image and Channel at RGB, Sigma at 5.0000, grayed, with its slider, then five check boxes, of which
   Automatic Sigma Estimation and 1° Step Homogeneous Area are ticked, and SOS Iterations at 1, SOS Rho at 0.80 and
   Amount at 1.00, the last two with their sliders. Reset, Close and Apply stand in its footer.

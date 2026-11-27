@@ -40,7 +40,8 @@ What is captured is named in one of two ways:
 
 -Crop says what of a task the picture shows: `task`, its page (the default: the header, the canvas and the column);
 `column`, the column alone; `canvas`, the canvas alone; `view`, the image of the image view the main window shows,
-without the margins beside it; `window`, the whole main window; or the object name of any part of the main window,
+without the margins beside it; `view-top`, the upper two thirds of that, clear of the view's floating toolbar, as
+-Apply's pair takes it; `window`, the whole main window; or the object name of any part of the main window,
 such as `observatoryRightColumn`. -Float floats the task in a window of its own, as its
 header's button does, and takes that window instead.
 
@@ -101,8 +102,10 @@ main window such as "@Clear Session" or an item of the rail such as "@Integratio
 popup or the window that has the keyboard, or `%middle`, which puts the main
 window's scroll bars at their middle so a
 view zoomed to 100 % shows the middle of its image - once the preparations are done and before the first capture,
-and waits until the view has redrawn. `%display=<mode>` chooses the active view's display mode, and
-`%shot=<name>[@<part>]` saves the main window's picture there and then.
+and waits until the view has redrawn. `%display=<mode>` chooses the active view's display mode,
+`%shot=<name>[@<part>]` saves the main window's picture there and then, and "<menu path>?<path>" chooses an item that
+opens the system's file dialog - "File > Save as...?D:\frames\jupiter.anseq" - answers it with the path and waits for
+the write its Save File window shows.
 
 -Storage <folder> names the storage root instead of a new temporary one, and keeps it afterwards. It must be a new
 folder, unless -ReuseStorage says it is one a previous run kept: the profile then starts with what that run left in
@@ -513,6 +516,7 @@ public sealed class AnScreenshots
         Thread.Sleep(300);
         IntPtr edit = AnCaptureNative.GetDlgItem(dialog.Handle, 1152);
         if (edit == IntPtr.Zero) edit = AnCaptureNative.GetDlgItem(dialog.Handle, 1148);
+        bool saving = edit == IntPtr.Zero;
         // A Save dialog keeps its name box deeper down: an edit inside the combo box of control 1001.
         if (edit == IntPtr.Zero)
         {
@@ -531,6 +535,14 @@ public sealed class AnScreenshots
         if (edit == IntPtr.Zero) throw new InvalidOperationException("the file dialog has no name box");
         IntPtr ignored;
         AnCaptureNative.SendMessageTimeout(edit, 0x000C, IntPtr.Zero, path, 2, 5000, out ignored);
+        if (saving)
+        {
+            // A Save dialog saves under the name it heard typed, not its box's text - given only the text, it saved the
+            // name it opened with, in the folder it opened in - so the path is typed over the box's whole text, a
+            // character at a time, as a person types it; the acceptance posted after it comes after the last one.
+            AnCaptureNative.PostMessage(edit, 0x00B1, IntPtr.Zero, (IntPtr)(-1));
+            foreach (char character in path) AnCaptureNative.PostMessage(edit, 0x0102, (IntPtr)character, IntPtr.Zero);
+        }
         // A folder is what a folder picker takes; a dialog that opens files goes into it instead, and is given the
         // folder's files, every one quoted with its whole path, as a person selects them all.
         // A folder a run is to write into - `{work}\masters` - is made first: a folder picker takes only one that exists.
@@ -551,6 +563,15 @@ public sealed class AnScreenshots
             {
                 if (!IsShown(dialog.Handle)) return;
                 Thread.Sleep(50);
+            }
+            // A Save dialog asks before it replaces a file; the tool replaces none it was not told to make.
+            foreach (AnShownWindow shown in Windows())
+            {
+                if (shown.ClassName == "#32770" && shown.Title == "Confirm Save As")
+                {
+                    throw new InvalidOperationException("the file dialog asks before it replaces a file when answered " +
+                                                        path + ": delete the file an earlier run left, or answer another path");
+                }
             }
             if (folder && attempt == 0)
             {
@@ -2033,6 +2054,12 @@ function Read-ViewActions([string[]]$given, [string]$option) {
             $action.shot = $Matches[1].Trim(); $action.part = "$($Matches[2])".Trim(); $action.button = '%shot'
         }
         if ($action.menu -match '^%type=(.*)$') { $action.typed = $Matches[1]; $action.button = '%type' }
+        # `<menu path>?<path>` chooses an item that opens the system's file dialog - File > Save as... - and answers it.
+        if (-not $action.button -and $action.menu.Contains('?')) {
+            $at = $action.menu.IndexOf('?')
+            $action.answer = $action.menu.Substring($at + 1).Trim()
+            $action.menu = $action.menu.Substring(0, $at).Trim()
+        }
         $actions.Add($action)
     }
     return ,$actions
@@ -2135,6 +2162,8 @@ $shots = New-Object AnScreenshots $process
 # Saves a picture of the main window, whole or cropped to a part named by its object name - or to the task a part of
 # a task names: `task`, `column`, `canvas` - and the upper `fraction` of that part.
 function Save-MainPicture([string]$name, [string]$part, [double]$fraction = 1.0) {
+    # The upper two thirds of the view, as -Apply's pair takes its halves: the other half of a pair -Apply began.
+    if ($part -eq 'view-top') { $part = 'view'; $fraction = 2.0 / 3.0 }
     $moved = $false
     $pointer = $shots.MovePointerOut($mainHandle, [ref]$moved)
     try {
@@ -2256,6 +2285,29 @@ function Invoke-ViewAction($action) {
         if ($shots.IsShown($opened.Handle)) { $shots.Close($opened.Handle); Start-Sleep -Milliseconds 700 }
     }
     elseif ($action.button) { [void]$shots.PressMainButton($main, $action.button, $OpenTimeoutSeconds * 1000) }
+    elseif ($action.answer) {
+        # The system's dialog is answered with the path. The write it starts shows the application's window titled
+        # "Save File" while it lasts - the system's own "Save As" is not it - and has ended once the file it was given is
+        # there and no such window has shown for three seconds, waited for up to -RunTimeoutSeconds.
+        $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+        foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
+        $choice = Invoke-MenuPath $action.menu
+        $shots.AnswerNativeDialog($action.answer, 20000)
+        $shots.Note("chose '$($action.menu)' and answered $($action.answer)")
+        $asked = [System.Diagnostics.Stopwatch]::StartNew()
+        $quiet = [System.Diagnostics.Stopwatch]::StartNew()
+        $written = $false
+        while ($asked.ElapsedMilliseconds -lt ($RunTimeoutSeconds * 1000)) {
+            $shots.CheckAlive()
+            $writing = @($shots.Windows() | Where-Object { -not $known.Contains($_.Handle) -and $_.Title -and $_.Title.StartsWith('Save') -and [AnScreenshots]::IsWorkWindowClass($_.ClassName) })
+            if ($writing.Count -gt 0) { $quiet.Restart() }
+            elseif ((Test-Path -LiteralPath $action.answer) -and $quiet.ElapsedMilliseconds -gt 3000) { $written = $true; break }
+            Start-Sleep -Milliseconds 500
+        }
+        if (-not $written) { throw "'$($action.menu)' did not write $($action.answer) within -RunTimeoutSeconds" }
+        $shots.Note("the write ended after $([int]$asked.Elapsed.TotalSeconds) s")
+        [void]$choice.Wait(30000)
+    }
     else { [void](Invoke-MenuPath $action.menu).Wait(30000) }
     $rested = $false
     $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested).Dispose()
@@ -2710,9 +2762,11 @@ try {
             $clock.Restart()
             while ($shots.TaskPageId($main) -and $clock.ElapsedMilliseconds -lt 5000) {
                 # A task that holds results asks before it closes - "Close Star Profiler" - and is told Yes, as a
-                # person who has taken the picture does.
+                # person who has taken the picture does. The application's own question, "Close AfterNight", asks
+                # whether to quit: it is never answered, and the capture stops on it.
                 foreach ($shown in $shots.Windows()) {
                     if ($beforeClose.Contains($shown.Handle) -or -not $shown.Title -or -not $shown.Title.StartsWith('Close ')) { continue }
+                    if ($shown.Title -eq 'Close AfterNight') { throw "closing the task of '$($shot.menu)' asked whether to quit AfterNight" }
                     try { if ($shots.Control($shown.Handle, 'Yes')) { [void]$shots.Press($shown.Handle, 'Yes'); $shots.Note("answered '$($shown.Title)' with Yes") } } catch { }
                 }
                 Start-Sleep -Milliseconds 100

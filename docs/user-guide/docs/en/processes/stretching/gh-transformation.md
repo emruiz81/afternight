@@ -43,13 +43,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/gh-transformation.webp
 alt: >-
-  The Generalized Hyperbolic Transformation task's column. At its top the compact readout of the preview: a small
-  histogram, the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image. Below it
-  the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image at RGB,
-  and two histograms, each under a white curve that rises steeply and then bends over, with two lines of clipping
-  percentages in its top left corner. In the upper one the peak is a row of separate spikes from about a fifth of the
-  way along, shrinking to the right. In the lower one it is a spike at the left edge, beside a dotted diagonal. The
-  lower histogram runs on under Reset, Close and Apply in the footer.
+  The Generalized Hyperbolic Transformation task's column, scrolled down to its settings. At its top the compact
+  readout of the preview: a small histogram, the clipped fractions, and Min, Max, Mean, Median and StdDev with their
+  change from the image. Below it the column's header, the Preview box ticked, Preview area unticked and the Processed
+  button. The body shows the foot of the lower histogram, a spike at its left edge under a white curve that rises
+  steeply, beside a dotted diagonal, then the histogram's toolbar, Channel at RGB, Transformation type at Generalized
+  Hyperbolic with Invert unticked, Stretch factor at 2.5000, Local intensity at 5.0000, Symmetry point at 0.0250,
+  Protect shadows at 0.0000 and Protect highlights at 1.0000, each with its slider, and the SP picker's three buttons.
+  Reset, Close and Apply stand in the footer.
 caption: >-
   Generalized Hyperbolic Transformation on a linear master, with the symmetry point at 0.025, a stretch factor of 2.5
   and a local intensity of 5, the values of the worked example. The lower histogram is the image, the upper one the

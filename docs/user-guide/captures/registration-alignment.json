@@ -16,7 +16,7 @@
       "options": ["-Storage", "{gaia}", "-ReuseStorage", "-Display", "Autostretch", "-Capture", "plate-solving=Image > Information > Plate Solve", "-Set", "plateSolveSolve!", "-Width", "1280"]
     },
     {
-      "picture": "assets/images/processes/registration-alignment/star-profiler.png",
+      "picture": "assets/images/processes/registration-alignment/star-profiler.webp",
       "page": "processes/registration-alignment/star-profiler.md",
       "data": ["linear"],
       "shows": "The Star Profiler v2 task's column after a detection on the linear master stretched by Histogram Transformation at Shadows and Midtones 0.02, Threshold at 3.00, its ellipses over the image in the canvas",

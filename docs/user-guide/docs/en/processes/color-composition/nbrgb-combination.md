@@ -42,12 +42,13 @@ straight line fitted from it to that sum gives a second answer, and each pixel k
 ```figure
 image: ../../assets/images/processes/color-composition/nbrgb-combination.webp
 alt: >-
-  The NBRGB Combination task's column, scrolled a little. At its top the compact readout of the preview: a small
-  histogram with one spike near its dark end, the clipped fractions, Min, Max and Mean, each unchanged from the image,
-  and Median and StdDev without a value. Below it the column's header, Preview area ticked and the Processed button, a
-  histogram with one narrow peak near its dark end, 0.001 % clipped high, over its toolbar, the Sources group with RGB
-  bandwidth at 100.00, and the Narrowband Channels group, whose Red row holds stacked_3008x3004_Ha_M_16 with Bandwidth
-  7.00 and Scale 1.20. Reset, Close and Apply stand in its footer.
+  The NBRGB Combination task's column, scrolled to its channels. At its top the compact readout of the preview: a
+  small histogram with one spike near its dark end, the clipped fractions, and Min, Max, Mean, Median and StdDev, each
+  unchanged from the image. Below it the column's header, Preview area ticked and the Processed button, RGB bandwidth
+  at 100.00, and the Narrowband Channels group, whose Red row holds stacked_3008x3004_Ha_M_16 with Bandwidth 7.00 and
+  Scale 1.20 and whose Green and Blue rows hold no image, at 8.50 and 1.20. Under it the Options group with Reject low
+  at 0.000, Reject high at 0.920, Non Linear rescale unticked and Preview at NBRGB. Reset, Close and Apply stand in its
+  footer.
 caption: >-
   NBRGB Combination on a color image made from the SII and OIII masters, with the Ha master in Red at the default
   bandwidths and scale and the preview area on.

@@ -45,8 +45,8 @@ alt: >-
   it the column's header, Preview area unticked and the Image 1 toggle, the Image 1 box at RGB, and two histograms one
   above the other, captioned Image 1: RGB and Image 2: RGB-linear: the upper one a peak a little way in from its left
   edge, the lower one a spike at the edge, each with its clipping in its corner. Under them the histogram toolbar and
-  the Mode row of three buttons with the second one pressed. The Image 2 box, at RGB-linear, sits at the column's
-  foot, and Close stands alone in the footer.
+  the Mode row of three buttons with the second one pressed, and the Image 2 box at RGB-linear under it. The rest of
+  the column is empty down to Close, alone in the footer.
 caption: >-
   Image Compare with the Carina master after Histogram Transformation as Image 1 and the linear master as Image 2,
   split side by side: each image's histogram under its name.

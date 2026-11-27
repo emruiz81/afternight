@@ -42,7 +42,7 @@ for a sequence, and closes the [task](../../reference/glossary.md#task). Each re
 ```figure
 image: ../../assets/images/processes/calibration/split-cfa.webp
 alt: >-
-  The Split CFA task's column under its header, Preprocess over Split CFA. From the top it holds Target Image naming
+  The Split CFA task's column under its header, Color Spaces over Split CFA. From the top it holds Target Image naming
   the raw light, Method at Split CFA Channels and Ha/OIII Resampling greyed at No Resampling. The rest of the column is
   empty down to the footer, where Close and OK stand.
 caption: >-

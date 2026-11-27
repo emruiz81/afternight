@@ -21,9 +21,9 @@
       "picture": "assets/images/extensions/extension-tasks.webp",
       "page": "extensions/extension-tasks.md",
       "data": ["linear"],
-      "note": "The same kept profile as using-extensions, in which VeraLux Suite's parameters were read when its environment was prepared, so that VeraLux HyperMetric Stretch opens as a task AfterNight draws; its host must be ready, the Starting row gone, before the picture. The page's pins follow the task page's layout and are to be checked on the picture.",
-      "shows": "The main window showing VeraLux HyperMetric Stretch, an extension's process, as a task AfterNight draws, at its defaults on the linear master, the preview on",
-      "options": ["-Storage", "{extensions}", "-ReuseStorage", "-Capture", "extension-tasks=Process > Adjustments > HDR Multiscale", "-Crop", "window", "-HoldSeconds", "10", "-Width", "1280"]
+      "note": "The same kept profile as using-extensions, whose HDR Multiscale extension describes its parameters, so that it opens as a task AfterNight draws; its host must be ready, the Starting row gone, and its first frame over the full master landed - which took more than ten seconds on 2026-11-27 - before the picture. The page's pins follow the task page's layout and are to be checked on the picture.",
+      "shows": "The main window showing HDR Multiscale, an extension's process, as a task AfterNight draws, at its defaults on the linear master, the preview on",
+      "options": ["-Storage", "{extensions}", "-ReuseStorage", "-Capture", "extension-tasks=Process > Adjustments > HDR Multiscale", "-Crop", "window", "-HoldSeconds", "30", "-Width", "1280"]
     }
   ]
 }

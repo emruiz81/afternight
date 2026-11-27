@@ -49,14 +49,14 @@ through the image's [plate solution](../../reference/glossary.md#plate-solution)
 adds a step to its [history](../../reference/glossary.md#history).
 
 ```figure
-image: ../../assets/images/processes/registration-alignment/star-profiler.png
+image: ../../assets/images/processes/registration-alignment/star-profiler.webp
 alt: >-
   The Star Profiler v2 task's column under its header, Star Processing over Star Profiler v2. The Detected Stars
   section holds a table of narrow columns, most of their headings cut short, its first five rows filled with
   figures, then two rows of buttons from Load Profile to Clear, and a line that reads Detected Stars: 2187 beside the
   Center Selected Star check box and a greyed zoom box at x2.00. Below, the Star Detection section: Radius at 5,
-  Threshold at 3.00, the unticked Amplitude Range with its greyed limits, and Roundness Threshold at 0.50, where the
-  column scrolls on. Close stands in the footer.
+  Threshold at 3.00, the unticked Amplitude Range with its greyed limits, Roundness Threshold at 0.50 and the
+  unticked Roundness Range, where the column scrolls on. Close stands in the footer.
 caption: >-
   Star Profiler v2 after a detection on the stretched Carina master with Threshold at 3.00: the table lists 2,187
   stars, brightest first.

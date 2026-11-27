@@ -43,8 +43,8 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 image: ../../assets/images/processes/noise-reduction/graycstoration.webp
 alt: >-
   The GRAYCstoration Filter task's column. At its top the compact readout of the preview: a small histogram, the
-  clipped fractions, and beside them Min, Max and Mean, each with a change of ±0, and Median and StdDev with no
-  value. Below it the column's header, the Preview and Preview area boxes ticked and the Processed button, then, in a
+  clipped fractions, and beside them Min, Max, Mean, Median and StdDev, each with a change of ±0. Below it the column's
+  header, the Preview and Preview area boxes ticked and the Processed button, then, in a
   body that scrolls, Target Image and Channel at RGB, ten boxes with sliders from Iterations to Amount, Amplitude at
   5, and the Interpolation box at Nearest Neighbor. Reset, Close and Apply stand in its footer.
 caption: >-

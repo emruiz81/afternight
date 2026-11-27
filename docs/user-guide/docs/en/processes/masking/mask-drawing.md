@@ -41,8 +41,9 @@ new image is not attached to it as its mask.
 ```figure
 image: ../../assets/images/processes/masking/mask-drawing.webp
 alt: >-
-  The Mask Drawing task's column. At its top the compact readout of the preview: the image's plate solution, an empty
-  histogram and a dash in place of every value. Below it the column's header, the Preview box ticked and dimmed,
+  The Mask Drawing task's column. At its top the compact readout of the preview: the image's plate solution, a small
+  histogram with one narrow peak at its left edge, Clip Low at 0.000 % and Clip High at 0.019 %, and Min, Max, Mean,
+  Median and StdDev, each with a change of ±0 from the image. Below it the column's header, the Preview box ticked and dimmed,
   Preview area unticked and the Processed button, Target Image at RGB, a line of help about painting on the preview,
   the Tool group with Brush, Eraser, Shape, Edit, Fill and Gradient, Shape pressed, and the dimmed Brush group with
   Tip Shape at Round, Size at 24, Hardness, Opacity and Flow at 1.00 and Spacing at 0.25, in a body that scrolls.

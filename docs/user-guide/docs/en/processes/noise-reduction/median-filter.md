@@ -43,8 +43,9 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/noise-reduction/median-filter.webp
 alt: >-
-  The Median Filter task's column. At its top the compact readout of the preview, its histogram empty and each figure
-  a dash. Below it the column's header, the Preview and Preview area boxes ticked and the Processed button, Target
+  The Median Filter task's column. At its top the compact readout of the preview: the image's plate solution, a small
+  histogram with one narrow peak at its left edge, Clip Low at 0.000 % and Clip High at 0.019 %, and Min, Max, Mean,
+  Median and StdDev, each with a change of ±0 from the image. Below it the column's header, the Preview and Preview area boxes ticked and the Processed button, Target
   Image and Channel at RGB, Kernel Size at 3x3, and Iterations at 1 and Modulation at 1.00 with their sliders. Reset,
   Close and Apply stand in its footer.
 caption: >-

@@ -43,17 +43,17 @@ multiscale linear transform, which blurs the original with ever wider Gaussians,
 ```figure
 image: ../../assets/images/processes/multiscale/multiscale-linear.webp
 alt: >-
-  The Multiscale Linear Transform task's column. At its top the compact readout of the preview: a small histogram, the
-  clipped fractions, and Min, Max, Mean, Median and StdDev. Below it the column's header, the Preview and Preview area
-  boxes ticked and the Processed button, then, in a body that scrolls, Target Image and Channel at RGB, Preview Mode
-  at Processed Image, the Transform Settings section with Algorithm at Multiscale Linear Transform, Detail Layers at
-  6, Layer Spacing at Dyadic, a grayed Scaling Function at B3 Spline (5) and Amount at 1.00, and the head of the
-  Layers section, a table whose first row, Layer 1, is ticked with a bias of 0.00. Reset, Close and Apply stand in
-  its footer.
+  The Multiscale Linear Transform task's column, scrolled down to its global settings. At its top the compact readout
+  of the preview: the image's plate solution, a small histogram with one narrow peak at its left edge, Clip Low at
+  0.000 % and Clip High at 0.019 %, and Min, Max, Mean, Median and StdDev, each with a change of ±0 from the image.
+  Below it the column's header, the Preview and Preview area boxes ticked and the Processed button, then, in a body
+  that scrolls, Linear Mask unticked, its Amplification at 100 and Smoothness at 1.00 and its Preview Mask and
+  Inverted boxes grayed; k-Sigma Thresholding ticked, with Threshold (k) at 3.00, Amount at 0.70, Soft Threshold
+  ticked and Use MRS clear; and Deringing unticked, its Dark at 0.10, Bright at 0.00 and Output Deringing Maps grayed.
+  Reset, Close and Apply stand in its footer.
 caption: >-
-  The top of the Multiscale Linear Transform task's column on the linear master, with six detail layers in the dyadic
-  spacing and the preview area on. The k-Sigma Thresholding of the worked example is in the Global Settings section,
-  further down the column.
+  The Multiscale Linear Transform task's column on the linear master, scrolled to the k-Sigma Thresholding of the
+  worked example, ticked with its Amount at 0.70, every other value at its default and the preview area on.
 ```
 
 ## Before you start

@@ -47,8 +47,8 @@ alt: >-
   RGB, then the check boxes Upsample x2 and Pre-Stretch linear image, clear, and Highlight protection and Generate
   Stars Output, ticked; Output reading Subtractive Mask; Stride reading Standard (256), with a grayed box reading 256
   beside it; Weights, an empty field whose gray text begins Default StarNet2_weights, with a Browse button; and the
-  green line StarNet2 is configured and ready to use. A Configure button stands at the foot of the body, and Close
-  and OK in its footer.
+  green line StarNet2 is configured and ready to use, with a Configure button under it. The rest of the column is
+  empty down to Close and OK in its footer.
 caption: >-
   Starnet++ at its defaults on the stretched Carina master, once AfterNight knows where StarNet2 is: the line above
   Configure says the program is ready.

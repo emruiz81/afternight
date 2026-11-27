@@ -186,13 +186,16 @@ in the folder you chose. A new try at the color or the sharpening starts from th
 aligned frames take most of the disk, and you may delete them once the master is right.
 
 ```figure
-owed: true
 image: ../assets/images/workflows/planetary-imaging-result.webp
 alt: >-
-  The AfterNight main window with one image open, in a tab named jupiter: the disc of Jupiter, its dark belts and pale
-  zones crossed by fine detail, on a black sky. The floating toolbar near the foot of the view shows Linear selected.
+  The AfterNight main window with one image open, in a tab named jupiter: the disc of Jupiter filling most of the view,
+  pale gray with faint tan belts across it and a soft limb, a violet fringe along its left edge, on a black sky. The
+  floating toolbar near the foot of the view shows Linear selected, the history strip below lists Color Calibration
+  and Multiscale Linear Transform, the last one current, and the readout at the right shows the image's histogram,
+  its statistics and its 448 x 448 pixels.
 caption: >-
-  Jupiter stacked from the guide's video and sharpened as this page describes, shown in the Linear display mode.
+  Jupiter stacked from the guide's video, balanced and sharpened as this page describes, shown in the Linear display
+  mode.
 ```
 
 The **Chromatic aberration correction** of Image Registration matches stars, so the color fringe that the atmosphere

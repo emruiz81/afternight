@@ -25,7 +25,7 @@ alt: >-
   bottom, the star-shaped Show Astrometry button is pressed. In the readout at the right, the Astrometry card reads
   Solved · SIP 4/4 beside a settings button, then the field centre 10:44:30.67 and −59:53:31.7, a scale of 1.095″/px
   and a rotation of 107.75 deg; under them the chips Grid and Annotations, selected, Star labels, Detected stars and
-  SIP map, and the buttons Plate Solve, Annotate... and Info. The status line ends in RA and Dec, both cut short.
+  SIP map, and the buttons Plate Solve, Annotate... and Info. The status line ends in RA and Dec, each reading a dash.
 caption: >-
   The linear Carina master in Autostretch, fitted to its workspace, with the grid and the deep-sky annotations at the
   Standard level of detail, turned on from the readout's Astrometry card.

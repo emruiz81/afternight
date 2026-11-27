@@ -43,7 +43,7 @@ alt: >-
   The Dark Structure Enhance task's column. At its top the compact readout of the preview: the plate solution's scale,
   a small histogram of three colored curves with spikes, the clipped fractions, and Min, Max, Mean, Median and StdDev,
   the median at 0.2772. Below it the column's header, the Preview and Preview area boxes ticked and the Processed
-  button, then the Target Image and Channel labels, an empty band under them and their lists, both at RGB, Layers to
+  button, then the Target Image and Channel labels over their lists, both at RGB, Layers to
   Remove at 8, Scaling Function at 5x5 B3 Spline, Amount at 0.40 and Iterations at 1, Preview Mode at Processed image,
   and Create mask image unticked. Reset, Close and Apply stand in its footer.
 caption: >-

@@ -24,7 +24,7 @@
       "shows": "The Debayer task's column at its defaults on a raw light of NGC 253 opened as a mosaic: From metadata, RCD, Combined RGB Color",
       "before": "A raw light of NGC 253 opened as a mosaic, the core of the galaxy at 100 % in the Autostretch display mode",
       "after": "The same crop of the RGB image RCD made of it, in the Autostretch display mode",
-      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\debayer.md", "-Apply", "-AfterView", "%display=Autostretch;Image > View > Zoom 100%;%middle;%shot=debayer-after@view", "-Crop", "column", "-Height", "980", "-Scale", "1"]
+      "options": ["-OpenAnswer", "No", "-Display", "Autostretch", "-View", "Image > View > Zoom 100%;%middle", "-Page", "processes\\calibration\\debayer.md", "-Apply", "-AfterView", "%display=Autostretch;Image > View > Zoom 100%;%middle;%shot=debayer-after@view-top", "-Crop", "column", "-Height", "980", "-Scale", "1"]
     },
     {
       "picture": "assets/images/processes/calibration/image-calibration.webp",

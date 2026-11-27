@@ -50,8 +50,8 @@ alt: >-
   plate-solved image, the Magnitude limit box at 14.0, the Match radius (arcsec) box at 5.0, the Apply background
   neutralization check box ticked, and the unticked Background ROI Override box, whose Left, Top, Width and Height
   boxes read 0, 0, 7246 and 5429 beside a From Selection button, all greyed. Under the group the status line reads
-  "Ready to calibrate photometric gains from Gaia-matched stars." At the foot of the body the Show matched stars check
-  box is unticked. Reset, Close and Apply stand in its footer.
+  "Ready to calibrate photometric gains from Gaia-matched stars.", and under it the Show matched stars check box,
+  unticked. The rest of the column is empty down to Reset, Close and Apply in its footer.
 caption: >-
   Photometric Color Calibration on the plate-solved Carina master with a Gaia catalog installed, at its defaults and
   with Show matched stars off: the status line says the task is ready to calibrate.

@@ -48,7 +48,8 @@ alt: >-
   as the Starless Image and RGB - star mask as the Stars Image. Stars Profile shows the path of carina.anspv2 with
   three small buttons, Current Stars at 2187, the Stars Filter button, Show Star Profiles ticked, Invert Selection,
   and Scale Factor at 1.00 and Tighten Edges at 0.00 with their sliders. Under Mask Generation, Shape reads Binary
-  Areas, where the column scrolls on. Reset, Close and OK stand in the footer.
+  Areas and Soften Edges stands at 2.00 with its slider, where the column scrolls on. Reset, Close and OK stand in the
+  footer.
 caption: >-
   Profiled Starmask Recombination of the starless Carina image and the star mask Starnet++ made of it, through a Star
   Profiler v2 profile of 2,187 stars, with Binary Areas at their defaults and the preview on.

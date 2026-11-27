@@ -40,7 +40,7 @@ new views beside the source and closes the [task](../../reference/glossary.md#ta
 ```figure
 image: ../../assets/images/processes/calibration/debayer.webp
 alt: >-
-  The Debayer task's column under its header, Preprocess over Debayer. It holds four lists: Target Image naming the
+  The Debayer task's column under its header, Color Spaces over Debayer. It holds four lists: Target Image naming the
   raw light, Bayer/mosaic pattern at From metadata, Demosaicing method at RCD and Output mode at Combined RGB Color.
   The rest of the column is empty down to the footer, where Close and OK stand.
 caption: >-

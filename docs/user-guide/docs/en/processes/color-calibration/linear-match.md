@@ -41,10 +41,11 @@ has no preview: its canvas shows the target itself.
 ```figure
 image: ../../assets/images/processes/color-calibration/linear-match.webp
 alt: >-
-  The Linear Match task's column, with no readout at its top, its rows spread far apart. Under the column's header
-  the Target Image label stands above a wide gap and its list at stacked_8288x5644_Green_Carina_Nebula, then Reference
-  Image at another stack of the Carina set, shortened to stacked_8288x5..._Carina_Nebula, Reject low at 0.000 with its
-  slider at the left and Reject high at 0.920 with its slider near the right. Close and OK stand in its footer.
+  The Linear Match task's column, with no readout at its top, its rows together under the column's header: the Target
+  Image label over its list at stacked_8288x5644_Green_Carina_Nebula, then Reference Image at another stack of the
+  Carina set, shortened to stacked_8288x..._Carina_Nebula, Reject low at 0.000 with its slider at the left and Reject
+  high at 0.920 with its slider near the right. The rest of the column is empty down to its footer, where Close and OK
+  stand.
 caption: >-
   Linear Match on the green stack of the Carina set, with its red stack as the reference and the default limits.
 ```

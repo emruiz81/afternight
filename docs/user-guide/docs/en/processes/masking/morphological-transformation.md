@@ -48,8 +48,8 @@ alt: >-
   colored curves peaking near the left, its median at 0.2502, 0.0282 below the image's. Under the header, Preview is
   ticked, Preview area not, beside the Processed toggle, and Target Image and Channel read RGB. The Morphological
   Filter section holds Operator at Opening (Dilation + Erosion), Iterations at 1, Amount at 1.00 with its slider and a
-  greyed Selection at 0.50. The Structuring Element section shows the top of a seven by seven grid whose white cells
-  form a disc, beside Size at 7 (49 elements) and seven small icon buttons. Reset, Close and Apply stand in the footer.
+  greyed Selection at 0.50. The Structuring Element section shows a seven by seven grid whose white cells form a disc,
+  beside Size at 7 (49 elements) and seven small icon buttons. Reset, Close and Apply stand in the footer.
 caption: >-
   Morphological Transformation on the stretched Carina master with Opening and a circular element of size 7, the
   preview on: the readout compares the preview with the image.

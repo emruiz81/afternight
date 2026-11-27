@@ -46,7 +46,8 @@ alt: >-
   and the Processed button, Target Image at RGB, the Sample Generation section with the Samples per Line and Grid
   Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons, and the Background Extraction
   section with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing slider, Degree Order
-  at 1 and the unticked Output Background Model and Add dither boxes. Reset, Close and Apply stand in the footer.
+  at 1, the unticked Output Background Model and Add dither boxes, and Preview Display at Corrected image, where the
+  column is cut. Reset, Close and Apply stand in the footer.
 caption: >-
   Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples
   by Polynomial at Degree Order 1. The readout at the top is counted from the corrected preview.

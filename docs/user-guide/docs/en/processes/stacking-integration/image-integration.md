@@ -87,9 +87,10 @@ alt: >-
   mark and a line of state, and Stacking selected. At its foot, the Output Directory field and the Import, Export,
   Recent, Presets and Reset Settings buttons. Beside it, the Stacking page: the Integration Groups table has two rows,
   one for the object NGC253 and one for the object Target, with their frame counts, total time, Average, Winsorized
-  Sigma Clipping, Global Normalization and the name of each output file. Under it, the Frame Quality panel shows the
-  head of its table for the first group, with the columns Frame, Score, Stars, FWHM, SNR, Eccentricity and Weight,
-  then the Execution Options.
+  Sigma Clipping, Global Normalization, and Weighting and Drizzle off, the Output column scrolled out of sight. Under
+  it, the Frame Quality panel shows the head of its table for the first group, with the columns Frame, Score, Stars,
+  FWHM, SNR, Eccentricity and Weight, then the Execution Options, beside a notice that reads 2 images opened in
+  Workspace 1, with Show.
 caption: >-
   The Stacking stage after a run on the NGC 253 set with every setting at its default, the run's view closed: one
   integration group for each object name the lights carry, and the measured lights of the first group below.

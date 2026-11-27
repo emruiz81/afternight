@@ -43,13 +43,13 @@ their own. The result is recorded as nonlinear.
 ```figure
 image: ../../assets/images/processes/star-operations/star-reduction.webp
 alt: >-
-  The Star Reduction task's column. At its top the compact readout of the preview: a small histogram of three colored
-  curves with spikes, the clipped fractions, and Min, Max, Mean, Median and StdDev, the median at 0.2784. Below it the
-  column's header, the Preview and Preview area boxes ticked and the Processed button, Target image at RGB, and the
-  first sections of the process: Views with Starless image at RGB - starless, Generator at Starnet++ and the Generate
-  starless view button; Small Star Protection with its button and the unticked Enable small star protection box; and
-  Star Reduction Parameters with Reduction method at Star Method, where the column is cut. Reset, Close and OK stand
-  in its footer.
+  The Star Reduction task's column, scrolled to its parameters. At its top the compact readout of the preview: a small
+  histogram of three colored curves with spikes, the clipped fractions, and Min, Max, Mean, Median and StdDev, the
+  median at 0.2784. Below it the column's header, the Preview and Preview area boxes ticked and the Processed button,
+  the unticked Enable small star protection box, then Star Reduction Parameters with Reduction method at Star Method, a
+  grayed Stretch factor at 0.20, Mode at Strong and Iterations at 2, and Output Options with Reduce stars on target
+  image unticked, Create new star-reduced image ticked with Image id at Auto, Create reduced-stars-only image ticked,
+  Enable reverse stretch unticked and Stars id at Auto. Reset, Close and OK stand in its footer.
 caption: >-
   Star Reduction on the stretched Carina master against its starless image, with Reduction method at Star Method. The
   readout at the top is counted from the preview, made with the worked example's settings.

@@ -41,12 +41,14 @@ and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to i
 ```figure
 image: ../../assets/images/processes/stretching/histogram-transformation.webp
 alt: >-
-  The Histogram Transformation task's column. At its top the compact readout of the preview: a small histogram, the
-  clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the image, the median at 0.2784.
-  Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image
-  at RGB and two histograms. The upper one is a row of spikes shrinking to the right. The lower one is a single spike
-  at the left edge under a steep white curve, with two handles at the left of the strip below it and one at the
-  right. The top of the histogram toolbar shows above Reset, Close and Apply in the footer.
+  The Histogram Transformation task's column, scrolled down to its settings. At its top the compact readout of the
+  preview: a small histogram, the clipped fractions, and Min, Max, Mean, Median and StdDev with their change from the
+  image, the median at 0.2784. Below it the column's header, the Preview box ticked, Preview area unticked and the
+  Processed button. The body shows the foot of the upper histogram, a row of spikes shrinking to the right, then the
+  lower one: a single spike at the left edge under a steep white curve, with two handles at the left of the strip
+  below it and one at the right. Under them the histogram's toolbar, Channel at RGB, Shadows at 0.020000 with 46
+  samples clipped, Highlights at 1.000000 with none, and Midtones at 0.020000. Reset, Close and Apply stand in the
+  footer.
 caption: >-
   Histogram Transformation on a linear master with Shadows and Midtones at 0.02, the values of the worked example.
   The lower histogram is the image with the curve over it, the upper one is the result, and the readout at the top

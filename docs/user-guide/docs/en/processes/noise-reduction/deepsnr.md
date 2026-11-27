@@ -44,8 +44,8 @@ alt: >-
   The DeepSNR task's column, with no readout at its top. Under the column's header, Target Image at RGB, the
   Pre-Stretch linear image box ticked, Stride with a box reading Default (480) and a grayed box reading 480 beside it,
   Weights, an empty field whose gray hint names the default weights file, cut short, with a Browse button, and the
-  line DeepSNR is configured and ready to use. A Configure button stands at the foot of the body, and Close and OK in
-  the footer.
+  line DeepSNR is configured and ready to use, with a Configure button under it. The rest of the column is empty down
+  to Close and OK in the footer.
 caption: >-
   DeepSNR on the linear Carina master with Pre-Stretch linear image ticked, Stride at Default (480) and Weights empty,
   once AfterNight knows where the program is. The column has no readout, since the task has no preview.

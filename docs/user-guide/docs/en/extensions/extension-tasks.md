@@ -19,8 +19,9 @@ alt: >-
   item under Home, the workspace and the Integration place: a small picture of the image with the process's mark. The
   task header reads HDR Multiscale on RGB, preview up to date, with Float as window and Close at its right. Most of
   the window is the canvas, labelled PREVIEW, with the dark preview of the Carina Nebula. At the right, the column:
-  the compact readout, Adjustments over HDR Multiscale and the small tag extension, Target Image, a note on the
-  process, the Parameters card the extension describes, and Reset, Close and Apply at the foot.
+  the compact readout, the extension's name, HDR Multiscale, over the process's, HDR Multiscale, and the small tag
+  extension, Target Image, a note on the process, the Parameters card the extension describes, and Reset, Close and
+  Apply at the foot.
 caption: >-
   HDR Multiscale, an extension's process, as a task AfterNight draws, at its defaults on the linear master: the
   preview in the canvas at the left, the extension's controls in the column at the right.

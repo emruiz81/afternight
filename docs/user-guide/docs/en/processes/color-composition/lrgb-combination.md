@@ -47,10 +47,10 @@ alt: >-
   The LRGB Combination task's column, scrolled to its histogram. At its top the compact readout of the preview: the
   image's plate solution, a small histogram peaking near a quarter of the range, the clipped fractions, and Min, Max,
   Mean, Median and StdDev with their change from the image, the median up 0.0031 to 0.2815. Below it the column's
-  header, Preview area unticked and the Processed button, a histogram with a tall green peak and broader red and blue
-  ones near a quarter of its range, 0.197 % clipped high, over its toolbar, Luminance at
-  stacked_8288x5644_Luminance_Carina_Nebula, and the Channel Weights group with Lightness, Red, Green and Blue at
-  1.00, Blue at the fold. Reset, Close and Apply stand in its footer.
+  header, Preview area unticked and the Processed button, the foot of a histogram of red, green and blue curves over
+  its toolbar, Luminance at stacked_8288x5644_Luminance_Carina_Nebula, the Channel Weights group with Lightness, Red,
+  Green and Blue at 1.00, and the Transfer Functions group with Lightness at 0.50 and Saturation at 0.40, each with
+  its slider. Reset, Close and Apply stand in its footer.
 caption: >-
   LRGB Combination on the stretched Carina master, with the luminance stack of the Carina set, stretched to the color
   image's background, as its Luminance. The readout at the top is counted from the preview, whose median moves by

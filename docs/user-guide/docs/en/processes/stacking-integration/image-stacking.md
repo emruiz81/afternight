@@ -46,8 +46,10 @@ alt: >-
   Median 1896. On the right, the Stacking Settings card with Method Average, Normalization None, Weighting None
   (Equal), a greyed Scale Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card
   with the Name Template master_bias.fit, the masters folder in Directory, 64-bit, Open after stacking and Sum exposure
-  times unchecked, and the Stack Images button. Across the bottom, the Frames card's buttons with Current Image 1 and
-  Total Images 30, Frame Groups with Filter checked and the folded Advanced. Reset and Close stand at the page's foot.
+  times unchecked, and the Stack Images button. Across the bottom, the Frames card: a table of the biases with the
+  columns File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA and Depth, its first three rows showing and the
+  first selected, over its buttons with Current Image 1 and Total Images 30; under it the Frame Groups section begins,
+  where the page scrolls on. Reset and Close stand at the page's foot.
 caption: >-
   Image Stacking after stacking the 30 biases of NGC 253 into master_bias.fit, with every other value as the task
   opens.

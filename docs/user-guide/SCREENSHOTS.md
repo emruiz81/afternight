@@ -96,9 +96,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   View > Zoom 100%** for a pair at 100 %, **View > Session Console** to open the console. `@<button>` presses a button
   of the main window there too, or chooses an item of the rail - `@Integration`, `@Home`. `%display=<mode>` chooses the
   active view's display mode, `%middle` puts the scroll bars at their middle, and `%shot=<name>[@<part>]` saves the
-  main window there and then. `@<button>|<control>=<value>`, several joined by `&`, opens a dialog by a button of the
-  main window, changes it and closes it: `@Autostretch Settings|linkedChannels=On`. `-AfterView` takes all of them,
-  and is done once the captures are done.
+  main window there and then - `@view-top`, the upper two thirds of the view, takes the after half of a pair `-Apply`
+  began, as `-Apply` takes its halves. `@<button>|<control>=<value>`, several joined by `&`, opens a dialog by a button of the
+  main window, changes it and closes it: `@Autostretch Settings|linkedChannels=On`. `<menu path>?<path>` chooses an
+  item that opens the system's file dialog, answers it with the path and waits for the write its **Save File** window
+  shows: `File > Save as...?D:\frames\jupiter.anseq`. `-AfterView` takes all of them, and is done once the captures
+  are done.
 - `-Open` opens the images the pictures need, in order, through **File > Open**. A raw color-filter frame asks
   whether to debayer it on opening; `-OpenAnswer No` keeps the mosaic.
 - `-Display Autostretch` shows the opened image stretched, by the display mode of its floating toolbar. A linear

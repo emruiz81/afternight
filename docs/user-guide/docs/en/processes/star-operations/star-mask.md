@@ -47,8 +47,8 @@ alt: >-
   change from the image, the median at 0.0276. Below it the column's header, the Preview box ticked, Preview area
   unticked and the Processed button, Target Image at RGB, and the Detection section with Radius at 5 and Threshold at
   1.00, the unticked Amplitude Range group grayed at 0.00 and 1.00, Roundness Threshold at 0.50, the unticked
-  Roundness Range group grayed at 1.00, and Convergence at 1 beside the unticked Relax PSF Checks, where the column is
-  cut. Reset, Close and Apply stand in its footer.
+  Roundness Range group grayed at 1.00, Convergence at 1 beside the unticked Relax PSF Checks, and Profile Type at
+  Gaussian beside a grayed Minimum Beta at 1.50, where the column is cut. Reset, Close and Apply stand in its footer.
 caption: >-
   Star Mask on the linear Carina master with the detection at its defaults and the preview area off, as the worked
   example below sets it.

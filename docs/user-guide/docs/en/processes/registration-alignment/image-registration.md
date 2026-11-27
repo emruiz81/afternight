@@ -45,7 +45,8 @@ Image Integration workflow.
 image: ../../assets/images/processes/registration-alignment/image-registration.webp
 alt: >-
   The Image Registration task, a page under a header naming Image Registration. At the upper left, the preview of the
-  first frame under its toolbar, dark in the Linear display mode with a scatter of stars. At the right, the
+  first frame under its toolbar, dark in the Linear display mode with a scatter of stars, and a card of its statistics
+  in its corner. At the right, the
   Registration card with Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star
   Pairs at 10, Max Stars per Frame at 2000, three check boxes, Skip already-registered frames ticked, and the Register
   button; under it, the Alignment card with Standard chosen and Interpolation at Auto. Across the page, the Frame List

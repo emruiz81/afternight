@@ -43,13 +43,14 @@ image. The result is recorded as nonlinear.
 image: ../../assets/images/processes/masking/binarize.webp
 alt: >-
   The Binarize task's column. At its top the compact readout of the preview: an empty histogram, Clip Low at 94.695 %
-  and Clip High at 5.305 %, and Min, Max, Mean, Median and StdDev at 0.0000, each with its change from the image.
+  and Clip High at 5.305 %, and Min, Max, Mean, Median and StdDev each a dash, as is its change from the image.
   Below it the column's header, the Preview box ticked, Preview area unticked and the Processed button, Target Image
   at RGB, the RGB/K box at 0.500000 with its slider, the Green and Blue boxes grayed out at the same value, and
   Selection at Joint RGB/K channels. Reset, Close and Apply stand in its footer.
 caption: >-
   Binarize on the stretched Carina master with RGB/K at 0.50 in the joint mode. Clip Low and Clip High at the top add
-  up to 100 %: every sample of the preview is 0 or 1.
+  up to 100 %: every sample of the preview is 0 or 1, so the figures, which leave the clipped samples out, have none
+  left to measure.
 ```
 
 ## Before you start

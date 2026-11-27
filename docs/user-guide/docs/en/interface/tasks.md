@@ -21,9 +21,10 @@ alt: >-
   page is the canvas: the stretched preview of the Carina Nebula among its stars, the word PREVIEW in its upper left
   corner, and near its foot a floating toolbar of zoom buttons, a channel box, a camera button and More. Under the
   canvas, the history strip with Initial state and a dashed Histogram Transformation chip marked pending. At the right,
-  the column: the preview's readout with a small histogram, its clipping shares and five statistics, the word
-  ADJUSTMENTS over the process's name and a close button, Preview ticked, Preview area and Processed, Target Image and
-  the process's two plots, and Reset, Close and Apply along its foot. The status line runs along the bottom.
+  the column: the preview's readout with a small histogram, its clipping shares and five statistics, the words
+  INTENSITY TRANSFORMATIONS over the process's name and a close button, Preview ticked, Preview area and Processed,
+  then, scrolled down to its settings, the foot of the process's lower plot, its toolbar, Channel, and Shadows,
+  Highlights and Midtones, and Reset, Close and Apply along its foot. The status line runs along the bottom.
 caption: >-
   Histogram Transformation as a task, with Shadows and Midtones at 0.02 on a linear master: the canvas with the preview
   at the left, the column with the process's controls at the right.

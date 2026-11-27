@@ -47,7 +47,8 @@ alt: >-
   and StdDev, the median 0.0277. Below it the column's header, the Preview box ticked and the Processed button, the
   Structure Protection group with Protect bright structures ticked and Threshold at 0.050 and Amount at 0.50 with
   their sliders, and the Correction group with Mode at Subtraction, Preview display at Corrected image and the dimmed
-  Preview button. The Outputs group begins at the fold. Reset, Close and Apply stand in its footer.
+  Preview button. The Outputs group begins at the fold, its Create gradient model image box unticked. Reset, Close and
+  Apply stand in its footer.
 caption: >-
   Auto Gradient Removal on the linear Carina master at its defaults, with the preview computed and Preview display at
   Corrected image.

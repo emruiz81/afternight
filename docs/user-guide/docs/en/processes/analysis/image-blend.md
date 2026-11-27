@@ -42,16 +42,17 @@ image can be blurred, reduced to its detail or colored, and **Opacity** mixes th
 ```figure
 image: ../../assets/images/processes/analysis/image-blend.webp
 alt: >-
-  The Image Blend task's column, scrolled to its two Stretch groups. At its top the compact readout of the preview,
-  its histogram peaking near a quarter of the range and its median 0.2784. Below it the column's header, Preview
-  ticked, Preview area unticked, the Processed button and the histogram's toolbar. Under Base Image, Black Point,
-  Highlights and Midtones stand at 0.0000, 1.0000 and 0.5000 with their sliders. Under Blend Image, the Image box
-  names RGB-linear, and its Black Point, Highlights and Midtones stand at 0.0200, 1.0000 and 0.0200. The Filter
-  heading is cut at the fold, above Reset, Close and OK.
+  The Image Blend task's column, scrolled to its Blend Image group. At its top the compact readout of the preview: the
+  image's plate solution, a small histogram peaking near a quarter of the range, the clipped fractions, and Min, Max,
+  Mean, Median and StdDev with their change from the image, the median down 0.0055 to 0.2729. Below it the column's
+  header, Preview ticked, Preview area unticked and the Processed button. Under Blend Image, the Image box names
+  RGB-linear, its Black Point, Highlights and Midtones stand at 0.0200, 1.0000 and 0.0200 with their sliders, Filter
+  Type at High Pass with Radius at 10.000, and Opacity at 1.0000. Under Blend Parameters, Blend mode reads Overlay and
+  Preserve lightness is unticked. The rest of the column is empty down to Reset, Close and OK in its footer.
 caption: >-
   Image Blend on the stretched Carina master, with the linear master as the blend image, stretched alike with Black
-  Point and Midtones at 0.02. The column is scrolled to the two Stretch groups, and the readout at the top is counted
-  from the preview.
+  Point and Midtones at 0.02, filtered by High Pass and blended in Overlay. The column is scrolled to the blend image's
+  group, and the readout at the top is counted from the preview.
 ```
 
 ## Before you start
