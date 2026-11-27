@@ -3701,7 +3701,8 @@ materializePreviewOnWorker(const an::consumer::EngineSession& session, const std
     if (*composite_descriptor == *base_descriptor)
     {
         return an::ui::composeProcessRegion(session, scope->engine(), scope->execution(), base_lease->image(),
-                                            patch_lease->image(), patch_lease->validity(), origin);
+                                            base_lease->validity(), patch_lease->image(), patch_lease->validity(),
+                                            origin);
     }
     an::Result<an::consumer::ImageAsset> composite_base =
         an::ui::buildProcessCompositeBase(session, scope->engine(), scope->execution(), base_lease->image(),
@@ -3716,7 +3717,8 @@ materializePreviewOnWorker(const an::consumer::EngineSession& session, const std
         return composite_lease.status();
     }
     return an::ui::composeProcessRegion(session, scope->engine(), scope->execution(), composite_lease->image(),
-                                        patch_lease->image(), patch_lease->validity(), origin);
+                                        composite_lease->validity(), patch_lease->image(), patch_lease->validity(),
+                                        origin);
 }
 
 // Imports an execute's destination buffer and each of its masks as an asset of its own.

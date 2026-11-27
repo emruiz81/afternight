@@ -39,7 +39,7 @@ pins:
 2. **The task header.** The process "on" its image, where the task stands, **Float as window** and **Close**.
 3. **The canvas.** The extension's preview, or the image itself when the extension does not preview, under the shapes
    the extension draws.
-4. **The column's header.** The menu the process sits in, over its name and the tag **extension**, whose tooltip
+4. **The column's header.** The extension's name, over the process's name and the tag **extension**, whose tooltip
    reads "Runs in its own process". The name's tooltip is what the process does, with the credits the extension
    gives.
 5. **The extension's controls.** What the extension describes, drawn by AfterNight.

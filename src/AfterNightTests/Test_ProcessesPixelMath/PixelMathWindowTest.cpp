@@ -142,7 +142,7 @@ TEST_F(PixelMathWindowTest, TheRegisteredActionOpensTheWindow)
     dropView(context(), target);
 }
 
-// apply and history: an Apply replaces the image as one history step named PixelMath, which undoes.
+// apply and history: an Apply replaces the image as one history step named Pixel Math, which undoes.
 TEST_F(PixelMathWindowTest, AnApplyIsOneHistoryStepThatUndoes)
 {
     ViewHandle target = activeScene("scene-rgb-float32");
@@ -157,7 +157,7 @@ TEST_F(PixelMathWindowTest, AnApplyIsOneHistoryStepThatUndoes)
     an::ui::IViewHistory* history = target->viewHistory();
     ASSERT_NE(history, nullptr);
     ASSERT_TRUE(history->hasUndo());
-    EXPECT_EQ(history->previousStepName(), "PixelMath");
+    EXPECT_EQ(history->previousStepName(), "Pixel Math");
     window.reset();
     ASSERT_TRUE(history->undo());
     ASSERT_TRUE(pumpUntil([history]() { return !history->hasUndo(); }));
@@ -361,7 +361,7 @@ TEST_F(PixelMathWindowTest, EveryFrameOfASequenceIsWhatItsStillImageBecomes)
         expectScaled(replaced[frame], frames[frame], 0.5);
     }
     ASSERT_NE(sequence->viewHistory(), nullptr);
-    EXPECT_EQ(sequence->viewHistory()->previousStepName(), "PixelMath");
+    EXPECT_EQ(sequence->viewHistory()->previousStepName(), "Pixel Math");
     window.reset();
 }
 

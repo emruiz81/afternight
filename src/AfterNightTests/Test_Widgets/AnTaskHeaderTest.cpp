@@ -115,6 +115,42 @@ TEST(TaskHeader, ATaskWithNoTargetIsNamedByItsProcessAlone)
     EXPECT_EQ(an::tests::widgets::accessibleName(header), QStringLiteral("Channel Composition"));
 }
 
+// A header that holds no picture - a task with no target image, or one whose target's thumbnail is not made yet - shows
+// the process's glyph on a tile of the third surface in the thumbnail's place, as the rail draws such a task: never an
+// empty square.
+TEST(TaskHeader, WithNoPictureItShowsTheProcesssGlyphOnATile)
+{
+    forEachLook([](const DesignTokens& t) {
+        AnTaskHeader header;
+        header.setProcessName(QStringLiteral("Image Registration"));
+        header.setGlyphKey(QStringLiteral("tune"));
+        header.resize(900, header.sizeHint().height());
+        showOffScreen(header);
+        EXPECT_EQ(header.glyphKey(), QStringLiteral("tune"));
+
+        const an::ui::testing::RenderedPicture picture =
+            an::ui::testing::RenderedPicture::ofWidget(header, 1.0, t.layers.surface1);
+        const qreal side = an::ui::parts::kTaskHeaderThumbnail;
+        const QRectF slot(an::ui::parts::kTaskHeaderPaddingStart, (header.height() - side) / 2.0, side, side);
+        // The tile, at its left edge's middle: clear of the glyph, which keeps to the middle, and of the corners.
+        an::tests::widgets::expectColour(picture.at(slot.left() + 1.0, slot.center().y()), t.layers.surface3,
+                                         "the tile");
+        // The glyph, in the primary text: some of the glyph's square is drawn in its colour.
+        const qreal glyph = an::ui::parts::kTaskHeaderTileGlyph;
+        const QRectF glyphSquare(slot.center().x() - glyph / 2.0, slot.center().y() - glyph / 2.0, glyph, glyph);
+        int drawn = 0;
+        for (int y = static_cast<int>(glyphSquare.top()); y < static_cast<int>(glyphSquare.bottom()); ++y)
+        {
+            for (int x = static_cast<int>(glyphSquare.left()); x < static_cast<int>(glyphSquare.right()); ++x)
+            {
+                drawn += an::ui::testing::sameColour(picture.at(x, y), t.colors.textPrimary, 24) ? 1 : 0;
+            }
+        }
+        EXPECT_GT(drawn, 4) << "the process's glyph is drawn on the tile";
+        EXPECT_LT(drawn, static_cast<int>(glyph * glyph) / 2) << "the glyph's shape, not a square of its colour";
+    });
+}
+
 // An image's name too long for the header is elided in the middle: its start and its end stay.
 TEST(TaskHeader, ALongNameIsElidedInTheMiddle)
 {

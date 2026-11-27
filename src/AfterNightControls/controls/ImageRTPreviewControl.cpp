@@ -3147,10 +3147,12 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
                             // copy of the target itself; another base is built once per revision of the target and
                             // per description of its patches.
                             const an::consumer::AnyImage* baseImage = nullptr;
+                            const an::ValidityMask* baseValidity = nullptr;
                             std::optional<an::consumer::AssetReadLease> baseLease;
                             if (*baseDescribed == *targetDescribed && isPlanar(lease->image()))
                             {
                                 baseImage = &lease->image();
+                                baseValidity = lease->validity();
                             }
                             else
                             {
@@ -3174,10 +3176,11 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
                                 }
                                 baseLease.emplace(std::move(*read));
                                 baseImage = &baseLease->image();
+                                baseValidity = baseLease->validity();
                             }
                             an::Result<an::consumer::ImageAsset> composite = an::ui::composeProcessRegion(
-                                *session, scope->engine(), scope->execution(), *baseImage, patchLease->image(),
-                                patchLease->validity(), shared->area.topLeft());
+                                *session, scope->engine(), scope->execution(), *baseImage, baseValidity,
+                                patchLease->image(), patchLease->validity(), shared->area.topLeft());
                             if (!composite.hasValue())
                             {
                                 return composite.status();
@@ -4318,7 +4321,7 @@ void ImageRTPreviewControl::takeSnapshot(const std::string& newImageName)
                     return baseLease.status();
                 }
                 return an::ui::composeProcessRegion(*session, scope->engine(), scope->execution(), baseLease->image(),
-                                                    patchLease->image(), patchLease->validity(),
+                                                    baseLease->validity(), patchLease->image(), patchLease->validity(),
                                                     shared->area.topLeft());
             }();
             if (composite.hasValue())
@@ -4701,7 +4704,7 @@ void ImageRTPreviewControl::executeProcessEnded(const RTPreviewMode previewMode,
 
 an::ui::ProcessStep ImageRTPreviewControl::describeProcessStep(const ProcessExecutionParams*) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::string()};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::string()};
 }
 
 std::vector<std::shared_ptr<const an::consumer::ImageAsset>>

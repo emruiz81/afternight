@@ -124,9 +124,11 @@ inline constexpr int kPageComboLeastCharacters = 8;
 inline constexpr const char* kControlHeightProperty = "anControlHeight";
 inline constexpr const char* kControlHeightExtraSmall = "extraSmall";
 
-// A task's header: its target's thumbnail, the state's icon, its paddings; the bar of a run's progress under it.
+// A task's header: its target's thumbnail - or the process's glyph on a tile while there is no picture - the state's
+// icon, its paddings; the bar of a run's progress under it.
 inline constexpr int kTaskHeaderThumbnail = 22;
 inline constexpr int kTaskHeaderThumbnailRadius = 5;
+inline constexpr int kTaskHeaderTileGlyph = 14;
 inline constexpr int kTaskHeaderStateIcon = 13;
 inline constexpr int kTaskHeaderPaddingStart = 8;
 inline constexpr int kTaskHeaderPaddingEnd = 6;

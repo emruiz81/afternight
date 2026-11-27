@@ -114,6 +114,13 @@ enum class PageMessageTone : std::uint8_t
 /// `JobHeading`): its name and its facts, a measure of it, and the acts of its own the header offers. The process
 /// states it once it is a page and again whenever it changes; the page keeps it and tells one listener.
 ///
+/// **The body's rows lie together at its top**, each at the height it asks for, and the room the body has to spare lies
+/// under them, unless the process's controls fill the body (`Description::controlsFillTheBody`) or scroll themselves -
+/// their pane is a scroll area, or their layout stretches one of their own - which then takes the room: shared out
+/// among the rows, it would lie between a label and what it labels. A spacer a builder put among its rows to push them
+/// apart in a window taller than they need asks for no room in the body, and a group a section is made of keeps no
+/// room for the title its section's header says.
+///
 /// **The body fits its column** by three means: it scrolls up and down, never sideways, the footer staying in view;
 /// the controls' top-level group boxes are sections that open and close, titled as the groups, in order - none when the
 /// controls have one group; and the controls' own side margins, which are the body's padding, give way when the

@@ -98,7 +98,7 @@ caption: >-
 9. **Keep the expression.** Choose **Export** to save the expressions, the symbols and the settings in an `.anpm`
    file, which **Import** reads back. The history keeps no expression.
 10. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. A new view opens beside the target,
-    or the view shows the result and its history lists **PixelMath**. The task keeps your values for another run.
+    or the view shows the result and its history lists **Pixel Math**. The task keeps your values for another run.
 11. **Check the values.** Open Image Statistics on the result. Its minimum and maximum show whether the expression
     wrote values below 0 or above 1, which are kept.
 
@@ -420,7 +420,7 @@ controls:
       selects, debayered first when its view debayers them. Other images are read as their views showed them when
       you pressed Apply.
     persistence: >-
-      With **Replace target image**, the target's history gets one step named **PixelMath**, which records no
+      With **Replace target image**, the target's history gets one step named **Pixel Math**, which records no
       expression and undoes the run. With **Create new image**, a new view opens beside the target. The task keeps
       its values for the next run.
     note: >-
@@ -634,7 +634,7 @@ Other expressions to type:
     Swapped, the blend changes what the mask protects.
 
 !!! warning "The history keeps no expression"
-    The step reads **PixelMath** and nothing else. Export the task's settings before you close it, to run the same
+    The step reads **Pixel Math** and nothing else. Export the task's settings before you close it, to run the same
     expression again.
 
 !!! warning "Images are resampled, never aligned"

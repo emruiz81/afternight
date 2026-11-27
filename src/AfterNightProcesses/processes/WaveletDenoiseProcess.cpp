@@ -165,7 +165,7 @@ an::Status WaveletDenoiseProcess::executeTypedProcessImpl(const an::ui::ProcessS
 
 an::ui::ProcessStep WaveletDenoiseProcess::describeTypedProcessStep(const WaveletDenoiseParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Threshold: {:.2f}, Scales: {}, Iterations: {}, Amount: {:.2f}",
                                                params.threshold, params.scales, params.iterations, params.amount) +

@@ -166,7 +166,7 @@ an::Status PatchPCADenoiseProcess::executeTypedProcessImpl(const an::ui::Process
 an::ui::ProcessStep PatchPCADenoiseProcess::describeTypedProcessStep(const PatchPCADenoiseParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Strength: {:.2f}, Patch Size: {}, Lookup Size: {}, Spatial Sampling: {}",
                                    params.strenght, params.patchSize, params.lookupSize, params.spatialSampling) +
                        process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector)};

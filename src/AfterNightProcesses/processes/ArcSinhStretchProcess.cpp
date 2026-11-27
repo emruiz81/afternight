@@ -18,6 +18,7 @@ ArcSinhStretchProcess::ArcSinhStretchProcess(ImageViewControl* control)
     : an::ui::TypedProcessControl<ArcSinhStretchParams>(control, getProcessNameStatic())
 {
     m_ui = an::ui::processes::buildArcSinhStretchProcessUi(this);
+    setHistoryStepName("ArcSinh Stretch");
 
     setProcessDescription(
         QStringLiteral("Apply ArcSinh stretch to boost faint signal while preserving stars and highlights."));
@@ -176,7 +177,7 @@ an::Status ArcSinhStretchProcess::executeTypedProcessImpl(const an::ui::ProcessS
 
 an::ui::ProcessStep ArcSinhStretchProcess::describeTypedProcessStep(const ArcSinhStretchParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Stretch {}, Black Point {}, Human Weight {}", params.stretchFactor,
                                                params.blackPoint, params.humanWeightedLuminance)};

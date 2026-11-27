@@ -145,7 +145,7 @@ void DeepSNRProcess::startExecution()
         .progressText = QString::fromStdString(fmt::format("Executing DeepSNR on {}", target)),
         .errorTitle = QStringLiteral("Error running DeepSNR"),
         .errorLead = "An error occurred when running DeepSNR process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [tool](const an::ui::ExecutionScope& scope,
                                const an::ui::ProcessSource& source) -> an::Result<an::consumer::ImageAsset> {

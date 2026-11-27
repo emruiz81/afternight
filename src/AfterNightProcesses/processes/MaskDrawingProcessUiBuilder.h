@@ -60,10 +60,9 @@ inline MaskDrawingProcessUiElements buildMaskDrawingProcessUi(QWidget* parent)
     panes.controlsLayout->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);
     panes.controlsLayout->setSpacing(t.spacing.md);
 
-    ui.instructionsLabel =
-        new QLabel(QCoreApplication::translate("MaskDrawingProcess",
-                                               "Paint a grayscale mask directly on the RT preview pane.", nullptr),
-                   panes.controlsPanel);
+    ui.instructionsLabel = new QLabel(
+        QCoreApplication::translate("MaskDrawingProcess", "Paint a grayscale mask directly on the canvas.", nullptr),
+        panes.controlsPanel);
     ui.instructionsLabel->setObjectName(QStringLiteral("instructionsLabel"));
     ui.instructionsLabel->setWordWrap(true);
     panes.controlsLayout->addWidget(ui.instructionsLabel);
@@ -112,8 +111,8 @@ inline MaskDrawingProcessUiElements buildMaskDrawingProcessUi(QWidget* parent)
     ui.targetImageSelector->setToolTip(QCoreApplication::translate(
         "MaskDrawingProcess", "Choose the open image that the drawn mask should target.", nullptr));
     ui.preview->setToolTip(QCoreApplication::translate(
-        "MaskDrawingProcess",
-        "The drawing canvas requires the RT preview pane and stays enabled while this process is open.", nullptr));
+        "MaskDrawingProcess", "The mask is painted on the canvas, so the preview stays on while this task is open.",
+        nullptr));
     if (auto* okButton = ui.buttonBox->button(QDialogButtonBox::Ok))
     {
         okButton->setToolTip(QCoreApplication::translate(

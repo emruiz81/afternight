@@ -166,6 +166,9 @@ struct ImageProcessControl::Impl
 
     std::string m_ProcessName;
 
+    /// The name a history step gives the process, when it states one other than its name.
+    std::string m_HistoryStepName;
+
     std::atomic_bool m_ExecutionInProgress = false;
     std::atomic_bool m_ProcessCloseRequested = false;
 
@@ -633,6 +636,16 @@ void ImageProcessControl::detachAndClose()
 std::string ImageProcessControl::getProcessName() const
 {
     return m_ProcessName;
+}
+
+std::string ImageProcessControl::historyStepName() const
+{
+    return m_impl->m_HistoryStepName.empty() ? m_ProcessName : m_impl->m_HistoryStepName;
+}
+
+void ImageProcessControl::setHistoryStepName(std::string name)
+{
+    m_impl->m_HistoryStepName = std::move(name);
 }
 
 an::ChannelScope ImageProcessControl::selectedChannelScope() const

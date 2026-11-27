@@ -181,7 +181,7 @@ an::Status GammaCorrectionProcess::executeTypedProcessImpl(const an::ui::Process
 
 an::ui::ProcessStep GammaCorrectionProcess::describeTypedProcessStep(const GammaCorrectionParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Adjust gamma to {}", params.gamma) +
                                    process_utils::channelStepSuffix(m_image_view_control, selectedChannelScope())};

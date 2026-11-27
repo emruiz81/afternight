@@ -234,7 +234,7 @@ an::ui::ProcessStep CosmeticCorrectionProcess::describeTypedProcessStep(const Co
     description +=
         fmt::format("Kernel size {}, Amount {}", m_ui.kernelSize->currentText().toUtf8().toStdString(), params.amount);
     description += process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector);
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::move(description)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::move(description)};
 }
 
 void CosmeticCorrectionProcess::resetSettings()

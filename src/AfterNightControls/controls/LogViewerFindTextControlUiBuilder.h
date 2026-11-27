@@ -141,7 +141,7 @@ public:
             QCoreApplication::translate("LogViewerFindTextControl", "Regular expression", nullptr));
 #if QT_CONFIG(tooltip)
         findNextButton->setToolTip(
-            QCoreApplication::translate("LogViewerFindTextControl", "Find next ocurrence", nullptr));
+            QCoreApplication::translate("LogViewerFindTextControl", "Find next occurrence", nullptr));
 #endif // QT_CONFIG(tooltip)
         findNextButton->setText(QCoreApplication::translate("LogViewerFindTextControl", "Find next", nullptr));
 #if QT_CONFIG(tooltip)

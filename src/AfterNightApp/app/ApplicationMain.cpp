@@ -268,6 +268,7 @@ int runApplication(int argc, char* argv[])
                 QByteArray message = client->readAll();
                 if (message == "raise")
                 {
+                    LOG_INFO("Another start of AfterNight asked this one to come forward: its windows are raised");
                     // Bring main window to front (see below)
                     QWidgetList topLevels = QApplication::topLevelWidgets();
                     for (QWidget* w : topLevels)
@@ -283,7 +284,16 @@ int runApplication(int argc, char* argv[])
             client->disconnectFromServer();
         });
 
+        // The ways the event loop ends that no window of the application asks for - the last window closed with none
+        // left shown, a quit the system posted - are said as they happen, beside what the main window says of its
+        // close.
+        QObject::connect(&app, &QGuiApplication::lastWindowClosed, &app,
+                         []() { LOG_INFO("The application's last window closed"); });
+        QObject::connect(&app, &QCoreApplication::aboutToQuit, &app,
+                         []() { LOG_INFO("The application's event loop ends"); });
+
         int ret = app.exec();
+        LOG_INFO("The application's event loop ended with {}", ret);
 
         // The shell keeps its geometry; admission closes; the shell's window, its views and its context go while the
         // session is still open; the session is shut down last, before the logger and the crash handler.

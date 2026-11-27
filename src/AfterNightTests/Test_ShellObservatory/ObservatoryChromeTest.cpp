@@ -9,6 +9,8 @@
 
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/StatusLine.h"
+#include "fixtures/ClippedControls.h"
+#include "fixtures/PaintRecorder.h"
 
 #include "actions/ActionCatalogue.h"
 #include "actions/MenuTree.h"
@@ -17,10 +19,12 @@
 #include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 #include "widgets/ImageInfoStatusBarWidget.h"
+#include "widgets/ImageStatusTexts.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QLabel>
+#include <QLayout>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -47,6 +51,19 @@ void tapAlt(QWidget& widget)
 {
     QTest::keyPress(&widget, Qt::Key_Alt, Qt::AltModifier);
     QTest::keyRelease(&widget, Qt::Key_Alt, Qt::NoModifier);
+    QCoreApplication::processEvents();
+}
+
+/// Triggers a window's action of an object name - a density - and lets the window settle.
+void triggerAction(QWidget& window, const char* objectName)
+{
+    for (QAction* action : window.findChildren<QAction*>())
+    {
+        if (action->objectName() == QLatin1String(objectName))
+        {
+            action->trigger();
+        }
+    }
     QCoreApplication::processEvents();
 }
 
@@ -241,6 +258,67 @@ TEST_F(StatusLine, ClearedItSaysThereIsNone)
     window().clearImageInfo();
     EXPECT_TRUE(line.factsText()->text().isEmpty());
     EXPECT_TRUE(line.zoomText()->text().isEmpty());
+}
+
+// A line as wide as a window writes each of its texts whole - the image's facts, its zoom, the position or "RA -" and
+// "Dec -" - in either density: a text is cut short only where the line has no room for it. Measured natively, where a
+// text's glyphs can take a fraction of a pixel more than a whole number of pixels - at 150 %, QT_SCALE_FACTOR=1.5 -
+// which the suites' box font never does.
+TEST_F(StatusLine, ItsTextsAreWrittenWholeWhereItHasRoom)
+{
+    if (!an::tests::look::textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font draws every character a "
+                        "whole number of pixels wide";
+    }
+    const QStringList zooms{QStringLiteral("9.63 %"),  QStringLiteral("11.79 %"), QStringLiteral("15.40 %"),
+                            QStringLiteral("25.00 %"), QStringLiteral("33.33 %"), QStringLiteral("100.00 %"),
+                            QStringLiteral("400.00 %")};
+    const QStringList positions{an::ui::rightAscensionStatusText(83.8221), an::ui::declinationStatusText(-5.3911),
+                                an::ui::rightAscensionStatusText(161.1278), an::ui::declinationStatusText(-59.8921)};
+    for (const char* const density : {"actionDensity_Compact", "actionDensity_Comfortable"})
+    {
+        triggerAction(window(), density);
+        SCOPED_TRACE(density);
+        an::ui::observatory::StatusLine line;
+        line.setAttribute(Qt::WA_DontShowOnScreen, true);
+        line.resize(1440, line.sizeHint().height());
+        line.show();
+        QStringList cut;
+        const auto written = [&line, &cut](an::ui::observatory::StatusText& text, const QString& said,
+                                           const an::ui::observatory::StatusText::Tone tone) {
+            text.setText(said, tone);
+            line.layout()->activate();
+            an::ui::testing::PaintRecorder recorder(text.size());
+            text.render(&recorder);
+            QString drawn;
+            for (const an::ui::testing::RecordedText& run : recorder.texts())
+            {
+                drawn += run.text;
+            }
+            if (drawn != said)
+            {
+                cut.append(QStringLiteral("\"%1\" drawn as \"%2\" in %3 px").arg(said, drawn).arg(text.width()));
+            }
+        };
+        using Tone = an::ui::observatory::StatusText::Tone;
+        written(*line.factsText(), QStringLiteral("[7246x5429 (RGB)] - [32 bit floating point] - [450.19 MB]"),
+                Tone::Secondary);
+        for (const QString& zoom : zooms)
+        {
+            written(*line.zoomText(), zoom, Tone::Secondary);
+        }
+        written(*line.rightAscensionText(), QStringLiteral("RA -"), Tone::Tertiary);
+        written(*line.declinationText(), QStringLiteral("Dec -"), Tone::Tertiary);
+        for (qsizetype index = 0; index + 1 < positions.size(); index += 2)
+        {
+            written(*line.rightAscensionText(), positions[index], Tone::Secondary);
+            written(*line.declinationText(), positions[index + 1], Tone::Secondary);
+        }
+        EXPECT_TRUE(cut.isEmpty()) << "texts cut short on a line of 1440 px: "
+                                   << cut.join(QStringLiteral("; ")).toStdString();
+    }
+    triggerAction(window(), "actionDensity_Compact");
 }
 
 } // namespace

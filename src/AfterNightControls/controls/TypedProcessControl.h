@@ -58,10 +58,11 @@ protected:
         return 1.0;
     }
 
-    /// The history step an Apply records for these parameters; the process's name unless the process says otherwise.
+    /// The history step an Apply records for these parameters; named as a person reads the process
+    /// (`historyStepName`), with no description unless the process says otherwise.
     [[nodiscard]] virtual ProcessStep describeTypedProcessStep(const ParamsT& /*params*/) const
     {
-        return ProcessStep{.name = getProcessName(), .description = std::string()};
+        return ProcessStep{.name = historyStepName(), .description = std::string()};
     }
 
     /// The images a run of these parameters reads beside its target and the target's mask: another view's image the

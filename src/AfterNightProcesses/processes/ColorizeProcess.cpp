@@ -510,7 +510,7 @@ an::Status ColorizeProcess::executeTypedProcessImpl(const an::ui::ProcessSource&
 an::ui::ProcessStep ColorizeProcess::describeTypedProcessStep(const ColorizeParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Colorize hue to {} and saturation to {}", params.hue, params.saturation)};
 }
 

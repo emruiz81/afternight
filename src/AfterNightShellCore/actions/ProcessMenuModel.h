@@ -124,6 +124,13 @@ public:
     /// takes.
     [[nodiscard]] static std::string_view menuOfCategory(std::string_view category);
 
+    /// What a person reads as a process's category - its column's eyebrow, its subtitle in the palette: the title of
+    /// the menu of the Process menu that lists its action - the menu its registry category joins when that one lists
+    /// it, else the first in the menu's order - or, for an action listed outside the Process menu, the menus a person
+    /// reads down to it ("Image > Sequence"); for an action no menu lists, the title of the menu its registry category
+    /// joins; empty when there is none.
+    [[nodiscard]] static QString categoryOf(const an::ui::process_registry::ProcessDescriptor& descriptor);
+
     /// Takes what the installed packages `discovered` add: an action for each process of each package that is not
     /// invalid - or the catalogue's action of the same name, bound in its place - in the menu of its category; an
     /// action of its own for each process its extension contributed (`ExtensionLoadResult::contributed_processes`),

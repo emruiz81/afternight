@@ -657,7 +657,7 @@ controls:
       (All Changes)** round and leaves the other two black.
     enabled: >-
       While **Preview** is ticked. Disabled while Apply runs. **Preview Mask** comes before it, and with no row chosen
-      the layer views show the processed image. Its tooltip reads "Select what to show in the preview window".
+      the layer views show the processed image. Its tooltip reads "Select what the preview shows".
     tradeoff: >-
       A layer view is no result: **Amount** below 1 and the mask on the view mix the original into it. Read it with
       **Amount** at 1, the view's mask disabled and the canvas's **Display Mode** at **Linear**.

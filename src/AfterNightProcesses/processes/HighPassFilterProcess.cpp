@@ -114,7 +114,7 @@ std::uint32_t HighPassFilterProcess::typedPreviewRegionMargin(const HighPassFilt
 
 an::ui::ProcessStep HighPassFilterProcess::describeTypedProcessStep(const HighPassFilterProcessParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description = fmt::format("Apply high pass filter with radius {}", params.radius)};
 }
 

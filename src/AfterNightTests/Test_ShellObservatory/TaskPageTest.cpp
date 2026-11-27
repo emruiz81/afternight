@@ -6,17 +6,19 @@
 /// centre with its rail item selected and the breadcrumb naming it; the same page found again after leaving it; a run's
 /// bar, row and Cancel; a run left running while another place is shown; the snackbar of a run that succeeded and its
 /// Undo, in a floating task's own window too; Esc and Ctrl+Enter; the image's floor beside each column; the compact
-/// readout's figures, and its chevron's full readout over the column; the toolbar's small form over a narrow canvas; a
-/// new image a run makes landing in a workspace while the page stays. And what the window's actions act on while a
-/// page is shown: the looking actions on its canvas, the image actions on its target, Close and Maximize View
-/// withdrawn, Apply from the rail. And the controls of other families a page holds: a structuring element's grid
-/// edited in the column, a chooser of a second image following the images open, a histogram and its toolbar acting in
-/// the column; and the image's floor beside the wide column of every combination.
+/// readout's figures - of every task's preview area over a master that states its validity by a mask, and of a
+/// binarized preview whose every sample is clipped - and its chevron's full readout over the column; the toolbar's
+/// small form over a narrow canvas; a new image a run makes landing in a workspace while the page stays. And what the
+/// window's actions act on while a page is shown: the looking actions on its canvas, the image actions on its target,
+/// Close and Maximize View withdrawn, Apply from the rail. And the controls of other families a page holds: a
+/// structuring element's grid edited in the column, a chooser of a second image following the images open, a histogram
+/// and its toolbar acting in the column; and the image's floor beside the wide column of every combination.
 
 #include "ObservatoryWindowCase.h"
 
 #include "ShellActions.h"
 #include "chrome/TopBar.h"
+#include "fixtures/ObservatoryLook.h"
 #include "pages/TaskPage.h"
 #include "tasks/TaskPresenter.h"
 #include "tasks/TaskWindow.h"
@@ -24,6 +26,7 @@
 
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
+#include "actions/MenuTree.h"
 #include "app/ProcessRegistry.h"
 #include "components/AnBreadcrumb.h"
 #include "components/AnCompactReadout.h"
@@ -32,10 +35,12 @@
 #include "components/AnIconRail.h"
 #include "components/AnImageFactsCard.h"
 #include "components/AnReadoutColumn.h"
+#include "components/AnReadoutGrid.h"
 #include "components/AnSnackbar.h"
 #include "components/AnStatisticsCard.h"
 #include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
+#include "components/ReadoutFigures.h"
 #include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "controls/ProcessExecution.h"
@@ -50,6 +55,8 @@
 #include "readout/ReadoutController.h"
 #include "services/ProcessLaunchService.h"
 #include "tasks/TaskModel.h"
+#include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 #include "views/ViewChromeBinder.h"
 #include "views/ViewService.h"
 #include "widgets/CurvesWidget.h"
@@ -64,6 +71,9 @@
 #include <AfterNightEngine/Core/ImageExtent.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
+#include <AfterNightEngine/Image/ImageMetadata.h>
+#include <AfterNightEngine/Image/ValidityDescriptor.h>
+#include <AfterNightEngine/Image/ValidityMask.h>
 
 #include <QAbstractButton>
 #include <QAction>
@@ -74,10 +84,13 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFontMetrics>
+#include <QImage>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPixmap>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QStackedWidget>
@@ -86,7 +99,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <memory>
@@ -326,6 +342,202 @@ protected:
         return view;
     }
 
+    /// Opens a colour image of `width` x `height` as the active view: a ramp from 0.05 at its top left to 0.95 at its
+    /// bottom right, each channel a little apart and every other pixel a little brighter, so a filter changes it and a
+    /// threshold at one half leaves samples at both ends. A `bordered` image states its samples' validity by a mask of
+    /// its own, which leaves out a border four pixels wide, as an integrated master leaves out the edge its frames did
+    /// not cover.
+    static ImageViewControl* openRampView(const QString& name, const std::uint32_t width, const std::uint32_t height,
+                                          const bool bordered = false)
+    {
+        an::Result<an::consumer::SessionHold> hold = session().hold();
+        EXPECT_TRUE(hold.hasValue());
+        if (!hold.hasValue())
+        {
+            return nullptr;
+        }
+        const std::optional<an::ImageExtent> extent =
+            an::ImageExtent::create(width, height, 3u, hold->engine().limits());
+        const std::optional<an::ImageDescriptor> descriptor =
+            extent.has_value() ? an::ImageDescriptor::create(
+                                     an::ImageDescriptorRequest{.extent = *extent,
+                                                                .sampleType = an::SampleType::Float32,
+                                                                .channelSchema = an::ChannelSchema::Rgb,
+                                                                .colorSpace = an::ColorSpace::Unspecified,
+                                                                .numericDomain = an::NumericDomain::NormalizedLinear,
+                                                                .cfa = an::CfaDescriptor{},
+                                                                .coordinateOrigin = an::CoordinateOrigin::TopLeft,
+                                                                .pixelAspectRatio = 1.0})
+                               : std::nullopt;
+        EXPECT_TRUE(descriptor.has_value());
+        if (!descriptor.has_value())
+        {
+            return nullptr;
+        }
+        const an::Result<an::ImageSemantics> semantics = an::ImageSemantics::create(an::ImageSemanticsRequest{
+            .validity = *an::ValidityDescriptor::create(
+                {.rule = bordered ? an::ValidityRule::ExplicitMask : an::ValidityRule::AllValid})});
+        EXPECT_TRUE(semantics.hasValue());
+        if (!semantics.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::Image<float>> image = an::Image<float>::createFilled(
+            hold->engine(), *descriptor, an::StorageArrangement::Planar, 0.0f,
+            an::ImageMetadata::create(an::AcquisitionMetadata{}, *semantics, an::AstrometricSolution{},
+                                      an::Provenance{}, an::CodecMetadata{}, std::nullopt));
+        EXPECT_TRUE(image.hasValue());
+        if (!image.hasValue())
+        {
+            return nullptr;
+        }
+        std::optional<an::ValidityMask> border;
+        if (bordered)
+        {
+            an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(hold->engine(), *extent);
+            EXPECT_TRUE(mask.hasValue());
+            if (!mask.hasValue())
+            {
+                return nullptr;
+            }
+            if (const std::optional<an::ValidityMaskView<std::uint8_t>> bits = mask->view(); bits.has_value())
+            {
+                for (std::uint32_t plane = 0u; plane < bits->planeCount(); ++plane)
+                {
+                    for (std::uint32_t y = 0u; y < height; ++y)
+                    {
+                        for (std::uint32_t x = 0u; x < width; ++x)
+                        {
+                            if (x < 4u || y < 4u || x + 4u >= width || y + 4u >= height)
+                            {
+                                (void)bits->setValid(plane, x, y, false);
+                            }
+                        }
+                    }
+                }
+            }
+            border.emplace(std::move(*mask));
+        }
+        {
+            std::optional<an::ImageWriteAccess<float>> access = image->write();
+            EXPECT_TRUE(access.has_value());
+            if (!access.has_value())
+            {
+                return nullptr;
+            }
+            const float span = static_cast<float>(width + height - 2u);
+            for (std::uint32_t c = 0u; c < 3u; ++c)
+            {
+                for (std::uint32_t y = 0u; y < height; ++y)
+                {
+                    auto row = access->view().row(c, y);
+                    if (!row.has_value())
+                    {
+                        return nullptr;
+                    }
+                    for (std::uint32_t x = 0u; x < width; ++x)
+                    {
+                        const float ramp = 0.05f + 0.9f * static_cast<float>(x + y) / span;
+                        const float grain = ((x + y) % 2u == 0u) ? 0.02f : -0.02f;
+                        (*row)[x] = std::clamp(ramp + grain + 0.01f * static_cast<float>(c), 0.01f, 0.99f);
+                    }
+                }
+            }
+        }
+        an::Result<an::consumer::ImageAsset> asset =
+            border.has_value() ? an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage(std::move(*image)),
+                                                                 std::move(*border))
+                               : an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage(std::move(*image)));
+        EXPECT_TRUE(asset.hasValue());
+        if (!asset.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::ui::ImageDocument> document = an::ui::ImageDocument::create(
+            std::move(*asset), an::ui::DocumentNames{.displayName = name, .sourcePath = {}});
+        EXPECT_TRUE(document.hasValue());
+        if (!document.hasValue())
+        {
+            return nullptr;
+        }
+        ImageViewControl* const view = core().viewService().userViews().createNewImageViewControlFromImage(
+            nullptr, std::move(*document), nullptr, name.toStdString());
+        EXPECT_NE(view, nullptr);
+        if (view != nullptr)
+        {
+            core().viewService().setActiveImageViewControl(view);
+            settle();
+        }
+        return view;
+    }
+
+    /// Lets a task's next settled frame land and the readout measure it: true once the readout has shown figures it
+    /// measured after `published` measurements were shown, and is neither measuring nor dimmed.
+    [[nodiscard]] static bool readoutMeasuredAfter(an::ui::shell::ReadoutController& readout,
+                                                   const std::uint64_t published)
+    {
+        return an::tests::app::processEventsUntil(
+            [&]() {
+                return readout.isIdle() && readout.telemetry().published > published &&
+                       readout.shownFigures().has_value() && !readout.isStale();
+            },
+            60000);
+    }
+
+    /// Opens every task the registry offers as a page, one at a time, as its menu entry opens it - a process of one
+    /// image over a colour image, a process that chooses its images over none - hands it to `check` with its page, and
+    /// closes it, gone with its preview's work landed, before the next opens.
+    /// @return how many tasks were opened.
+    static int openEveryTask(
+        const std::function<void(const an::ui::process_registry::ProcessDescriptor& descriptor,
+                                 TopLevelProcessBaseControl& process, an::ui::observatory::TaskPage& page)>& check)
+    {
+        ImageViewControl* const view = openColourView(QStringLiteral("every-task"));
+        EXPECT_NE(view, nullptr);
+        if (view == nullptr)
+        {
+            return 0;
+        }
+        int opened = 0;
+        // The registry is copied: a launch reads it.
+        const std::vector<an::ui::process_registry::ProcessDescriptor> descriptors =
+            an::ui::process_registry::ProcessRegistry::instance().all();
+        for (const an::ui::process_registry::ProcessDescriptor& descriptor : descriptors)
+        {
+            if (descriptor.is_extension_process || descriptor.surface == an::ui::ProcessSurface::Window ||
+                descriptor.launch_mode == an::ui::process_registry::ProcessLaunchMode::NonInteractive)
+            {
+                continue;
+            }
+            SCOPED_TRACE(descriptor.id);
+            core().viewService().setActiveImageViewControl(view);
+            settle();
+            TopLevelProcessBaseControl* const process = launch(descriptor.id);
+            if (process == nullptr)
+            {
+                ADD_FAILURE() << "the task did not open";
+                continue;
+            }
+            settle();
+            an::ui::observatory::TaskPage* const page = pageOf(process);
+            EXPECT_NE(page, nullptr) << "the task is a page";
+            if (page != nullptr)
+            {
+                ++opened;
+                check(descriptor, *process, *page);
+            }
+            const QPointer<TopLevelProcessBaseControl> guard(process);
+            EXPECT_TRUE(idle(process));
+            (void)process->close();
+            EXPECT_TRUE(an::tests::app::processEventsUntil([&guard]() {
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                return guard.isNull();
+            })) << "the task closed";
+            settle();
+        }
+        return opened;
+    }
+
     void TearDown() override
     {
         // A run state a case set by hand is ended, so its page closes.
@@ -454,6 +666,88 @@ TEST_F(TaskPage, TheColumnNamesTheProcessAsItsMenuEntryDoes)
         settle();
     }
     EXPECT_GE(differing, 7) << "processes whose menu entry names them otherwise than they name themselves";
+}
+
+// Every task's header shows the task's icon where it shows its target's thumbnail: the thumbnail once it is made, and
+// before that, or for a task with no target image - a full page, a combination that chooses its images - the
+// process's glyph on a tile, the rail's glyph for it. Never an empty square. A header that says a job has no thumbnail.
+TEST_F(TaskPage, EveryTaskHeaderShowsTheTasksIcon)
+{
+    const an::ui::DesignTokens& t = an::ui::tokens();
+    int glyphs = 0;
+    const int opened = openEveryTask([&](const an::ui::process_registry::ProcessDescriptor& /*descriptor*/,
+                                         TopLevelProcessBaseControl& process, an::ui::observatory::TaskPage& page) {
+        const Task* const task = tasks().model().taskFor(&process);
+        ASSERT_NE(task, nullptr);
+        an::ui::AnTaskHeader* const header = page.header();
+        if (header->job().has_value())
+        {
+            return;
+        }
+        EXPECT_EQ(header->glyphKey().toStdString(), task->iconKey.toStdString())
+            << "the header's glyph is the task's, as the rail shows it";
+        EXPECT_TRUE(QFile::exists(QStringLiteral(":/AfterNight/icons/SVG/%1.svg").arg(header->glyphKey())))
+            << "the glyph " << header->glyphKey().toStdString() << " is one of the product's icons";
+        if (!header->thumbnail().isNull())
+        {
+            return;
+        }
+        ++glyphs;
+        const QPixmap grabbed = header->grab();
+        const QImage picture = grabbed.toImage();
+        const qreal ratio = grabbed.devicePixelRatio();
+        const auto at = [&picture, ratio](const qreal x, const qreal y) {
+            return picture.pixelColor(std::clamp(static_cast<int>(std::floor(x * ratio)), 0, picture.width() - 1),
+                                      std::clamp(static_cast<int>(std::floor(y * ratio)), 0, picture.height() - 1));
+        };
+        const qreal side = an::ui::parts::kTaskHeaderThumbnail;
+        const QRectF slot(an::ui::parts::kTaskHeaderPaddingStart, (header->height() - side) / 2.0, side, side);
+        EXPECT_TRUE(an::ui::testing::sameColour(at(slot.left() + 1.0, slot.center().y()), t.layers.surface3))
+            << "the tile, not the well's empty square";
+        const qreal glyph = an::ui::parts::kTaskHeaderTileGlyph;
+        int drawn = 0;
+        for (qreal y = slot.center().y() - glyph / 2.0; y < slot.center().y() + glyph / 2.0; y += 1.0)
+        {
+            for (qreal x = slot.center().x() - glyph / 2.0; x < slot.center().x() + glyph / 2.0; x += 1.0)
+            {
+                drawn += an::ui::testing::sameColour(at(x, y), t.colors.textPrimary, 24) ? 1 : 0;
+            }
+        }
+        EXPECT_GT(drawn, 4) << "the process's glyph is drawn on the tile";
+        EXPECT_LT(drawn, static_cast<int>(glyph * glyph) / 2) << "the glyph's shape, not a square of its colour";
+    });
+    EXPECT_GE(opened, 70) << "every task the registry offers as a page";
+    EXPECT_GE(glyphs, 6) << "the full pages and the combinations that choose their images show the glyph";
+}
+
+// The eyebrow over a task's name in its column says the menu a person reaches the task from - Color Spaces for the
+// combinations of channels, Utilities for Image Compare, Intensity Transformations for Binarize, Image > Sequence for
+// Extract Sequence - whatever category the registry files the process under.
+TEST_F(TaskPage, EveryColumnsEyebrowIsAMenuThatReachesTheTask)
+{
+    int columns = 0;
+    const int opened =
+        openEveryTask([&columns](const an::ui::process_registry::ProcessDescriptor& descriptor,
+                                 TopLevelProcessBaseControl& process, an::ui::observatory::TaskPage& /*page*/) {
+            const an::ui::ProcessPageLayout* const layout = process.pageLayout();
+            ASSERT_NE(layout, nullptr);
+            if (layout->canvas() == nullptr)
+            {
+                return;
+            }
+            ++columns;
+            const std::vector<std::string> paths =
+                an::ui::shell::MenuTree::menuBar().pathsOf(descriptor.action_object_name);
+            ASSERT_FALSE(paths.empty()) << "a menu reaches the task";
+            const std::string eyebrow = layout->category().toStdString();
+            const bool reaches = std::any_of(paths.begin(), paths.end(), [&eyebrow](const std::string& path) {
+                return path == "Process > " + eyebrow || path == eyebrow;
+            });
+            EXPECT_TRUE(reaches) << "the eyebrow says \"" << eyebrow << "\"; the task is reached from \""
+                                 << paths.front() << "\"";
+        });
+    EXPECT_GE(opened, 70) << "every task the registry offers as a page";
+    EXPECT_GE(columns, 60) << "every task with a column";
 }
 
 // The breadcrumb names the process and the image while the page is shown.
@@ -885,6 +1179,160 @@ TEST_F(TaskPage, TheCompactReadoutShowsSettledFiguresAndTheirChange)
     window().showViews();
     settle();
     EXPECT_FALSE(readout.followsTask());
+}
+
+// A task's preview area is read out as its whole preview is: once a frame over the area has landed, the compact readout
+// measures what the preview shows and shows its figures, never dashes - for every task whose preview offers an area,
+// Median Filter, Non-Local Bayes and Patch PCA among them, most of which open with the area on. The image states the
+// validity of its samples by a mask of its own, as an integrated master does: the frame over the area pasted its patch
+// into a copy of the image that kept the image's rule and lost its mask, which every measurement of it refused.
+TEST_F(TaskPage, ThePreviewAreaGivesTheCompactReadoutItsFigures)
+{
+    // Wider than the area a preview starts with, so the area is a part of the image.
+    ImageViewControl* const view = openRampView(QStringLiteral("page-area"), 720u, 120u, true);
+    ASSERT_NE(view, nullptr);
+    an::ui::shell::ReadoutController& readout = window().readoutController();
+    std::vector<std::string> offered;
+    std::vector<std::string> unread;
+    std::vector<std::string> shownNone;
+    // The registry is copied: a launch reads it.
+    const std::vector<an::ui::process_registry::ProcessDescriptor> descriptors =
+        an::ui::process_registry::ProcessRegistry::instance().all();
+    for (const an::ui::process_registry::ProcessDescriptor& descriptor : descriptors)
+    {
+        if (descriptor.is_extension_process || descriptor.surface != an::ui::ProcessSurface::PreviewPage ||
+            descriptor.launch_mode == an::ui::process_registry::ProcessLaunchMode::NonInteractive)
+        {
+            continue;
+        }
+        SCOPED_TRACE(descriptor.id);
+        core().viewService().setActiveImageViewControl(view);
+        settle();
+        const std::uint64_t published = readout.telemetry().published;
+        TopLevelProcessBaseControl* const launched = launch(descriptor.id);
+        auto* const process = dynamic_cast<ImageRTPreviewControl*>(launched);
+        an::ui::observatory::TaskPage* const page = pageOf(launched);
+        an::ui::ProcessPageLayout* const layout = launched != nullptr ? launched->pageLayout() : nullptr;
+        QAbstractButton* const area = layout != nullptr ? layout->previewAreaToggle() : nullptr;
+        if (process != nullptr && page != nullptr && area != nullptr && process->previewView() != nullptr &&
+            area->isVisibleTo(page) && area->isEnabled())
+        {
+            offered.push_back(descriptor.id);
+            const bool openedWithArea = area->isChecked();
+            if (!openedWithArea)
+            {
+                area->click();
+                settle();
+            }
+            const bool quiet = idle(process);
+            const bool shown =
+                an::tests::app::processEventsUntil([&]() { return process->previewFramesShown() > 0u; }, 20000);
+            if (!shown)
+            {
+                // A preview that fails over this image - its banner says why - shows no frame to read out.
+                shownNone.push_back(descriptor.id);
+            }
+            else if (!readoutMeasuredAfter(readout, published))
+            {
+                const an::ui::shell::ReadoutTelemetry seen = readout.telemetry();
+                const ProcessRunTelemetry ran = process->runTelemetry();
+                unread.push_back(
+                    descriptor.id + " (frames shown " + std::to_string(process->previewFramesShown()) +
+                    ", preview idle " + (quiet ? "yes" : "no") + "; previews started " +
+                    std::to_string(ran.previewsStarted) + ", committed " + std::to_string(ran.previewsCommitted) +
+                    ", discarded " + std::to_string(ran.previewsDiscarded) + ", failed " +
+                    std::to_string(ran.previewsFailed) + ", identity " + std::to_string(ran.identityPreviews) +
+                    ", kept " + std::to_string(ran.keptPreviewsShown) + "; measurements started " +
+                    std::to_string(seen.started) + ", shown " + std::to_string(seen.published - published) +
+                    " of its, dropped " + std::to_string(seen.discarded) + ", refused " + std::to_string(seen.refused) +
+                    ", failed " + std::to_string(seen.failed) + ")");
+            }
+            // The area as the task opened with it, which it keeps for the next time it opens.
+            if (area->isChecked() != openedWithArea)
+            {
+                area->click();
+                settle();
+            }
+        }
+        const QPointer<TopLevelProcessBaseControl> guard(launched);
+        EXPECT_TRUE(idle(launched));
+        if (!guard.isNull())
+        {
+            (void)guard->close();
+        }
+        EXPECT_TRUE(an::tests::app::processEventsUntil([&guard]() {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            return guard.isNull();
+        })) << "the task closed";
+        settle();
+    }
+    for (const std::string_view named :
+         {std::string_view("filters.actionMedian_Filter"), std::string_view("denoising.actionNon_Local_Bayes_Filter"),
+          std::string_view("denoising.actionPatch_PCA_Filter")})
+    {
+        EXPECT_TRUE(std::find(offered.begin(), offered.end(), named) != offered.end())
+            << named << " offers no preview area";
+        EXPECT_TRUE(std::find(shownNone.begin(), shownNone.end(), named) == shownNone.end())
+            << named << " shows no frame of its preview";
+    }
+    std::string unreadList;
+    for (const std::string& task : unread)
+    {
+        unreadList += "\n  " + task;
+    }
+    EXPECT_TRUE(unread.empty()) << unread.size() << " of the " << offered.size()
+                                << " tasks with a preview area showed no figures of a frame over it:" << unreadList;
+}
+
+// Binarize leaves every sample at an end of the range, as its preview's clipping says - the shares clipped low and high
+// make the whole image - so no sample lies between the ends for the figures, which leave the clipped samples out: each
+// figure, and its change against the image, reads "-", never 0.0000 beside a maximum the clipping contradicts.
+TEST_F(TaskPage, ABinarizedPreviewsFiguresAgreeWithItsClipping)
+{
+    ImageViewControl* const view = openRampView(QStringLiteral("page-binarize"), 64u, 48u);
+    ASSERT_NE(view, nullptr);
+    an::ui::shell::ReadoutController& readout = window().readoutController();
+    const std::uint64_t published = readout.telemetry().published;
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch("sensor_calibration.actionBinarize"));
+    ASSERT_NE(process, nullptr);
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    ASSERT_TRUE(idle(process));
+    ASSERT_GT(process->previewFramesShown(), 0u) << "the preview shows the binarized image";
+    ASSERT_TRUE(readoutMeasuredAfter(readout, published));
+
+    // The clipping: every sample at an end, some at each.
+    an::ui::AnCompactReadout* const compact = page->compactReadout();
+    const std::vector<an::ui::ReadoutCell>& clipping = compact->clipping()->cells();
+    ASSERT_EQ(clipping.size(), 2u);
+    const auto share = [](const QString& text) {
+        bool read = false;
+        const double value = text.section(QLatin1Char(' '), 0, 0).toDouble(&read);
+        return read ? value : -1.0;
+    };
+    const double low = share(clipping[0].value);
+    const double high = share(clipping[1].value);
+    EXPECT_GT(low, 0.0) << clipping[0].value.toStdString();
+    EXPECT_GT(high, 0.0) << clipping[1].value.toStdString();
+    EXPECT_NEAR(low + high, 100.0, 0.001) << "every sample of a binarized image is at an end of the range";
+
+    // The figures: over no sample.
+    ASSERT_TRUE(readout.shownFigures().has_value());
+    for (const an::ui::ImageStatisticsChannel& channel : readout.shownFigures()->channels)
+    {
+        EXPECT_EQ(channel.count, 0u) << "no sample lies between the ends";
+    }
+    const std::vector<an::ui::ReadoutCell>& cells = compact->cells()->cells();
+    ASSERT_EQ(cells.size(), an::ui::kCompactReadoutStatistics.size());
+    for (const an::ui::ReadoutCell& cell : cells)
+    {
+        EXPECT_EQ(cell.value, QStringLiteral("-"))
+            << cell.label.toStdString() << " reads " << cell.value.toStdString() << " over no sample, beside "
+            << clipping[0].value.toStdString() << " clipped low and " << clipping[1].value.toStdString()
+            << " clipped high";
+        EXPECT_FALSE(cell.note.contains(QRegularExpression(QStringLiteral("[0-9]"))))
+            << cell.label.toStdString() << "'s change is a number: " << cell.note.toStdString();
+    }
 }
 
 // A new image a run makes while the page is shown lands in the workspace; the page stays, and the snackbar's Show goes

@@ -191,7 +191,7 @@ an::ui::ProcessStep
 AdjustBrightnessAndContrastProcess::describeTypedProcessStep(const AdjustBrightnessAndContrastParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Adjust brightness to {} and contrast to {}", params.brightness, params.contrast) +
                        process_utils::channelStepSuffix(m_image_view_control, selectedChannelScope())};
 }

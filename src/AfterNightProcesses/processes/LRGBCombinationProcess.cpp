@@ -298,7 +298,7 @@ an::Status LRGBCombinationProcess::executeTypedProcessImpl(const an::ui::Process
 an::ui::ProcessStep LRGBCombinationProcess::describeTypedProcessStep(const LRGBCombinationParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Luminance: '{}', lightness weight {:.2f}, channel weights R {:.2f} G {:.2f} B "
                                    "{:.2f}, lightness midtones {:.2f}, saturation midtones {:.2f}",
                                    params.luminanceImageName.toStdString(), params.lightnessWeight, params.redWeight,

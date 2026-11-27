@@ -6,8 +6,9 @@
 /// them; Optimize For Fast Play writes each file's proxy as it is shown - stretched, in eight bits - and the preview
 /// then plays the proxies in the autostretch display they hold, and the original files in any other, every display
 /// playing them without any optimization; each file's statistics and histogram are measured once, from the file, and
-/// shown whenever its frame is; a removed file's proxy goes with it, Export Sequence opens over the original files, the
-/// playback rate is what the window keeps, and a window closed while it works waits for nothing.
+/// shown whenever its frame is; a copy of the summary gives the file's name and path whole; a removed file's proxy goes
+/// with it, Export Sequence opens over the original files, the playback rate is what the window keeps, and a window
+/// closed while it works waits for nothing.
 
 #include "Test_ProcessesWorkflowTools/WorkflowToolsTestSupport.h"
 
@@ -26,12 +27,15 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QMimeData>
 #include <QPushButton>
+#include <QTextEdit>
 #include <QThread>
 #include <QThreadPool>
 
@@ -564,6 +568,38 @@ TEST_F(AnalyzerTest, EachFileIsMeasuredOnceAndItsStatisticsShownWhenItsFrameIs)
         EXPECT_TRUE(shownAreTheFiles(order[static_cast<qsizetype>(frame)])) << "frame " << frame;
     }
     EXPECT_EQ(window.window->filesMeasured(), 3u);
+}
+
+// A copy of the summary of the image chosen gives its text as it reads, the file's name and path whole: the marks that
+// let them break between their parts on screen are the layout's alone, so a path copied from the summary pastes into a
+// file dialog or a file manager as it is.
+TEST_F(AnalyzerTest, ACopyOfTheSummaryGivesTheFilesNameAndPathWhole)
+{
+    // A name as a capture program writes it, which the summary breaks between its parts on screen.
+    const QString path = temporaryPath(QStringLiteral("2023-10-10_00-19-34__21.00_180.00s_0000.fits"));
+    ASSERT_TRUE(writeShiftedField(session(), path, makeStarField(160u, 120u), 0.0, 0.0, false));
+    AnalyzerWindow window;
+    listed(window, {path});
+    QTextEdit* const summary = window.window->ui().imageSummary;
+    ASSERT_NE(summary, nullptr);
+    const QString name = QFileInfo(path).fileName();
+    const QChar mark(0x200B);
+    ASSERT_TRUE(pumpUntil([&]() {
+        const QString shown = summary->toPlainText();
+        return settled(window) && shown.contains(mark) && QString(shown).remove(mark).contains(name);
+    })) << "the summary says the file's name, free to break between its parts";
+
+    summary->selectAll();
+    summary->copy();
+    const QMimeData* const copied = QApplication::clipboard()->mimeData();
+    ASSERT_NE(copied, nullptr);
+    const QString text = copied->text();
+    EXPECT_FALSE(text.contains(mark)) << "the copy carries the layout's break marks";
+    EXPECT_TRUE(text.contains(name)) << text.toStdString();
+    EXPECT_TRUE(text.contains(path) || text.contains(QDir::toNativeSeparators(path)))
+        << "the path pastes as it is: " << text.toStdString();
+    EXPECT_FALSE(copied->html().contains(mark)) << "the formatted copy carries the break marks";
+    EXPECT_TRUE(summary->toPlainText().contains(mark)) << "the summary keeps its break points on screen";
 }
 
 TEST_F(AnalyzerTest, AListIsFittedToThePreviewWhenItIsFirstShown)

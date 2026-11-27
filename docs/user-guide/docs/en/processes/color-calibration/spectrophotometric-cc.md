@@ -261,7 +261,7 @@ controls:
       `Selection` reads `manual` for a choice made in this task, `saved mapping` for one saved earlier and
       `image metadata` for a profile that the header's camera and filter named.
     enabled: Shown once a profile is selected.
-  - name: Open Catalogs Data...
+  - name: Open Catalogs & Data...
     kind: button
     default: ""
     effect: >-
@@ -275,7 +275,7 @@ controls:
     kind: button
     default: ""
     effect: Opens the same page, where **Download Full Offline Catalog...** installs the whole catalog. It starts no download itself.
-    enabled: Shown with **Open Catalogs Data...**.
+    enabled: Shown with **Open Catalogs & Data...**.
     tradeoff: The whole catalog is a download of about 45 GB and takes about 48 GB on disk. It lets every field run without the network.
   - name: Download Needed Region
     kind: button
@@ -882,7 +882,7 @@ caption: >-
 "No installed Gaia XP sampled SPCC catalog is selected." or "The selected SPCC catalog is incomplete."
 :   **Cause.** No catalog is installed where the settings point and no approved download is offered, or the catalog
     there lacks some of its files.
-:   **Fix.** Press **Open Catalogs Data...**, then choose a complete catalog, repair or reinstall this one, or press
+:   **Fix.** Press **Open Catalogs & Data...**, then choose a complete catalog, repair or reinstall this one, or press
     **Download Full Offline Catalog...**.
 
 **Apply** stays disabled

@@ -500,6 +500,7 @@ std::vector<MasksProcess> makeProcesses()
     processes.push_back(describe<DarkStructureEnhanceProcess, DarkStructureEnhanceParams>(
         "DarkStructure", "actionDark_Structure_Enhance", "sharpening_enhancement.actionDark_Structure_Enhance",
         "DarkStructureEnhanceProcess", "DarkStructureEnhance", "", "dark-structure-enhance", configureDarkStructure));
+    processes.back().stepName = "Dark Structure Enhance";
     processes.back().scene = "stars-rgb-float32";
     processes.back().previewArea = true;
     processes.back().smooth = true;

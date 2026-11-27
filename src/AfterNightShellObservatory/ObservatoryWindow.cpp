@@ -69,6 +69,7 @@
 #include "app/ImageOperationsCoordinator.h"
 #include "app/MaskOverlayCoordinator.h"
 #include "app/ProcessLauncher.h"
+#include "app/ProcessRegistry.h"
 #include "app/RuntimeStorageCoordinator.h"
 #include "app/ThemeManager.h"
 #include "app/ViewCreationCoordinator.h"
@@ -112,6 +113,8 @@
 #include <kddockwidgets/MainWindow.h>
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/core/TabBar.h>
+
+#include <AfterNightPlatform/Logging.h>
 
 #include <QAccessible>
 #include <QActionGroup>
@@ -225,6 +228,28 @@ protected:
         an::ui::paintObservatoryDropBand(painter, rect());
     }
 };
+
+/// What a task's column says over its name, as the palette says it under the process's: an extension's family, else the
+/// menu a person reaches the process from (`ProcessMenuModel::categoryOf`); nothing for a process of no descriptor.
+[[nodiscard]] QString categoryOfTask(const an::ui::shell::Task& task, const an::ui::shell::ProcessMenuModel& menus)
+{
+    const an::ui::process_registry::ProcessDescriptor* const descriptor =
+        task.descriptorId.empty() ? nullptr
+                                  : an::ui::process_registry::ProcessRegistry::instance().find(task.descriptorId);
+    if (descriptor == nullptr)
+    {
+        return {};
+    }
+    if (descriptor->is_extension_process)
+    {
+        const QString family = menus.familyOf(descriptor->extension_id);
+        if (!family.isEmpty())
+        {
+            return family;
+        }
+    }
+    return an::ui::shell::ProcessMenuModel::categoryOf(*descriptor);
+}
 
 } // namespace
 
@@ -1477,7 +1502,10 @@ void ObservatoryWindow::bindServices()
         }
     };
     targets.newSequence = [this]() { newSequence(); };
-    targets.exit = [this]() { close(); };
+    targets.exit = [this]() {
+        LOG_INFO("Exit was chosen: the main window closes");
+        close();
+    };
     targets.imageOperations = [this]() -> an::ui::ImageOperationsCoordinator* { return m_impl->imageOperations.get(); };
     targets.maskOverlay = [this]() -> an::ui::MaskOverlayCoordinator* { return m_impl->maskOverlay.get(); };
     targets.launch = [this](const std::string& descriptorId) {
@@ -2311,13 +2339,27 @@ void ObservatoryWindow::clearImageInfo()
 
 void ObservatoryWindow::closeEvent(QCloseEvent* event)
 {
+    // The application ends with this window, so the log says who asked it to close - the system, for the person's close
+    // button, Alt+F4 or the taskbar or for a message another program sent, or the application itself, whose caller has
+    // said why - and what came of it.
+    if (event->spontaneous())
+    {
+        LOG_INFO("The main window was asked to close by the system: its close button, Alt+F4, the taskbar or a message "
+                 "another program sent");
+    }
+    else
+    {
+        LOG_INFO("The main window was asked to close by the application");
+    }
     if (m_impl->lifecycle && !m_impl->lifecycle->prepareForClose())
     {
+        LOG_INFO("The main window stays open: closing it was declined");
         event->ignore();
         return;
     }
     QMainWindow::closeEvent(event);
     // A window a dialog left on its own would keep the event loop alive: the application quits with this window.
+    LOG_INFO("The application quits: its main window closed");
     QApplication::quit();
 }
 
@@ -4148,19 +4190,13 @@ bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
                      });
     if (an::ui::ProcessPageLayout* const layout = process.pageLayout())
     {
-        // The column names the process as its menu entry and the task header name it.
+        // The column names the process as its menu entry and the task header name it, under the menu it is reached
+        // from - or an extension's family - as the palette lists it.
         if (!task->displayName.isEmpty())
         {
             layout->setTitle(task->displayName);
         }
-        const std::string_view menu = an::ui::shell::ProcessMenuModel::menuOfCategory(task->category.toStdString());
-        for (const an::ui::shell::ProcessMenuModel::Category& category : an::ui::shell::ProcessMenuModel::categories())
-        {
-            if (category.menuId == menu)
-            {
-                layout->setCategory(category.title);
-            }
-        }
+        layout->setCategory(categoryOfTask(*task, impl.core.processMenus()));
     }
     an::ui::AnTaskHeader* const header = page->header();
     // Float as window, or Attach in a floating task.
@@ -4452,6 +4488,8 @@ void ObservatoryWindow::refreshTaskHeader(const an::ui::shell::TaskId id)
     }
     an::ui::AnTaskHeader* const header = page->header();
     header->setThumbnail(task->thumbnail);
+    // The task's glyph, the rail's for it, in the thumbnail's place while there is no picture.
+    header->setGlyphKey(task->iconKey);
     header->setProcessName(task->displayName);
     header->setTargetName(task->targetName);
     header->setFloating(task->presentation == an::ui::shell::TaskPresentation::Window);

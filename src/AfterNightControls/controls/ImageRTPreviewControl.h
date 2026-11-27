@@ -390,8 +390,8 @@ protected:
                                           const an::ui::ProcessRun& run, const ProcessExecutionParams* params,
                                           an::ui::ExecutionScope& scope) = 0;
 
-    /// The history step an Apply records, decided from its parameters on the GUI thread before it runs. The process's
-    /// name and no description unless the process says otherwise.
+    /// The history step an Apply records, decided from its parameters on the GUI thread before it runs: named as a
+    /// person reads the process (`historyStepName`), with no description unless the process says otherwise.
     [[nodiscard]] virtual an::ui::ProcessStep describeProcessStep(const ProcessExecutionParams* params) const;
 
     /// The images a run of these parameters reads beside its target and the target's mask - another view's image the

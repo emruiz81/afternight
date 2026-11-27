@@ -67,6 +67,9 @@ protected:
         return {};
     }
 
+    /// The mirror page, its reject sliders taking what their rows leave them in the column.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_referenceImageSelector_currentTextChanged(const QString& text);
 

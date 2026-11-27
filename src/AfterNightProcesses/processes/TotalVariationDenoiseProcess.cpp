@@ -157,7 +157,7 @@ an::Status TotalVariationDenoiseProcess::executeTypedProcessImpl(const an::ui::P
 an::ui::ProcessStep
 TotalVariationDenoiseProcess::describeTypedProcessStep(const TotalVariationDenoiseParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Algorithm: {}, weight: {}, eps: {}, max iterations: {} - ",
                                                m_ui.algorithmSelector->currentText().toUtf8().toStdString(),

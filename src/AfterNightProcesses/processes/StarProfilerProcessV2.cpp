@@ -65,6 +65,7 @@ StarProfilerProcessV2::StarProfilerProcessV2(ImageViewControl* control)
     : StarProfilerWindow(control, getProcessNameStatic())
 {
     m_ui = an::ui::processes::buildStarProfilerProcessV2Ui(this);
+    setHistoryStepName("Star Profiler v2");
     setProcessDescription(
         QStringLiteral("Profile stars with robust PSF controls, quality filtering, and reusable star catalogs."));
 

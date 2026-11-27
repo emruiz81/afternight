@@ -38,6 +38,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QSpacerItem>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QToolBar>
@@ -276,6 +277,86 @@ TEST(ProcessPageLayout, TheBodyScrollsWhenThePageIsShort)
     ASSERT_NE(host, nullptr);
     EXPECT_EQ(page->footer()->mapTo(host, QPoint(0, page->footer()->height())).y(), host->height())
         << "the footer is at the page's foot";
+}
+
+namespace
+{
+
+/// Adds a row of a label and a field to the test process's controls, under its groups, as a builder lays a parameter.
+[[nodiscard]] QSpinBox* addParameterRow(TestProcess& process, const QString& name)
+{
+    auto* const row = new QHBoxLayout();
+    auto* const label = new QLabel(name, process.controlsPanel);
+    auto* const field = new QSpinBox(process.controlsPanel);
+    row->addWidget(label);
+    row->addWidget(field, 1);
+    process.controlsLayout->insertLayout(process.controlsLayout->indexOf(process.buttons), row);
+    return field;
+}
+
+/// Where a widget lies in the body's content.
+[[nodiscard]] QRect placeInBody(const QWidget& widget, const ProcessPageLayout& page)
+{
+    return QRect(widget.mapTo(page.bodyContent(), QPoint(0, 0)), widget.size());
+}
+
+} // namespace
+
+// A body with room to spare keeps its rows together at its top, each at the height it asks for, and the room under
+// them: shared out among the rows it lay between Target image's label and its list, and between the parameters.
+TEST(ProcessPageLayout, ABodysRowsLieTogetherAtItsTopWithItsRoomUnderThem)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process =
+        openProcess(*target, TestProcessOptions{.groups = 1, .groupHeight = 60, .targetSelector = true});
+    QSpinBox* const first = addParameterRow(*process, QStringLiteral("Amount"));
+    QSpinBox* const second = addParameterRow(*process, QStringLiteral("Iterations"));
+    process->show();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    ASSERT_FALSE(page->body()->verticalScrollBar()->isVisible()) << "a tall page: the body has room to spare";
+
+    // Target image's label sits on its list, as high as its text.
+    auto* const lead = qobject_cast<QGridLayout*>(page->bodyContent()->layout()->itemAt(0)->layout());
+    ASSERT_NE(lead, nullptr) << "Target image leads the body";
+    const QRect label = placeInBody(*process->targetLabel, *page);
+    const QRect list = placeInBody(*process->targetSelector, *page);
+    EXPECT_EQ(label.height(), process->targetLabel->sizeHint().height()) << "the label is given more than its text";
+    EXPECT_EQ(list.top() - label.bottom() - 1, lead->verticalSpacing()) << "room lies between the label and its list";
+
+    // The parameters lie as close as their layout's spacing, and the room is under the last.
+    const QRect amount = placeInBody(*first, *page);
+    const QRect iterations = placeInBody(*second, *page);
+    EXPECT_EQ(iterations.top() - amount.bottom() - 1, process->controlsLayout->spacing())
+        << "room lies between the parameters";
+    EXPECT_GT(page->bodyContent()->height() - iterations.bottom(), page->body()->viewport()->height() / 2)
+        << "the room the body has to spare lies under the rows";
+}
+
+// A spacer a builder put among its rows, to push them apart in a window taller than they need, asks for no room in the
+// body: the rows either side of it lie as close as their layout's spacing.
+TEST(ProcessPageLayout, ASpacerAmongTheRowsTakesNoRoomInTheBody)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{.groups = 1, .groupHeight = 60});
+    QSpinBox* const first = addParameterRow(*process, QStringLiteral("Amount"));
+    process->controlsLayout->insertItem(process->controlsLayout->indexOf(process->buttons),
+                                        new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    QSpinBox* const second = addParameterRow(*process, QStringLiteral("Iterations"));
+    process->show();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+
+    const QRect amount = placeInBody(*first, *page);
+    const QRect iterations = placeInBody(*second, *page);
+    EXPECT_EQ(iterations.top() - amount.bottom() - 1, process->controlsLayout->spacing())
+        << "the spacer laid room between the rows";
 }
 
 // The controls' side margins give way to what the controls need, whenever they need it: a control that grows wider

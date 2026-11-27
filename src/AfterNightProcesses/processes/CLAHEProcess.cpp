@@ -149,7 +149,7 @@ an::Status CLAHEProcess::executeTypedProcessImpl(const an::ui::ProcessSource& so
 
 an::ui::ProcessStep CLAHEProcess::describeTypedProcessStep(const CLAHEParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Grid Size: {}, Contrast Limit: {:.2f}, Amount: {:.2f}", params.gridSize,
                                                params.contrastLimit, params.amount) +

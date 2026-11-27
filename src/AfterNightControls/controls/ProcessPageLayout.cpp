@@ -43,6 +43,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSpacerItem>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QTimer>
@@ -832,6 +833,10 @@ struct ProcessPageLayout::Impl : public QObject
         {
             controls->installEventFilter(this);
         }
+        if (!description.controlsFillTheBody)
+        {
+            keepTheRowsTogether();
+        }
         leadWithSelectors();
         makeSections();
         makeToggles();
@@ -1016,6 +1021,66 @@ struct ProcessPageLayout::Impl : public QObject
         {
             controlsMargins = controlsLayout->contentsMargins();
         }
+    }
+
+    /// The controls keep the height they ask for at the body's top, and the room the body has to spare lies under them:
+    /// given to the controls it would lie among their rows - between a label and what it labels - wherever a layout
+    /// shares it out. A spacer a builder put among the rows to push them apart in a window taller than they need asks
+    /// for no room in the body. Controls that scroll themselves take the room, the scroll area they scroll in growing
+    /// with it: kept to the height it asks for, it would scroll them inside a body with room to spare.
+    void keepTheRowsTogether()
+    {
+        if (controls != nullptr)
+        {
+            for (QLayout* const layout : controls->findChildren<QLayout*>())
+            {
+                for (int index = 0; index < layout->count(); ++index)
+                {
+                    QSpacerItem* const spacer = layout->itemAt(index)->spacerItem();
+                    if (spacer == nullptr || (spacer->sizePolicy().verticalPolicy() & QSizePolicy::ExpandFlag) == 0 ||
+                        spacer->sizeHint().height() == 0)
+                    {
+                        continue;
+                    }
+                    spacer->changeSize(spacer->sizeHint().width(), 0, spacer->sizePolicy().horizontalPolicy(),
+                                       spacer->sizePolicy().verticalPolicy());
+                    layout->invalidate();
+                }
+            }
+        }
+        if (controlsScrollThemselves())
+        {
+            bodyLayout->setStretchFactor(controls, 1);
+            return;
+        }
+        bodyLayout->addStretch(1);
+    }
+
+    /// Whether the controls scroll themselves: their pane is a scroll area, or their layout stretches one of its own -
+    /// what their window scrolls them in.
+    [[nodiscard]] bool controlsScrollThemselves() const
+    {
+        if (controls == nullptr)
+        {
+            return false;
+        }
+        if (qobject_cast<QAbstractScrollArea*>(controls) != nullptr)
+        {
+            return true;
+        }
+        const auto* const box = qobject_cast<QBoxLayout*>(controlsLayout);
+        if (box == nullptr)
+        {
+            return false;
+        }
+        for (int index = 0; index < box->count(); ++index)
+        {
+            if (box->stretch(index) > 0 && qobject_cast<QAbstractScrollArea*>(box->itemAt(index)->widget()) != nullptr)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// Target image and Channel at the body's head, side by side, each with its label.

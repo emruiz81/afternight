@@ -601,7 +601,7 @@ an::Status CurvesTransformationProcess::executeTypedProcessImpl(const an::ui::Pr
 an::ui::ProcessStep
 CurvesTransformationProcess::describeTypedProcessStep(const CurvesTransformationParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = describeParameters(params)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = describeParameters(params)};
 }
 
 CurvesTransformationParams CurvesTransformationProcess::getParams() const

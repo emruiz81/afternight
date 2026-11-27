@@ -72,23 +72,12 @@ QStringList menuPathsOf(const MenuTree& menus, const std::string_view actionId)
     return paths;
 }
 
-/// What the Process menu calls a process's category: the menu its action sits in under Process, or the menu its
-/// registry category joins; the menu path of an action elsewhere, as the conversions under Image are.
+/// What the Process menu calls a process's category, as its task's column says it (`ProcessMenuModel::categoryOf`); the
+/// Process menu itself for a process no menu reaches.
 QString categoryOf(const registry::ProcessDescriptor& descriptor)
 {
-    const MenuTree& menus = MenuTree::menuBar();
-    const QStringList paths = menuPathsOf(menus, descriptor.action_object_name);
-    if (!paths.isEmpty())
-    {
-        const QString processMenu = menuTitleOf(ActionGroup::Process) + QStringLiteral(" > ");
-        return paths.front().startsWith(processMenu) ? paths.front().mid(processMenu.size()) : paths.front();
-    }
-    const std::string_view menuId = ProcessMenuModel::menuOfCategory(descriptor.category);
-    if (const MenuNode* const menu = menuId.empty() ? nullptr : menus.menu(menuId); menu != nullptr)
-    {
-        return readable(QCoreApplication::translate("AfterNightAppClass", menu->title));
-    }
-    return menuTitleOf(ActionGroup::Process);
+    const QString category = ProcessMenuModel::categoryOf(descriptor);
+    return category.isEmpty() ? menuTitleOf(ActionGroup::Process) : readable(category);
 }
 
 /// What stands in the way of a process now: what the registry says of it, unless its launch prepares its extension's

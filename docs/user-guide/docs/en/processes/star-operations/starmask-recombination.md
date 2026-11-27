@@ -139,7 +139,7 @@ controls:
     tradeoff: The result is a full new image, and an integer image or mask is copied to floating point first. Its time grows with the pixels and the channels.
     scope: The whole image, with the stars, the mask and **Invert** as they are when you press it. A change made afterwards reaches the next run only.
     persistence: >-
-      The new image's history starts with a **Starmask Recombination** step that reads `StarmaskRecombinationProcess:
+      The new image's history starts with a **Starmask Recombination** step that reads `Starmask Recombination:
       Image created from starless image '<starless>' and starmask image '<stars>' using operation add`, followed by
       `, through mask '<mask>'` and ` inverted` when they apply.
   - name: Close

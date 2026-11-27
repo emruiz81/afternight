@@ -178,6 +178,33 @@ TEST_F(ProcessMenuModelTest, HoldsTheSixteenCategoriesInTheMenusOrder)
     }
 }
 
+// A process's category is the menu a person reaches it from, whatever category the registry files it under: Channel
+// Composition is filed with the colour processes and listed under Color Spaces, Binarize with the sensor's and under
+// Intensity Transformations. Of two menus that list an action, the one its registry category joins: Gaussian Blur,
+// under Details and Filters, is a filter. An action listed outside the Process menu says the menus down to it; one no
+// menu lists, its registry category's menu; one of neither, nothing.
+TEST_F(ProcessMenuModelTest, AProcesssCategoryIsTheMenuItIsReachedFrom)
+{
+    const auto categoryOf = [](const std::string& category, const std::string& action) {
+        an::ui::process_registry::ProcessDescriptor descriptor;
+        descriptor.category = category;
+        descriptor.action_object_name = action;
+        descriptor.id = category + "." + action;
+        return ProcessMenuModel::categoryOf(descriptor).toStdString();
+    };
+    EXPECT_EQ(categoryOf("color", "actionChannelComposition"), "Color Spaces");
+    EXPECT_EQ(categoryOf("color", "actionNBColorMapper"), "Color Spaces");
+    EXPECT_EQ(categoryOf("sensor_calibration", "actionBinarize"), "Intensity Transformations");
+    EXPECT_EQ(categoryOf("multi_image_stacking", "actionImage_Compare"), "Utilities");
+    EXPECT_EQ(categoryOf("color", "actionColor_Calibration_2"), "Color Calibration");
+    EXPECT_EQ(categoryOf("filters", "actionGaussian_Blur"), "Filters")
+        << "listed under Details and Filters, it is filed as a filter";
+    EXPECT_EQ(categoryOf("multi_image_stacking", "actionExtract_Sequence"), "Image > Sequence");
+    EXPECT_EQ(categoryOf("denoising", "actionExtension_fancy"), "Noise Reduction")
+        << "an extension's process no menu of the tree lists is in its category's menu";
+    EXPECT_EQ(categoryOf("unknown", "actionNone"), "");
+}
+
 // The favourite processes are listed by the names the registry gives, in their order, then Manage and Clear; with none
 // Clear is not offered; each launches its process and Manage and Clear ask what they ask.
 TEST_F(ProcessMenuModelTest, ListsTheFavouritesByNameThenManageAndClear)

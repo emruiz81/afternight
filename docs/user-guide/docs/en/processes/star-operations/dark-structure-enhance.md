@@ -78,7 +78,7 @@ caption: >-
 6. **Check the whole image.** Untick [**Preview area**](../../reference/glossary.md#preview-area) in the column's
    toggles row. Zoom the canvas to 100 % on the dark lanes and the stars beside them, and hold ++space++ to compare.
 7. **Apply.** Tick **Create mask image** to keep the mask, then choose **Apply** in the column's footer. The dust lanes are darker, the
-   history lists **DarkStructureEnhance**, and the mask opens beside the image when you asked for it.
+   history lists **Dark Structure Enhance**, and the mask opens beside the image when you asked for it.
 
 ## Controls
 
@@ -161,13 +161,13 @@ controls:
     effect: Shows the preview in the canvas. Off removes it and disables **Preview Mode**.
     enabled: It stands in the column's toggles row, beside **Preview area**. Disabled while Apply runs.
     tradeoff: Inside a preview area the mask is measured on the area alone. Its smoothings reach the area's reflected edges and its rescalings use the area's own extremes, so the result there can differ a lot from what Apply writes.
-    scope: "The task only. The canvas opens with a preview area of 800 by 800 pixels in the middle of the image, labelled \"Preview: DarkStructureEnhance\", and its floating toolbar offers **Display Mode**."
+    scope: "The task only. The canvas opens with a preview area of 800 by 800 pixels in the middle of the image, labelled \"Preview: Dark Structure Enhance\", and its floating toolbar offers **Display Mode**."
     persistence: Until the task closes. **Reset** leaves it.
   - name: Create mask image
     kind: check
     default: "Off"
-    effect: On, a finished Apply also opens the mask it darkened through, as a new grayscale image named `<target> - DarkStructureEnhance Mask` beside the target.
-    range: "The mask is 32-bit floating point, of the target's size. Its history starts with `DarkStructureEnhance: mask created from '<target>'`."
+    effect: On, a finished Apply also opens the mask it darkened through, as a new grayscale image named `<target> - Dark Structure Enhance Mask` beside the target.
+    range: "The mask is 32-bit floating point, of the target's size. Its history starts with `Dark Structure Enhance: mask created from '<target>'`."
     enabled: Disabled while Apply runs. It counts only for an Apply to a single image. The preview, a snapshot and an Apply to a sequence open no mask image.
     tradeoff: One more full-size image in memory. The darkening is the same either way.
     scope: The new image keeps the target's acquisition data, plate solution and lineage. It keeps no header card but its processing state, which is nonlinear with the operation `dark-structure-mask`.
@@ -185,7 +185,7 @@ controls:
     enabled: From the moment the task opens, since the defaults darken. While the run works **Cancel** takes its place, and every control of the task is disabled, **Preview** and **Preview Mode** included, with the snapshot and the preview area.
     tradeoff: The run holds a copy of the target, a floating-point copy of an integer image, the working image the darkening writes, and the mask image when you asked for one. On a single image the column's run row reads "applying", which shows that the run works, not a percentage. No progress window opens.
     scope: The whole image, never limited by a preview area, with the mask on the view blended afterwards.
-    persistence: "The history step is **DarkStructureEnhance** and reads, for example, `Layers: 8, Scaling: 5x5 B3 Spline, Amount: 0.40 (midtones 0.70), Iterations: 1`. On a color image, a run on one channel or component adds ` in channel: ` and its name, as in `in channel: CIE L* (Lightness)`."
+    persistence: "The history step is **Dark Structure Enhance** and reads, for example, `Layers: 8, Scaling: 5x5 B3 Spline, Amount: 0.40 (midtones 0.70), Iterations: 1`. On a color image, a run on one channel or component adds ` in channel: ` and its name, as in `in channel: CIE L* (Lightness)`."
 ```
 
 ## How it works

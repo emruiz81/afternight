@@ -35,6 +35,7 @@ StarProfilerProcessV1::StarProfilerProcessV1(ImageViewControl* control)
     : StarProfilerWindow(control, getProcessNameStatic())
 {
     m_ui = an::ui::processes::buildStarProfilerProcessV1Ui(this);
+    setHistoryStepName("Star Profiler v1");
     setProcessDescription(
         QStringLiteral("Detect, inspect, and curate star profiles with filtering and mask generation tools."));
 

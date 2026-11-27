@@ -257,7 +257,7 @@ std::uint32_t BilateralFilterProcess::typedPreviewRegionMargin(const BilateralFi
 
 an::ui::ProcessStep BilateralFilterProcess::describeTypedProcessStep(const BilateralFilterParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Diameter: {:.2f}, Sigma Space: {}, Sigma Color: {}, Amount: {:.2f}",
                                                params.diameter, params.sigmaSpace, params.sigmaColor, params.amount) +

@@ -6,6 +6,7 @@
 #include "controls/ProcessButtonIcons.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageSelectorTooltipBuilder.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/ProcessCommonUtils.h"
 
 #include <fmt/format.h>
@@ -146,6 +147,17 @@ void LinearMatchProcess::refreshTheme()
 
 LinearMatchProcess::~LinearMatchProcess() {}
 
+std::unique_ptr<an::ui::ProcessPageLayout> LinearMatchProcess::makePageLayout()
+{
+    // The least width the window states for the reject sliders would push their rows, beside the labels' column and the
+    // fields, past the column's padding: in a column they take what their rows leave them.
+    for (QSlider* const slider : {m_ui.rejectLowSlider, m_ui.rejectHighSlider})
+    {
+        slider->setMinimumWidth(0);
+    }
+    return ImageProcessControl::makePageLayout();
+}
+
 void LinearMatchProcess::initialize()
 {
     rebuildReferenceImageSelector();
@@ -236,7 +248,7 @@ void LinearMatchProcess::executeLinearMatch()
             fmt::format("Executing linear match to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running linear match"),
         .errorLead = "An error occurred when executing the linear match process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked, m_image_view_control->getUniqueName(), sequence);
     request.operation =
         [reference, range = asked.range](const an::ui::ExecutionScope& scope,

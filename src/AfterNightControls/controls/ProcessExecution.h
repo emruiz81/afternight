@@ -766,20 +766,25 @@ buildProcessCompositeBase(const an::consumer::EngineSession& session, const an::
 
 /// A copy of a base with a patch pasted into it at a position: the preview area's composite, a new asset of the run's
 /// session. The paste is the engine's crop of the whole patch placed into the copy; a patch sample its own validity
-/// rejects leaves the base's.
+/// rejects leaves the base's. The copy keeps the base's metadata, its validity rule among it: a base that states its
+/// samples by a mask gives the composite a copy of that mask, in which every sample the paste wrote is valid and every
+/// other keeps the base's bit, so the composite carries the mask its rule names and can be measured and shown.
 ///
 /// @param session the session the composite belongs to.
 /// @param engine the engine context of the run's execution.
 /// @param execution the run's admitted execution.
 /// @param base the base, in the patch's format.
+/// @param baseValidity the base's packed mask, or null for a base whose rule reads none.
 /// @param patch the processed patch.
 /// @param patchValidity the patch's packed mask, or null.
 /// @param origin where the patch's top left pixel goes in the base.
 /// @return the composite; `ErrorCode::IncompatibleArguments` for a patch of another representation or channel count
-///         than the base or one that does not lie inside it; or what the engine refused.
+///         than the base, one that does not lie inside it or a base's mask that does not cover it; or what the engine
+///         refused.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::consumer::ImageAsset>
 composeProcessRegion(const an::consumer::EngineSession& session, const an::EngineContext& engine,
                      const an::ExecutionContext& execution, const an::consumer::AnyImage& base,
-                     const an::consumer::AnyImage& patch, const an::ValidityMask* patchValidity, QPoint origin);
+                     const an::ValidityMask* baseValidity, const an::consumer::AnyImage& patch,
+                     const an::ValidityMask* patchValidity, QPoint origin);
 
 } // namespace an::ui

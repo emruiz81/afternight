@@ -249,7 +249,7 @@ an::ui::ProcessStep NLBayesProcess::describeTypedProcessStep(const NLBayesParams
 {
     const NLBayesParams effective = sanitizeParamsForExecution(params);
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Sigma: {}, Step 1 Homogeneous Area: {}, Step 2 Homogeneous Area: {}, DA3D: {}, "
                                    "Anscombe: {}, SOS: {} (rho={:.2f}), Amount: {:.2f}",
                                    effective.autoSigma ? "auto" : fmt::format("{:.4f}", effective.sigma),

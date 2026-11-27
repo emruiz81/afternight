@@ -13,7 +13,7 @@
     {"label": "Radius", "kind": "spinbox", "object": "radiusValue", "group": "Star Detection", "visible": true, "default": "5", "min": 3, "max": 32, "step": 1, "slider": true},
     {"label": "Threshold", "kind": "spinbox", "object": "thresholdValue", "group": "Star Detection", "visible": true, "default": "1.00", "min": 0.01, "max": 15, "step": 0.05, "decimals": 2, "slider": true},
     {"label": "Amplitude Range", "kind": "check", "object": "amplitudeRangeGroupBox", "group": "Star Detection", "visible": true, "default": "Off"},
-    {"label": "Minumum", "kind": "spinbox", "object": "thresholdMinimumValue", "group": "Star Detection > Amplitude Range", "visible": true, "default": "0.00", "min": 0, "max": 0.99, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Minimum", "kind": "spinbox", "object": "thresholdMinimumValue", "group": "Star Detection > Amplitude Range", "visible": true, "default": "0.00", "min": 0, "max": 0.99, "step": 0.05, "decimals": 2, "slider": true},
     {"label": "Maximum", "kind": "spinbox", "object": "thresholdMaximumValue", "group": "Star Detection > Amplitude Range", "visible": true, "default": "1.00", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
     {"label": "Roundness Threshold", "kind": "spinbox", "object": "roundnessThresholdValue", "group": "Star Detection", "visible": true, "default": "0.50", "min": 0.01, "max": 0.95, "step": 0.05, "decimals": 2, "slider": true},
     {"label": "Roundness Range", "kind": "check", "object": "roundnessRangeGroupBox", "group": "Star Detection", "visible": true, "default": "Off"},

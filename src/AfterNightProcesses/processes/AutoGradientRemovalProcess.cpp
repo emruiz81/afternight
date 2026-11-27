@@ -718,7 +718,7 @@ an::Status AutoGradientRemovalProcess::executeTypedProcessImpl(const an::ui::Pro
     {
         if (an::Status staged =
                 stage(*models, "auto-gradient-removal-gradient", target + QStringLiteral(" - AGR Gradient"),
-                      fmt::format("AutoGradientRemoval: gradient model created from '{}'", params.targetName));
+                      fmt::format("Auto Gradient Removal: gradient model created from '{}'", params.targetName));
             staged.failed())
         {
             return staged;
@@ -728,7 +728,7 @@ an::Status AutoGradientRemovalProcess::executeTypedProcessImpl(const an::ui::Pro
     {
         if (an::Status staged = stage(
                 *protection, "auto-gradient-removal-protection-mask", target + QStringLiteral(" - AGR Protection Mask"),
-                fmt::format("AutoGradientRemoval: protection mask created from '{}'", params.targetName));
+                fmt::format("Auto Gradient Removal: protection mask created from '{}'", params.targetName));
             staged.failed())
         {
             return staged;
@@ -763,7 +763,7 @@ AutoGradientRemovalProcess::describeTypedProcessStep(const AutoGradientRemovalPr
 {
     const an::AutoBackgroundRequest& algorithm = params.algorithm;
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format(
             "Scale: {:.2f}, Smoothness: {:.2f}, Downsample: {}, Correction: {}, Model: {}{}, Structure "
             "protection: {}{}",

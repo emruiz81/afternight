@@ -583,7 +583,7 @@ an::ui::ProcessStep StarMaskProcess::describeTypedProcessStep(const StarMaskPara
 {
     const an::StarDetectionRequest& detection = params.detection;
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format(
             "Created in {} mode. Radius: {}, Threshold: {:.2f}, Profile: {}{}. Percent Increase: {:.2f}, Pixel "
             "Increase: {}, Min Size: {}, Max Size: {}, Star Shape: {}",

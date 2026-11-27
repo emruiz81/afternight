@@ -56,6 +56,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -974,6 +975,36 @@ TEST(ProxyStyleObservatory, GroupBoxIsACardAndAFlatOneAHairline)
     });
 }
 
+// A group a page made a section of - its title moved to the section's header, which a page marks the group with - keeps
+// no room for a title: its card starts at its top and its contents under the card's padding. A group with its title
+// keeps the room, and so does a checkable one, whose check box stands there.
+TEST(ProxyStyleObservatory, AGroupTitledByItsSectionKeepsNoRoomForATitle)
+{
+    forEachLook([](ObservatoryStyleScope& scope, const DesignTokens& t) {
+        const auto frameTop = [&scope](Probed<QGroupBox>& group) {
+            QStyleOptionGroupBox option;
+            group.initStyleOption(&option);
+            return scope.style()->subControlRect(QStyle::CC_GroupBox, &option, QStyle::SC_GroupBoxFrame, &group).top();
+        };
+        Probed<QGroupBox> section(QStringLiteral("Stars"));
+        section.resize(240, 120);
+        section.setProperty("anPageSectionTitle", QStringLiteral("Stars"));
+        section.setTitle(QString());
+        EXPECT_EQ(frameTop(section), 0) << "the card starts under room for a title its section's header says";
+        EXPECT_EQ(section.contentsMargins().top(), t.spacing.xs) << "the contents start under room for a title";
+
+        Probed<QGroupBox> titled(QStringLiteral("Stars"));
+        titled.resize(240, 120);
+        EXPECT_GE(frameTop(titled), titled.fontMetrics().height()) << "a group's title keeps its room";
+
+        Probed<QGroupBox> checkable;
+        checkable.resize(240, 120);
+        checkable.setProperty("anPageSectionTitle", QStringLiteral("Region"));
+        checkable.setCheckable(true);
+        EXPECT_GE(frameTop(checkable), checkable.fontMetrics().height()) << "a check box keeps the room it stands in";
+    });
+}
+
 // A view's selected row is the accent at its soft share with a three-pixel accent bar at the row's start, a hovered row
 // the state colour; the selected text stays the primary text. A header is the third surface with a hairline under it
 // and its labels in small capitals of the secondary text. Grid lines are hairlines.
@@ -1049,6 +1080,80 @@ TEST(ProxyStyleObservatory, ItemViewRowsAndHeader)
 
         EXPECT_EQ(static_cast<QRgb>(scope.style()->styleHint(QStyle::SH_Table_GridLineColor, nullptr, &table)),
                   c.borderSubtle.rgba());
+    });
+}
+
+namespace
+{
+
+/// A header whose protected options a case reads, to paint a section as the header paints it.
+class ProbedHeader final : public QHeaderView
+{
+public:
+    using QHeaderView::QHeaderView;
+
+    /// The option the header paints a section with.
+    void sectionOption(QStyleOptionHeader* option, const int section) const
+    {
+        initStyleOption(option);
+        initStyleOptionForIndex(option, section);
+    }
+};
+
+/// What a header paints as the label of a section at a size, as the header draws it: its runs of text joined - a mark
+/// drawn in a font of its own is a run of its own.
+QString sectionLabel(const QStyle& style, ProbedHeader& header, const int section, const QSize size)
+{
+    QStyleOptionHeaderV2 option;
+    header.sectionOption(&option, section);
+    option.rect = QRect(QPoint(0, 0), size);
+    QString label;
+    for (const RecordedText& run :
+         textsOf(size, [&](QPainter& p) { style.drawControl(QStyle::CE_Header, &option, &p, &header); }))
+    {
+        label += run.text;
+    }
+    return label;
+}
+
+} // namespace
+
+// A header sized to its labels shows them whole: a column takes its label's size where it is sized to its contents,
+// and a table's row numbers stand in a header as wide as their widest - a row's number with a mark beside it, as a
+// list marks its reference frame, among them. Each label is painted in small capitals of the caption inside the
+// section's padding, which the size holds.
+TEST(ProxyStyleObservatory, AHeaderSizedToItsLabelsShowsThemWhole)
+{
+    forEachLook([](ObservatoryStyleScope& scope, const DesignTokens& t) {
+        const QStringList columns = {QStringLiteral("ISO/Gain"), QStringLiteral("Exposure"), QStringLiteral("Tag"),
+                                     QStringLiteral("Filter"), QStringLiteral("File / Group")};
+        const QStringList rows = {QStringLiteral("1   ➡"), QStringLiteral("2"), QStringLiteral("10   ❗")};
+        QTableWidget table(static_cast<int>(rows.size()), static_cast<int>(columns.size()));
+        table.setHorizontalHeaderLabels(columns);
+        table.setVerticalHeaderLabels(rows);
+
+        ProbedHeader across(Qt::Horizontal);
+        across.setModel(table.model());
+        across.ensurePolished();
+        for (int column = 0; column < columns.size(); ++column)
+        {
+            const QSize size(across.sectionSizeHint(column), t.metrics.rowTable);
+            const QString painted = sectionLabel(*scope.style(), across, column, size);
+            EXPECT_EQ(painted.toStdString(), columns[column].toStdString())
+                << "a column " << size.width() << " px wide, its own size";
+        }
+
+        ProbedHeader down(Qt::Vertical);
+        down.setModel(table.model());
+        down.ensurePolished();
+        const int width = down.sizeHint().width();
+        for (int row = 0; row < rows.size(); ++row)
+        {
+            const QSize size(width, down.defaultSectionSize());
+            const QString painted = sectionLabel(*scope.style(), down, row, size);
+            EXPECT_EQ(painted.toStdString(), rows[row].toStdString())
+                << "a header " << width << " px wide, its own size";
+        }
     });
 }
 

@@ -525,7 +525,7 @@ reason about a call's image, the name is the function's: `the image 'med' at byt
 ## What a run records
 
 - With **Replace target image**, the target's [history](../../reference/glossary.md#history) gets one step named
-  **PixelMath**, without a description, which undoes the run. A new image's history begins with "Image created from
+  **Pixel Math**, without a description, which undoes the run. A new image's history begins with "Image created from
   PixelMath script", and a new sequence's with "Sequence created from PixelMath script".
 - The result's [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the
   operation `pixelmath`, whatever the expression. An image described as linear is no longer described so, and an

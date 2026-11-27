@@ -225,7 +225,7 @@ an::Status AdjustLChProcess::executeTypedProcessImpl(const an::ui::ProcessSource
 
 an::ui::ProcessStep AdjustLChProcess::describeTypedProcessStep(const AdjustLChParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description = fmt::format("Adjust lightness to {} chroma to {} and hue to {}",
                                                           params.lightness, params.chroma, params.hue)};
 }

@@ -10,6 +10,7 @@
 
 #include "components/AnCardWidget.h"
 #include "components/AnCollapsibleSection.h"
+#include "components/AnVerticalScrollArea.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/TableWidget.h"
 
@@ -150,19 +151,17 @@ inline ImageRegistrationProcessUiElements buildImageRegistrationProcessUi(QWidge
     ui.imagePreviewWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui.verticalLayout_2->addWidget(ui.imagePreviewWidget, 1);
 
-    auto* rightColumnScrollArea = new QScrollArea(parent);
+    // The settings scroll up and down alone and are never narrower than they need: given less, a row would lay its
+    // controls over each other and cut its boxes' texts. Beside them the preview gives way.
+    auto* rightColumnScrollArea = new an::ui::AnVerticalScrollArea(parent);
     rightColumnScrollArea->setObjectName(QStringLiteral("settingsScrollArea"));
     rightColumnScrollArea->setWidgetResizable(true);
     rightColumnScrollArea->setFrameShape(QFrame::NoFrame);
-    rightColumnScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    rightColumnScrollArea->setMinimumWidth(360);
     rightColumnScrollArea->setMinimumHeight(0);
     rightColumnScrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     rightColumnScrollArea->setSizeAdjustPolicy(QAbstractScrollArea::AdjustIgnored);
     auto* rightColumnWidget = new QWidget(rightColumnScrollArea);
     rightColumnWidget->setObjectName(QStringLiteral("settingsScrollAreaContents"));
-    rightColumnWidget->setMinimumWidth(0);
-    rightColumnWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     auto* rightColumn = new QVBoxLayout(rightColumnWidget);
     rightColumn->setSpacing(t.spacing.md);
     rightColumn->setContentsMargins(t.spacing.xs, 0, t.spacing.xs, 0);

@@ -20,8 +20,11 @@
 #include <QUrl>
 #include <QVariant>
 
+#include <algorithm>
 #include <map>
+#include <optional>
 #include <set>
+#include <string>
 #include <utility>
 
 namespace an::ui::shell
@@ -204,6 +207,55 @@ std::string_view ProcessMenuModel::menuOfCategory(const std::string_view categor
         if (known.category == category)
         {
             return known.menuId;
+        }
+    }
+    return {};
+}
+
+QString ProcessMenuModel::categoryOf(const process_registry::ProcessDescriptor& descriptor)
+{
+    const MenuTree& menus = MenuTree::menuBar();
+    const std::string_view filedUnder = menuOfCategory(descriptor.category);
+    const std::string_view action = descriptor.action_object_name;
+    const std::vector<Category> all = categories();
+    // The categories of the Process menu that list the action, in the menu's order: the one the registry files the
+    // process under when it is among them - an action listed twice is filed under one - else the first.
+    std::optional<QString> first;
+    for (const Category& category : all)
+    {
+        const MenuNode* const menu = menus.menu(category.menuId);
+        const bool lists =
+            menu != nullptr && std::any_of(menu->items.begin(), menu->items.end(), [action](const MenuItem& item) {
+                return item.kind == MenuItemKind::Action && item.id == action;
+            });
+        if (!lists)
+        {
+            continue;
+        }
+        if (category.menuId == filedUnder)
+        {
+            return category.title;
+        }
+        if (!first.has_value())
+        {
+            first = category.title;
+        }
+    }
+    if (first.has_value())
+    {
+        return *first;
+    }
+    // An action listed outside the Process menu: the menus a person reads down to it.
+    if (const std::vector<std::string> paths = menus.pathsOf(action); !paths.empty())
+    {
+        return QString::fromStdString(paths.front());
+    }
+    // An action no menu lists - an extension's own - is in the menu its registry category joins.
+    for (const Category& category : all)
+    {
+        if (category.menuId == filedUnder)
+        {
+            return category.title;
         }
     }
     return {};

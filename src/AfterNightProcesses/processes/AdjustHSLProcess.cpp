@@ -227,7 +227,7 @@ an::Status AdjustHSLProcess::executeTypedProcessImpl(const an::ui::ProcessSource
 
 an::ui::ProcessStep AdjustHSLProcess::describeTypedProcessStep(const AdjustHSLParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description = fmt::format("Adjust hue to {} saturation to {} and lightness to {}",
                                                           params.hue, params.saturation, params.lightness)};
 }

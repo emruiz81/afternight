@@ -193,11 +193,11 @@ controls:
   - name: Amplitude Range
     kind: check
     default: "Off"
-    effect: Ticked, keeps only the stars whose fitted height above the sky, **A** in the table, lies between **Minumum** and **Maximum**, in fractions of full scale. Unticked, no height is refused.
+    effect: Ticked, keeps only the stars whose fitted height above the sky, **A** in the table, lies between **Minimum** and **Maximum**, in fractions of full scale. Unticked, no height is refused.
     enabled: Its two boxes are disabled while it is unticked.
     tradeoff: A narrow window removes real stars. On a linear image the brightest stars fit above 1, above any **Maximum**.
     persistence: Until the task closes. **Reset** unticks it. A profile records the bounds as `min_A` and `max_A`, both 0 while it is unticked.
-  - name: Minumum
+  - name: Minimum
     kind: spinbox
     default: "0.00"
     widget: {min: 0, max: 0.99, step: 0.05, decimals: 2}
@@ -211,7 +211,7 @@ controls:
     default: "1.00"
     widget: {min: 0.01, max: 1, step: 0.05, decimals: 2}
     effect: Sets the largest height a star may have. Lower leaves out the brighter stars, which an alignment may need.
-    range: Below **Minumum**, the detection is refused with "the amplitude window's upper bound is at or above its lower bound".
+    range: Below **Minimum**, the detection is refused with "the amplitude window's upper bound is at or above its lower bound".
     enabled: With **Amplitude Range** ticked.
     persistence: Until the task closes. **Reset** returns it.
   - name: Roundness Threshold

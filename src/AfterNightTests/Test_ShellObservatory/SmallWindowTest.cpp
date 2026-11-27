@@ -12,6 +12,10 @@
 /// about twice the interface's width, which overflows what the interface's font does not: the cases of the least window
 /// and of the display sizes are measured natively (`QT_QPA_PLATFORM=windows`), as the gate measures them, and reported
 /// skipped under the suites' platform; the columns' widths, the readout's folds and the renders hold everywhere.
+///
+/// The full pages that hold a list of frames - Image Registration, Image List Analyzer, Image Integration's lights -
+/// are measured with their frames listed too, under the long names a capture program gives them: what their lists,
+/// their figures and their summaries show depends on the frames as much as on the window.
 
 #include "ObservatoryPages.h"
 
@@ -19,25 +23,55 @@
 #include "chrome/TopBar.h"
 #include "fixtures/ClippedControls.h"
 #include "fixtures/ObservatoryLook.h"
+#include "fixtures/PaintRecorder.h"
 
 #include "components/AnReadoutCard.h"
 #include "components/AnReadoutColumn.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
+#include "processes/ImageIntegration/ImageIntegrationProcess.h"
+#include "processes/ImageIntegration/model/FrameCollection.h"
+#include "processes/ImageIntegration/model/FrameMetadata.h"
+#include "processes/ImageIntegration/model/IntegrationDataModel.h"
+#include "processes/ImageIntegration/persistence/IntegrationDatabase.h"
+#include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
+#include "processes/ImageIntegration/widgets/FrameStatisticsDashboard.h"
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
+#include "processes/ImageListAnalyzerProcess.h"
+#include "processes/ImageListAnalyzerProcessUiBuilder.h"
+#include "processes/ImageRegistrationProcess.h"
+#include "processes/ImageRegistrationProcessUiBuilder.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/ComponentParts.h"
+#include "widgets/TableWidget.h"
 
 #include <QAbstractScrollArea>
+#include <QAbstractTextDocumentLayout>
+#include <QComboBox>
+#include <QDateTime>
+#include <QFileInfo>
+#include <QFontMetricsF>
+#include <QHeaderView>
 #include <QImage>
 #include <QLabel>
+#include <QLayout>
+#include <QLayoutItem>
 #include <QList>
 #include <QRectF>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSize>
+#include <QStackedLayout>
 #include <QStackedWidget>
 #include <QString>
 #include <QStringList>
+#include <QStyle>
+#include <QStyleOptionComboBox>
+#include <QTableWidgetItem>
+#include <QTextBlock>
+#include <QTextDocument>
+#include <QTextEdit>
+#include <QTextLayout>
 #include <QWidget>
 
 #include <gtest/gtest.h>
@@ -62,6 +96,18 @@ constexpr QSize kWindowOf1920{1920, 1001};
 constexpr QSize kWindowOf1536{1536, 785};
 constexpr QSize kWindowOf1280{1280, 641};
 constexpr QSize kLeastWindow{1024, 640};
+
+/// The window the guide's pictures of a full page are taken in, at the compatible width.
+constexpr QSize kGuideWindowOfAFullPage{1280, 900};
+
+/// The windows a full page holding its frames is measured in: the guide's, the three displays' maximised windows.
+const std::vector<QSize> kFullPageWindows{kGuideWindowOfAFullPage, kWindowOf1280, kWindowOf1536, kWindowOf1920};
+
+/// A window's size as a failure names it.
+[[nodiscard]] std::string sizeName(const QSize size)
+{
+    return std::to_string(size.width()) + " x " + std::to_string(size.height());
+}
 
 /// The floors of the image beside a task's column, at the floor display (4.7).
 constexpr int kImageFloorBesideStandard = 1130;
@@ -129,19 +175,62 @@ const std::vector<an::ui::ThemeDensity> kDensities{an::ui::ThemeDensity::Compact
     return elided;
 }
 
+/// The combo boxes of a window narrower than their size hint whose text field still holds every item whole, its icon
+/// and its text: a box sized to its items, whose hint asks besides for the characters a least contents length names,
+/// cuts nothing. Each is named as `clippedControls` names a box too narrow for its longest item.
+[[nodiscard]] QStringList combosHoldingEveryItem(const QWidget& window)
+{
+    QStringList holding;
+    const an::ui::DesignTokens& t = an::ui::tokens();
+    for (const QComboBox* combo : window.findChildren<QComboBox*>())
+    {
+        if (!combo->isVisibleTo(&window) || combo->isEditable() || combo->count() == 0 ||
+            combo->width() >= combo->sizeHint().width())
+        {
+            continue;
+        }
+        bool holds = true;
+        for (int index = 0; index < combo->count() && holds; ++index)
+        {
+            QStyleOptionComboBox option;
+            option.initFrom(combo);
+            option.rect = combo->rect();
+            option.currentText = combo->itemText(index);
+            option.currentIcon = combo->itemIcon(index);
+            option.iconSize = combo->iconSize();
+            const QRect field =
+                combo->style()->subControlRect(QStyle::CC_ComboBox, &option, QStyle::SC_ComboBoxEditField, combo);
+            // The text follows the icon by the label's gap, as the style paints it.
+            const int icon =
+                combo->itemIcon(index).isNull() ? 0 : combo->iconSize().width() + t.spacing.xs + t.spacing.xs / 2 + 1;
+            holds = field.width() >=
+                    icon + static_cast<int>(
+                               std::ceil(QFontMetricsF(combo->font()).horizontalAdvance(combo->itemText(index))));
+        }
+        if (holds)
+        {
+            holding.append(nameOf(combo) + QStringLiteral(" is too narrow for its longest item (%1 < %2)")
+                                               .arg(combo->width())
+                                               .arg(combo->sizeHint().width()));
+        }
+    }
+    return holding;
+}
+
 /// What is clipped of the window as it is shown now: what any font leaves, and what measured text needs where the
-/// platform measures it, but a line that elides readably.
+/// platform measures it, but a line that elides readably and a combo box that holds every item.
 [[nodiscard]] QStringList clippedIn(const QWidget& window)
 {
     QStringList clipped = outsideTheirParents(window);
     if (textIsMeasured())
     {
         const QStringList elided = readablyElided(window);
+        const QStringList holding = combosHoldingEveryItem(window);
         for (const QString& found : an::tests::look::clippedControls(window))
         {
             const bool readable = std::any_of(elided.begin(), elided.end(),
                                               [&found](const QString& line) { return found.startsWith(line); });
-            if (!readable)
+            if (!readable && !holding.contains(found))
             {
                 clipped.append(found);
             }
@@ -157,6 +246,149 @@ const std::vector<an::ui::ThemeDensity> kDensities{an::ui::ThemeDensity::Compact
 {
     const QScrollBar* const bar = orientation == Qt::Vertical ? area.verticalScrollBar() : area.horizontalScrollBar();
     return bar != nullptr && bar->isVisibleTo(&window) && bar->maximum() > bar->minimum();
+}
+
+/// The widgets a layout places in the widget it lays out, its inner layouts' among them.
+void collectPlaced(const QLayout& layout, const QWidget& owner, std::vector<const QWidget*>& placed)
+{
+    for (int index = 0; index < layout.count(); ++index)
+    {
+        QLayoutItem* const item = layout.itemAt(index);
+        if (item == nullptr)
+        {
+            continue;
+        }
+        if (const QWidget* const widget = item->widget(); widget != nullptr && widget->parentWidget() == &owner)
+        {
+            placed.push_back(widget);
+        }
+        else if (const QLayout* const inner = item->layout(); inner != nullptr)
+        {
+            collectPlaced(*inner, owner, placed);
+        }
+    }
+}
+
+/// Every two controls that one widget's layout places over each other: a row given less room than its controls take
+/// lays the later ones over the earlier, whatever the font. Only what a layout places is compared - a part laid over
+/// another by design, a badge or a floating toolbar, is placed by hand - and a stacked layout shows one at a time.
+[[nodiscard]] QStringList overlappingControls(const QWidget& root)
+{
+    QStringList overlapping;
+    std::vector<const QWidget*> owners{&root};
+    for (const QWidget* widget : root.findChildren<QWidget*>())
+    {
+        owners.push_back(widget);
+    }
+    for (const QWidget* owner : owners)
+    {
+        if (owner->layout() == nullptr || qobject_cast<const QStackedLayout*>(owner->layout()) != nullptr ||
+            (owner != &root && !owner->isVisibleTo(&root)))
+        {
+            continue;
+        }
+        std::vector<const QWidget*> placed;
+        collectPlaced(*owner->layout(), *owner, placed);
+        std::erase_if(placed, [&root](const QWidget* widget) {
+            return !widget->isVisibleTo(&root) || widget->width() <= 0 || widget->height() <= 0;
+        });
+        for (std::size_t first = 0; first < placed.size(); ++first)
+        {
+            for (std::size_t second = first + 1; second < placed.size(); ++second)
+            {
+                if (placed[first]->geometry().intersects(placed[second]->geometry()))
+                {
+                    overlapping.append(nameOf(placed[first]) + QStringLiteral(" and ") + nameOf(placed[second]) +
+                                       QStringLiteral(" overlap in ") + nameOf(owner));
+                }
+            }
+        }
+    }
+    return overlapping;
+}
+
+/// The labels the tables and trees of a widget cut short: each header painted as it is shown, a label drawn with an
+/// ellipsis. A header that paints no label at all is named too, for a case to tell that it looked.
+[[nodiscard]] QStringList elidedHeaderLabels(const QWidget& root)
+{
+    QStringList elided;
+    for (QHeaderView* header : root.findChildren<QHeaderView*>())
+    {
+        if (!header->isVisibleTo(&root) || header->width() <= 0 || header->height() <= 0 || header->count() == 0)
+        {
+            continue;
+        }
+        an::ui::testing::PaintRecorder recorder(header->size());
+        header->render(&recorder);
+        if (recorder.texts().empty())
+        {
+            elided.append(nameOf(header) + QStringLiteral(" painted no label"));
+        }
+        for (const an::ui::testing::RecordedText& text : recorder.texts())
+        {
+            if (text.text.contains(QChar(0x2026)))
+            {
+                elided.append(nameOf(header) + QStringLiteral(" cuts a label to \"%1\"").arg(text.text));
+            }
+        }
+    }
+    return elided;
+}
+
+/// The places a text edit breaks a line inside a word - a line that ends on a letter, a digit or a point, and a next
+/// line that goes on with one - each named with the text around the break.
+[[nodiscard]] QStringList wordsBrokenIn(const QTextEdit& edit)
+{
+    QStringList broken;
+    // The whole document laid out at the edit's width.
+    (void)edit.document()->documentLayout()->documentSize();
+    const auto inWord = [](const QChar c) { return c.isLetterOrNumber() || c == QLatin1Char('.'); };
+    for (QTextBlock block = edit.document()->begin(); block.isValid(); block = block.next())
+    {
+        const QTextLayout* const layout = block.layout();
+        if (layout == nullptr)
+        {
+            continue;
+        }
+        const QString text = block.text();
+        for (int line = 0; line + 1 < layout->lineCount(); ++line)
+        {
+            const QTextLine at = layout->lineAt(line);
+            const int end = at.textStart() + at.textLength();
+            if (end <= 0 || end >= text.size())
+            {
+                continue;
+            }
+            if (inWord(text.at(end - 1)) && inWord(text.at(end)))
+            {
+                broken.append(QStringLiteral("\"%1|%2\" breaks inside a word at %3 px")
+                                  .arg(text.mid((std::max)(0, end - 12), (std::min)(end, 12)), text.mid(end, 12))
+                                  .arg(edit.viewport()->width()));
+            }
+        }
+    }
+    return broken;
+}
+
+/// The figures of a frame statistics dashboard it draws narrower than their text, or past its side.
+[[nodiscard]] QStringList cutFigures(const ImageIntegration::FrameStatisticsDashboard& dashboard)
+{
+    QStringList cut;
+    const QFontMetricsF metrics(dashboard.font());
+    for (const ImageIntegration::FrameStatisticsDashboard::FigureLine& line : dashboard.figureLines())
+    {
+        const bool labelWhole = line.labelRect.width() >= std::ceil(metrics.horizontalAdvance(line.label));
+        const bool valueWhole = line.valueRect.width() >= std::ceil(metrics.horizontalAdvance(line.value));
+        if (!labelWhole || !valueWhole || !dashboard.rect().contains(line.valueRect))
+        {
+            cut.append(QStringLiteral("\"%1 %2\" is drawn in %3 + %4 px of a %5 px dashboard")
+                           .arg(line.label, line.value)
+                           .arg(line.labelRect.width())
+                           .arg(line.valueRect.width())
+                           .arg(dashboard.width()));
+        }
+    }
+    return cut;
 }
 
 class SizesCase : public PagesCase
@@ -223,6 +455,60 @@ class DisplaySizes : public SizesCase
 
 class Scaling : public SizesCase
 {
+};
+
+/// The full pages that hold a list of frames, measured with their frames listed.
+class FullPages : public SizesCase
+{
+protected:
+    /// Light frames written in a folder of the case's own under the names a capture program gives them: long, and with
+    /// no place where the rules of text let a line break.
+    [[nodiscard]] static QStringList writeLights(const QString& folder, const int count)
+    {
+        QStringList files;
+        for (int index = 0; index < count; ++index)
+        {
+            files.append(writeImage(QStringLiteral("%1/2023-10-10_00-%2-34__21.00_180.00s_%3.fits")
+                                        .arg(folder)
+                                        .arg(19 + index, 2, 10, QLatin1Char('0'))
+                                        .arg(index, 4, 10, QLatin1Char('0'))));
+        }
+        return files;
+    }
+
+    /// The page of the task shown.
+    [[nodiscard]] static const QWidget* shownPage()
+    {
+        const TopLevelProcessBaseControl* const process = shownProcess();
+        return process != nullptr && process->pageLayout() != nullptr ? process->pageLayout()->page() : nullptr;
+    }
+
+    /// What is clipped of the window, what overlaps on the page and the labels its lists cut short, at a size.
+    [[nodiscard]] static QStringList faultsAt(const QSize size)
+    {
+        resizeTo(size);
+        QStringList faults = clippedIn(window());
+        // A toolbar with no room for every entry puts the rest behind its extension button, which reaches them and
+        // which the toolbar sizes by the style's own measure: no clipping.
+        faults.removeIf([](const QString& fault) {
+            return fault.startsWith(QStringLiteral("QToolBarExtension 'qt_toolbar_ext_button'"));
+        });
+        if (const QWidget* const page = shownPage(); page != nullptr)
+        {
+            faults.append(overlappingControls(*page));
+            faults.append(elidedHeaderLabels(*page));
+        }
+        else
+        {
+            faults.append(QStringLiteral("no task's page is shown"));
+        }
+        // At the friendly sizes nothing scrolls but a task's body.
+        if (size == kWindowOf1536 || size == kWindowOf1920)
+        {
+            faults.append(scrollingAreas(false));
+        }
+        return faults;
+    }
 };
 
 // At its least size, 1024 x 640, nothing of any page is clipped, in either density.
@@ -477,6 +763,152 @@ TEST_F(Scaling, PagesRenderAt125_150_200)
             }
         }
         leave();
+    }
+}
+
+// Image Registration's page with its frames listed, in the guide's window of a full page and in the three displays'
+// maximised windows, in either density: nothing is clipped and no control lies over another - its settings beside the
+// preview take the room they need - and the frame list's labels read whole, the reference's number and mark among
+// them.
+TEST_F(FullPages, ImageRegistrationHoldsItsSettingsAndFrameNumbersWhole)
+{
+    if (!textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font overflows what the "
+                        "interface's does not";
+    }
+    const QStringList frames = writeLights(QStringLiteral("registration-sizes"), 3);
+    for (const an::ui::ThemeDensity density : kDensities)
+    {
+        setDensity(density);
+        auto* const tool =
+            dynamic_cast<ImageRegistrationProcess*>(launch("multi_image_stacking.actionImage_Registration"));
+        ASSERT_NE(tool, nullptr);
+        tool->addItemsNonBlocking(frames);
+        TableWidget* const table = tool->ui().tableWidget;
+        ASSERT_TRUE(an::tests::app::processEventsUntil(
+            [&]() { return tool->isIdle() && table->rowCount() == frames.size(); }, kProjectOpenMs))
+            << "the frames were not listed";
+        settle();
+        const QTableWidgetItem* const reference = table->verticalHeaderItem(0);
+        ASSERT_NE(reference, nullptr);
+        ASSERT_GT(reference->text().size(), 1) << "the reference's number has its mark";
+        for (const QSize size : kFullPageWindows)
+        {
+            const QStringList faults = faultsAt(size);
+            EXPECT_TRUE(faults.isEmpty())
+                << "Image Registration in a " << sizeName(size) << " window, " << densityName(density) << ":\n  "
+                << faults.join(QStringLiteral("\n  ")).toStdString();
+        }
+        // The list a tool keeps for its next opening is left empty.
+        tool->ui().clearAll->click();
+        settle();
+        leave();
+    }
+}
+
+// Image List Analyzer's page with its images listed, at the same sizes and densities: nothing is clipped, no control
+// lies over another, the list's labels read whole, and the summary of the image chosen breaks its name and its path
+// between their parts, never inside one - a capture program's name has no place a line may break by the rules of text.
+TEST_F(FullPages, ImageListAnalyzerHoldsItsControlsAndBreaksNamesBetweenTheirParts)
+{
+    if (!textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font overflows what the "
+                        "interface's does not";
+    }
+    const QStringList frames = writeLights(QStringLiteral("analyzer-sizes"), 3);
+    const QString firstName = QFileInfo(frames.front()).fileName();
+    for (const an::ui::ThemeDensity density : kDensities)
+    {
+        setDensity(density);
+        auto* const tool =
+            dynamic_cast<ImageListAnalyzerProcess*>(launch("multi_image_stacking.actionImage_List_Analyzer"));
+        ASSERT_NE(tool, nullptr);
+        tool->addItemsNonBlocking(frames);
+        QTextEdit* const summary = tool->ui().imageSummary;
+        ASSERT_TRUE(an::tests::app::processEventsUntil(
+            [&]() {
+                return tool->isIdle() && tool->ui().tableWidget->rowCount() == frames.size() &&
+                       summary->toPlainText().remove(QChar(0x200B)).contains(firstName);
+            },
+            kProjectOpenMs))
+            << "the images were not listed and summed up";
+        settle();
+        for (const QSize size : kFullPageWindows)
+        {
+            QStringList faults = faultsAt(size);
+            faults.append(wordsBrokenIn(*summary));
+            EXPECT_TRUE(faults.isEmpty())
+                << "Image List Analyzer in a " << sizeName(size) << " window, " << densityName(density) << ":\n  "
+                << faults.join(QStringLiteral("\n  ")).toStdString();
+        }
+        tool->ui().clearAll->click();
+        settle();
+        leave();
+    }
+}
+
+// Image Integration's lights page with a night's lights listed, at the same sizes and densities: the frame statistics
+// draw every figure whole - the total exposure and the size among them - and the frame list's column headers read
+// whole, ISO/Gain and Exposure among them; nothing is clipped and no control lies over another.
+TEST_F(FullPages, ImageIntegrationShowsItsLightsFiguresAndColumnsWhole)
+{
+    if (!textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font overflows what the "
+                        "interface's does not";
+    }
+    // Twelve lights of 525 s: an hour and three quarters, the size of the files they are.
+    const QStringList files = writeLights(QStringLiteral("integration-sizes"), 12);
+    // The job is saved as the page closes, and the next page would open on it.
+    const auto forgetTheJob = []() {
+        IntegrationDatabase database(ImageIntegration::applicationSessionDatabasePath());
+        if (database.initialize())
+        {
+            (void)database.deleteSession(QStringLiteral("last_session"));
+        }
+    };
+    for (const an::ui::ThemeDensity density : kDensities)
+    {
+        setDensity(density);
+        forgetTheJob();
+        auto* const process =
+            dynamic_cast<ImageIntegrationProcess*>(launch(an::ui::observatory::IntegrationHubPage::kImageIntegration));
+        ASSERT_NE(process, nullptr);
+        std::vector<FrameInfo> lights;
+        for (const QString& file : files)
+        {
+            lights.emplace_back(FrameId(file), file,
+                                FrameMetadata(FrameType::Light, QSize(5544, 3684), 525.0, -10.0, 11, 30,
+                                              QStringLiteral("L"), QStringLiteral("NGC 253"),
+                                              QDateTime::currentDateTimeUtc(), QString()));
+        }
+        process->model()->addFrames(FrameType::Light, lights);
+        settle();
+        ASSERT_NE(process->stageNavigator(), nullptr);
+        process->stageNavigator()->setCurrentPage(ImageIntegration::StagePage::Lights);
+        settle();
+        const ImageIntegration::FrameStatisticsDashboard* dashboard = nullptr;
+        for (const auto* found : process->findChildren<ImageIntegration::FrameStatisticsDashboard*>())
+        {
+            if (found->frameType() == FrameType::Light && found->isVisibleTo(process))
+            {
+                dashboard = found;
+            }
+        }
+        ASSERT_NE(dashboard, nullptr) << "the lights page shows its frame statistics";
+        for (const QSize size : kFullPageWindows)
+        {
+            QStringList faults = faultsAt(size);
+            ASSERT_FALSE(dashboard->figureLines().empty()) << "the statistics hold the lights";
+            faults.append(cutFigures(*dashboard));
+            EXPECT_TRUE(faults.isEmpty())
+                << "Image Integration's lights in a " << sizeName(size) << " window, " << densityName(density)
+                << ":\n  " << faults.join(QStringLiteral("\n  ")).toStdString();
+        }
+        leave();
+        forgetTheJob();
     }
 }
 

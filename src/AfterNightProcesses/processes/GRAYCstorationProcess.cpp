@@ -258,7 +258,7 @@ an::Status GRAYCstorationProcess::executeTypedProcessImpl(const an::ui::ProcessS
 
 an::ui::ProcessStep GRAYCstorationProcess::describeTypedProcessStep(const GRAYCstorationParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Interpolation: {}, Iterations: {}, Amplitude: {}, Sharpness: {:.2f}, "
                                                "Anisotropy: {:.2f}, Noise Scale: {:.2f}, Regularity: {:.2f}, "

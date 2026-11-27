@@ -133,6 +133,7 @@ void configureScnr(QWidget& window, std::string_view mode)
                               .descriptorId = "color.actionColor_Calibration_2",
                               .className = "ColorCalibrationProcess",
                               .processName = "ColorCalibration",
+                              .stepName = "Color Calibration",
                               .records = "color-calibration",
                               .scene = "scene-rgb-float32",
                               .exclusive = true,

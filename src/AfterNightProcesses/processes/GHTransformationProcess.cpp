@@ -1675,7 +1675,7 @@ an::Status GHTransformationProcess::executeTypedProcessImpl(const an::ui::Proces
 
 an::ui::ProcessStep GHTransformationProcess::describeTypedProcessStep(const GHTransformationParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = describeParameters(params)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = describeParameters(params)};
 }
 
 void GHTransformationProcess::resetSettings()

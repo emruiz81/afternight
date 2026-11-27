@@ -98,7 +98,7 @@ std::uint32_t TightenEdgesProcess::typedPreviewRegionMargin(const TightenEdgesPa
 
 an::ui::ProcessStep TightenEdgesProcess::describeTypedProcessStep(const TightenEdgesParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Adjust value to {}, amount {}", params.value, params.amount) +
                                    process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector)};

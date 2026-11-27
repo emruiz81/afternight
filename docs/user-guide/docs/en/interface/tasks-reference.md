@@ -146,7 +146,7 @@ shown in its frame.
 | Banding Reduction | 700 × 700 | Preview: Banding Reduction |
 | Bilateral Filter | 800 × 800 | Preview: Bilateral Filter |
 | Cosmetic Correction | 600 × 600 | Preview: Cosmetic Correction Filter |
-| Dark Structure Enhance | 800 × 800 | Preview: DarkStructureEnhance |
+| Dark Structure Enhance | 800 × 800 | Preview: Dark Structure Enhance |
 | GRAYCstoration | 500 × 500 | Preview: GRAYCstoration Filter |
 | Local Contrast Enhancement | 600 × 600 | Preview: Local Contrast Enhancement |
 | Local Histogram Equalization | 600 × 600 | Preview: Local Histogram Equalization |

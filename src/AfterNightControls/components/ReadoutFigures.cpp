@@ -60,6 +60,13 @@ QString readoutStatisticName(const ReadoutStatistic statistic)
 double readoutFigure(const ImageStatisticsChannel& channel, const ReadoutStatistic statistic,
                      const StatisticsScale scale) noexcept
 {
+    // A channel that kept no sample - every one at an end of the range, as a binarized image's are, or left out by its
+    // validity - has no figure. The window writes zero beside its count of none; the readout shows no count, and a zero
+    // there would read as a measurement the clipping contradicts.
+    if (channel.count == 0u)
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
     return scaledStatisticsFigures(channel, scale)[windowRow(statistic)];
 }
 

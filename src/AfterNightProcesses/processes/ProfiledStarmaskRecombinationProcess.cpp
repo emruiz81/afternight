@@ -854,9 +854,9 @@ ProfiledStarmaskRecombinationProcess::describeTypedProcessStep(const ProfiledSta
 {
     const std::size_t stars = params.profileStars ? params.profileStars->size() : 0u;
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format(
-            "ProfiledStarmaskRecombinationProcess: Image created from starless image '{}' and starmask image '{}' "
+            "Profiled Starmask Recombination: Image created from starless image '{}' and starmask image '{}' "
             "using operation add; {} profiled stars as {}{}{}{}",
             params.starlessName.toStdString(), params.starsName.toStdString(), stars,
             params.binaryAreas

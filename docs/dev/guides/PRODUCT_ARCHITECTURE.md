@@ -251,7 +251,10 @@ an interactive frame over the area whose patch is the target's kind of image, ev
 valid, is shown by its patch, which the view paints as a layer over its own presentation
 (`ImageViewWidget::adoptPresentationLayer`), its histogram derived from the target's counts less its part's plus the
 patch's (`replacedPartHistogram`); a frame that composes pastes a patch of the target's own description into a copy of
-the target, and the settled frame counts its composite exactly.
+the target, and the settled frame counts its composite exactly. The copy keeps the target's metadata and with it its
+validity rule, so a target that states its samples by a mask - an integrated master - gives the composite a copy of
+that mask with every sample the paste wrote valid (`composeProcessRegion`): adopted without one, its rule named a mask
+it did not carry and every measurement of it - the readout's of a preview area among them - was refused.
 `TypedProcessControl<ParamsT>` is the base every process with execution parameters derives from. A window's
 `runTelemetry()` counts its previews and runs by outcome and its shown previews by kind of frame, keeps how long the
 shown previews took, and counts what its frames ran over, how they made their histograms, the presentations the view
@@ -385,7 +388,10 @@ process already is:
 - **The column.** Beside the canvas, 360 px wide or 520 px for a wide process, 320 and 440 px in a window under
   1200 px wide: a slot for the shell's compact readout, the header (the category a shell names, the process's name with
   its description as the tooltip, Close), the toggles (the process's own preview checkbox, moved; Preview area and
-  Compare, which act on the preview view's own checkbox and Switch image), the banner, the body and the footer.
+  Compare, which act on the preview view's own checkbox and Switch image), the banner, the body and the footer. The
+  Observatory names as the category what the palette subtitles the process with (`ProcessMenuModel::categoryOf`): the
+  menu a person reaches the process from - not the registry's coarser category, which files Channel Composition with
+  the colour calibrations though Color Spaces lists it - or an extension's family.
 - **The body fits the column** by scrolling up and down only, with the footer always in view; by its top-level group
   boxes as sections (`AnCollapsibleSection`, titled as the groups and in their order, none for a single group) - found
   through the controls' layouts and the layouts of the plain containers they lay out, never inside a group, a tab
@@ -401,13 +407,24 @@ process already is:
   with their labels, to a row at the body's head: the labels on one line and the fields on the next, so two fields lie
   side by side whether each has a label. They are found wherever the controls lay them out - a form, a box, a grid,
   inside a group box (Star Reduction groups its target with the starless image it reads) - and a label is the one
-  before its field: the form's, the box's previous item, the grid's previous cell.
+  before its field: the form's, the box's previous item, the grid's previous cell. The body's rows lie together at its
+  top, each at the height it asks for, and the room the body has to spare lies under them: shared out among the rows by
+  their layouts, it lay between a label and what it labels (Linear Match's Target Image stood 150 px over its list). A
+  vertical spacer a builder put among its rows to push them apart in a taller window asks for no room in the body
+  (Image Compare's between its mode and its second image, Curves Transformation's over its channel), and a group a
+  section is made of keeps no room for the title its header says: the style reads the group's `anPageSectionTitle`.
+  Controls that fill the body take the room (Pixel Math's), and so do controls that scroll themselves - their pane a
+  scroll area (Narrowband Palette Composer) or a scroll area their layout stretches (Spectrophotometric Color
+  Calibration): kept to the height it asks for, such an area would scroll them inside a body with room to spare.
 - **A process of another shape arranges itself first.** `makePageLayout` is virtual: Multiscale Linear Transform keeps
   the selected layer's controls, the target and what its preview shows in its preview's pane, which the canvas takes
   whole, so its override moves them into its controls - the selected layer's group under the layers it is chosen from,
   its name on a row of its own, the preview's mode a labelled row of the target's form - and takes its global settings
   out of the scroll area of their own the window gives them, with the 480 px least width that area's content was given
-  for the window's wider pane, before the generic arrangement runs. NB Color Mapper scrolls all its controls in a scroll
+  for the window's wider pane, and gives its controls the side margins a controls pane has, which its window's panes do
+  without, before the generic arrangement runs. Linear Match lets its reject sliders take what their rows leave them:
+  the 150 px its window states for them, beside its 110 px labels and 80 px fields, left its rows 2 px from the
+  column's sides. NB Color Mapper scrolls all its controls in a scroll
   area of their own beside its preview; its override takes them out of it, so the body scrolls them and its seven
   groups are the page's sections, and disables them during a run where they now are. A scroll area hides how wide its
   content is, which is why the census measured the mapper narrower than it is: as arranged its controls take 508 px.
@@ -1349,9 +1366,10 @@ samples - and every behavior dimension of each.
 
 The window reads its dialog as a `PixelMathSettings`, the images every view holds, the active view's and the target's
 mask as a `PixelMathImageSet` and draws the run's random seed, all on the GUI thread when Apply is pressed, and runs
-`runPixelMath` through `runInPlace` (one history step named `PixelMath`) or `runToNewViews` (a new image or sequence
-under the dialog's name). `runPixelMath` parses every distinct expression before reading an image, binds only the
-images an expression names - each resampled to the output's size with Lanczos-4 and read as fractions of full scale
+`runPixelMath` through `runInPlace` (one history step named `Pixel Math`, as `historyStepName` reads) or
+`runToNewViews` (a new image or sequence under the dialog's name). `runPixelMath` parses every distinct expression
+before reading an image, binds only the images an expression names - each resampled to the output's size with
+Lanczos-4 and read as fractions of full scale
 (`readAsFractions`) in one working representation, Float64 when anything read holds Float64 or a 32-bit integer; `$T`
 is the target converted to the output's channels, `$A` the active image, `$M` the target's mask, an image of sensor
 codes or physical quantities declared in its own domain so the engine refuses it beside fractions - then resolves and
@@ -2015,7 +2033,8 @@ after 150 ms, then twice as long each time up to 600 ms (`kRetryLongest`) - and 
 just opened is refused while the view's own work runs and nothing changes after it, so the readout stayed empty until
 the person did something. The clipped samples are
 left out as the statistics window leaves them out when it opens, so the six figures the card shows are the window's
-for the same image and range. What lands is shown only when its `CommitTicket` still commits: a view closed or left
+for the same image and range; a channel left with no sample - every one at an end, as a binarized image's are - has no
+figure, written "-" (`readoutFigure`), where the window writes zero beside its count of none. What lands is shown only when its `CommitTicket` still commits: a view closed or left
 while it is measured shows nothing of it. In a task only a settled frame is measured, because only an interactive
 frame's pixels are approximated, never a statistic: an interactive frame dims the figures and keeps them, and the
 original's figures are measured once, beside the first settled frame, for the change each cell shows against them. The
@@ -2360,7 +2379,8 @@ task. The history strip of the view a workspace's chrome shows adds the pending 
 its lock and its name, and goes first as the window goes, so what the process windows tell as they go reaches none.
 
 A process taken into a page lives in a `pages/TaskPage` of the centre, kept alive while another place is shown: the
-task's header (`AnTaskHeader`: its image's thumbnail, the process and the image, where its run stands, Close) over the
+task's header (`AnTaskHeader`: its image's thumbnail - or, while there is none, the process's glyph on a tile, the
+rail's for the task - the process and the image, where its run stands, Close) over the
 process arranged as a page ("A process shown as a page", above), whose canvas carries the page's floating toolbar over
 the preview view and the target's history strip under it, and whose readout slot carries the compact readout. A mirror
 page's canvas is its view of the target, which the floating toolbar serves and the looking actions act on, and it
@@ -2712,7 +2732,13 @@ chosen shell names (`ShellChoice::styleProfile`), before the first widget exists
 started (`ApplicationCore::initialize`, `ApplicationCore::start`), then the shell made over the core and built;
 `showApplication` shows it where it was. The Interface page offers the choice of a shell only when the application
 registers more than one (`IInterfaceSettingsRuntimeService::availableShells`): with one shell its Shell row hides
-itself, and a choice takes effect at the next start. At the end `stopApplication` has the shell keep its geometry and tears the application down
+itself, and a choice takes effect at the next start. The application ends when its event loop does, which only its
+main window's close asks for (`ObservatoryWindow::closeEvent`); each way there is said in the log as it happens, so a
+log says why an application ended: Exit chosen, the window asked to close by the system - its close button, Alt+F4,
+the taskbar or a message another program sent (`QCloseEvent::spontaneous`) - or by the application, what the close
+found and whether the person was asked and answered (`AppLifecycleCoordinator::prepareForClose`), the quit, and the
+loop's end, beside the last window closed and another start's request to come forward, which the single-instance
+server answers by raising the windows. At the end `stopApplication` has the shell keep its geometry and tears the application down
 (`shutDownApplication`): admission closed, the shell destroyed - its window, views, history and extension sessions, the
 context it installed cleared - the windows closed on the way out deleted, the thread pool drained and what it posted
 back delivered, the session shut down, checked; then the logger and the crash handler. `Test_AfterNightApp` compiles

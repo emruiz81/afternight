@@ -91,6 +91,7 @@ private:
 
 PixelMathProcess::PixelMathProcess(ImageViewControl* control) : ImageProcessControl(control, getProcessNameStatic())
 {
+    setHistoryStepName(an::ui::processes::kPixelMathStepName);
     setWindowSizeFitMultipliers(1.25, 1.0);
     m_ui = an::ui::processes::buildPixelMathProcessUi(this);
 
@@ -1027,7 +1028,7 @@ void PixelMathProcess::executePixelMath()
     {
         InPlaceRunRequest request;
         request.words = runWords(*m_image_view_control);
-        request.stepName = kPixelMathStepName;
+        request.stepName = historyStepName();
         request.stepDescription = std::string();
         request.operation = runOnce;
         request.reads = pixelMathImagesRead(asked, images);

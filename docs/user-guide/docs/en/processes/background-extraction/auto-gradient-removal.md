@@ -217,7 +217,7 @@ controls:
     scope: Apply only. The image is not blended through the mask, and its values are held between 0 and 1.
     persistence: Until the task closes. **Reset** and a finished Apply turn it off.
     note: >-
-      Its history starts with `AutoGradientRemoval: gradient model created from '<target>'`. It keeps the target's
+      Its history starts with `Auto Gradient Removal: gradient model created from '<target>'`. It keeps the target's
       acquisition record, plate solution and lineage and none of its header cards, and its processing state cards
       record it nonlinear, made by `auto-gradient-removal-gradient`.
   - name: Create protection mask image
@@ -229,7 +229,7 @@ controls:
     scope: Apply only, not blended through the mask.
     persistence: Until the task closes. **Reset** and a finished Apply turn it off.
     note: >-
-      Its history starts with `AutoGradientRemoval: protection mask created from '<target>'`, and its processing
+      Its history starts with `Auto Gradient Removal: protection mask created from '<target>'`, and its processing
       state cards name `auto-gradient-removal-protection-mask`. It keeps what the gradient model image keeps.
   - name: Preview
     object: previewCheckbox

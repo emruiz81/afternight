@@ -159,7 +159,7 @@ an::Status ExposureCorrectionProcess::executeTypedProcessImpl(const an::ui::Proc
 
 an::ui::ProcessStep ExposureCorrectionProcess::describeTypedProcessStep(const ExposureCorrectionParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Adjust exposure to {}", params.exposure) +
                                    process_utils::channelStepSuffix(m_image_view_control, selectedChannelScope())};

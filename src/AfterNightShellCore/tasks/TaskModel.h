@@ -60,8 +60,8 @@ struct Task
     /// The descriptor's category; empty for a process of no descriptor.
     QString category;
 
-    /// The process's glyph, by the name of its file in the icons: the descriptor's icon, else its action's, else a
-    /// generic one.
+    /// The process's glyph, by the name of its file in the icons: the descriptor's icon, else its action's - each only
+    /// when it is a glyph the look draws, not a picture in colours of its own - else a generic one.
     QString iconKey;
 
     /// The process window; null for an External task.

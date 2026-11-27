@@ -7,6 +7,7 @@
 
 #include "app/WindowPlacement.h"
 #include "components/AnLayoutUtils.h"
+#include "components/AnVerticalScrollArea.h"
 #include "theme/ComponentParts.h"
 
 #include <QBoxLayout>
@@ -15,13 +16,10 @@
 #include <QLayout>
 #include <QLayoutItem>
 #include <QScrollArea>
-#include <QScrollBar>
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
 #include <verdigris/wobjectimpl.h>
-
-#include <algorithm>
 
 W_OBJECT_IMPL(an::ui::AnWindowHeading)
 
@@ -171,36 +169,6 @@ void setWindowEyebrow(QWidget& window, const QString& eyebrow)
     }
 }
 
-namespace
-{
-
-/// The area a window's body scrolls in: it scrolls up and down alone, so it is never narrower than what it holds
-/// needs beside its bar - a plain scroll area asks for no more than its bars' width, and would cut its content at
-/// the right in a narrow window.
-class WindowBodyArea final : public QScrollArea
-{
-public:
-    using QScrollArea::QScrollArea;
-
-    [[nodiscard]] QSize minimumSizeHint() const override
-    {
-        QSize least = QScrollArea::minimumSizeHint();
-        if (const QWidget* const content = widget())
-        {
-            least.setWidth((std::max)(least.width(), content->minimumSizeHint().width() +
-                                                         verticalScrollBar()->sizeHint().width() + 2 * frameWidth()));
-        }
-        return least;
-    }
-
-    [[nodiscard]] QSize sizeHint() const override
-    {
-        return QScrollArea::sizeHint().expandedTo(minimumSizeHint());
-    }
-};
-
-} // namespace
-
 QScrollArea* scrollWindowBody(QBoxLayout& column, const int first, const int count)
 {
     QWidget* const holder = column.parentWidget();
@@ -209,11 +177,11 @@ QScrollArea* scrollWindowBody(QBoxLayout& column, const int first, const int cou
     {
         return nullptr;
     }
-    auto* const area = new WindowBodyArea(holder);
+    // The body scrolls up and down alone: it is never narrower than what it holds needs.
+    auto* const area = new AnVerticalScrollArea(holder);
     area->setObjectName(QString::fromLatin1(kWindowBodyName));
     area->setFrameShape(QFrame::NoFrame);
     area->setWidgetResizable(true);
-    area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     auto* const content = new QWidget(area);
     content->setObjectName(QStringLiteral("anWindowBodyContent"));
     auto* const body = new QVBoxLayout(content);

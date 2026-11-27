@@ -308,6 +308,19 @@ TEST_F(SecondProfilerWindowTest, TheRegisteredActionOpensTheWindow)
     theRegisteredActionOpensTheWindow(*this);
 }
 
+// The amplitude range of the second layout names its bounds Minimum and Maximum, beside the values they label.
+TEST_F(SecondProfilerWindowTest, TheAmplitudeRangeNamesItsBoundsMinimumAndMaximum)
+{
+    ViewHandle view = target();
+    ASSERT_NE(view, nullptr);
+    auto window = openProfiler<StarProfilerProcessV2>(*view);
+    const auto& ui = window->ui();
+    ASSERT_NE(ui.label_3, nullptr);
+    ASSERT_NE(ui.label_4, nullptr);
+    EXPECT_EQ(ui.label_3->text().toStdString(), "Minimum");
+    EXPECT_EQ(ui.label_4->text().toStdString(), "Maximum");
+}
+
 // apply: a detection lands in the table - one row per star, every planted star found at its engine pixel coordinate,
 // the count shown, the stars drawn over the view - and says how many it found.
 template <typename WindowT> void aDetectionShowsEveryPlantedStarInTheTable(StarProfilerWindowTest<WindowT>& test)

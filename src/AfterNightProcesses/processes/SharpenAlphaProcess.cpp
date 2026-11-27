@@ -94,7 +94,7 @@ an::Status SharpenAlphaProcess::executeTypedProcessImpl(const an::ui::ProcessSou
 an::ui::ProcessStep SharpenAlphaProcess::describeTypedProcessStep(const SharpenAlphaParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Amplitude: {:.2f}, Number of Scales: {}, Anisotropy: {:.2f}, Amount: {:.2f}",
                                    params.amplitude, params.numOfScales, params.anisotropy, params.amount) +
                        process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector)};

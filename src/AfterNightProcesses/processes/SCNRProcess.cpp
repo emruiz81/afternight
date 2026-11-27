@@ -129,7 +129,7 @@ void SCNRProcess::executeSCNR()
             QString::fromStdString(fmt::format("Executing SCNR to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running SCNR"),
         .errorLead = "An error occurred when executing the SCNR process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [suppression = asked.suppression, mask](const an::ui::ExecutionScope& scope,
                                                                 const an::ui::ProcessSource& source) {

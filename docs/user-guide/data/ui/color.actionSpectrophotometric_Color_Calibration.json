@@ -10,7 +10,7 @@
     {"label": "Blue filter", "kind": "combo", "object": "spccProcessResponseMonoBlueFilterCombo", "group": "", "visible": false, "default": "", "options": []},
     {"label": "Response profile", "kind": "combo", "object": "spccProcessResponseProfileCombo", "group": "", "visible": false, "default": "", "options": []},
     {"label": "White reference", "kind": "combo", "object": "spccProcessWhiteReferenceCombo", "group": "", "visible": false, "default": "", "options": []},
-    {"label": "Open Catalogs Data...", "kind": "button", "object": "spccProcessManageCatalogsDataButton", "group": "", "visible": true, "default": ""},
+    {"label": "Open Catalogs & Data...", "kind": "button", "object": "spccProcessManageCatalogsDataButton", "group": "", "visible": true, "default": ""},
     {"label": "Download Offline Catalog", "kind": "button", "object": "spccProcessDownloadFullCatalogButton", "group": "", "visible": true, "default": ""},
     {"label": "Download Needed Region", "kind": "button", "object": "spccProcessDownloadNeededRegionButton", "group": "", "visible": false, "default": ""},
     {"label": "Download Response Profiles", "kind": "button", "object": "spccProcessDownloadResponseProfilesButton", "group": "", "visible": true, "default": ""},

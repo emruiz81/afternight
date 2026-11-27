@@ -190,7 +190,7 @@ std::uint32_t MedianFilterProcess::typedPreviewRegionMargin(const MedianFilterPa
 
 an::ui::ProcessStep MedianFilterProcess::describeTypedProcessStep(const MedianFilterParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Kernel size {} iterations {} modulation {}",
                                                m_ui.kernelSize->currentText().toUtf8().toStdString(), params.iterations,

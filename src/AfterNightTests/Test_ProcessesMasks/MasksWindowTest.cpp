@@ -800,7 +800,7 @@ TEST_P(MasksWindowTest, AnApplyIsOneHistoryStepThatUndoes)
     ASSERT_NE(targets.target, nullptr);
     const std::optional<fixtures::FixtureSamples> source = documentSamples(targets.target->document());
     const an::ui::ProcessStep step = under.describe(*targets.target, under.changingMode);
-    EXPECT_EQ(step.name, under.processName);
+    EXPECT_EQ(step.name, under.historyStepName());
     EXPECT_EQ(step.description, under.changingStep);
     WindowHandle window = under.open(*targets.target);
     under.configure(*window, under.changingMode);
@@ -822,7 +822,7 @@ TEST_P(MasksWindowTest, AnApplyIsOneHistoryStepThatUndoes)
         return;
     }
     ASSERT_TRUE(history->hasUndo());
-    EXPECT_EQ(history->previousStepName(), under.processName);
+    EXPECT_EQ(history->previousStepName(), under.historyStepName());
     const std::optional<fixtures::FixtureSamples> applied = documentSamples(targets.target->document());
     ASSERT_TRUE(source.has_value() && applied.has_value());
     EXPECT_FALSE(fixtures::sameSamples(*source, *applied)) << "the mode changes the scene";

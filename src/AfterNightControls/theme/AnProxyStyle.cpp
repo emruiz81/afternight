@@ -559,14 +559,24 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
         return QSize((std::max)(base.width() + text, minimumLength), across);
     }
     case QStyle::CT_HeaderSection: {
-        // A table's header: its label is painted in small capitals of the caption, which the header did not measure.
+        // A table's header: its label is painted in small capitals of the caption, which the header did not measure,
+        // inside a padding at either side of the label's place and after its icon by a gap (`CE_HeaderLabel`), which
+        // the base style's size does not hold. A column sized to its contents and the row numbers' header, which is
+        // as wide as its widest number, show their labels whole.
         const auto* header = qstyleoption_cast<const QStyleOptionHeader*>(option);
         QFont caps = tokens.typography.caption;
         caps.setWeight(QFont::DemiBold);
         caps.setCapitalization(QFont::AllUppercase);
         caps.setLetterSpacing(QFont::PercentageSpacing, 108.0);
-        const int text = header != nullptr ? widerBy(header->text, caps, measuredFont(widget)) : 0;
-        return QSize(base.width() + text, (std::max)(base.height(), m.rowTable));
+        int label = 0;
+        if (header != nullptr && !header->text.isEmpty())
+        {
+            // The base style measured the text as it measures it here, in the header's own font.
+            const int painted = static_cast<int>(std::ceil(QFontMetricsF(caps).horizontalAdvance(header->text)));
+            label = (std::max)(0, painted - header->fontMetrics.size(0, header->text).width()) + 2 * tokens.spacing.sm +
+                    (header->icon.isNull() ? 0 : tokens.spacing.xs);
+        }
+        return QSize(base.width() + label, (std::max)(base.height(), m.rowTable));
     }
     case QStyle::CT_ItemViewItem:
         // A row of a table, a list or a tree.
@@ -1173,8 +1183,13 @@ QRect AnProxyStyle::subControlRect(ComplexControl control, const QStyleOptionCom
             const QRect r = option->rect;
             const QFontMetrics fm(groupOpt->fontMetrics);
             const int titleHeight = fm.height();
-            // Vertical offset: title sits fully above the frame, with a small gap.
-            const int topMargin = titleHeight + m_tokens->spacing.xs;
+            // Vertical offset: title sits fully above the frame, with a small gap. A group a page made a section of
+            // shows no title of its own - the section's header says it - and keeps no room for one, unless its check
+            // box stands there.
+            const bool titledBySection = groupOpt->text.isEmpty() &&
+                                         (groupOpt->subControls & SC_GroupBoxCheckBox) == 0 && widget != nullptr &&
+                                         !widget->property("anPageSectionTitle").toString().isEmpty();
+            const int topMargin = titledBySection ? 0 : titleHeight + m_tokens->spacing.xs;
 
             switch (subControl)
             {

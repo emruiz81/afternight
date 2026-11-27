@@ -731,7 +731,7 @@ TEST_F(MasksProcessCase, DarkStructureOpensItsMaskBesideTheTarget)
     const std::size_t before = context().madeViews.size();
     ASSERT_TRUE(applyAndSettle(*window, *target));
     EXPECT_EQ(window->runTelemetry().runsCommitted, 1u);
-    EXPECT_EQ(madeNames(before), std::vector<std::string>{"target - DarkStructureEnhance Mask"});
+    EXPECT_EQ(madeNames(before), std::vector<std::string>{"target - Dark Structure Enhance Mask"});
     const std::vector<ImageViewControl*> made = viewsMadeSince(context(), before);
     ASSERT_EQ(made.size(), 1u);
     EXPECT_TRUE(carriesTheScenesStep(*made.front())) << "the mask derives its record from the target";

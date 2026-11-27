@@ -143,11 +143,13 @@ public:
         previewChartLayout->setContentsMargins(0, 0, 0, 0);
         previewChartScrollArea = new QScrollArea(horizontalLayoutWidget_4);
         previewChartScrollArea->setObjectName("previewChartScrollArea");
-        previewChartScrollArea->setMinimumSize(QSize(510, 250));
+        // The charts are at least as wide as Histogram Transformation's and no wider: a task's wide column holds wider
+        // ones only against its sides.
+        previewChartScrollArea->setMinimumSize(QSize(350, 250));
         previewChartScrollArea->setWidgetResizable(true);
         scrollAreaWidgetContents = new QWidget();
         scrollAreaWidgetContents->setObjectName("scrollAreaWidgetContents");
-        scrollAreaWidgetContents->setMinimumSize(QSize(508, 248));
+        scrollAreaWidgetContents->setMinimumSize(QSize(348, 248));
         previewChartScrollArea->setWidget(scrollAreaWidgetContents);
 
         previewChartLayout->addWidget(previewChartScrollArea);
@@ -160,11 +162,11 @@ public:
         originalChartLayout->setContentsMargins(0, 0, 0, 0);
         originalChartScrollArea = new QScrollArea(horizontalLayoutWidget_4);
         originalChartScrollArea->setObjectName("originalChartScrollArea");
-        originalChartScrollArea->setMinimumSize(QSize(510, 250));
+        originalChartScrollArea->setMinimumSize(QSize(350, 250));
         originalChartScrollArea->setWidgetResizable(true);
         scrollAreaWidgetContents_4 = new QWidget();
         scrollAreaWidgetContents_4->setObjectName("scrollAreaWidgetContents_4");
-        scrollAreaWidgetContents_4->setMinimumSize(QSize(508, 248));
+        scrollAreaWidgetContents_4->setMinimumSize(QSize(348, 248));
         originalChartScrollArea->setWidget(scrollAreaWidgetContents_4);
 
         originalChartLayout->addWidget(originalChartScrollArea);

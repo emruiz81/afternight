@@ -336,7 +336,7 @@ an::ui::ProcessStep ColorSaturationProcess::describeTypedProcessStep(const Color
 {
     const SaturationHueRange hues = hueRange(params.hueSelector);
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Double coeff {}, background factor {}, hue min {}, hue max {}", params.amount,
                                    params.bgFactor, hues.minimumDegrees, hues.maximumDegrees)};
 }

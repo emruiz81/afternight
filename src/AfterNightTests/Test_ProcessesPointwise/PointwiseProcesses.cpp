@@ -516,6 +516,7 @@ std::vector<PointwiseProcess> makeProcesses()
         "arcsinh-stretch", "arcsinh-stretch", false, false, "stretch-50",
         "Stretch 50, Black Point 0.001, Human Weight true", configureArcsinh));
     processes.back().processName = "ArcSinhStretch";
+    processes.back().stepName = "ArcSinh Stretch";
     processes.push_back(describe<ColorizeProcess, ColorizeParams>(
         "Colorize", "actionColorize", "color.actionColorize", "ColorizeProcess", "colorize", "colorize", false, false,
         "hue-200-saturation-0.6-hsi", "Colorize hue to 200 and saturation to 0.6", configureColorize));

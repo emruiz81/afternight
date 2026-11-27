@@ -6,7 +6,7 @@
 /// a combination lets go, the exposure a stack states, the rejection maps' names and fractions, a group stacked from
 /// files - weighed by each frame's measured noise when asked, an X-Trans mosaic demosaiced under its own filter array,
 /// what the engine warned of the stack kept and logged - and the window that groups the files, stacks every group on
-/// the thread pool, says what the stacks warned and persists its options.
+/// the thread pool, says what the stacks warned and persists its options, and whose tables show their rows on its page.
 
 #include "Test_ProcessesWorkflowTools/WorkflowToolsTestSupport.h"
 
@@ -16,6 +16,7 @@
 #include "processes/ImageStackingProcess.h"
 #include "processes/StackingBatch.h"
 #include "processes/WorkflowToolFiles.h"
+#include "widgets/TableWidget.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 
@@ -31,12 +32,15 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSize>
 #include <QSpinBox>
 
 #include <gtest/gtest.h>
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <clocale>
 #include <cmath>
 #include <cstdint>
@@ -1424,6 +1428,71 @@ TEST_F(StackingTest, AnUnofferedDemosaicMethodPersistedReadsAsRcd)
     window.window->deserialize_json_settings(R"({"version":5,"params":{"debayerMethod":"DCB"}})");
     EXPECT_EQ(window.window->ui().debayerMethod->currentText(), QStringLiteral("RCD"));
     EXPECT_EQ(window.window->ui().debayerMethod->findText(QStringLiteral("DCB")), -1);
+}
+
+// On its page, at the floor display's centre and at the centre a 1280 x 900 window leaves it, Image Stacking's Frames
+// card shows the rows of the frames it lists - before a run and after one, with the page's head saying how the run
+// ended - and the Frame Groups card the row of the group: each table keeps a height of its own in the cards below the
+// settings, which scroll when the page leaves them less. The tables were given no height, so the cards held their
+// buttons and their group boxes and no row at all.
+TEST_F(StackingTest, ThePagesFramesAndGroupsShowTheirRowsAfterARun)
+{
+    const QStringList frames = writeThree();
+    for (const QSize centre : {QSize(1492, 794), QSize(1236, 700)})
+    {
+        SCOPED_TRACE(centre.height());
+        PagedTool<ImageStackingProcess> paged(context(), kImageStackingTool, centre);
+        ASSERT_NE(paged.tool, nullptr);
+        ImageStackingProcess& tool = *paged.tool;
+        ASSERT_TRUE(tool.isPresentedAsPage());
+        tool.addItemsNonBlocking(frames);
+        ASSERT_TRUE(pumpUntil([&tool]() { return tool.isIdle(); }));
+        auto& ui = tool.ui();
+        ui.normalizationMode->setCurrentText(QStringLiteral("None"));
+        ui.rejectionMethodSelector->setCurrentText(QStringLiteral("None"));
+        ui.openAfterStackCheck->setChecked(false);
+        ui.outputDirectoryEdit->setText(temporaryPath(QStringLiteral("page-rows-%1").arg(centre.height())));
+        auto* const cards = tool.findChild<QScrollArea*>(QStringLiteral("frameListScrollArea"));
+        ASSERT_NE(cards, nullptr);
+
+        // How many of a table's rows show: in its own viewport, in the cards' viewport scrolled to the whole table once
+        // their layout has settled - a card's section sizes itself a turn of the event loop late - and in the page's.
+        // The table is scrolled to by its rectangle: an item view answers a scroll area's question for its place with
+        // its current item's, which a table with none answers with its top left point alone.
+        const auto rowsShown = [&](TableWidget& table) {
+            for (int turn = 0; turn < 2; ++turn)
+            {
+                QCoreApplication::processEvents();
+                const QRect place(table.mapTo(cards->widget(), QPoint(0, 0)), table.size());
+                cards->ensureVisible(place.center().x(), place.center().y(), place.width() / 2, place.height() / 2);
+            }
+            QCoreApplication::processEvents();
+            if (table.rowCount() == 0 || table.rowHeight(0) <= 0)
+            {
+                return 0;
+            }
+            QWidget* const viewport = table.viewport();
+            QRect shown(viewport->mapTo(cards->viewport(), QPoint(0, 0)), viewport->size());
+            shown = shown.intersected(cards->viewport()->rect());
+            const QRect inPage(cards->viewport()->mapTo(tool.pageLayout()->fullArea()->viewport(), shown.topLeft()),
+                               shown.size());
+            shown.setHeight(inPage.intersected(tool.pageLayout()->fullArea()->viewport()->rect()).height());
+            return (std::min)(table.rowCount(), (std::max)(0, shown.height()) / table.rowHeight(0));
+        };
+
+        EXPECT_EQ(ui.tableWidget->rowCount(), 3);
+        EXPECT_GE(rowsShown(*ui.tableWidget), 3) << "the Frames card shows its three rows before the run";
+        ASSERT_TRUE(tool.triggerPrimaryAction()) << "the page's primary action is Stack Images";
+        ASSERT_TRUE(pumpUntil([&tool]() { return tool.isIdle(); }));
+        EXPECT_EQ(tool.runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        ASSERT_EQ(tool.lastWrittenFiles().size(), 1);
+
+        EXPECT_EQ(ui.tableWidget->rowCount(), 3) << "the run leaves the list as it was";
+        EXPECT_GE(rowsShown(*ui.tableWidget), 3) << "the Frames card shows its three rows after the run";
+        EXPECT_EQ(ui.groupTable->rowCount(), 1);
+        EXPECT_GE(rowsShown(*ui.groupTable), 1) << "the Frame Groups card shows the row of its group";
+    }
+    EXPECT_TRUE(context().errorTexts.isEmpty()) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
 }
 
 } // namespace

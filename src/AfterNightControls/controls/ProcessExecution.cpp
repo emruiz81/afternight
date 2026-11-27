@@ -113,6 +113,60 @@ constexpr std::array<ProcessChannelChoice, 21u> kChannelChoices{{
     return mask->view();
 }
 
+/// A copy of a base's mask in which every sample a paste at `origin` wrote is valid: `written` is the paste's own mask,
+/// of the patch's extent with a plane per channel, a bit set where the paste wrote its sample. A sample the paste left
+/// keeps the base's sample, and so the base's bit. A mask whose one plane every channel shares takes a pixel the paste
+/// wrote in every channel.
+[[nodiscard]] an::Result<an::ValidityMask> withPastedSamplesValid(const an::ValidityMask& base,
+                                                                  const an::ValidityMask& written, const QPoint origin)
+{
+    an::Result<an::ValidityMask> kept = base.clone();
+    if (!kept.hasValue())
+    {
+        return kept.status();
+    }
+    const std::optional<an::ValidityMaskView<std::uint8_t>> bits = kept->view();
+    const std::optional<an::ValidityMaskView<const std::uint8_t>> pasted = written.view();
+    if (!bits.has_value() || !pasted.has_value())
+    {
+        return refusal(an::ErrorCode::NotInitialized, "the base's or the paste's mask holds no bits");
+    }
+    if (origin.x() < 0 || origin.y() < 0 || static_cast<std::uint64_t>(origin.x()) + pasted->width() > bits->width() ||
+        static_cast<std::uint64_t>(origin.y()) + pasted->height() > bits->height())
+    {
+        return refusal(an::ErrorCode::IncompatibleArguments, "the base's mask does not cover the patch");
+    }
+    const bool planeByPlane = bits->planeCount() == pasted->planeCount();
+    const auto left = static_cast<std::uint32_t>(origin.x());
+    const auto top = static_cast<std::uint32_t>(origin.y());
+    for (std::uint32_t plane = 0u; plane < bits->planeCount(); ++plane)
+    {
+        for (std::uint32_t y = 0u; y < pasted->height(); ++y)
+        {
+            for (std::uint32_t x = 0u; x < pasted->width(); ++x)
+            {
+                bool wrote = true;
+                if (planeByPlane)
+                {
+                    wrote = pasted->test(plane, x, y).value_or(false);
+                }
+                else
+                {
+                    for (std::uint32_t channel = 0u; channel < pasted->planeCount() && wrote; ++channel)
+                    {
+                        wrote = pasted->test(channel, x, y).value_or(false);
+                    }
+                }
+                if (wrote)
+                {
+                    (void)bits->setValid(plane, left + x, top + y, true);
+                }
+            }
+        }
+    }
+    return kept;
+}
+
 /// The layout of one plane of a planar image, at the image's own strides.
 [[nodiscard]] an::Result<an::ImageLayout> planeLayoutOf(const an::ImageLayout& layout, const an::EngineLimits& limits)
 {
@@ -1735,12 +1789,16 @@ buildProcessCompositeBase(const an::consumer::EngineSession& session, const an::
 an::Result<an::consumer::ImageAsset>
 composeProcessRegion(const an::consumer::EngineSession& session, const an::EngineContext& engine,
                      const an::ExecutionContext& execution, const an::consumer::AnyImage& base,
-                     const an::consumer::AnyImage& patch, const an::ValidityMask* patchValidity, QPoint origin)
+                     const an::ValidityMask* baseValidity, const an::consumer::AnyImage& patch,
+                     const an::ValidityMask* patchValidity, QPoint origin)
 {
     if (base.index() != patch.index())
     {
         return refusal(an::ErrorCode::IncompatibleArguments, "the patch has another representation than the base");
     }
+    // The copy keeps the base's metadata, and with it the base's validity rule: a base that states its samples by a
+    // mask gives the composite a copy of that mask, so the composite states what its rule names.
+    std::optional<an::ValidityMask> compositeMask;
     an::Result<an::consumer::AnyImage> composite = std::visit(
         [&](const auto& typedBase) -> an::Result<an::consumer::AnyImage> {
             using SampleT = SampleOf<decltype(typedBase)>;
@@ -1822,6 +1880,15 @@ composeProcessRegion(const an::consumer::EngineSession& session, const an::Engin
                 {
                     return pasted.status();
                 }
+                if (baseValidity != nullptr)
+                {
+                    an::Result<an::ValidityMask> kept = withPastedSamplesValid(*baseValidity, *written, origin);
+                    if (!kept.hasValue())
+                    {
+                        return kept.status();
+                    }
+                    compositeMask.emplace(std::move(*kept));
+                }
             }
             return an::consumer::AnyImage(std::move(*copy));
         },
@@ -1830,7 +1897,7 @@ composeProcessRegion(const an::consumer::EngineSession& session, const an::Engin
     {
         return composite.status();
     }
-    return an::consumer::ImageAsset::adopt(session, std::move(*composite));
+    return an::consumer::ImageAsset::adopt(session, std::move(*composite), std::move(compositeMask));
 }
 
 } // namespace an::ui

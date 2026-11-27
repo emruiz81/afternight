@@ -320,7 +320,7 @@ void CropProcess::executeImageCrop()
             QString::fromStdString(fmt::format("Executing crop to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running crop"),
         .errorLead = "An error occurred when executing the crop process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [crop](const an::ui::ExecutionScope& scope, const an::ui::ProcessSource& source) {
         const std::array<an::ui::processes::GeometryStep, 1u> steps{crop};

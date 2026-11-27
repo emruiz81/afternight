@@ -1170,7 +1170,7 @@ an::Status NarrowbandPaletteComposerProcess::executeTypedProcessImpl(
 an::ui::ProcessStep
 NarrowbandPaletteComposerProcess::describeTypedProcessStep(const NarrowbandPaletteComposerProcessParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description = std::string("Created ") + an::narrowbandPaletteName(params.palette) +
                                               " Narrowband Palette Composer image" +
                                               fmt::format(" (Ha {:.2f}, OIII {:.2f}, SII {:.2f}{}{})",

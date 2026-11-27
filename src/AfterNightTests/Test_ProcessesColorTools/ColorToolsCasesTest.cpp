@@ -169,9 +169,9 @@ TEST_F(ColorToolsCase, AnAutomaticCalibrationWritesEverySampleOfBothMasks)
     ImageViewControl* background = context().madeViews[before + 1u];
     EXPECT_EQ(white->getUniqueName(), "target - WHITE MASK");
     EXPECT_EQ(background->getUniqueName(), "target - BACKGROUND MASK");
-    EXPECT_EQ(madeHistoryOf(context(), white), "ColorCalibration: White reference mask image created from 'target'");
+    EXPECT_EQ(madeHistoryOf(context(), white), "Color Calibration: White reference mask image created from 'target'");
     EXPECT_EQ(madeHistoryOf(context(), background),
-              "ColorCalibration: Background reference mask image created from 'target'");
+              "Color Calibration: Background reference mask image created from 'target'");
     EXPECT_EQ(madeNeighbourOf(context(), white), target.get());
     const std::optional<an::ImageDescriptor> described = white->imageDescriptor();
     ASSERT_TRUE(described.has_value());

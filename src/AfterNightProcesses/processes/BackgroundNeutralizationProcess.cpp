@@ -418,7 +418,7 @@ void BackgroundNeutralizationProcess::executeBackgroundNeutralization()
             QString::fromStdString(fmt::format("Executing background neutralization to sequence {}", targetName)),
         .errorTitle = QStringLiteral("Error running background neutralization"),
         .errorLead = "An error occurred when executing the background neutralization process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription =
         stepDescription(referenceIsTarget ? targetName : asked.referenceName.toStdString(), region);
     auto measured = std::make_shared<an::ui::processes::MeasuredOnce<an::ui::processes::NeutralizationMeasurement>>();

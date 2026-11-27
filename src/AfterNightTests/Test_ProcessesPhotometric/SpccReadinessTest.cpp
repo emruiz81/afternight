@@ -1735,7 +1735,8 @@ TEST(SpccProcessReadinessPanelTest, ManageActionOpensCatalogsDataSettingsTarget)
     auto* manageButton = panel.findChild<QPushButton*>(QStringLiteral("spccProcessManageCatalogsDataButton"));
     ASSERT_NE(manageButton, nullptr);
     EXPECT_FALSE(manageButton->isHidden());
-    EXPECT_EQ(manageButton->text(), QStringLiteral("Open Catalogs & Data..."));
+    EXPECT_EQ(manageButton->text(), QStringLiteral("Open Catalogs && Data..."))
+        << "the button shows the ampersand, which marks no key";
 
     manageButton->click();
     EXPECT_EQ(openedPage, QStringLiteral("Catalogs & Data"));

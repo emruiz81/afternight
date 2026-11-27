@@ -197,7 +197,7 @@ an::Status NoiseGeneratorProcess::executeTypedProcessImpl(const an::ui::ProcessS
 an::ui::ProcessStep NoiseGeneratorProcess::describeTypedProcessStep(const NoiseGeneratorParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Noise Type {} - ", m_ui.noiseTypeSelector->currentText().toUtf8().toStdString()) +
                        process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector)};
 }

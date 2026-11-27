@@ -69,8 +69,17 @@ struct PointwiseProcess
     /// The class the launcher opens.
     const char* className = "";
 
-    /// The name it attaches to a view under, and titles its steps with.
+    /// The name it attaches to a view under, and titles its steps with unless it runs words together.
     const char* processName = "";
+
+    /// The name its history steps give it where its process name runs words together; empty otherwise.
+    const char* stepName = "";
+
+    /// The name its history steps give it, as a person reads it.
+    [[nodiscard]] std::string historyStepName() const
+    {
+        return *stepName != '\0' ? stepName : (processName != nullptr ? processName : "");
+    }
 
     /// The file of its behaviour records, without the extension: "brightness-and-contrast".
     const char* records = "";

@@ -121,6 +121,10 @@ public:
 
     [[nodiscard]] std::string getProcessName() const;
 
+    /// The name a history step the process writes gives it: the process as a person reads it - its name, unless that
+    /// runs words together, when the process states the words (`setHistoryStepName`).
+    [[nodiscard]] std::string historyStepName() const;
+
     /// The channel or colour component the selector names now: the scope its item carries, and the whole image for a
     /// process without a selector or a grey image. Read on the GUI thread, when a run is issued.
     [[nodiscard]] an::ChannelScope selectedChannelScope() const;
@@ -193,6 +197,10 @@ protected:
 
     /// Closes the window, or hides it and closes it when its last run lands.
     void closeEvent(QCloseEvent* event) override;
+
+    /// States the name a history step gives the process, for a process whose name runs words together: "Color
+    /// Calibration" for ColorCalibration. Called in its constructor.
+    void setHistoryStepName(std::string name);
 
     /// A process whose descriptor states a mirror page is arranged as one: what its window laid out in the body, the
     /// selectors and the button box it recorded (`initializeTargetViewControlComboBox`,

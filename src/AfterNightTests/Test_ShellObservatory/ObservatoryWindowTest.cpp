@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The Observatory window driven through itself: its regions and their sizes in each density, the place it shows with
-// and without an image, a process opened as a window of its own, and its end in the application's exit order.
+// and without an image, a process opened as a window of its own, its end in the application's exit order, and what
+// each close says in the log of who asked and what came of it.
 
 #include "ObservatoryWindowCase.h"
 
@@ -14,6 +15,8 @@
 #include "pages/WorkspacePage.h"
 #include "workspaces/WorkspaceHost.h"
 
+#include "actions/ActionCatalogue.h"
+#include "actions/ActionIds.h"
 #include "app/ProcessRegistry.h"
 #include "app/RuntimeStorageCoordinator.h"
 #include "components/AnIconRail.h"
@@ -29,6 +32,9 @@
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
 
+#include <AfterNightPlatform/Logging.h>
+
+#include <QAction>
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDialog>
@@ -37,11 +43,16 @@
 #include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QLayout>
+#include <QMessageBox>
 #include <QPointer>
 #include <QStackedWidget>
+#include <QStringList>
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -268,6 +279,110 @@ TEST_F(ObservatoryWindowExit, ClosesInTheExitOrder)
         left.append(files.next());
     }
     EXPECT_TRUE(left.isEmpty()) << left.join(QLatin1Char('\n')).toStdString();
+}
+
+/// The records the logger kept after the record that reads `mark`, oldest first.
+[[nodiscard]] QStringList loggedAfter(const std::string& mark)
+{
+    QStringList after;
+    bool marked = false;
+    for (const spdlog::details::log_msg_buffer& record : an::platform::recentLogMessages(0u))
+    {
+        const std::string text(record.payload.data(), record.payload.size());
+        if (marked)
+        {
+            after.append(QString::fromStdString(text));
+        }
+        else if (text == mark)
+        {
+            marked = true;
+        }
+    }
+    return after;
+}
+
+/// The place of the first record that holds `fragment`, or -1.
+[[nodiscard]] qsizetype placeOf(const QStringList& records, const QString& fragment)
+{
+    for (qsizetype at = 0; at < records.size(); ++at)
+    {
+        if (records[at].contains(fragment))
+        {
+            return at;
+        }
+    }
+    return -1;
+}
+
+// Each close of the window says in the log who asked and what came of it, so an application that ended says why: Exit
+// chosen from the menu is the application's own request, after a line that names Exit; a close the person declines
+// leaves the window open and says so, and one agreed to says the application quits.
+TEST_F(ObservatoryWindowExit, SaysInTheLogWhoClosedItAndWhatCameOfIt)
+{
+    std::unique_ptr<RunningObservatory> running = startObservatory();
+    ASSERT_NE(running, nullptr);
+    an::ui::observatory::ObservatoryWindow* const window = running->shell->window();
+    ASSERT_NE(window, nullptr);
+    // An open process makes the window ask before it closes.
+    std::optional<an::ui::ImageDocument> document =
+        an::tests::app::filledDocument(running->session->engineSession(), QStringLiteral("says-who-closed-it"));
+    ASSERT_TRUE(document.has_value());
+    ImageViewControl* const view = running->core->viewService().userViews().createNewImageViewControlFromImage(
+        nullptr, std::move(*document), nullptr, "says-who-closed-it");
+    ASSERT_NE(view, nullptr);
+    running->core->viewService().setActiveImageViewControl(view);
+    ASSERT_TRUE(running->core->processLaunch().launch(std::string(kBrightnessContrast)));
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return running->core->openProcesses().size() > 0u; }));
+    QAction* const exit = running->core->actions().action(an::ui::shell::ids::kExit);
+    ASSERT_NE(exit, nullptr);
+
+    // Exit, declined.
+    const std::string declinedMark = "case mark: Exit is chosen and declined";
+    LOG_INFO("{}", declinedMark);
+    auto declined = std::make_shared<an::tests::app::Answered>();
+    an::tests::app::answerWhenShown([declined](QWidget* widget) {
+        auto* box = qobject_cast<QMessageBox*>(widget);
+        if (box == nullptr || box->button(QMessageBox::No) == nullptr)
+        {
+            return false;
+        }
+        declined->seen = true;
+        box->button(QMessageBox::No)->click();
+        return true;
+    });
+    exit->trigger();
+    ++an::tests::app::g_caseGeneration;
+    ASSERT_TRUE(declined->seen) << "the window closed over an open process without asking";
+    EXPECT_TRUE(window->isVisible());
+    const QStringList afterDeclined = loggedAfter(declinedMark);
+    const qsizetype chosen = placeOf(afterDeclined, QStringLiteral("Exit was chosen"));
+    const qsizetype asked = placeOf(afterDeclined, QStringLiteral("asked to close by the application"));
+    const qsizetype stays = placeOf(afterDeclined, QStringLiteral("stays open"));
+    EXPECT_GE(chosen, 0) << afterDeclined.join(QLatin1Char('\n')).toStdString();
+    EXPECT_GT(asked, chosen) << afterDeclined.join(QLatin1Char('\n')).toStdString();
+    EXPECT_GT(stays, asked) << afterDeclined.join(QLatin1Char('\n')).toStdString();
+    EXPECT_EQ(placeOf(afterDeclined, QStringLiteral("quits")), -1)
+        << afterDeclined.join(QLatin1Char('\n')).toStdString();
+
+    // Exit, agreed to.
+    const std::string agreedMark = "case mark: Exit is chosen and agreed to";
+    LOG_INFO("{}", agreedMark);
+    auto agreed = std::make_shared<an::tests::app::Answered>();
+    an::tests::app::answerTheNextMessageBox(agreed.get());
+    exit->trigger();
+    ++an::tests::app::g_caseGeneration;
+    EXPECT_TRUE(agreed->seen);
+    EXPECT_FALSE(window->isVisible());
+    const QStringList afterAgreed = loggedAfter(agreedMark);
+    const qsizetype chosenAgain = placeOf(afterAgreed, QStringLiteral("Exit was chosen"));
+    const qsizetype askedAgain = placeOf(afterAgreed, QStringLiteral("asked to close by the application"));
+    const qsizetype quits = placeOf(afterAgreed, QStringLiteral("The application quits"));
+    EXPECT_GE(chosenAgain, 0) << afterAgreed.join(QLatin1Char('\n')).toStdString();
+    EXPECT_GT(askedAgain, chosenAgain) << afterAgreed.join(QLatin1Char('\n')).toStdString();
+    EXPECT_GT(quits, askedAgain) << afterAgreed.join(QLatin1Char('\n')).toStdString();
+
+    const an::Status shut = stopObservatory(std::move(running));
+    EXPECT_TRUE(shut.ok()) << shut.message();
 }
 
 } // namespace

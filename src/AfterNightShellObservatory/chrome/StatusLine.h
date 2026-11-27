@@ -28,7 +28,8 @@ namespace an::ui::observatory
 {
 
 /// One text of the status line: drawn in the status line's size, mono or not, in the secondary or the tertiary text
-/// colour, as the tokens in force say when it paints.
+/// colour, as the tokens in force say when it paints. It asks for the width its glyphs take, and is cut short with an
+/// ellipsis only where the line gives it less.
 class AFTERNIGHTSHELLOBSERVATORY_API StatusText final : public QWidget
 {
 public:

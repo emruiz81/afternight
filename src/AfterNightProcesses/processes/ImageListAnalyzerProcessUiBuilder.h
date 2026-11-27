@@ -6,7 +6,10 @@
 
 #pragma once
 
+#include <QtCore/QMimeData>
 #include <QtCore/QVariant>
+#include <QtGui/QTextCursor>
+#include <QtGui/QTextDocumentFragment>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialogButtonBox>
@@ -24,6 +27,38 @@
 
 namespace an::ui::processes
 {
+
+/// The mark the summary of the image chosen puts where a file's name or its path may break between its parts: a
+/// zero-width space, which only the text's layout reads.
+inline constexpr char16_t kSummaryBreakMark = 0x200B;
+
+/// A text of the summary without its break marks, the characters or an HTML reference to them: what a copy gives.
+[[nodiscard]] inline QString withoutSummaryBreakMarks(QString text)
+{
+    text.remove(QChar(kSummaryBreakMark));
+    text.remove(QStringLiteral("&#8203;"));
+    text.remove(QStringLiteral("&#x200b;"), Qt::CaseInsensitive);
+    return text;
+}
+
+/// The summary of the image chosen. A file's name and its path are said in it free to break between their parts, at
+/// marks the text's layout alone reads: a copy of the summary, a drag of it and the selection it offers give its text
+/// without them, so a path copied from it pastes whole into a file dialog or a file manager.
+class ImageSummaryText : public QTextEdit
+{
+public:
+    using QTextEdit::QTextEdit;
+
+protected:
+    [[nodiscard]] QMimeData* createMimeDataFromSelection() const override
+    {
+        const QTextDocumentFragment selected = textCursor().selection();
+        auto* const data = new QMimeData();
+        data->setText(withoutSummaryBreakMarks(selected.toPlainText()));
+        data->setHtml(withoutSummaryBreakMarks(selected.toHtml()));
+        return data;
+    }
+};
 
 class ImageListAnalyzerProcessUiElements
 {
@@ -96,7 +131,7 @@ public:
 
         verticalLayout = new QVBoxLayout();
         verticalLayout->setObjectName("verticalLayout");
-        imageSummary = new QTextEdit(layoutWidget);
+        imageSummary = new ImageSummaryText(layoutWidget);
         imageSummary->setObjectName("imageSummary");
         imageSummary->setReadOnly(true);
 

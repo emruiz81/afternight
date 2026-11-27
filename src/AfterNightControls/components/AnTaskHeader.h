@@ -88,12 +88,13 @@ struct JobHeading
 };
 
 /// A task's header: a strip high (34 / 40 px), the first surface, a hairline under it, a padding of 8 before and 6
-/// after, its parts 8 apart. The target's thumbnail (22 px, radius 5); the process's name (the body's size and one up
-/// in the comfortable density, semibold); "on" in the tertiary text; the target's full name (semibold, elided in the
-/// middle) - or the process's name alone for a task with no single target; the state with a 13 px icon: "preview up to
-/// date" with a check in the success colour, "applying - 42 %" in the accent's text and semibold, "applied 2.8 s ago",
-/// "failed" in the error colour. Then a stretch, `Float as window` (`Attach` in a floating task) and `Close`; a full
-/// page adds a menu button for the process's own menus.
+/// after, its parts 8 apart. The target's thumbnail (22 px, radius 5) - or, while the header holds no picture, the
+/// process's glyph on a tile of the third surface, as the rail draws a task with no target image; the process's name
+/// (the body's size and one up in the comfortable density, semibold); "on" in the tertiary text; the target's full
+/// name (semibold, elided in the middle) - or the process's name alone for a task with no single target; the state
+/// with a 13 px icon: "preview up to date" with a check in the success colour, "applying - 42 %" in the accent's text
+/// and semibold, "applied 2.8 s ago", "failed" in the error colour. Then a stretch, `Float as window` (`Attach` in a
+/// floating task) and `Close`; a full page adds a menu button for the process's own menus.
 ///
 /// During a run a 2 px bar of the accent lies along its foot: as long as the progress, or sliding across when the run
 /// cannot tell how far it has come. Assistive technology reads it as one line: the process, the image and the state.
@@ -135,6 +136,11 @@ public:
 
     void setThumbnail(const QImage& thumbnail);
     [[nodiscard]] QImage thumbnail() const;
+
+    /// The process's glyph, by the name of its file in the icons, drawn on a tile in the thumbnail's place while the
+    /// header holds no picture: a task with no target image, or one whose target's thumbnail is not made yet.
+    void setGlyphKey(const QString& key);
+    [[nodiscard]] QString glyphKey() const;
 
     void setProcessName(const QString& name);
     [[nodiscard]] QString processName() const;

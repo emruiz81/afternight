@@ -47,14 +47,15 @@ inline constexpr std::array<ReadoutStatistic, 5> kCompactReadoutStatistics{
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString readoutStatisticName(ReadoutStatistic statistic);
 
 /// A statistic of one channel at a scale: the statistics window's figure of the same row
-/// (`scaledStatisticsFigures`).
+/// (`scaledStatisticsFigures`), or NaN - written "-" - for a channel that kept no sample, every one clipped or left out
+/// by its validity, whose figures the window writes as zero beside its count.
 [[nodiscard]] AFTERNIGHTCONTROLS_API double readoutFigure(const ImageStatisticsChannel& channel,
                                                           ReadoutStatistic statistic, StatisticsScale scale) noexcept;
 
 /// A statistic over an image's colour channels at a scale - the mean of the first three channels' figures - or of its
 /// one channel when it has fewer than three: what the compact readout shows for an image.
 ///
-/// @return the figure; NaN for a report with no channel.
+/// @return the figure; NaN for a report with no channel, or with a channel that kept no sample.
 [[nodiscard]] AFTERNIGHTCONTROLS_API double
 readoutImageFigure(const ImageStatisticsReport& report, ReadoutStatistic statistic, StatisticsScale scale) noexcept;
 

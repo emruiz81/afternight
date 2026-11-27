@@ -866,7 +866,7 @@ BackgroundExtractionProcess::describeTypedProcessStep(const BackgroundExtraction
 {
     const bool polynomial = params.interpolationType == an::BackgroundModelKind::Polynomial;
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description =
             fmt::format("Samples per Line: {}, Grid Tolerance: {}, Correction: {}, Interpolation: {}{}",
                         params.samplesPerLine, params.gridTolerance,

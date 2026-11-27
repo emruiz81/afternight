@@ -82,7 +82,7 @@ caption: >-
 6. **Ask for the masks.** Tick **Output White Reference Mask** and **Output Background Reference Mask** to see which
    pixels each reference kept.
 7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The task closes, the view shows the
-   balanced image, its history lists **ColorCalibration**, and the masks open beside it.
+   balanced image, its history lists **Color Calibration**, and the masks open beside it.
 8. **Check the balance.** Open the view's [Autostretch](../../reference/glossary.md#autostretch) Settings and turn
    on **Linked channels**: unlinked, each channel is stretched alone and most of a calibration hides. The stars
    should now look white.
@@ -259,7 +259,7 @@ controls:
     scope: An output only. It never limits the calibration.
     persistence: >-
       It opens once the result is shown, while the target is open, after the task has closed. Its history begins
-      with `ColorCalibration: White reference mask image created from '<target>'`. It keeps the reference's
+      with `Color Calibration: White reference mask image created from '<target>'`. It keeps the reference's
       acquisition data and plate solution, and no header cards.
 ```
 
@@ -360,7 +360,7 @@ controls:
     tradeoff: Adds one image of the reference's size and pixel type.
     scope: An output only. It never limits the calibration.
     persistence: >-
-      It opens as the white mask does, and its history begins with `ColorCalibration: Background reference mask image
+      It opens as the white mask does, and its history begins with `Color Calibration: Background reference mask image
       created from '<target>'`.
 ```
 
@@ -407,7 +407,7 @@ controls:
       are written into a new temporary sequence of the same container, which replaces the view's sequence, with one
       history step, only when every frame is done.
     persistence: >-
-      The image and its history keep the result, as the step **ColorCalibration** with the text `White reference image
+      The image and its history keep the result, as the step **Color Calibration** with the text `White reference image
       '<name>' (ROI X:<x>, Y:<y>, W:<w>, H:<h>) (MIN:<lower>, MAX:<upper>) - Background reference image '<name>' (ROI
       X:<x>, Y:<y>, W:<w>, H:<h>) (MIN:<lower>, MAX:<upper>)`, which begins `Using manual white balance values R:<r>,
       G:<g>, B:<b>` in manual mode. The limits and the manual values have six decimals. A reference that is the target

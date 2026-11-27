@@ -8,12 +8,19 @@
 #include "theme/AnDesignTokens.h"
 
 #include <QFileInfo>
+#include <QFontMetricsF>
 #include <QHelpEvent>
 #include <QPainter>
 #include <QPalette>
+#include <QResizeEvent>
 #include <QToolTip>
 
 #include <QStringList>
+
+#include <algorithm>
+#include <cmath>
+#include <utility>
+#include <vector>
 
 #include <verdigris/wobjectimpl.h>
 
@@ -188,6 +195,167 @@ public:
         }
         return QObject::tr("Frames");
     }
+
+    /// The figures' labels and values, in the order they are drawn.
+    [[nodiscard]] std::vector<std::pair<QString, QString>> figures() const
+    {
+        std::vector<std::pair<QString, QString>> lines;
+        lines.emplace_back(q->tr("Total:"), QString::number(stats.totalFrames));
+        lines.emplace_back(q->tr("Included:"), QString::number(stats.includedFrames));
+        lines.emplace_back(q->tr("Excluded:"), QString::number(stats.excludedFrames));
+        lines.emplace_back(q->tr("Groups:"), QString::number(stats.groupCount));
+        if (frameType != FrameType::Light)
+        {
+            lines.emplace_back(q->tr("Masters:"), QString::number(stats.masterCount));
+        }
+        // The total exposure of the lights.
+        if (frameType == FrameType::Light && stats.totalExposureSec > 0)
+        {
+            lines.emplace_back(q->tr("Exposure:"), formatDuration(stats.totalExposureSec));
+        }
+        // The total size of the files there are.
+        if (stats.totalFileSizeBytes > 0)
+        {
+            lines.emplace_back(q->tr("Size:"), formatFileSize(stats.totalFileSizeBytes));
+        }
+        return lines;
+    }
+
+    /// Where the parts are drawn at a size: the chart, the place of the figures, and each figure's label and value.
+    struct Layout
+    {
+        bool horizontal = false;
+        QRect chart;
+        QRect stats;
+        std::vector<FigureLine> lines;
+
+        /// The top of the legend, under the figures.
+        int legendTop = 0;
+    };
+
+    /// What the figures take in the dashboard's font: the widest label, the widest value, and half the legend - a box,
+    /// its gap and the longer of its two words.
+    struct Measures
+    {
+        int label = 0;
+        int value = 0;
+        int legendHalf = 0;
+    };
+
+    [[nodiscard]] Measures measures() const
+    {
+        const QFontMetricsF metrics(q->font());
+        Measures measured;
+        for (const auto& [label, value] : figures())
+        {
+            measured.label = (std::max)(measured.label, static_cast<int>(std::ceil(metrics.horizontalAdvance(label))));
+            measured.value = (std::max)(measured.value, static_cast<int>(std::ceil(metrics.horizontalAdvance(value))));
+        }
+        const qreal words =
+            (std::max)(metrics.horizontalAdvance(q->tr("Included")), metrics.horizontalAdvance(q->tr("Excluded")));
+        measured.legendHalf = kLegendBox + kLegendGap + static_cast<int>(std::ceil(words));
+        return measured;
+    }
+
+    [[nodiscard]] Layout layoutAt(const QSize size) const
+    {
+        const int w = size.width();
+        const int h = size.height();
+        const Measures measured = measures();
+        Layout layout;
+
+        const int availableH = (std::max)(0, h - kContentTop - 8);
+        const int chartSize = (std::max)(0, (std::min)(kChartSize, availableH));
+        const int chartY = kContentTop;
+
+        // The pie at the left and the figures at its right where they fit there whole: the labels at their usual width
+        // after the usual gap while there is room, else the labels as wide as the widest and the gap narrowed, down to
+        // its least. Narrower still, the figures go under the pie.
+        const int chartRight = kMarginX + chartSize - 1;
+        const int beside = w - kMarginX - chartRight;
+        const auto figuresNeed = [&measured](const int labelWidth) {
+            return (std::max)(labelWidth + kValueGap + measured.value, 2 * measured.legendHalf);
+        };
+        int labelWidth = (std::max)(kLabelWidth, measured.label);
+        int gap = kGapX;
+        if (beside - gap < figuresNeed(labelWidth))
+        {
+            labelWidth = measured.label;
+            gap = (std::clamp)(beside - figuresNeed(labelWidth), kLeastGapX, kGapX);
+        }
+        layout.horizontal = beside - gap >= figuresNeed(labelWidth);
+        if (layout.horizontal)
+        {
+            layout.chart = QRect(kMarginX, chartY, chartSize, chartSize);
+            const int statsX = layout.chart.right() + gap;
+            layout.stats =
+                QRect(statsX, kContentTop, (std::max)(0, w - kMarginX - statsX), (std::max)(0, h - kContentTop));
+        }
+        else
+        {
+            const int chartX = (w - chartSize) / 2;
+            layout.chart = QRect(chartX, chartY, chartSize, chartSize);
+            const int statsY = chartY + chartSize + 22;
+            layout.stats = QRect(0, statsY, w, (std::max)(0, h - statsY));
+            labelWidth = (std::max)(kLabelWidth, measured.label);
+            if (labelWidth + kValueGap + measured.value > layout.stats.width())
+            {
+                labelWidth = measured.label;
+            }
+        }
+
+        int currentY = layout.stats.y();
+        for (const auto& [label, value] : layout.stats.width() > 0 ? figures() : decltype(figures()){})
+        {
+            // Keep values close to labels (no large "tab stop" feel).
+            const QRect labelRect(layout.stats.x(), currentY, (std::min)(labelWidth, layout.stats.width()),
+                                  kLineHeight);
+            const QRect valueRect(labelRect.right() + kValueGap, currentY,
+                                  (std::max)(0, layout.stats.right() - (labelRect.right() + kValueGap) + 1),
+                                  kLineHeight);
+            layout.lines.push_back(FigureLine{label, value, labelRect, valueRect});
+            currentY += kLineHeight;
+        }
+        layout.legendTop = currentY + 6;
+        return layout;
+    }
+
+    /// The height the dashboard needs at a width: the pie beside the figures and the legend, or over them.
+    [[nodiscard]] int heightAt(const int width) const
+    {
+        const int lines = static_cast<int>(figures().size());
+        const int figuresHeight = (lines * kLineHeight) + 6 + kLineHeight;
+        if (stats.totalFrames == 0 || layoutAt(QSize(width, kContentTop + kChartSize + 8)).horizontal)
+        {
+            return kContentTop + (std::max)(kChartSize, figuresHeight) + 8;
+        }
+        return kContentTop + kChartSize + 22 + figuresHeight + 8;
+    }
+
+    /// The least width the figures take under the pie, and the legend's two halves across the dashboard.
+    [[nodiscard]] int stackedLeastWidth() const
+    {
+        const Measures measured = measures();
+        return (
+            std::max)({kChartSize, measured.label + kValueGap + measured.value, 2 * (kMarginX + measured.legendHalf)});
+    }
+
+    static constexpr int kContentTop = 28;
+    static constexpr int kMarginX = 12;
+    static constexpr int kChartSize = 90;
+
+    /// The gap after the pie where there is room, and the least it narrows to before the figures go under the pie.
+    static constexpr int kGapX = 85;
+    static constexpr int kLeastGapX = 16;
+
+    /// A label's usual width, and the gap between a label and its value.
+    static constexpr int kLabelWidth = 86;
+    static constexpr int kValueGap = 10;
+    static constexpr int kLineHeight = 18;
+
+    /// A legend's box and the gap between it and its word.
+    static constexpr int kLegendBox = 10;
+    static constexpr int kLegendGap = 6;
 
     [[nodiscard]] QString summaryTooltipHtml() const
     {
@@ -394,43 +562,57 @@ FrameType FrameStatisticsDashboard::frameType() const
     return m_impl->frameType;
 }
 
+std::vector<FrameStatisticsDashboard::FigureLine> FrameStatisticsDashboard::figureLines() const
+{
+    if (m_impl->stats.totalFrames == 0)
+    {
+        return {};
+    }
+    return m_impl->layoutAt(size()).lines;
+}
+
 void FrameStatisticsDashboard::refresh()
 {
     m_impl->calculateStats();
+    keepHeightForWidth();
     update();
+}
+
+int FrameStatisticsDashboard::heightForWidth(const int width) const
+{
+    return m_impl->heightAt(width);
 }
 
 QSize FrameStatisticsDashboard::sizeHint() const
 {
     // Designed for the right-side dashboard column: prefer a compact height,
     // but ensure enough room for the stats + legend so content doesn't get clipped.
-    int lineCount = 4; // Total, Included, Excluded, Groups
-    if (m_impl->frameType != FrameType::Light)
-    {
-        ++lineCount; // Masters
-    }
-    if (m_impl->frameType == FrameType::Light && m_impl->stats.totalExposureSec > 0)
-    {
-        ++lineCount; // Exposure
-    }
-    if (m_impl->stats.totalFileSizeBytes > 0)
-    {
-        ++lineCount; // Size
-    }
-
-    constexpr int kLineHeight = 18;
-    constexpr int kContentTop = 28;
-    const int statsAndLegendH = (lineCount * kLineHeight) + 6 + kLineHeight;
-    const int contentH = (std::max)(90, statsAndLegendH);
-    const int totalH = kContentTop + contentH + 8;
-
-    return QSize(260, totalH);
+    constexpr int kWidth = 260;
+    return QSize(kWidth, m_impl->heightAt(width() > 0 ? width() : kWidth));
 }
 
 QSize FrameStatisticsDashboard::minimumSizeHint() const
 {
-    // Allow it to shrink, but keep it usable.
-    return QSize(220, 140);
+    // Allow it to shrink, but keep it usable: never narrower than the figures under the pie take.
+    return QSize((std::max)(220, m_impl->stackedLeastWidth()), 140);
+}
+
+void FrameStatisticsDashboard::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    keepHeightForWidth();
+}
+
+void FrameStatisticsDashboard::keepHeightForWidth()
+{
+    // The height follows the width - the figures go under the pie where they do not fit beside it - and is held as the
+    // dashboard's least, so the column it stands in gives it that height without asking every part for its height at
+    // its width.
+    const int height = m_impl->heightAt(width());
+    if (minimumHeight() != height)
+    {
+        setMinimumHeight(height);
+    }
 }
 
 void FrameStatisticsDashboard::paintEvent(QPaintEvent*)
@@ -440,7 +622,6 @@ void FrameStatisticsDashboard::paintEvent(QPaintEvent*)
     p.setRenderHint(QPainter::TextAntialiasing);
 
     const int w = width();
-    const int h = height();
 
     // --- Title ---
     p.setPen(palette().text().color());
@@ -458,31 +639,14 @@ void FrameStatisticsDashboard::paintEvent(QPaintEvent*)
         return;
     }
 
-    const int contentTop = 28;
-    constexpr int kMarginX = 12;
-    constexpr int kGapX = 85;
-    constexpr int kLineHeight = 18;
-
-    // Prefer a horizontal layout (pie left, stats right) when there's enough width.
-    // Fall back to the stacked layout on narrow widths.
-    const bool useHorizontalLayout = (w >= 300);
+    constexpr int kMarginX = Impl::kMarginX;
+    constexpr int kLineHeight = Impl::kLineHeight;
+    const Impl::Layout layout = m_impl->layoutAt(size());
+    const bool useHorizontalLayout = layout.horizontal;
 
     // --- Donut Chart ---
-    const int maxChartSize = 90;
-    const int availableH = (std::max)(0, h - contentTop - 8);
-    const int chartSize = (std::max)(0, (std::min)(maxChartSize, availableH));
-    const int chartY = contentTop;
-
-    QRect chartRect;
-    if (useHorizontalLayout)
-    {
-        chartRect = QRect(kMarginX, chartY, chartSize, chartSize);
-    }
-    else
-    {
-        const int chartX = (w - chartSize) / 2;
-        chartRect = QRect(chartX, chartY, chartSize, chartSize);
-    }
+    const QRect chartRect = layout.chart;
+    const int chartSize = chartRect.width();
 
     // Draw included segment (green)
     if (m_impl->stats.includedFrames > 0)
@@ -513,67 +677,21 @@ void FrameStatisticsDashboard::paintEvent(QPaintEvent*)
     p.drawText(percentRect, Qt::AlignCenter, tr("%1%").arg(percent));
 
     // --- Statistics List ---
-    QRect statsRect;
-    if (useHorizontalLayout)
-    {
-        const int statsX = chartRect.right() + kGapX;
-        statsRect = QRect(statsX, contentTop, (std::max)(0, w - kMarginX - statsX), (std::max)(0, h - contentTop));
-    }
-    else
-    {
-        const int statsY = chartY + chartSize + 22;
-        statsRect = QRect(0, statsY, w, (std::max)(0, h - statsY));
-    }
-
-    int currentY = statsRect.y();
+    const QRect statsRect = layout.stats;
 
     p.setFont(font());
-
-    auto drawStatLine = [&](const QString& label, const QString& value) {
-        if (statsRect.width() <= 0)
-        {
-            return;
-        }
-
+    if (statsRect.width() > 0)
+    {
         p.setPen(palette().text().color());
-
-        // Keep values close to labels (no large "tab stop" feel).
-        const int desiredLabelWidth = 86;
-        const int labelWidth = (std::min)(desiredLabelWidth, statsRect.width());
-        const QRect labelRect(statsRect.x(), currentY, labelWidth, kLineHeight);
-        const QRect valueRect(labelRect.right() + 10, currentY,
-                              (std::max)(0, statsRect.right() - (labelRect.right() + 10) + 1), kLineHeight);
-
-        p.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, label);
-        p.drawText(valueRect, Qt::AlignLeft | Qt::AlignVCenter, value);
-
-        currentY += kLineHeight;
-    };
-
-    drawStatLine(tr("Total:"), QString::number(m_impl->stats.totalFrames));
-    drawStatLine(tr("Included:"), QString::number(m_impl->stats.includedFrames));
-    drawStatLine(tr("Excluded:"), QString::number(m_impl->stats.excludedFrames));
-    drawStatLine(tr("Groups:"), QString::number(m_impl->stats.groupCount));
-
-    if (m_impl->frameType != FrameType::Light)
-    {
-        drawStatLine(tr("Masters:"), QString::number(m_impl->stats.masterCount));
-    }
-
-    // Show total exposure for lights
-    if (m_impl->frameType == FrameType::Light && m_impl->stats.totalExposureSec > 0)
-    {
-        drawStatLine(tr("Exposure:"), formatDuration(m_impl->stats.totalExposureSec));
-    }
-
-    // Show total file size if we have data
-    if (m_impl->stats.totalFileSizeBytes > 0)
-    {
-        drawStatLine(tr("Size:"), formatFileSize(m_impl->stats.totalFileSizeBytes));
+        for (const FigureLine& line : layout.lines)
+        {
+            p.drawText(line.labelRect, Qt::AlignLeft | Qt::AlignVCenter, line.label);
+            p.drawText(line.valueRect, Qt::AlignLeft | Qt::AlignVCenter, line.value);
+        }
     }
 
     // --- Legend ---
-    currentY += 6;
+    const int currentY = layout.legendTop;
     const int boxSize = 10;
 
     if (useHorizontalLayout)
@@ -629,44 +747,10 @@ bool FrameStatisticsDashboard::event(QEvent* event)
         auto* helpEvent = static_cast<QHelpEvent*>(event);
 
         // Match paint geometry so tooltip changes based on hover region.
-        const int w = width();
-        const int h = height();
-        const int contentTop = 28;
-        constexpr int kMarginX = 12;
-        constexpr int kGapX = 85;
-
-        const bool useHorizontalLayout = (w >= 300);
-        const int maxChartSize = 90;
-        const int availableH = (std::max)(0, h - contentTop - 8);
-        const int chartSize = (std::max)(0, (std::min)(maxChartSize, availableH));
-        const int chartY = contentTop;
-
-        QRect chartRect;
-        if (useHorizontalLayout)
-        {
-            chartRect = QRect(kMarginX, chartY, chartSize, chartSize);
-        }
-        else
-        {
-            const int chartX = (w - chartSize) / 2;
-            chartRect = QRect(chartX, chartY, chartSize, chartSize);
-        }
-
-        QRect statsRect;
-        if (useHorizontalLayout)
-        {
-            const int statsX = chartRect.right() + kGapX;
-            statsRect = QRect(statsX, contentTop, (std::max)(0, w - kMarginX - statsX), (std::max)(0, h - contentTop));
-        }
-        else
-        {
-            const int statsY = chartY + chartSize + 22;
-            statsRect = QRect(0, statsY, w, (std::max)(0, h - statsY));
-        }
-
+        const Impl::Layout layout = m_impl->layoutAt(size());
         const QPoint pos = helpEvent->pos();
-        const bool overPie = chartRect.contains(pos);
-        const bool overStats = statsRect.contains(pos);
+        const bool overPie = layout.chart.contains(pos);
+        const bool overStats = layout.stats.contains(pos);
 
         const QString tooltip = (overPie || !overStats) ? m_impl->summaryTooltipHtml() : m_impl->groupsTooltipHtml();
 

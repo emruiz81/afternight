@@ -257,15 +257,22 @@ of every interactive widget and for a Tab order that visits each control once in
 a size leaves of a page depends on the width of its font, so `SmallWindow.NothingIsClippedAt1024x640` and the
 `DisplaySizes.*` cases run natively (`QT_QPA_PLATFORM=windows`) and report themselves skipped under the suites' box
 font; there a label that elides by design (its least width none) and shows a character and the ellipsis is not clipped.
+`StatusLine.ItsTextsAreWrittenWholeWhereItHasRoom` runs natively too, and fails only where a text's glyphs take a
+fraction of a pixel more than a whole number of pixels: at 150 % (`QT_SCALE_FACTOR=1.5`), where the guide's pictures
+are taken, not necessarily at a host's own scale.
 
 The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
 are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control in the
 column, none left beside the preview in the canvas, and reached by Tab (a checkable button of an exclusive group through
 the group's one Tab stop, as Qt navigates such a group), Target image and Channel at the body's head, no group left
-empty and no button box left among the controls (the window's buttons are the footer's), in both densities of the Observatory look, at 600 px of height - and report themselves skipped for the rest; the
+empty and no button box left among the controls (the window's buttons are the footer's), and the column's rows
+together at the body's top with the room it has to spare under them - no band wider than the column's parts leave
+between two rows, a label and what it labels among them, or under a section's header, and nothing past the body's end
+or under its footer - in both densities of the Observatory look, at 600 px of height and at the 794 px a 1536 x 864
+window's centre leaves - and report themselves skipped for the rest; the
 box font is told by every character being one width. Started with `QT_QPA_PLATFORM=windows` they also hold that nothing
-in the body lies past the column's side; their page hosts are kept off the screen there. A content a scroll area of the
-controls holds is measured too: its least width is not the area's.
+in the body lies past the column's side, nor closer to it than the interface's smallest gap; their page hosts are kept
+off the screen there. A content a scroll area of the controls holds is measured too: its least width is not the area's.
 `PageLayout.<Process>AppliesAsInAWindow` applies the same parameters in a window and through the page and compares the
 results, the target's or the new image's; a process that draws its result at random from a seed of its own - Noise
 Generator - is held instead to changing the image in both, and Image Compare, which applies nothing, to comparing on its

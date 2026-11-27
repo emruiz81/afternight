@@ -518,7 +518,7 @@ an::ui::ProcessStep SpectrophotometricColorCalibrationProcess::describeTypedProc
     const SpectrophotometricColorCalibrationParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Response profile: {}, White reference: {}, Background neutralization: {}",
                                    params.responseProfileId.toStdString(), params.whiteReferenceId.toStdString(),
                                    params.applyBackgroundNeutralization ? "on" : "off")};

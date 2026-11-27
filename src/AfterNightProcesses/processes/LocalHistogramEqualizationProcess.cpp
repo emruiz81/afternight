@@ -126,7 +126,7 @@ an::Status LocalHistogramEqualizationProcess::executeTypedProcessImpl(const an::
 an::ui::ProcessStep
 LocalHistogramEqualizationProcess::describeTypedProcessStep(const LocalHistogramEqualizationParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Strength: {:.2f}, Radius: {}, Sigma: {:.2f}, Regularization: {:.2f}, "
                                                "Amount: {:.2f}, Reduce Halos: {}",

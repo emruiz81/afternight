@@ -301,7 +301,7 @@ void IntegerResampleProcess::executeImageResample()
             fmt::format("Executing integer resample to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running integer resample"),
         .errorLead = "An error occurred when executing the integer resample process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [resample, mosaicAsGrey](const an::ui::ExecutionScope& scope,
                                                  const an::ui::ProcessSource& source) {

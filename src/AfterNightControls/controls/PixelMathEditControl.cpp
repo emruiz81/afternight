@@ -105,20 +105,20 @@ std::unordered_map<QString, QString> PixelMathEditControl::m_global_functions_do
     {"ypos", "<h3>ypos()</h3>Current vertical (Y-axis) coordinate in integer pixels."},
     {"Y", "<h3>Y()</h3>Current normalized vertical (Y-axis) coordinate in the [0,1] range, where 1 corresponds to "
           "height() - 1."},
-    {"w", "<h3>w(image=$T)</h3>Width in pixels of the specified image.<br>If no image is speficied, then use the "
+    {"w", "<h3>w(image=$T)</h3>Width in pixels of the specified image.<br>If no image is specified, then use the "
           "target image $T"},
-    {"width", "<h3>width(image=$T)</h3>Width in pixels of the specified image.<br>If no image is speficied, then use "
+    {"width", "<h3>width(image=$T)</h3>Width in pixels of the specified image.<br>If no image is specified, then use "
               "the target image $T"},
-    {"h", "<h3>h(image=$T)</h3>Height in pixels of the specified image.<br>If no image is speficied, then use the "
+    {"h", "<h3>h(image=$T)</h3>Height in pixels of the specified image.<br>If no image is specified, then use the "
           "target image $T"},
-    {"height", "<h3>height(image=$T)</h3>Height in pixels of the specified image.<br>If no image is speficied, then "
+    {"height", "<h3>height(image=$T)</h3>Height in pixels of the specified image.<br>If no image is specified, then "
                "use the target image $T"},
-    {"n", "<h3>n(image=$T)</h3>Number of channels in the specified image.<br>If no image is speficied, then use the "
+    {"n", "<h3>n(image=$T)</h3>Number of channels in the specified image.<br>If no image is specified, then use the "
           "target image $T"},
-    {"channels", "<h3>channels(image=$T)</h3>Number of channels in the specified image.<br>If no image is speficied, "
+    {"channels", "<h3>channels(image=$T)</h3>Number of channels in the specified image.<br>If no image is specified, "
                  "then use the target image $T"},
     {"iscolor", "<h3>iscolor(image=$T)</h3>Returns one if the specified image is in the RGB color space. Returns zero "
-                "for a grayscale image.<br>If no image is speficied, then use the target image $T"},
+                "for a grayscale image.<br>If no image is specified, then use the target image $T"},
     {"CIEL", "<h3>CIEL(image=$T)</h3>Normalized CIE L* component of the current pixel in the specified image"},
     {"CIEa", "<h3>CIEa(image=$T)</h3>Normalized CIE a* component of the current pixel in the specified image"},
     {"CIEb", "<h3>CIEb(image=$T)</h3>Normalized CIE b* component of the current pixel in the specified image"},
@@ -181,7 +181,7 @@ std::unordered_map<QString, QString> PixelMathEditControl::m_operators_doc = {
     {"^=", "<h3>x ^ y</h3><p>Assignment / Exponentiation operator.</p>"},
     {"%=", "<h3>x %= y</h3><p>Assignment / Modulus operator.</p>"},
     {"~", "<h3>~x</h3><p>Pixel Inversion operator.</p>"},
-    {";", "<h3>expr1 ; expr2; </h3><p>Expresson separator.</p>"},
+    {";", "<h3>expr1 ; expr2; </h3><p>Expression separator.</p>"},
     {"/**/", "<h3>/* &lt;comment&gt; */</h3><p>Block comment</p>"},
     {"//", "<h3>// &lt;comment&gt; </h3><p>Multiline comment</p>"}};
 

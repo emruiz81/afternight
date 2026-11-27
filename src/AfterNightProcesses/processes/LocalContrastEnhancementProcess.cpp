@@ -107,7 +107,7 @@ an::Status LocalContrastEnhancementProcess::executeTypedProcessImpl(const an::ui
 an::ui::ProcessStep
 LocalContrastEnhancementProcess::describeTypedProcessStep(const LocalContrastEnhancementParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Spatial Radius: {:.2f}, Weight: {:.2f}, Darkness Level: {:.2f}, "
                                                "Lightness Level: {:.2f}, Amount: {:.2f}",

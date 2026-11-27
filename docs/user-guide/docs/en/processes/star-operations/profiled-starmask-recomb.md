@@ -238,7 +238,7 @@ controls:
     scope: The whole image, with the stars image, the list and every setting as they are when you press it. A change made afterwards reaches the next run only.
     persistence: >-
       The new image's history starts with a **Profiled Starmask Recombination** step that reads
-      `ProfiledStarmaskRecombinationProcess: Image created from starless image '<starless>' and starmask image '<stars>'
+      `Profiled Starmask Recombination: Image created from starless image '<starless>' and starmask image '<stars>'
       using operation add;` followed by the number of profiled stars, the shape with its settings, the tightening, the
       inversion, or `unmasked` for a list without stars.
     note: The painted mask is not kept as an image.

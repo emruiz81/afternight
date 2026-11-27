@@ -349,19 +349,24 @@ class ExternalTasks : public TasksFixture
 } // namespace
 
 // A process window registered is a task: the descriptor it was launched as names it, with its category and its glyph -
-// the descriptor's icon, else its action's, else the generic one - and the image it targets; one made outside a launch
-// is named by its own name. A model made after the windows are open takes them in, their targets with them.
+// the descriptor's icon, else its action's, else the generic one, and the generic one too for an icon that is a picture
+// in colours of its own, which the rail and the header cannot draw in the look's - and the image it targets; one made
+// outside a launch is named by its own name. A model made after the windows are open takes them in, their targets with
+// them.
 TEST_F(TaskModel, ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget)
 {
     const RegistryKept kept;
     const ProcessDescriptor curves =
-        descriptorOf("tests.curves", "Curves Transformation", "transforms", "actionCurves_Transformation", "curves");
+        descriptorOf("tests.curves", "Curves Transformation", "transforms", "actionCurves_Transformation", "histogram");
     const ProcessDescriptor open =
         descriptorOf("tests.open", "Opener", "files", std::string(an::ui::shell::ids::kOpen));
     const ProcessDescriptor plain = descriptorOf("tests.plain", "Plain", "filters", "actionNoSuchAction");
+    const ProcessDescriptor pictured =
+        descriptorOf("tests.pictured", "Pictured", "tone_brightness", std::string(an::ui::shell::ids::kAdjustHSL));
     ASSERT_TRUE(ProcessRegistry::instance().registerProcess(curves));
     ASSERT_TRUE(ProcessRegistry::instance().registerProcess(open));
     ASSERT_TRUE(ProcessRegistry::instance().registerProcess(plain));
+    ASSERT_TRUE(ProcessRegistry::instance().registerProcess(pictured));
     ImageViewControl* view = viewOf(QStringLiteral("M31"));
     ASSERT_NE(view, nullptr);
 
@@ -376,7 +381,7 @@ TEST_F(TaskModel, ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget)
     EXPECT_EQ(task.displayName, QStringLiteral("Curves Transformation"));
     EXPECT_EQ(task.processName, QStringLiteral("CurvesTransformationProcess"));
     EXPECT_EQ(task.category, QStringLiteral("transforms"));
-    EXPECT_EQ(task.iconKey, QStringLiteral("curves"));
+    EXPECT_EQ(task.iconKey, QStringLiteral("histogram"));
     EXPECT_EQ(task.process.data(), first);
     EXPECT_EQ(task.target.data(), view);
     EXPECT_EQ(task.targetName, QString::fromStdString(view->getUniqueName()));
@@ -402,6 +407,12 @@ TEST_F(TaskModel, ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget)
     EXPECT_EQ(later.tasks().size(), 4u);
     ASSERT_NE(later.taskFor(unlaunched), nullptr);
     EXPECT_EQ(later.taskFor(unlaunched)->target.data(), view);
+
+    // An action whose icon is a picture in colours of its own - Hue/Saturation/Lightness's - gives its task the generic
+    // glyph.
+    (void)processOn(view, "PicturedProcess", &pictured);
+    ASSERT_EQ(tasks.tasks().size(), 5u);
+    EXPECT_EQ(tasks.tasks()[4].iconKey.toStdString(), std::string(Model::kGenericGlyph));
 }
 
 // A process launched on no image chooses every image it reads: its task has no single target, whatever image the
@@ -708,7 +719,7 @@ TEST_F(ExternalTasks, ASessionAddsATaskAndItsEndRemovesIt)
 {
     const RegistryKept kept;
     const ProcessDescriptor denoise =
-        descriptorOf("an.demo.denoise", "Demo Denoise", "extensions", "actionDemoDenoise", "noise");
+        descriptorOf("an.demo.denoise", "Demo Denoise", "extensions", "actionDemoDenoise", "extension");
     ASSERT_TRUE(ProcessRegistry::instance().registerProcess(denoise));
     ImageViewControl* view = viewOf(QStringLiteral("M42"));
     ASSERT_NE(view, nullptr);
@@ -725,7 +736,7 @@ TEST_F(ExternalTasks, ASessionAddsATaskAndItsEndRemovesIt)
     EXPECT_EQ(early.descriptorId, "an.demo.denoise");
     EXPECT_EQ(early.displayName, QStringLiteral("Demo Denoise"));
     EXPECT_EQ(early.category, QStringLiteral("extensions"));
-    EXPECT_EQ(early.iconKey, QStringLiteral("noise"));
+    EXPECT_EQ(early.iconKey, QStringLiteral("extension"));
     EXPECT_EQ(early.target.data(), view);
     EXPECT_EQ(early.targetName, QString::fromStdString(view->getUniqueName()));
     EXPECT_EQ(early.host, an::ui::extensions::ExtensionHostStanding::Starting);

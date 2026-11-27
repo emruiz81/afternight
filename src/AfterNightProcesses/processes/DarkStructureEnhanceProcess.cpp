@@ -186,6 +186,7 @@ DarkStructureEnhanceProcess::DarkStructureEnhanceProcess(ImageViewControl* contr
     : an::ui::TypedProcessControl<DarkStructureEnhanceParams>(control, getProcessNameStatic())
 {
     m_ui = an::ui::processes::buildDarkStructureEnhanceProcessUi(this);
+    setHistoryStepName("Dark Structure Enhance");
     setProcessDescription(
         QStringLiteral("Enhance dark structures with a native starlet mask and masked midtones transformation."));
 
@@ -211,7 +212,7 @@ DarkStructureEnhanceProcess::DarkStructureEnhanceProcess(ImageViewControl* contr
                               m_ui.targetImageSelector, m_ui.channelSelector, true, true);
 
     setExecutionAutostretchSupported(true);
-    setupPreviewControl(true, QSize(800, 800), "Preview: DarkStructureEnhance");
+    setupPreviewControl(true, QSize(800, 800), "Preview: Dark Structure Enhance");
 
     initialize();
     updateUiState();
@@ -381,8 +382,8 @@ an::Status DarkStructureEnhanceProcess::executeTypedProcessIteration(const an::C
         const QString target = QString::fromStdString(params.targetName);
         m_StagedOutputs.stage(process_utils::StagedOutput{
             .asset = std::move(*mask),
-            .name = target + QStringLiteral(" - DarkStructureEnhance Mask"),
-            .history = fmt::format("DarkStructureEnhance: mask created from '{}'", params.targetName)});
+            .name = target + QStringLiteral(" - Dark Structure Enhance Mask"),
+            .history = fmt::format("Dark Structure Enhance: mask created from '{}'", params.targetName)});
     }
     return an::Status::success();
 }
@@ -549,7 +550,7 @@ DarkStructureEnhanceProcess::describeTypedProcessStep(const DarkStructureEnhance
     {
         description += detail::channelHistorySuffix(an::ui::processChannelLabel(selectedChannelScope()).toStdString());
     }
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::move(description)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::move(description)};
 }
 
 void DarkStructureEnhanceProcess::executeProcessStarted(const RTPreviewMode previewMode, const bool sequenceMode)
@@ -569,7 +570,7 @@ void DarkStructureEnhanceProcess::executeProcessCompletedImpl(const RTPreviewMod
     std::vector<process_utils::StagedOutput> outputs = m_StagedOutputs.take();
     if (outputs.empty() && getParams().createMaskImage)
     {
-        notifyWarnMessage("DarkStructureEnhance", "Mask output was not available.");
+        notifyWarnMessage("Dark Structure Enhance", "Mask output was not available.");
         return;
     }
     process_utils::openStagedOutputs(std::move(outputs), m_image_view_control);

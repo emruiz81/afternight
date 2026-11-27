@@ -25,6 +25,7 @@
 #include "app/ExtensionManager.h"
 #include "app/ProcessRegistry.h"
 #include "controls/ExtensionHostedProcess.h"
+#include "controls/ProcessPageLayout.h"
 #include "theme/ComponentParts.h"
 
 #include <QAction>
@@ -301,6 +302,10 @@ TEST_F(ContributedProcesses, AnEntryIsFoundInThePaletteAndStartedFromIt)
     settle();
     ASSERT_EQ(extension.launched(), std::vector<std::string>{ContributingExtension::kToneId});
     expectATaskNamed(extension.lastPage(), QStringLiteral("M42 Tone"), QStringLiteral("contributed-palette"));
+    // Its column says its family over its name, as an extension's task's column does, not the menu of the category it
+    // states.
+    ASSERT_NE(extension.lastPage()->pageLayout(), nullptr);
+    EXPECT_EQ(extension.lastPage()->pageLayout()->category().toStdString(), "Script Tools");
     EXPECT_EQ(mostRecent(), ContributingExtension::kToneId);
     EXPECT_EQ(core().recentProcesses().entries().front().displayName, "M42 Tone");
 }

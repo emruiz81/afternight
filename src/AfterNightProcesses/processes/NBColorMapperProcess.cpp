@@ -647,7 +647,7 @@ an::ui::ProcessStep NBColorMapperProcess::describeTypedProcessStep(const NBColor
     {
         included += layer.layer.included ? 1u : 0u;
     }
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Created NB Color Mapper combination from {} layers, {} included{}{}",
                                                params.layers.size(), included,

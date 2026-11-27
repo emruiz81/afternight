@@ -177,8 +177,8 @@ struct PixelMathSettings
     bool codeOptimization = true;
 };
 
-/// The name the history records an in-place run under, the window's own: "PixelMath".
-inline constexpr const char* kPixelMathStepName = "PixelMath";
+/// The name the history records an in-place run under, as a person reads the process: "Pixel Math".
+inline constexpr const char* kPixelMathStepName = "Pixel Math";
 
 /// The name the processing-state cards record the result under.
 inline constexpr const char* kPixelMathStateOperation = "pixelmath";

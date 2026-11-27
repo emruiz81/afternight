@@ -375,7 +375,7 @@ inline ImageCalibrationProcessUiElements buildImageCalibrationProcessUi(QWidget*
 
     controlsLayout->addWidget(ui.flatGroupBox);
 
-    ui.outputCard = new QGroupBox(QStringLiteral("Output & Execution"), controlsContainer);
+    ui.outputCard = new QGroupBox(QStringLiteral("Output && Execution"), controlsContainer);
     ui.outputCard->setObjectName(QStringLiteral("outputCard"));
     auto* outputCardLayout = new QVBoxLayout(ui.outputCard);
     outputCardLayout->setContentsMargins(t.spacing.sm, t.spacing.sm, t.spacing.sm, t.spacing.sm);

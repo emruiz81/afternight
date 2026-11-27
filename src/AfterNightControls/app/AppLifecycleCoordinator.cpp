@@ -11,10 +11,13 @@
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
 
+#include <AfterNightPlatform/Logging.h>
+
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QTimer>
 
+#include <cstddef>
 #include <thread>
 
 namespace an::ui
@@ -113,15 +116,19 @@ bool AppLifecycleCoordinator::prepareForClose() const
     const auto viewControls = m_dependencies.imageViewControlManager->getListOfImageViewControls();
     const size_t openProcessCount = m_dependencies.getNumOfOpenProcesses ? m_dependencies.getNumOfOpenProcesses() : 0;
 
-    bool pendingChanges = false;
+    std::size_t unsavedImages = 0u;
     for (auto* vc : viewControls)
     {
         if (vc && vc->hasPendingChanges())
         {
-            pendingChanges = true;
-            break;
+            ++unsavedImages;
         }
     }
+    const bool pendingChanges = unsavedImages > 0u;
+    // What the close finds, and below whether it asked and what it was told: the log says how an application ended.
+    LOG_INFO("Closing the application finds {} image(s) with changes not saved and {} process(es) open; it asks "
+             "before closing over them: {}",
+             unsavedImages, openProcessCount, confirmCloseUnsaved ? "yes" : "no");
 
     if (shouldPromptOnUnsavedChanges(confirmCloseUnsaved, pendingChanges))
     {
@@ -136,6 +143,8 @@ bool AppLifecycleCoordinator::prepareForClose() const
                 true, &ret);
         }
 
+        LOG_INFO("Asked whether to close over the images not saved, the answer was {}",
+                 ret == QMessageBox::No ? "No" : "Yes");
         if (ret == QMessageBox::No)
         {
             return false;
@@ -153,6 +162,8 @@ bool AppLifecycleCoordinator::prepareForClose() const
                 true, &ret);
         }
 
+        LOG_INFO("Asked whether to close over the processes open, the answer was {}",
+                 ret == QMessageBox::No ? "No" : "Yes");
         if (ret == QMessageBox::No)
         {
             return false;

@@ -384,7 +384,7 @@ void ResizeProcess::executeImageResize()
             fmt::format("Executing resize to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running resize"),
         .errorLead = "An error occurred when executing the resize process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [resize, mosaicAsGrey](const an::ui::ExecutionScope& scope,
                                                const an::ui::ProcessSource& source) {

@@ -11,13 +11,22 @@
 
 #include <gtest/gtest.h>
 #include <QApplication>
+#include <QByteArray>
 #include <QDateTime>
+#include <QFile>
+#include <QFontMetricsF>
+#include <QTemporaryDir>
 #include <QTimeZone>
 #include <QPainter>
 #include <QImage>
 #include <QToolTip>
 #include <QHelpEvent>
 
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+#include "fixtures/ClippedControls.h"
 #include "processes/ImageIntegration/widgets/FrameStatisticsDashboard.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/FrameId.h"
@@ -285,6 +294,57 @@ TEST_F(FrameStatisticsDashboardTest, DisplaysExposureForLights)
     // Verify by checking the size hint accounts for exposure line
     QSize hint = static_cast<QWidget*>(dashboard)->sizeHint();
     EXPECT_GT(hint.height(), 140); // Should have extra height for exposure line
+}
+
+// At every width it takes, up to the widest aside a person gives the lights' page, the dashboard draws each figure of a
+// night's lights whole and inside itself - the total exposure and the size of their files among them - at the height it
+// asks for at that width. Measured natively: the suites' box font draws text about twice the interface's width.
+TEST_F(FrameStatisticsDashboardTest, DrawsEveryFigureWholeAtEveryWidthItTakes)
+{
+    if (!an::tests::look::textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font overflows what the "
+                        "interface's does not";
+    }
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    // Twelve lights of 525 s - an hour and three quarters - whose files are there to be counted.
+    std::vector<FrameInfo> lights;
+    for (int index = 0; index < 12; ++index)
+    {
+        const QString path = folder.filePath(QStringLiteral("light_%1.fits").arg(index));
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        ASSERT_EQ(file.write(QByteArray(96 * 1024, '\0')), 96 * 1024);
+        file.close();
+        lights.push_back(createTestFrame(FrameType::Light, path, 525.0));
+    }
+    model->addFrames(FrameType::Light, lights);
+    dashboard = new ImageIntegration::FrameStatisticsDashboard(FrameType::Light, model);
+    dashboard->refresh();
+
+    QWidget& widget = *dashboard;
+    const QFontMetricsF metrics(dashboard->font());
+    const int least = widget.minimumSizeHint().width();
+    for (int width = least; width <= 480; width += 2)
+    {
+        widget.resize(width, (std::max)(widget.heightForWidth(width), widget.minimumSizeHint().height()));
+        const std::vector<ImageIntegration::FrameStatisticsDashboard::FigureLine> lines = dashboard->figureLines();
+        ASSERT_GE(lines.size(), 6u) << "the totals, the groups, the exposure and the size";
+        for (const ImageIntegration::FrameStatisticsDashboard::FigureLine& line : lines)
+        {
+            EXPECT_GE(line.labelRect.width(), std::ceil(metrics.horizontalAdvance(line.label)))
+                << line.label.toStdString() << " is cut at " << width << " px";
+            EXPECT_GE(line.valueRect.width(), std::ceil(metrics.horizontalAdvance(line.value)))
+                << line.label.toStdString() << " " << line.value.toStdString() << " is cut at " << width << " px";
+            EXPECT_TRUE(widget.rect().contains(line.labelRect) && widget.rect().contains(line.valueRect))
+                << line.label.toStdString() << " lies outside the dashboard at " << width << " x " << widget.height();
+        }
+        if (HasFailure())
+        {
+            break;
+        }
+    }
 }
 
 TEST_F(FrameStatisticsDashboardTest, DisplaysMastersForCalibrationTypes)

@@ -643,7 +643,7 @@ TEST_P(PointwiseWindowTest, AnApplyIsOneHistoryStepThatUndoes)
     ViewHandle target = colourScene(session());
     const std::optional<fixtures::FixtureSamples> source = documentSamples(target->document());
     const an::ui::ProcessStep step = under.describe(*target, under.changingMode);
-    EXPECT_EQ(step.name, under.processName);
+    EXPECT_EQ(step.name, under.historyStepName());
     EXPECT_EQ(step.description, under.changingStep);
     WindowHandle window = under.open(*target);
     under.configure(*window, under.changingMode);
@@ -652,7 +652,7 @@ TEST_P(PointwiseWindowTest, AnApplyIsOneHistoryStepThatUndoes)
     an::ui::IViewHistory* history = target->viewHistory();
     ASSERT_NE(history, nullptr);
     ASSERT_TRUE(history->hasUndo());
-    EXPECT_EQ(history->previousStepName(), under.processName);
+    EXPECT_EQ(history->previousStepName(), under.historyStepName());
     const std::optional<fixtures::FixtureSamples> applied = documentSamples(target->document());
     ASSERT_TRUE(source.has_value() && applied.has_value());
     EXPECT_FALSE(fixtures::sameSamples(*source, *applied)) << "the mode changes the scene";

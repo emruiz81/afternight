@@ -14,6 +14,9 @@
 /// images a combo lists - and is recorded as varying, without a value; so is the number of threads a window offers,
 /// which follows the machine. No geometry is read, and of a font only whether a label is set as a heading, so the
 /// record is the same on every platform.
+///
+/// And what every process window says: its history steps name the process as a person reads it, an ampersand in a
+/// text Qt reads a key from marks a letter or is shown, and no text names a part the window no longer has.
 
 #include "Test_ProcessesShared/ProcessesSharedTestSupport.h"
 
@@ -23,6 +26,7 @@
 #include "components/AnInputField.h"
 #include "components/AnSectionHeader.h"
 #include "components/AnSliderControl.h"
+#include "controls/ImageProcessControl.h"
 #include "controls/ImageViewControl.h"
 #include "processes/ImageIntegration/ui_models/IntegrationStageStates.h"
 #include "processes/ImageIntegration/widgets/StageListNavigator.h"
@@ -63,6 +67,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
@@ -87,6 +92,7 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -1373,6 +1379,90 @@ inventoriesOn(const std::string& viewName, const std::uint32_t width, const std:
     return inventories;
 }
 
+/// Opens every process window the registry offers, one at a time, on a colour view, hands each to `check` with its
+/// descriptor once what it computes as it opens has landed, and closes it before the next opens.
+/// @return how many windows opened.
+int forEveryProcessWindow(const std::function<void(const ProcessDescriptor&, TopLevelProcessBaseControl&)>& check)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    EXPECT_NE(context, nullptr);
+    if (context == nullptr)
+    {
+        return 0;
+    }
+    const InstalledContext installed(*context);
+    const an::tests::processes::shared::ClosesOpenedWindows closesWindows;
+    ViewHandle view = colourView(*context, "TextsImage", 8u, 6u, 1.0f / 32.0f);
+    int opened = 0;
+    const std::vector<ProcessDescriptor> descriptors = an::ui::process_registry::ProcessRegistry::instance().all();
+    for (const ProcessDescriptor& descriptor : descriptors)
+    {
+        if (!opensAWindow(descriptor))
+        {
+            continue;
+        }
+        if (descriptor.launch_mode == Mode::SingleImage)
+        {
+            descriptor.launch_single_image(view.get());
+        }
+        else
+        {
+            descriptor.launch_top_level();
+        }
+        const std::vector<an::tests::processes::shared::OpenedProcessWindow> windows = openedProcessWindows();
+        EXPECT_EQ(windows.size(), 1u) << descriptor.id;
+        if (windows.size() == 1u)
+        {
+            settle();
+            ++opened;
+            check(descriptor, *windows[0].window);
+        }
+        closeOpenedProcessWindows();
+    }
+    return opened;
+}
+
+/// Whether a word runs two words together: a small letter followed by a capital, as in "ColorCalibration".
+[[nodiscard]] bool runsWordsTogether(const QString& word)
+{
+    for (qsizetype index = 1; index < word.size(); ++index)
+    {
+        if (word[index - 1].isLower() && word[index].isUpper())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// The texts a widget shows for a person to read: its own, its title, its tabs', and its tooltip.
+[[nodiscard]] QStringList textsOf(const QWidget& widget)
+{
+    QStringList texts{widget.toolTip()};
+    if (const auto* label = qobject_cast<const QLabel*>(&widget))
+    {
+        texts.append(label->text());
+    }
+    if (const auto* button = qobject_cast<const QAbstractButton*>(&widget))
+    {
+        texts.append(button->text());
+    }
+    if (const auto* group = qobject_cast<const QGroupBox*>(&widget))
+    {
+        texts.append(group->title());
+    }
+    if (const auto* tabs = qobject_cast<const QTabWidget*>(&widget))
+    {
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            texts.append(tabs->tabText(index));
+            texts.append(tabs->tabToolTip(index));
+        }
+    }
+    texts.removeAll(QString());
+    return texts;
+}
+
 /// The names of what two records of one control disagree on, as the inventory's keys.
 [[nodiscard]] QStringList disagreements(const ControlRecord& first, const ControlRecord& second)
 {
@@ -1653,4 +1743,121 @@ TEST(ProcessUiInventoryTest, EveryProcessWindowOpensWithTheControlsTheGuideRecor
         RecordProperty("writtenInventories", written);
     }
     RecordProperty("processWindows", static_cast<int>(inventories.size()));
+}
+
+// A history step names its process as a person reads it - "Color Calibration", "Pixel Math", "Dark Structure
+// Enhance" - not by the name the process attaches to a view under, which runs the words together: no word of it has a
+// capital after a small letter, but the names the product spells so - ArcSinh, a function's, and DeepSNR, a tool's.
+TEST(ProcessWindowTexts, EveryHistoryStepNamesItsProcessAsAPersonReadsIt)
+{
+    const RegistrySnapshot snapshot;
+    const QStringList spelledSo{QStringLiteral("ArcSinh"), QStringLiteral("DeepSNR")};
+    int named = 0;
+    const int opened =
+        forEveryProcessWindow([&](const ProcessDescriptor& descriptor, TopLevelProcessBaseControl& window) {
+            const auto* const process = dynamic_cast<const ImageProcessControl*>(&window);
+            if (process == nullptr)
+            {
+                return;
+            }
+            ++named;
+            const QString name = QString::fromStdString(process->historyStepName());
+            EXPECT_FALSE(name.isEmpty()) << descriptor.id;
+            for (const QString& word : name.split(QRegularExpression(QStringLiteral("[ /-]")), Qt::SkipEmptyParts))
+            {
+                EXPECT_TRUE(!runsWordsTogether(word) || spelledSo.contains(word))
+                    << descriptor.id << ": its history steps are named \"" << name.toStdString() << "\", which runs \""
+                    << word.toStdString() << "\" together";
+            }
+        });
+    EXPECT_GE(opened, 70) << "every process window";
+    EXPECT_GE(named, 60) << "every process that works on an image";
+}
+
+// An ampersand in a text Qt reads a key from - a button's, a group's title, a tab's, an action's - marks the letter or
+// digit after it, or is doubled to be shown: one before a space shows the space underlined, "Output_Execution".
+TEST(ProcessWindowTexts, AnAmpersandMarksALetterOrIsShown)
+{
+    const RegistrySnapshot snapshot;
+    const auto marksAKey = [](const QString& text) {
+        for (qsizetype index = 0; index < text.size(); ++index)
+        {
+            if (text[index] != QLatin1Char('&'))
+            {
+                continue;
+            }
+            if (index + 1 < text.size() && text[index + 1] == QLatin1Char('&'))
+            {
+                ++index;
+                continue;
+            }
+            if (index + 1 >= text.size() || !text[index + 1].isLetterOrNumber())
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+    const int opened =
+        forEveryProcessWindow([&](const ProcessDescriptor& descriptor, TopLevelProcessBaseControl& window) {
+            QStringList texts;
+            for (const QAbstractButton* button : window.findChildren<QAbstractButton*>())
+            {
+                texts.append(button->text());
+            }
+            for (const QGroupBox* group : window.findChildren<QGroupBox*>())
+            {
+                texts.append(group->title());
+            }
+            for (const QTabBar* tabs : window.findChildren<QTabBar*>())
+            {
+                for (int index = 0; index < tabs->count(); ++index)
+                {
+                    texts.append(tabs->tabText(index));
+                }
+            }
+            for (const QAction* action : window.findChildren<QAction*>())
+            {
+                texts.append(action->text());
+            }
+            for (const QLabel* label : window.findChildren<QLabel*>())
+            {
+                if (label->buddy() != nullptr)
+                {
+                    texts.append(label->text());
+                }
+            }
+            for (const QString& text : texts)
+            {
+                EXPECT_TRUE(marksAKey(text)) << descriptor.id << ": \"" << text.toStdString()
+                                             << "\" marks no letter with its ampersand; double it to show it";
+            }
+        });
+    EXPECT_GE(opened, 70) << "every process window";
+}
+
+// No text of a process window names a part the window no longer has: its preview is the canvas, not an "RT preview
+// pane" nor a "preview window".
+TEST(ProcessWindowTexts, NoTextNamesAPartTheWindowHasNot)
+{
+    const RegistrySnapshot snapshot;
+    const QStringList gone{QStringLiteral("RT preview"), QStringLiteral("preview pane"),
+                           QStringLiteral("preview window")};
+    const int opened =
+        forEveryProcessWindow([&](const ProcessDescriptor& descriptor, TopLevelProcessBaseControl& window) {
+            QStringList texts{window.property("anProcessDescription").toString()};
+            for (const QWidget* widget : window.findChildren<QWidget*>())
+            {
+                texts.append(textsOf(*widget));
+            }
+            for (const QString& text : texts)
+            {
+                for (const QString& part : gone)
+                {
+                    EXPECT_FALSE(text.contains(part, Qt::CaseInsensitive))
+                        << descriptor.id << ": \"" << text.toStdString() << "\" names the " << part.toStdString();
+                }
+            }
+        });
+    EXPECT_GE(opened, 70) << "every process window";
 }

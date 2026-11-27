@@ -2080,7 +2080,8 @@ void SpccProcessReadinessPanel::setReport(SpccProcessReadinessReport report)
         const bool catalogUserActionRequired = (!m_report.catalogReady && !catalogPreparationAvailable) ||
                                                !m_report.catalogRightsApproved || catalogRegionUserActionRequired;
         const bool needsCatalogAction = !m_report.canExecute() && catalogUserActionRequired;
-        m_manageCatalogsButton->setText(m_report.actionText);
+        // A button reads a key from an ampersand: the one "Catalogs & Data" holds is doubled to be shown.
+        m_manageCatalogsButton->setText(QString(m_report.actionText).replace(QLatin1Char('&'), QStringLiteral("&&")));
         m_manageCatalogsButton->setVisible(needsCatalogAction && !m_report.actionText.isEmpty());
     }
 

@@ -520,12 +520,12 @@ an::ui::ProcessStep ImageBlendProcess::describeTypedProcessStep(const ImageBlend
     if (!params.second)
     {
         return an::ui::ProcessStep{
-            .name = getProcessName(),
+            .name = historyStepName(),
             .description = "Base stretch: shadows " + QString::number(params.srcImageBlackPoint, 'f', 3).toStdString() +
                            ", midtones " + QString::number(params.srcImageMidtones, 'f', 3).toStdString() +
                            ", highlights " + QString::number(params.srcImageHighlights, 'f', 3).toStdString()};
     }
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    params.blendMode.toStdString() + " with " + params.secondImageName.toStdString()};
 }

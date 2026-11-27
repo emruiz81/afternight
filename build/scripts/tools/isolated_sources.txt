@@ -2050,6 +2050,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightTests/fixtures/common/MaskRenderingCases.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
     unit     src/AfterNightControls/components/AnWindowHeading.cpp
+    header   src/AfterNightControls/components/AnVerticalScrollArea.h
     unit     src/AfterNightControls/app/WindowPlacement.cpp
     stub     src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.cpp stands in for the tool windows' opener, which the viewer reaches through its companion seam and the library defines beside the windows
     stub     src/AfterNightTests/Test_ControlsSeams/ViewSequencePlayerStub.cpp stands in for the sequence player, which the viewer reaches through its companion seam and the library defines
@@ -2786,6 +2787,7 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/widgets/ImageInfoStatusBarWidget.h
     header   src/AfterNightControls/widgets/ImageLensWidget.h
     header   src/AfterNightControls/widgets/ImagePreviewWidget.h
+    header   src/AfterNightControls/widgets/ImageStatusTexts.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
     header   src/AfterNightControls/widgets/ImageViewWidgetDisplayModule.h
     header   src/AfterNightControls/widgets/MaskRenderer.h
@@ -3022,6 +3024,12 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/chrome/RegionFocus.h
     unit     src/AfterNightTests/Test_ShellObservatory/AccessibilityTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/SmallWindowTest.cpp
+    header   src/AfterNightTests/fixtures/PaintRecorder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/FrameStatisticsDashboard.h
+    header   src/AfterNightProcesses/processes/ImageRegistrationProcess.h
+    header   src/AfterNightProcesses/processes/ImageRegistrationProcessUiBuilder.h
+    header   src/AfterNightControls/components/AnVerticalScrollArea.h
+    header   src/AfterNightProcesses/processes/core/RegistrationMetricsPersistenceTypes.h
     unit     src/AfterNightTests/Test_ShellObservatory/RecordsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/test_about_dialog.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/test_extension_manager_page.cpp
@@ -5570,6 +5578,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightProcesses/processes/ImageListAnalyzerProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/ImageRegistrationProcess.h
     header   src/AfterNightProcesses/processes/ImageRegistrationProcessUiBuilder.h
+    header   src/AfterNightControls/components/AnVerticalScrollArea.h
     header   src/AfterNightProcesses/processes/ImageStackingProcess.h
     header   src/AfterNightProcesses/processes/ImageStackingProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/StackingBatch.h
@@ -6532,6 +6541,7 @@ sources Test_ProcessFramework
     header   src/AfterNightProcesses/processes/ImageListAnalyzerProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/ImageListProcessHelpers.h
     header   src/AfterNightProcesses/processes/ImageRegistrationProcessUiBuilder.h
+    header   src/AfterNightControls/components/AnVerticalScrollArea.h
     header   src/AfterNightProcesses/processes/ImageStackingProcess.h
     header   src/AfterNightProcesses/processes/ImageStackingProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/IntegerResampleProcessUiBuilder.h

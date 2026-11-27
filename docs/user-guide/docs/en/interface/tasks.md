@@ -142,7 +142,8 @@ controls:
     default: ""
     effect: >-
       The target's thumbnail, the process's name, "on" and the target's full name, shortened in the middle when it
-      does not fit, as in `Gamma Correction on M42`. A task with no single target names the process alone.
+      does not fit, as in `Gamma Correction on M42`. A task with no single target names the process alone, after its
+      glyph, as the rail shows it.
     note: >-
       A task that holds a job, as Image Integration does, names the job on three lines instead - what holds it, its
       name and its facts - with the disk it needs at the right and the job's own buttons, such as Undo, Redo and
@@ -286,7 +287,7 @@ controls:
     kind: readout
     default: "-"
     effect: The preview's statistics, each with its change against the original under it, as `Δ +0.0123`. A color image's are the mean of its three channels' figures.
-    range: Each reads whole. Under the histogram they stand five to a row where five fit, else three over two; in a wide column they stand beside the histogram where they fit there.
+    range: They leave out the samples at either end of the range, as Image Statistics does when it opens, so a figure over no sample, as every one of a binarized preview's is, reads `-`, and so does its change. With **Preview area** on they are the whole preview's, the area's result in the image. Each reads whole. Under the histogram they stand five to a row where five fit, else three over two; in a wide column they stand beside the histogram where they fit there.
     note: While the preview is measured again, or while you drag, the values are drawn faint.
   - name: Expand the full readout over the process
     kind: toolbutton

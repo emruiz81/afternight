@@ -135,7 +135,7 @@ an::ui::ProcessStep BandingReductionProcess::describeTypedProcessStep(const Band
     }
     description += fmt::format(", Vertical Banding: {}", params.verticalBanding);
     description += process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector);
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::move(description)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::move(description)};
 }
 
 void BandingReductionProcess::resetSettings()

@@ -745,7 +745,7 @@ an::Status HistogramTransformationProcess::executeTypedProcessImpl(const an::ui:
 an::ui::ProcessStep
 HistogramTransformationProcess::describeTypedProcessStep(const HistogramTransformationParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = describeParameters(params)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = describeParameters(params)};
 }
 
 void HistogramTransformationProcess::resetSettings()

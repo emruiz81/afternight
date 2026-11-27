@@ -530,7 +530,7 @@ public:
         label_2->setText(QCoreApplication::translate("StarProfilerProcessV2", "Threshold", nullptr));
         amplitudeRangeGroupBox->setTitle(
             QCoreApplication::translate("StarProfilerProcessV2", "Amplitude Range", nullptr));
-        label_3->setText(QCoreApplication::translate("StarProfilerProcessV2", "Minumum", nullptr));
+        label_3->setText(QCoreApplication::translate("StarProfilerProcessV2", "Minimum", nullptr));
         label_4->setText(QCoreApplication::translate("StarProfilerProcessV2", "Maximum", nullptr));
         label_5->setText(QCoreApplication::translate("StarProfilerProcessV2", "Roundness Threshold", nullptr));
         roundnessRangeGroupBox->setTitle(

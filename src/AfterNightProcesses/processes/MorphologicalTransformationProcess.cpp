@@ -455,7 +455,7 @@ MorphologicalTransformationProcess::describeTypedProcessStep(const Morphological
         description += fmt::format(", Selection: {:.2f}", params.selection);
     }
     description += process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector);
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::move(description)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::move(description)};
 }
 
 bool MorphologicalTransformationProcess::isPreviewEnabled() const

@@ -103,16 +103,19 @@ TEST(ImageRegistrationProgrammaticUiTest, ConstructorDefaultsMatchContract)
     auto* settingsScrollArea = host.findChild<QScrollArea*>(QStringLiteral("settingsScrollArea"));
     ASSERT_NE(settingsScrollArea, nullptr);
     EXPECT_EQ(settingsScrollArea->minimumHeight(), 0);
-    EXPECT_EQ(settingsScrollArea->minimumWidth(), 360);
     EXPECT_EQ(settingsScrollArea->sizePolicy().verticalPolicy(), QSizePolicy::Expanding);
     ASSERT_NE(settingsScrollArea->widget(), nullptr);
     ASSERT_NE(settingsScrollArea->widget()->layout(), nullptr);
     const auto settingsMargins = settingsScrollArea->widget()->layout()->contentsMargins();
     EXPECT_EQ(settingsMargins.left(), an::ui::tokens().spacing.xs);
     EXPECT_EQ(settingsMargins.right(), settingsMargins.left());
-    EXPECT_EQ(settingsScrollArea->widget()->minimumWidth(), 0);
-    EXPECT_EQ(settingsScrollArea->widget()->sizePolicy().horizontalPolicy(), QSizePolicy::Ignored);
-    host.resize(host.minimumSize());
+    // The settings scroll up and down alone, and their column is never narrower than they need: given less, a row
+    // would lay its controls over each other.
+    EXPECT_EQ(settingsScrollArea->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    EXPECT_NE(settingsScrollArea->widget()->sizePolicy().horizontalPolicy(), QSizePolicy::Ignored);
+    EXPECT_GE(settingsScrollArea->minimumSizeHint().width(), settingsScrollArea->widget()->minimumSizeHint().width());
+    // At the least size the window and what it holds allow, the settings fit their column.
+    host.resize(host.minimumSize().expandedTo(host.layout()->minimumSize()));
     host.show();
     QApplication::processEvents();
     ASSERT_GT(settingsScrollArea->viewport()->width(), 0);

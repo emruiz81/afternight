@@ -410,8 +410,8 @@ an::ui::ProcessStep
 StarmaskRecombinationProcess::describeTypedProcessStep(const StarmaskRecombinationParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
-        .description = fmt::format("StarmaskRecombinationProcess: Image created from starless image '{}' and starmask "
+        .name = historyStepName(),
+        .description = fmt::format("Starmask Recombination: Image created from starless image '{}' and starmask "
                                    "image '{}' using operation add{}",
                                    params.starlessName.toStdString(), params.starsName.toStdString(),
                                    params.mask ? fmt::format(", through mask '{}'{}", params.maskName.toStdString(),

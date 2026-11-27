@@ -444,7 +444,7 @@ an::ui::PreviewScaling MergeCFAProcess::previewScaling() const
 an::ui::ProcessStep MergeCFAProcess::describeTypedProcessStep(const MergeCfaParams& params) const
 {
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("MergeCFA: created '{}' pattern from image channels CFA0:'{}' CFA1:'{}' CFA2:'{} "
                                    "CFA3:'{}'",
                                    params.patternText.toStdString(), params.names[0], params.names[1], params.names[2],

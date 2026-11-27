@@ -37,6 +37,7 @@ struct ResolvedReference
 ColorCalibrationProcess::ColorCalibrationProcess(ImageViewControl* control)
     : ImageProcessControl(control, getProcessNameStatic())
 {
+    setHistoryStepName("Color Calibration");
     setFixedSizeWindow(true);
 
     m_ui = an::ui::processes::buildColorCalibrationProcessUi(this);
@@ -650,7 +651,7 @@ void ColorCalibrationProcess::executeColorCalibration()
         .progressText = QString::fromStdString(fmt::format("Executing color calibration to sequence {}", targetName)),
         .errorTitle = QStringLiteral("Error running color calibration"),
         .errorLead = "An error occurred when executing the color calibration process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription =
         stepDescription(asked, white.has_value() ? white->name : std::string(),
                         white.has_value() ? white->region : QRect(), background->name, background->region);
@@ -707,8 +708,8 @@ void ColorCalibrationProcess::executeColorCalibration()
                     staged->stage(process_utils::StagedOutput{
                         .asset = std::move(*selected),
                         .name = QString::fromStdString(targetName + " - WHITE MASK"),
-                        .history =
-                            fmt::format("ColorCalibration: White reference mask image created from '{}'", targetName)});
+                        .history = fmt::format("Color Calibration: White reference mask image created from '{}'",
+                                               targetName)});
                 }
                 if (backgroundMask)
                 {
@@ -721,7 +722,7 @@ void ColorCalibrationProcess::executeColorCalibration()
                     staged->stage(process_utils::StagedOutput{
                         .asset = std::move(*selected),
                         .name = QString::fromStdString(targetName + " - BACKGROUND MASK"),
-                        .history = fmt::format("ColorCalibration: Background reference mask image created from '{}'",
+                        .history = fmt::format("Color Calibration: Background reference mask image created from '{}'",
                                                targetName)});
                 }
                 return made;

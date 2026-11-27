@@ -923,7 +923,7 @@ an::ui::ProcessStep ChannelCompositionProcess::describeTypedProcessStep(const Ch
     composition_detail::CompositionRequest named;
     named.space = params.space;
     named.names = params.names;
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description = composition_detail::compositionDescription(named)};
 }
 

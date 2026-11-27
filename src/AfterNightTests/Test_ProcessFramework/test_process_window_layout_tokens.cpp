@@ -455,8 +455,9 @@ TEST(ProcessWindowLayoutTest, MultiscaleAndGeneralizedHyperbolicUseTokenSpacing)
     EXPECT_EQ(ghHost.layout()->contentsMargins().left(), t.spacing.md);
     EXPECT_EQ(ghHost.layout()->contentsMargins().top(), t.spacing.md);
     EXPECT_EQ(ghUi.horizontalLayoutMain->spacing(), t.spacing.md);
-    EXPECT_EQ(ghUi.scrollAreaWidgetContents->minimumSize(), QSize(508, 248));
-    EXPECT_EQ(ghUi.scrollAreaWidgetContents_4->minimumSize(), QSize(508, 248));
+    // Its charts are as wide as Histogram Transformation's, which a task's wide column holds clear of its sides.
+    EXPECT_EQ(ghUi.scrollAreaWidgetContents->minimumSize(), QSize(348, 248));
+    EXPECT_EQ(ghUi.scrollAreaWidgetContents_4->minimumSize(), QSize(348, 248));
     ghHost.resize(1180, 860);
     EXPECT_GE(ghHost.width(), 1180);
     EXPECT_GE(ghHost.height(), 860);

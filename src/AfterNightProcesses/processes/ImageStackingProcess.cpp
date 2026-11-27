@@ -39,16 +39,21 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QLineEdit>
 #include <QMetaObject>
 #include <QPointer>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
+#include <QStyle>
+#include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QThreadPool>
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <stop_token>
 #include <utility>
@@ -156,6 +161,32 @@ void setComboText(QComboBox* combo, const QString& text)
                                    .filter = file.figures.filter(),
                                    .capturedAtUtc = file.figures.capturedAtUtc(),
                                    .exposureSeconds = file.figures.exposureSeconds()};
+}
+
+/// How many rows of the frames' table, and of the groups', show however little room the window or the page leaves the
+/// cards under the settings: the cards scroll rather than give a table less.
+constexpr int kFrameRowsShown = 3;
+constexpr int kGroupRowsShown = 2;
+
+/// The height a table in a scroll area of its own takes to show its header and `rows` rows beside the scroll bar it
+/// shows when its columns are wider than it.
+[[nodiscard]] int heightShowingRows(const QScrollArea& area, const QTableWidget& table, const int rows)
+{
+    const QHeaderView* const rowsHeader = table.verticalHeader();
+    const int row = (std::max)(rowsHeader->defaultSectionSize(), rowsHeader->minimumSectionSize());
+    const int scrollBar = table.style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, &table);
+    return table.horizontalHeader()->sizeHint().height() + row * rows + scrollBar + 2 * table.frameWidth() +
+           2 * area.frameWidth();
+}
+
+/// Gives the frames' and the groups' tables a height of their own: they had none, so where the page left the cards less
+/// than all they hold, the cards kept their buttons and their group boxes and no row of either table showed. Read again
+/// as the theme changes, since its density sets the rows' height.
+void keepTableHeights(const an::ui::processes::ImageStackingProcessUiElements& ui)
+{
+    ui.tableScrollArea->setMinimumHeight(heightShowingRows(*ui.tableScrollArea, *ui.tableWidget, kFrameRowsShown));
+    ui.groupTableScrollArea->setMinimumHeight(
+        heightShowingRows(*ui.groupTableScrollArea, *ui.groupTable, kGroupRowsShown));
 }
 
 } // namespace
@@ -288,6 +319,7 @@ ImageStackingProcess::ImageStackingProcess(QWidget* parent)
     m_impl->files->onImportFinished = [this](const an::ui::processes::WorkflowImportReport& report) {
         an::ui::processes::sayWorkflowImport(this, report);
     };
+    keepTableHeights(ui);
 
     resetSettings();
     initializeTopLevelProcess();
@@ -309,6 +341,7 @@ void ImageStackingProcess::refreshTheme()
     }
     m_impl->ui.tableWidget->setupSelectionColors();
     m_impl->ui.groupTable->setupSelectionColors();
+    keepTableHeights(m_impl->ui);
     if (const auto iconProvider = process_utils::currentIconProvider())
     {
         m_impl->ui.moveUpButton->setIcon(iconProvider->getIcon("up"));

@@ -17,6 +17,7 @@
 #include <AfterNightEngine/Image/ImageMetadata.h>
 #include <AfterNightEngine/Image/ImageSemantics.h>
 #include <AfterNightEngine/Image/ValidityDescriptor.h>
+#include <AfterNightEngine/Image/ValidityMask.h>
 #include <AfterNightEngine/Runtime/EngineContext.h>
 
 #include <gtest/gtest.h>
@@ -899,7 +900,7 @@ TEST(ProcessRegionTest, TheCompositePastesThePatchIntoACopyOfTheBase)
     an::Result<an::consumer::AssetReadLease> patchLease = patch->read();
     an::Result<an::consumer::ImageAsset> composite =
         an::ui::composeProcessRegion(s.session(), scope->engine(), scope->execution(), baseLease->image(),
-                                     patchLease->image(), patchLease->validity(), QPoint(3, 2));
+                                     baseLease->validity(), patchLease->image(), patchLease->validity(), QPoint(3, 2));
     ASSERT_TRUE(composite.hasValue()) << composite.status().message();
     EXPECT_FLOAT_EQ(assetSample(*composite, 3u, 2u), -1.0f);
     EXPECT_FLOAT_EQ(assetSample(*composite, 4u, 3u), -1.0f);
@@ -912,9 +913,119 @@ TEST(ProcessRegionTest, TheCompositePastesThePatchIntoACopyOfTheBase)
 
     an::Result<an::consumer::ImageAsset> overhanging =
         an::ui::composeProcessRegion(s.session(), scope->engine(), scope->execution(), baseLease->image(),
-                                     patchLease->image(), patchLease->validity(), QPoint(5, 4));
+                                     baseLease->validity(), patchLease->image(), patchLease->validity(), QPoint(5, 4));
     ASSERT_FALSE(overhanging.hasValue());
     EXPECT_EQ(overhanging.status().code(), an::ErrorCode::IncompatibleArguments);
+}
+
+namespace
+{
+
+/// A grey Float32 asset whose samples are their place, x + 10 y, and whose validity is a mask of its own that leaves
+/// out its first column.
+[[nodiscard]] std::optional<an::consumer::ImageAsset>
+greyAssetWithoutItsFirstColumn(const an::consumer::EngineSession& session, const std::uint32_t width,
+                               const std::uint32_t height)
+{
+    an::Result<an::consumer::SessionHold> hold = session.hold();
+    if (!hold.hasValue())
+    {
+        return std::nullopt;
+    }
+    const std::optional<an::ImageDescriptor> described =
+        an::tests::viewer::describeImage(hold->engine(), an::SampleType::Float32, width, height, Channels::Grey);
+    const an::Result<an::ImageSemantics> semantics = an::ImageSemantics::create(an::ImageSemanticsRequest{
+        .validity = *an::ValidityDescriptor::create({.rule = an::ValidityRule::ExplicitMask})});
+    if (!described.has_value() || !semantics.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::Image<float>> image = an::Image<float>::createFilled(
+        hold->engine(), *described, an::StorageArrangement::Planar, 0.0f,
+        an::ImageMetadata::create(an::AcquisitionMetadata{}, *semantics, an::AstrometricSolution{}, an::Provenance{},
+                                  an::CodecMetadata{}, std::nullopt));
+    an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(hold->engine(), described->extent());
+    if (!image.hasValue() || !mask.hasValue())
+    {
+        return std::nullopt;
+    }
+    {
+        std::optional<an::ImageWriteAccess<float>> access = image->write();
+        if (!access.has_value())
+        {
+            return std::nullopt;
+        }
+        for (std::uint32_t y = 0u; y < height; ++y)
+        {
+            auto row = access->view().row(0u, y);
+            if (!row.has_value())
+            {
+                return std::nullopt;
+            }
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                (*row)[x] = static_cast<float>(x + 10u * y);
+            }
+        }
+    }
+    const std::optional<an::ValidityMaskView<std::uint8_t>> bits = mask->view();
+    if (!bits.has_value())
+    {
+        return std::nullopt;
+    }
+    for (std::uint32_t y = 0u; y < height; ++y)
+    {
+        (void)bits->setValid(0u, 0u, y, false);
+    }
+    an::Result<an::consumer::ImageAsset> asset =
+        an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage(std::move(*image)), std::move(*mask));
+    return asset.hasValue() ? std::optional<an::consumer::ImageAsset>(std::move(*asset)) : std::nullopt;
+}
+
+} // namespace
+
+// The composite of a base that states its samples by a mask carries a copy of that mask - the base's bits where the
+// patch was not pasted, valid where it was - so it states what its rule names. It was adopted with no mask under a rule
+// that names one, and every measurement of it, the readout's of a preview area among them, was refused.
+TEST(ProcessRegionTest, TheCompositeOfAMaskedBaseCarriesItsMaskWithThePastedSamplesValid)
+{
+    Session s;
+    ASSERT_TRUE(s.provider.has_value());
+    std::optional<an::consumer::ImageAsset> base = greyAssetWithoutItsFirstColumn(s.session(), 6u, 5u);
+    std::optional<an::consumer::ImageAsset> patch = makeAsset<float>(
+        s.session(), 2u, 3u, Channels::Grey, [](std::uint32_t, std::uint32_t, std::uint32_t) { return -1.0f; });
+    ASSERT_TRUE(base.has_value() && patch.has_value());
+    std::optional<an::consumer::OperationScope> scope = an::tests::viewer::admitted(s.session());
+    ASSERT_TRUE(scope.has_value());
+    an::Result<an::consumer::AssetReadLease> baseLease = base->read();
+    an::Result<an::consumer::AssetReadLease> patchLease = patch->read();
+    ASSERT_TRUE(baseLease.hasValue() && patchLease.hasValue());
+    ASSERT_NE(baseLease->validity(), nullptr);
+
+    // The patch covers the first two columns of rows one to three.
+    an::Result<an::consumer::ImageAsset> composite =
+        an::ui::composeProcessRegion(s.session(), scope->engine(), scope->execution(), baseLease->image(),
+                                     baseLease->validity(), patchLease->image(), patchLease->validity(), QPoint(0, 1));
+    ASSERT_TRUE(composite.hasValue()) << composite.status().message();
+    EXPECT_FLOAT_EQ(assetSample(*composite, 0u, 1u), -1.0f);
+    EXPECT_FLOAT_EQ(assetSample(*composite, 2u, 1u), 12.0f);
+    an::Result<an::consumer::AssetReadLease> lease = composite->read();
+    ASSERT_TRUE(lease.hasValue());
+    ASSERT_NE(lease->validity(), nullptr) << "the composite's rule names a mask it does not carry";
+    const std::optional<an::ValidityMaskView<const std::uint8_t>> bits = lease->validity()->view();
+    ASSERT_TRUE(bits.has_value());
+    for (std::uint32_t y = 0u; y < 5u; ++y)
+    {
+        const bool pasted = y >= 1u && y <= 3u;
+        EXPECT_EQ(bits->test(0u, 0u, y), std::optional<bool>(pasted))
+            << "row " << y << " of the first column: the patch's where it was pasted, the base's elsewhere";
+        EXPECT_EQ(bits->test(0u, 1u, y), std::optional<bool>(true));
+        EXPECT_EQ(bits->test(0u, 5u, y), std::optional<bool>(true));
+    }
+    // The base keeps its own mask.
+    const std::optional<an::ValidityMaskView<const std::uint8_t>> baseBits = baseLease->validity()->view();
+    ASSERT_TRUE(baseBits.has_value());
+    EXPECT_EQ(baseBits->test(0u, 0u, 2u), std::optional<bool>(false));
 }
 
 TEST(ProcessRegionTest, TheBaseTakesThePatchesRepresentationAndChannels)

@@ -4,12 +4,14 @@
 #pragma once
 
 /// @file
-/// A family's process held to its page: in its column at 600 px of height, in both densities of the Observatory look,
-/// every control is in the column and reached by Tab - none left beside the preview in the canvas - Target image and
-/// Channel lead the body, no group is left empty, no button box is left among the controls (the window's buttons are
-/// the footer's) and, where the platform measures text as the interface does, nothing in the body lies past the
-/// column's side; and the same parameters applied through the page give the window's result, whether it lands in the
-/// target or in a new image.
+/// A family's process held to its page: in its column at 600 px of height and at the height a 1536 x 864 window's
+/// centre leaves, in both densities of the Observatory look, every control is in the column and reached by Tab - none
+/// left beside the preview in the canvas - Target image and Channel lead the body, no group is left empty, no button
+/// box is left among the controls (the window's buttons are the footer's), the rows lie together at the body's top with
+/// the room it has to spare under them, nothing lies past the body's end or under its footer and, where the platform
+/// measures text as the interface does, nothing in the body lies past the column's side or closer to it than the
+/// interface's smallest gap; and the same parameters applied through the page give the window's result, whether it
+/// lands in the target or in a new image.
 ///
 /// Whether nothing is clipped depends on how wide text is, and the suites' own platform draws text in a box font about
 /// twice the interface's width: there the case asserts what holds whatever the font and is reported skipped for the
@@ -35,8 +37,11 @@
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QGroupBox>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPointer>
+#include <QProgressBar>
+#include <QRect>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
@@ -46,16 +51,19 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace an::tests::processes::shared
 {
 
-/// The height a page is held to: a short window's.
+/// The height a page is held to first: a short window's, where the body scrolls under most controls. The second is the
+/// centre a 1536 x 864 window leaves, where the body has room to spare under all but the longest.
 inline constexpr int kPageCheckHeight = 600;
 
 /// Whether a widget is a control a person reaches by Tab: a button, a field, a choice, a slider or a spin box.
@@ -110,6 +118,254 @@ inline constexpr int kPageCheckHeight = 600;
     return false;
 }
 
+/// Whether a widget of a column's body is seen whole - a text, a control, a chart, a table - with nothing inside it
+/// laid out apart.
+[[nodiscard]] inline bool isSeenWhole(const QWidget& widget)
+{
+    return qobject_cast<const QLabel*>(&widget) != nullptr || isTabControl(widget) ||
+           qobject_cast<const QAbstractScrollArea*>(&widget) != nullptr ||
+           qobject_cast<const QProgressBar*>(&widget) != nullptr;
+}
+
+/// Whether a widget is a plain container, which lays out what it holds and paints nothing.
+[[nodiscard]] inline bool isPlainWidget(const QWidget& widget)
+{
+    return QString::fromLatin1(widget.metaObject()->className()) == QLatin1String("QWidget");
+}
+
+/// A widget a person sees of a column's body, and whether it scrolls inside a scroll area of the controls rather than
+/// with the body.
+struct SeenWidget
+{
+    const QWidget* widget = nullptr;
+    bool scrollsApart = false;
+};
+
+/// The widgets a person sees of what a widget holds, each whole: down from it, the first seen whole on each path, and a
+/// widget that shows nothing inside it but paints itself - a chart, a line - never a plain container, which paints
+/// nothing. A scroll area of the controls that holds a plain container of controls is looked into, what it holds
+/// scrolling apart.
+inline void collectSeen(const QWidget& at, const QWidget& content, std::vector<SeenWidget>& seen,
+                        const bool scrollsApart = false)
+{
+    for (const QObject* child : at.children())
+    {
+        const auto* const widget = qobject_cast<const QWidget*>(child);
+        if (widget == nullptr || widget->isWindow() || !widget->isVisibleTo(&content) || widget->width() <= 0 ||
+            widget->height() <= 0)
+        {
+            continue;
+        }
+        if (const auto* const area = qobject_cast<const QScrollArea*>(widget);
+            area != nullptr && area->widget() != nullptr && isPlainWidget(*area->widget()))
+        {
+            const std::size_t before = seen.size();
+            collectSeen(*area->widget(), content, seen, true);
+            if (seen.size() == before)
+            {
+                seen.push_back(SeenWidget{widget, scrollsApart});
+            }
+            continue;
+        }
+        if (isSeenWhole(*widget))
+        {
+            seen.push_back(SeenWidget{widget, scrollsApart});
+            continue;
+        }
+        const std::size_t before = seen.size();
+        collectSeen(*widget, content, seen, scrollsApart);
+        if (seen.size() == before && !isPlainWidget(*widget))
+        {
+            seen.push_back(SeenWidget{widget, scrollsApart});
+        }
+    }
+}
+
+/// What a widget shows, in the coordinates of the content it lies in: a label's text where the label's alignment sets
+/// it - a label given more height than its text holds the text in its middle - and any other widget's rectangle.
+[[nodiscard]] inline QRect shownIn(const QWidget& widget, const QWidget& content)
+{
+    const QPoint at = widget.mapTo(&content, QPoint(0, 0));
+    const auto* const label = qobject_cast<const QLabel*>(&widget);
+    if (label == nullptr || label->text().isEmpty())
+    {
+        return QRect(at, widget.size());
+    }
+    const QRect inside = label->contentsRect();
+    const int needed = label->wordWrap() ? label->heightForWidth(label->width()) : label->sizeHint().height();
+    const int text = (std::min)(inside.height(), needed);
+    const Qt::Alignment alignment = label->alignment();
+    int top = inside.top();
+    if ((alignment & Qt::AlignBottom) != 0)
+    {
+        top = inside.bottom() + 1 - text;
+    }
+    else if ((alignment & Qt::AlignTop) == 0)
+    {
+        top = inside.top() + (inside.height() - text) / 2;
+    }
+    return QRect(at.x() + inside.x(), at.y() + top, inside.width(), text);
+}
+
+/// A widget of a column as a failure names it: its object name, or its class, and its text when it says one.
+[[nodiscard]] inline QString seenName(const QWidget& widget)
+{
+    QString name =
+        widget.objectName().isEmpty() ? QString::fromLatin1(widget.metaObject()->className()) : widget.objectName();
+    QString text;
+    if (const auto* const label = qobject_cast<const QLabel*>(&widget))
+    {
+        text = label->text();
+    }
+    else if (const auto* const button = qobject_cast<const QAbstractButton*>(&widget))
+    {
+        text = button->text();
+    }
+    if (!text.isEmpty())
+    {
+        name += QStringLiteral(" \"%1\"").arg(text.left(32));
+    }
+    return name;
+}
+
+/// What a page's column shows of its rows that a person sees as laid out wrong, each said with the widgets and the
+/// pixels it is found at.
+struct ColumnRows
+{
+    /// Room between two rows that no row holds, wider than the column's parts leave: the body's spare height laid among
+    /// the rows - between a label and what it labels - rather than under them, and room under a section's header for a
+    /// title the header says.
+    QStringList bands;
+
+    /// What lies closer to the column's side than the interface's smallest gap: a row whose margin gave way whole.
+    QStringList atTheSide;
+
+    /// What lies past the body's end, where scrolling never brings it, and a footer laid over the body.
+    QStringList underTheFooter;
+};
+
+/// Whether a widget is a section's header: what a page made of a group of the controls opens and closes by it.
+[[nodiscard]] inline bool isSectionHeader(const QWidget& widget)
+{
+    return widget.objectName() == QLatin1String("anCollapsibleSectionToggle");
+}
+
+/// Whether a widget lies in a scroll area of the controls, below the body's content: it scrolls apart from the body.
+[[nodiscard]] inline bool scrollsInsideTheBody(const QWidget& widget, const QWidget& content)
+{
+    for (const QWidget* at = widget.parentWidget(); at != nullptr && at != &content; at = at->parentWidget())
+    {
+        if (qobject_cast<const QAbstractScrollArea*>(at) != nullptr)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Measures a page's column as it is shown now.
+[[nodiscard]] inline ColumnRows measureColumnRows(const an::ui::ProcessPageLayout& page)
+{
+    ColumnRows rows;
+    const an::ui::DesignTokens& t = an::ui::tokens();
+    const QWidget& content = *page.bodyContent();
+    std::vector<SeenWidget> seen;
+    collectSeen(content, content, seen);
+    // The rows that scroll with the body, top first. A group's title is a row of its own, painted by the group, and so
+    // is a checkable group's check box, which stands where a title would.
+    std::vector<std::pair<QRect, const QWidget*>> shown;
+    for (const SeenWidget& one : seen)
+    {
+        if (!one.scrollsApart)
+        {
+            shown.emplace_back(shownIn(*one.widget, content), one.widget);
+        }
+    }
+    for (const QGroupBox* group : content.findChildren<QGroupBox*>())
+    {
+        if (group->isVisibleTo(&content) && (!group->title().isEmpty() || group->isCheckable()) &&
+            !scrollsInsideTheBody(*group, content))
+        {
+            shown.emplace_back(
+                QRect(group->mapTo(&content, QPoint(0, 0)), QSize(group->width(), group->fontMetrics().height())),
+                group);
+        }
+    }
+    std::sort(shown.begin(), shown.end(),
+              [](const auto& left, const auto& right) { return left.first.top() < right.first.top(); });
+
+    // Wherever nothing is shown across the column's width, two rows lie apart. Under a section's header the room is the
+    // gap of the column's parts and a padding; between two rows, as much again; over a header, a section's padding too.
+    const int partsGap = t.metrics.pad + t.metrics.gap;
+    int lowest = -1;
+    const QWidget* lowestWidget = nullptr;
+    for (const auto& [rect, widget] : shown)
+    {
+        const int gap = rect.top() - lowest - 1;
+        if (lowestWidget != nullptr && gap > 0)
+        {
+            const bool underAHeader = isSectionHeader(*lowestWidget);
+            const bool overAHeader = isSectionHeader(*widget);
+            const int widest = underAHeader ? partsGap : (overAHeader ? 3 * partsGap : 2 * partsGap);
+            if (gap > widest)
+            {
+                const char* const where =
+                    underAHeader ? "under a section's header " : (overAHeader ? "over a header " : "");
+                rows.bands.append(QStringLiteral("%1 px %2between %3 and %4")
+                                      .arg(gap)
+                                      .arg(QString::fromLatin1(where), seenName(*lowestWidget), seenName(*widget)));
+            }
+        }
+        if (rect.bottom() > lowest)
+        {
+            lowest = rect.bottom();
+            lowestWidget = widget;
+        }
+    }
+
+    // Nothing lies closer to the column's side than the interface's smallest gap: a margin that gives way to controls a
+    // little wider than the column leaves at least that.
+    const int viewport = page.body()->viewport()->width();
+    const int least = t.spacing.xs;
+    for (const SeenWidget& one : seen)
+    {
+        const QRect whole(one.widget->mapTo(&content, QPoint(0, 0)), one.widget->size());
+        const int left = whole.left();
+        const int right = viewport - whole.right() - 1;
+        if (left < least || right < least)
+        {
+            rows.atTheSide.append(QStringLiteral("%1 at %2 px from the left and %3 px from the right")
+                                      .arg(seenName(*one.widget))
+                                      .arg(left)
+                                      .arg(right));
+        }
+    }
+
+    // Everything the body holds is where scrolling brings it, and the footer lies under the body, not over it.
+    const QWidget* const column = page.column();
+    const int bodyBottom = page.body()->mapTo(column, QPoint(0, page.body()->height())).y();
+    const int footerTop = page.footer()->mapTo(column, QPoint(0, 0)).y();
+    if (page.footer()->isVisibleTo(column) && footerTop < bodyBottom)
+    {
+        rows.underTheFooter.append(QStringLiteral("the footer's top at %1 px lies over the body, which ends at %2 px")
+                                       .arg(footerTop)
+                                       .arg(bodyBottom));
+    }
+    for (const auto& [rect, widget] : shown)
+    {
+        const QRect whole(widget->mapTo(&content, QPoint(0, 0)), widget->size());
+        if (whole.bottom() >= content.height())
+        {
+            rows.underTheFooter.append(QStringLiteral("%1 ends at %2 px, past the body's end at %3 px")
+                                           .arg(seenName(*widget))
+                                           .arg(whole.bottom() + 1)
+                                           .arg(content.height()));
+        }
+    }
+
+    return rows;
+}
+
 /// The process a launch took into a page; null when none was.
 [[nodiscard]] inline TopLevelProcessBaseControl* launchedPage(const std::string& descriptorId, ImageViewControl& target)
 {
@@ -118,7 +374,7 @@ inline constexpr int kPageCheckHeight = 600;
     return process != nullptr && process->pageLayout() != nullptr ? process : nullptr;
 }
 
-/// Holds a descriptor's page to its column at 600 px of height in both densities: a preview page, or a mirror page when
+/// Holds a descriptor's page to its column at both heights in both densities: a preview page, or a mirror page when
 /// `surface` says so. Answers whether text was measured, so the case knows whether everything it holds was asserted.
 inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewControl& target,
                                     ProcessTestContext& context,
@@ -135,11 +391,18 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
     }
     EXPECT_EQ(descriptor->surface, surface) << descriptorId << " is a page of its kind";
     const bool measured = textIsMeasured();
-    for (const ObservatoryLook* look : {&observatoryLooks()[0], &observatoryLooks()[3]})
+    // Each density at each height: a short window's, then the centre a 1536 x 864 window leaves.
+    std::vector<std::pair<int, const ObservatoryLook*>> pages;
+    for (const int height : {kPageCheckHeight, PagePresenter::kCentre.height()})
     {
-        SCOPED_TRACE(look->name);
+        pages.emplace_back(height, &observatoryLooks()[0]);
+        pages.emplace_back(height, &observatoryLooks()[3]);
+    }
+    for (const auto& [height, look] : pages)
+    {
+        SCOPED_TRACE(std::string(look->name) + ", " + std::to_string(height) + " px high");
         const ObservatoryStyleScope scope(*look);
-        PagePresenter presenter(QSize(PagePresenter::kCentre.width(), kPageCheckHeight));
+        PagePresenter presenter(QSize(PagePresenter::kCentre.width(), height));
         context.presenter = &presenter;
         TopLevelProcessBaseControl* const process = launchedPage(descriptorId, target);
         EXPECT_NE(process, nullptr) << descriptorId << " opened as a page";
@@ -277,6 +540,21 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
             }
             EXPECT_TRUE(clipped.isEmpty()) << "clipped sideways: " << clipped.join(QStringLiteral("; ")).toStdString();
             EXPECT_LE(page->footer()->minimumSizeHint().width(), page->columnWidth()) << "the footer fits its column";
+        }
+
+        // The rows lie together at the body's top, the room it has to spare under them; none lies where scrolling
+        // never brings it or under the footer; and, where text is measured, none lies closer to the column's side
+        // than the interface's smallest gap.
+        pumpQuietly();
+        pumpQuietly();
+        const ColumnRows rows = measureColumnRows(*page);
+        EXPECT_TRUE(rows.bands.isEmpty()) << "rows apart: " << rows.bands.join(QStringLiteral("; ")).toStdString();
+        EXPECT_TRUE(rows.underTheFooter.isEmpty())
+            << "out of reach: " << rows.underTheFooter.join(QStringLiteral("; ")).toStdString();
+        if (measured)
+        {
+            EXPECT_TRUE(rows.atTheSide.isEmpty())
+                << "at the column's side: " << rows.atTheSide.join(QStringLiteral("; ")).toStdString();
         }
         closeOpenedProcessWindows();
         context.presenter = nullptr;

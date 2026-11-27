@@ -295,7 +295,7 @@ void CFAIntegerResampleProcess::executeImageResample()
 
     an::ui::processes::InPlaceRunRequest request;
     request.words = words;
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [steps](const an::ui::ExecutionScope& scope, const an::ui::ProcessSource& source) {
         return an::ui::processes::transformImage(scope, source, steps, "CFA Integer Resample");

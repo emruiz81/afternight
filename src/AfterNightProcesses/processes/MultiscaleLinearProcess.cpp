@@ -1004,7 +1004,7 @@ an::Status MultiscaleLinearProcess::executeTypedProcessImpl(const an::ui::Proces
 
 an::ui::ProcessStep MultiscaleLinearProcess::describeTypedProcessStep(const MultiscaleParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = detail::describeTransform(params)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = detail::describeTransform(params)};
 }
 
 void MultiscaleLinearProcess::executeProcessStarted(const RTPreviewMode previewMode, const bool sequenceMode)
@@ -1100,6 +1100,11 @@ std::unique_ptr<an::ui::ProcessPageLayout> MultiscaleLinearProcess::makePageLayo
     // Reset Biases under the two buttons that switch every layer: the three in a row are wider than the column in a
     // font wider than the interface's.
     an::ui::processes::wrapRowUnder(*m_ui.layerTreeLayout, {m_ui.resetBiasesButton});
+
+    // The controls keep the side margins a process's controls pane has, which are the column's padding - the target's
+    // form among them: the window lays its panes against its splitter with none.
+    const an::ui::DesignTokens& t = an::ui::tokens();
+    m_ui.leftPanelLayout->setContentsMargins(t.spacing.md, t.spacing.sm, t.spacing.md, t.spacing.sm);
     return ImageRTPreviewControl::makePageLayout();
 }
 

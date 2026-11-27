@@ -13,6 +13,7 @@
 #include "controls/TopLevelProcessBaseControl.h"
 
 #include <QCoreApplication>
+#include <QFile>
 
 #include <algorithm>
 #include <functional>
@@ -25,17 +26,25 @@ namespace an::ui::shell
 namespace
 {
 
-/// The glyph of a descriptor: its own icon, else its action's, else the generic one.
+/// Whether an icon's key names one of the product's glyphs, which the rail and a task's header draw in the look's
+/// colours; an icon that is a picture in colours of its own - Hue/Saturation/Lightness's - is not one.
+[[nodiscard]] bool isGlyph(const QString& key)
+{
+    return !key.isEmpty() && QFile::exists(QStringLiteral(":/AfterNight/icons/SVG/%1.svg").arg(key));
+}
+
+/// The glyph of a descriptor: its own icon, else its action's, else the generic one; an icon that is no glyph is passed
+/// over.
 [[nodiscard]] QString glyphOf(const process_registry::ProcessDescriptor* descriptor)
 {
     if (descriptor != nullptr)
     {
-        if (!descriptor->icon_key.empty())
+        if (const QString own = QString::fromStdString(descriptor->icon_key); isGlyph(own))
         {
-            return QString::fromStdString(descriptor->icon_key);
+            return own;
         }
         if (const ActionSpec* action = ActionCatalogue::specOf(descriptor->action_object_name);
-            action != nullptr && action->iconKey[0] != '\0')
+            action != nullptr && isGlyph(QString::fromLatin1(action->iconKey)))
         {
             return QString::fromLatin1(action->iconKey);
         }

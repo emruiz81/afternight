@@ -444,7 +444,7 @@ an::Status StatisticalStretch::executeTypedProcessImpl(const an::ui::ProcessSour
 
 an::ui::ProcessStep StatisticalStretch::describeTypedProcessStep(const StatisticalStretchParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = describeParameters(params)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = describeParameters(params)};
 }
 
 void StatisticalStretch::settingsUpdatedImpl()

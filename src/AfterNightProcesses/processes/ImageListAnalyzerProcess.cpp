@@ -329,6 +329,26 @@ struct ProxyFile
     AutostretchParams stretch;
 };
 
+/// A file's name or path as the summary says it: a line may break between its parts - after an underscore, a hyphen
+/// or a folder's separator - and nowhere inside one. A capture program's name has no other place the rules of text let
+/// a line break, and the summary's narrow column would break it anywhere. The marks are the layout's alone: a copy of
+/// the summary drops them (`ImageSummaryText`).
+[[nodiscard]] QString breakableBetweenParts(const QString& text)
+{
+    QString breakable;
+    breakable.reserve(text.size() + text.size() / 4);
+    for (const QChar character : text)
+    {
+        breakable.append(character);
+        if (character == QLatin1Char('_') || character == QLatin1Char('-') || character == QLatin1Char('/') ||
+            character == QLatin1Char('\\'))
+        {
+            breakable.append(QChar(an::ui::processes::kSummaryBreakMark));
+        }
+    }
+    return breakable;
+}
+
 } // namespace
 
 struct ImageListAnalyzerProcess::Impl
@@ -1272,8 +1292,12 @@ void ImageListAnalyzerProcess::updateSummaryAndHistogram()
         m_impl->preview->showPreviewStatistics(std::nullopt);
         return;
     }
-    m_impl->ui.imageSummary->setHtml(QString::fromUtf8(getImageFullReport(
-        file->entry.descriptor, file->entry.metadata, reportFileFacts(file->path().toUtf8().toStdString()))));
+    // The file's facts are read at its path; its name and path are said free to break between their parts.
+    ReportFileFacts facts = reportFileFacts(file->path().toUtf8().toStdString());
+    facts.path = breakableBetweenParts(file->path()).toUtf8().toStdString();
+    const std::string name = breakableBetweenParts(QFileInfo(file->path()).fileName()).toUtf8().toStdString();
+    m_impl->ui.imageSummary->setHtml(
+        QString::fromUtf8(getImageFullReport(file->entry.descriptor, file->entry.metadata, facts, name)));
     queueFrameStatistics();
 }
 

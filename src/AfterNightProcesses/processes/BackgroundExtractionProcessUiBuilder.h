@@ -282,8 +282,8 @@ public:
                                         controlsPanel);
         previewCheckbox->setObjectName(QStringLiteral("previewCheckbox"));
         previewCheckbox->setChecked(true);
-        previewCheckbox->setToolTip(QCoreApplication::translate("BackgroundExtractionProcess",
-                                                                "Show or hide the real-time preview pane.", nullptr));
+        previewCheckbox->setToolTip(
+            QCoreApplication::translate("BackgroundExtractionProcess", "Show or hide the real-time preview.", nullptr));
         previewRow->addWidget(previewCheckbox);
         previewRow->addStretch(1);
 

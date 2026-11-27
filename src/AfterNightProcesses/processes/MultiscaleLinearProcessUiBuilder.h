@@ -977,8 +977,8 @@ public:
         labelChannel->setText(QCoreApplication::translate("MultiscaleLinearProcess", "Channel", nullptr));
         preview->setText(QCoreApplication::translate("MultiscaleLinearProcess", "Preview", nullptr));
 #if QT_CONFIG(tooltip)
-        previewModeComboBox->setToolTip(QCoreApplication::translate(
-            "MultiscaleLinearProcess", "Select what to show in the preview window", nullptr));
+        previewModeComboBox->setToolTip(
+            QCoreApplication::translate("MultiscaleLinearProcess", "Select what the preview shows", nullptr));
 #endif // QT_CONFIG(tooltip)
     } // retranslateUi
 };

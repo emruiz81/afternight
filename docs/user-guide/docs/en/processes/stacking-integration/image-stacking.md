@@ -282,7 +282,7 @@ controls:
     effect: Lists the files to stack, one row each, under File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA and Depth, read from each file's header. Choosing a row shows its file in the preview.
     range: Filter, ISO/Gain, Offset and Exposure read `-` when the header states none, and Exposure is in seconds. CFA reads Yes for a mosaic. Depth reads 8 bit, 16 bit, 32 bit int, 32 bit float or 64 bit float. Date is the creation time the header states, else the start of the exposure, else the time the file last changed, in UTC.
     enabled: The list is neither reordered nor changed while a run works.
-    tradeoff: The order of the rows decides nothing. The groups sort their frames by filter, session, exposure and file path, and the first of each group is the one the others are normalized to.
+    tradeoff: The order of the rows decides nothing. The groups sort their frames by filter, session, exposure and file path, and the first of each group is the one the others are normalized to. The table keeps the height of three rows, and more scroll inside it; where the page leaves the cards below the settings less room than they take, the cards scroll instead.
     persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size orders nothing. The list and its order are kept for the next task, and its files are read again when it opens.
     note: The full path of a file is its tooltip. Right-click a row for the row menu.
   - name: Add Files
@@ -373,7 +373,7 @@ controls:
     default: ""
     effect: Lists the stacks the run will make, one row each, under Group, Frames, Filter, Session, Total Exposure and Output Name. It cannot be edited.
     range: The group's name joins its filter, date and exposure, or reads All Frames with every key off. Filter and Session read Mixed when the group holds several. Total Exposure is the sum of the frames' exposures, in seconds, or `-`.
-    enabled: The task gives the table no height of its own, so its rows do not show. The run stacks every group all the same.
+    tradeoff: The table keeps the height of two rows, and more groups scroll inside it. Where the page leaves the cards below the settings less room than they take, the cards scroll instead.
     scope: It is made again when the list, a key, **Tolerance** or **Name Template** changes.
 ```
 

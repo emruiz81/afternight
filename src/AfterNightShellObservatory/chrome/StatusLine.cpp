@@ -14,8 +14,11 @@
 #include <QComboBox>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QHBoxLayout>
 #include <QPainter>
+
+#include <cmath>
 
 namespace an::ui::observatory
 {
@@ -59,8 +62,11 @@ QFont StatusText::textFont() const
 
 QSize StatusText::sizeHint() const
 {
-    const QFontMetrics metrics(textFont());
-    return {m_text.isEmpty() ? 0 : metrics.horizontalAdvance(m_text), metrics.height()};
+    // The width the glyphs take, to the next whole pixel: a whole-pixel advance rounded down is narrower than the text
+    // by a fraction of a pixel at a scale such as 150 %, and the text would be cut short where the line has room.
+    const QFont font = textFont();
+    const int width = m_text.isEmpty() ? 0 : static_cast<int>(std::ceil(QFontMetricsF(font).horizontalAdvance(m_text)));
+    return {width, QFontMetrics(font).height()};
 }
 
 QSize StatusText::minimumSizeHint() const

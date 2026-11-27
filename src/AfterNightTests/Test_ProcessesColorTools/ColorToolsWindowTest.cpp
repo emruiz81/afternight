@@ -651,7 +651,7 @@ TEST_P(ColorToolsWindowTest, EveryFrameOfASequenceIsWhatTheStillImageOfItBecomes
         EXPECT_EQ(frames[frame].digest(), stills[frame].digest()) << "frame " << frame;
     }
     ASSERT_NE(sequence->viewHistory(), nullptr);
-    EXPECT_EQ(sequence->viewHistory()->previousStepName(), under.processName);
+    EXPECT_EQ(sequence->viewHistory()->previousStepName(), under.historyStepName());
     window.reset();
     dropTargets(context(), targets);
 }
@@ -670,7 +670,7 @@ TEST_P(ColorToolsWindowTest, AnApplyIsOneHistoryStepAndTheWindowClosesOrStays)
     an::ui::IViewHistory* history = targets.target->viewHistory();
     ASSERT_NE(history, nullptr);
     ASSERT_TRUE(history->hasUndo());
-    EXPECT_EQ(history->previousStepName(), under.processName);
+    EXPECT_EQ(history->previousStepName(), under.historyStepName());
     EXPECT_EQ(window->isVisible(), !under.closesWhenShown);
     ASSERT_TRUE(history->undo());
     ASSERT_TRUE(pumpUntil([history]() { return !history->hasUndo(); }));

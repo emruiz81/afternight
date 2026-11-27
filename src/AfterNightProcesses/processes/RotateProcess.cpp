@@ -479,7 +479,7 @@ void RotateProcess::executeImageRotate()
             fmt::format("Executing rotate to sequence {}", m_image_view_control->getUniqueName())),
         .errorTitle = QStringLiteral("Error running rotate"),
         .errorLead = "An error occurred when executing the rotate process"};
-    request.stepName = getProcessName();
+    request.stepName = historyStepName();
     request.stepDescription = stepDescription(asked);
     request.operation = [steps, mosaicAsGrey](const an::ui::ExecutionScope& scope,
                                               const an::ui::ProcessSource& source) {

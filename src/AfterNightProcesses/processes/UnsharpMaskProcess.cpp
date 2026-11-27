@@ -122,7 +122,7 @@ std::uint32_t UnsharpMaskProcess::typedPreviewRegionMargin(const UnsharpMaskPara
 
 an::ui::ProcessStep UnsharpMaskProcess::describeTypedProcessStep(const UnsharpMaskParams& params) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(),
+    return an::ui::ProcessStep{.name = historyStepName(),
                                .description =
                                    fmt::format("Radius: {}, amount: {}", params.radius, params.amount) +
                                    process_utils::channelStepSuffix(m_image_view_control, m_ui.channelSelector)};

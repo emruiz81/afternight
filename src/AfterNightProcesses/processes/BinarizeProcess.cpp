@@ -283,7 +283,7 @@ an::ui::ProcessStep BinarizeProcess::describeTypedProcessStep(const BinarizePara
     {
         description = fmt::format("K: {} ", params.rgbk);
     }
-    return an::ui::ProcessStep{.name = getProcessName(), .description = std::move(description)};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = std::move(description)};
 }
 
 void BinarizeProcess::resetSettings()

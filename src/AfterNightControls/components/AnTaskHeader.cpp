@@ -15,6 +15,7 @@
 #include <QEvent>
 #include <QFontMetrics>
 #include <QHelpEvent>
+#include <QIcon>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
@@ -154,6 +155,9 @@ struct AnTaskHeader::Impl
     /// The thumbnail shown under Night in its Night form, made off the GUI thread.
     NightPicture picture;
     qint64 pictureKey = 0;
+    /// The process's glyph, drawn on a tile while there is no picture, and its icon.
+    QString glyphKey;
+    QIcon glyph;
     QString processName;
     QString targetName;
     State state = State::None;
@@ -450,6 +454,23 @@ void AnTaskHeader::setThumbnail(const QImage& thumbnail)
 QImage AnTaskHeader::thumbnail() const
 {
     return m_impl->thumbnail;
+}
+
+void AnTaskHeader::setGlyphKey(const QString& key)
+{
+    if (key == m_impl->glyphKey)
+    {
+        return;
+    }
+    m_impl->glyphKey = key;
+    // The product's icon of the key; the header draws it in its own colour, as the rail does.
+    m_impl->glyph = key.isEmpty() ? QIcon() : QIcon(QStringLiteral(":/AfterNight/icons/SVG/%1.svg").arg(key));
+    update();
+}
+
+QString AnTaskHeader::glyphKey() const
+{
+    return m_impl->glyphKey;
 }
 
 void AnTaskHeader::setProcessName(const QString& name)
@@ -785,16 +806,26 @@ void AnTaskHeader::paintEvent(QPaintEvent* /*event*/)
     int x = parts::kTaskHeaderPaddingStart;
     const int middle = height() / 2;
 
-    // The target's thumbnail: its picture, or the well's colour while there is none.
+    // The target's thumbnail: its picture; with none - a task with no target image, or one whose thumbnail is not made
+    // yet - the process's glyph on a tile, as the rail draws such a task.
     const QRectF thumb(x, middle - parts::kTaskHeaderThumbnail / 2.0, parts::kTaskHeaderThumbnail,
                        parts::kTaskHeaderThumbnail);
     QPainterPath frame;
     frame.addRoundedRect(thumb, parts::kTaskHeaderThumbnailRadius, parts::kTaskHeaderThumbnailRadius);
     painter.save();
     painter.setClipPath(frame);
-    painter.fillPath(frame, t.colors.bgWell);
-    if (!m_impl->picture.isNull())
+    if (m_impl->picture.isNull())
     {
+        painter.fillPath(frame, t.layers.surface3);
+        const qreal glyph = parts::kTaskHeaderTileGlyph;
+        const QPointF centre = thumb.center();
+        parts::paintIcon(painter, m_impl->glyph,
+                         QRectF(centre.x() - glyph / 2.0, centre.y() - glyph / 2.0, glyph, glyph),
+                         t.colors.textPrimary);
+    }
+    else
+    {
+        painter.fillPath(frame, t.colors.bgWell);
         // Under Night the picture is shown in its Night form; its place keeps the well's colour until that is made.
         const QPixmap shown = m_impl->picture.shown(this, [this]() { update(); });
         if (!shown.isNull())

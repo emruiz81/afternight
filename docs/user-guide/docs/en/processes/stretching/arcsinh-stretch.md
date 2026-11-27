@@ -85,7 +85,7 @@ caption: >-
    channels equally. The preview shows the difference in strongly colored regions.
 6. **Check the preview at 100 %.** Zoom the canvas into the faint areas and the brightest colored stars, and hold
    ++space++ over it to compare with the original. **Clipping High** tells how many samples reached 1.
-7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The image in its view is the stretched one, its history lists `ArcSinhStretch` with
+7. **Apply.** Choose **Apply** in the column's footer, or press ++ctrl+enter++. The view shows the stretched image, its history lists `ArcSinh Stretch` with
    the three values, and the controls return to their defaults.
 
 ## Controls
@@ -184,7 +184,7 @@ controls:
     effect: Stretches the image, or every frame of the sequence, with the three values as they are when you press it, and then returns the controls to their defaults.
     enabled: When **Stretch Factor** or **Black Point** is above 0. It is disabled when the task opens, and **Cancel** takes its place while a run works.
     scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
-    persistence: The image and its history keep the result. The history step is `ArcSinhStretch` and reads, for example, `Stretch 50, Black Point 0.001, Human Weight true`. It does not record the toolbar's choices or the mask.
+    persistence: The image and its history keep the result. The history step is `ArcSinh Stretch` and reads, for example, `Stretch 50, Black Point 0.001, Human Weight true`. It does not record the toolbar's choices or the mask.
     note: Closing the task instead discards the values. The task has no presets, and nothing of it is saved between sessions.
 ```
 

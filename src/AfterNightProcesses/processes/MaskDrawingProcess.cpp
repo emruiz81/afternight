@@ -63,7 +63,7 @@ MaskDrawingProcess::MaskDrawingProcess(ImageViewControl* control)
 {
     m_ui = an::ui::processes::buildMaskDrawingProcessUi(this);
     setProcessDescription(
-        QStringLiteral("Paint a grayscale mask directly on the RT preview pane and create it as a new mask image."));
+        QStringLiteral("Paint a grayscale mask directly on the canvas and create it as a new mask image."));
 
     initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.previewLayout, m_ui.preview, m_ui.buttonBox,
                               m_ui.targetImageSelector, nullptr, false, false);
@@ -393,7 +393,7 @@ an::Status MaskDrawingProcess::executeTypedProcessImpl(const an::ui::ProcessSour
 
 an::ui::ProcessStep MaskDrawingProcess::describeTypedProcessStep(const MaskDrawingProcessParams&) const
 {
-    return an::ui::ProcessStep{.name = getProcessName(), .description = "Create painted grayscale mask"};
+    return an::ui::ProcessStep{.name = historyStepName(), .description = "Create painted grayscale mask"};
 }
 
 MaskDrawingProcessParams MaskDrawingProcess::getParams() const

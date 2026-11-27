@@ -492,7 +492,7 @@ an::ui::ProcessStep NBRGBCombinationProcess::describeTypedProcessStep(const NBRG
         }
     }
     return an::ui::ProcessStep{
-        .name = getProcessName(),
+        .name = historyStepName(),
         .description = fmt::format("Created NBRGB combination from RGB ({:.1f} nm) and narrowband channels {}; fit "
                                    "{:.3f} to {:.3f}{}",
                                    params.engine.broadbandBandwidthNanometres, channels, params.engine.fitLow,
