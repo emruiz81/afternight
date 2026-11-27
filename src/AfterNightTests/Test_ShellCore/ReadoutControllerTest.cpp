@@ -604,6 +604,68 @@ TEST_F(ReadoutController, InATaskItMeasuresSettledFramesAgainstTheOriginal)
     EXPECT_EQ(readout.followedView(), target);
 }
 
+// A measurement refused while an older one is still on its way is tried again by itself: the older one was superseded
+// by it, lands discarded and answers nothing. Over a large master a task's next settled frame was measured while the
+// measurement of the frame before held the session's preview threads; it was refused, the older one then landed
+// discarded, and the compact readout stayed empty for good - Median Filter's and Non-Local Bayes's, the preview area
+// on. Which of the two lands first is the workers' to decide, so the frames are shown until a refusal has been seen;
+// every round must end with the last frame's figures.
+TEST_F(ReadoutController, InATaskARefusalBehindASupersededMeasurementIsTriedAgain)
+{
+    ImageViewControl* target = filledView(QStringLiteral("target"), 0.25f);
+    ASSERT_NE(target, nullptr);
+    an::ui::shell::ReadoutController& readout = controller();
+    ASSERT_TRUE(publishedAtLeast(1u));
+    Frames frames;
+    frames.setOriginal(filledAsset(session(), 0.25f), target);
+    readout.followTask(&frames);
+    // The controller follows the frames no more once the case ends, however it ends, before they go.
+    struct Unfollow
+    {
+        an::ui::shell::ReadoutController& readout;
+        ~Unfollow()
+        {
+            readout.followTask(nullptr);
+        }
+    } const unfollow{readout};
+    frames.show(filledAsset(session(), 0.5f), false);
+    ASSERT_TRUE(publishedAtLeast(2u)) << "the original is measured with the first frame, and kept";
+
+    // A frame whose counts and figures take the session's preview threads for a while.
+    std::optional<an::consumer::ImageAsset> made = assetOf<float>(
+        session(), 3072u, 2048u, 3u, [](const std::uint32_t x, const std::uint32_t y, const std::uint32_t channel) {
+            return static_cast<float>((x * 7u + y * 13u + channel * 101u) % 1000u) / 1000.0f;
+        });
+    ASSERT_TRUE(made.has_value());
+    const auto large = std::make_shared<const an::consumer::ImageAsset>(std::move(*made));
+
+    const std::uint64_t refusedBefore = readout.telemetry().refused;
+    bool refusedBehind = false;
+    for (int round = 0; round < 6 && !refusedBehind; ++round)
+    {
+        SCOPED_TRACE(round);
+        const an::ui::shell::ReadoutTelemetry before = readout.telemetry();
+        frames.show(large, false);
+        readout.updateNow();
+        // Past its lease and its admission, its counts begun: the next frame is measured at once.
+        ASSERT_TRUE(
+            pumpUntil([&readout, &before]() { return readout.telemetry().engineCalls >= before.engineCalls + 3u; }));
+        const float value = 0.125f + 0.0625f * static_cast<float>(round);
+        frames.show(filledAsset(session(), value), false);
+        readout.updateNow();
+        ASSERT_TRUE(publishedAtLeast(before.published + 1u))
+            << "the last frame's figures never landed: its refused measurement was not tried again";
+        ASSERT_TRUE(readout.shownFigures().has_value());
+        EXPECT_DOUBLE_EQ(readout.shownFigures()->channels[0].mean, static_cast<double>(value));
+        EXPECT_FALSE(readout.isStale());
+        refusedBehind = readout.telemetry().refused > refusedBefore;
+    }
+    if (!refusedBehind)
+    {
+        GTEST_SKIP() << "every measurement was admitted: no refusal stood behind a superseded measurement";
+    }
+}
+
 // The Statistics card's figures equal the statistics window's for the same image, at each of the card's three ranges.
 TEST_F(StatisticsCard, FiguresEqualTheStatisticsWindowsForTheSameImageAndRange)
 {

@@ -2031,7 +2031,11 @@ admission and one lease answer for both, which is why the readout counts with `c
 than through a `HistogramCountScheduler`, whose counts wait in the admission queue. A refusal is tried again by itself -
 after 150 ms, then twice as long each time up to 600 ms (`kRetryLongest`) - and not left for the next change: an image
 just opened is refused while the view's own work runs and nothing changes after it, so the readout stayed empty until
-the person did something. The clipped samples are
+the person did something. Nor is it left for a measurement still on its way: a refusal that lands still commits, so it
+is the latest measurement asked for, and one on its way is older, superseded by it, and lands discarded. Over a large
+master a task's next settled frame was measured while the measurement of the frame before held the preview threads,
+was refused, and the compact readout of Median Filter and Non-Local Bayes, their preview area on, stayed empty for good
+(`ReadoutController.InATaskARefusalBehindASupersededMeasurementIsTriedAgain`). The clipped samples are
 left out as the statistics window leaves them out when it opens, so the six figures the card shows are the window's
 for the same image and range; a channel left with no sample - every one at an end, as a binarized image's are - has no
 figure, written "-" (`readoutFigure`), where the window writes zero beside its count of none. What lands is shown only when its `CommitTicket` still commits: a view closed or left

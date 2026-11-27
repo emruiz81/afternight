@@ -493,11 +493,13 @@ struct ReadoutController::Impl
         ++telemetry.published;
     }
 
-    /// Tries a refused measurement again a while later, unless an update or another measurement is on its way: first
-    /// after `kDebounce`, then twice as long each time up to `kRetryLongest`, so a long run is asked little.
+    /// Tries a refused measurement again a while later, unless an update is on its way: first after `kDebounce`, then
+    /// twice as long each time up to `kRetryLongest`, so a long run is asked little. A refusal that lands still
+    /// commits, so it is the latest measurement asked for: one still on its way is older, superseded by it, and lands
+    /// discarded, so waiting for it left the readout empty for good.
     void retryLater()
     {
-        if (debounce.isActive() || inFlight > 0u)
+        if (debounce.isActive())
         {
             return;
         }
