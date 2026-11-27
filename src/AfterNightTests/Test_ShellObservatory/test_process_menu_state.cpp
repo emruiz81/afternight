@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-
 #include "app/ProcessMenuState.h"
 
 namespace

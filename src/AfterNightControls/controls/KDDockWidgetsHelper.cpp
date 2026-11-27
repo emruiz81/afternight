@@ -39,7 +39,6 @@
 namespace
 {
 
-
 /// What follows a view's name in its title while its image has unsaved changes.
 constexpr QStringView kUnsavedMark = u" *";
 

@@ -67,7 +67,6 @@ public:
     [[nodiscard]] int pixelMetric(PixelMetric metric, const QStyleOption* option = nullptr,
                                   const QWidget* widget = nullptr) const override;
 
-
     [[nodiscard]] QRect subElementRect(SubElement element, const QStyleOption* option,
                                        const QWidget* widget = nullptr) const override;
 
