@@ -1,4 +1,4 @@
-version 1.7.0 4
+version 1.7.1 4
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -2233,7 +2233,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h 7bfa650906d18dde
+header engine Core/Version.h 31cf48574061628a
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
@@ -2307,7 +2307,7 @@ header engine Image/RawCameraMetadata.h dcc120f281fded75
 header engine Image/RawFrame.h 1b30bca8fae7438c
 header engine Image/RawSampleFormat.h 69993790cceeb295
 header engine Image/SampleBuffer.h 29a0d9518f638d62
-header engine Image/SampleConversion.h 9852dcef1e5f9b8f
+header engine Image/SampleConversion.h 973bbb3d89ca8a2c
 header engine Image/SampleTraits.h 681dca658fad91b5
 header engine Image/SampleType.h 52337cbdba30576d
 header engine Image/SkyCoordinate.h 63924fff2c2d111b

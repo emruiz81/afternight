@@ -308,16 +308,23 @@ template <ResidentSample SourceT, ResidentSample DestT>
             }
         }
 
+        // A double destination holds every real this body reaches, all of them finite, so it has nothing to clamp.
+        // Its clamp would assign the double's own extremes on a branch no sample takes, and a compiler that threads
+        // that constant into a caller's narrowing cast - a double converted here and then stored as a float - reports
+        // the cast's overflow as an error of the build.
         bool saturated = false;
-        if (real < kSampleMinimumOf<DestT>)
+        if constexpr (!std::is_same_v<DestT, double>)
         {
-            real = kSampleMinimumOf<DestT>;
-            saturated = true;
-        }
-        else if (real > kSampleMaximumOf<DestT>)
-        {
-            real = kSampleMaximumOf<DestT>;
-            saturated = true;
+            if (real < kSampleMinimumOf<DestT>)
+            {
+                real = kSampleMinimumOf<DestT>;
+                saturated = true;
+            }
+            else if (real > kSampleMaximumOf<DestT>)
+            {
+                real = kSampleMaximumOf<DestT>;
+                saturated = true;
+            }
         }
 
         if constexpr (!kDestIsFloating)
