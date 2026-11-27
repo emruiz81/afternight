@@ -9,6 +9,7 @@
 #include "stdafx.hpp"
 #include "NBColorMapperProcess.h"
 
+#include "components/AnFoldingGridLayout.h"
 #include "controls/ImageSelectorTooltipBuilder.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessButtonIcons.h"
@@ -325,6 +326,12 @@ std::unique_ptr<an::ui::ProcessPageLayout> NBColorMapperProcess::makePageLayout(
             paneLayout->insertWidget(place, m_ui.controlsContents, 1);
             m_ui.controlsContents->show();
         }
+    }
+    // The output's options two to a row where the column holds them; a font that draws a row wider than the column
+    // stands its second option under its first.
+    if (auto* const options = qobject_cast<QGridLayout*>(m_ui.outputOptionsGroup->layout()); options != nullptr)
+    {
+        an::ui::foldWhereItDoesNotFit(*options, 2);
     }
     return ImageRTPreviewControl::makePageLayout();
 }

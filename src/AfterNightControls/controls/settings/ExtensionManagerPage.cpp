@@ -13,6 +13,7 @@
 #include "components/AnCardWidget.h"
 #include "components/AnInfoBanner.h"
 #include "components/AnLayoutUtils.h"
+#include "components/AnSideBySideLayout.h"
 #include "components/AnStatusBadge.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
@@ -4633,6 +4634,13 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
     layout->setSpacing(t.spacing.sm);
     applyFlushMargins(layout);
 
+    // The name and its badges, and the actions at the right where the card holds them beside the name; a font that
+    // draws them wider than the card stands the actions under the name.
+    auto* head_row = new an::ui::AnSideBySideLayout();
+    head_row->setObjectName(fieldObjectName(entry.id, "headLayout"));
+    head_row->setSpacing(t.spacing.sm);
+    applyFlushMargins(head_row);
+
     auto* title_row = new QHBoxLayout();
     title_row->setObjectName(fieldObjectName(entry.id, "titleLayout"));
     title_row->setSpacing(t.spacing.sm);
@@ -4726,8 +4734,9 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
     actions_layout->addWidget(details_button);
     m_DetailButtons.push_back(details_button);
 
-    title_row->addLayout(actions_layout);
-    layout->addLayout(title_row);
+    head_row->addLayout(title_row, 1);
+    head_row->addLayout(actions_layout);
+    layout->addLayout(head_row);
 
     auto* summary_label = new QLabel(extensionSummaryText(entry), card->contentWidget());
     summary_label->setObjectName(fieldObjectName(entry.id, "summary"));

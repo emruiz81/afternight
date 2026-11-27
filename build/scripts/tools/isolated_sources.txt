@@ -2003,6 +2003,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/controls/drawing/DrawingDocument.cpp
     unit     src/AfterNightControls/controls/drawing/DrawingEditQueue.cpp
     unit     src/AfterNightControls/controls/drawing/DrawingToolbar.cpp
+    unit     src/AfterNightControls/components/AnSideBySideLayout.cpp
     unit     src/AfterNightControls/controls/drawing/ShapeEngine.cpp
     unit     src/AfterNightControls/session/CommitTicket.cpp
     unit     src/AfterNightControls/session/DerivedResultKey.cpp
@@ -2146,6 +2147,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/drawing/DrawingDocument.h
     header   src/AfterNightControls/controls/drawing/DrawingEditQueue.h
     header   src/AfterNightControls/controls/drawing/DrawingToolbar.h
+    header   src/AfterNightControls/components/AnSideBySideLayout.h
     header   src/AfterNightControls/controls/drawing/DrawingTypes.h
     header   src/AfterNightControls/controls/drawing/ShapeEngine.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
@@ -3476,6 +3478,8 @@ sources Test_Widgets
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
     unit     src/AfterNightTests/Test_Widgets/AnWindowHeadingTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnFoldingGridLayoutTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnSideBySideLayoutTest.cpp
     header   src/AfterNightControls/components/AnAstrometryCard.h
     header   src/AfterNightControls/components/AnActionButton.h
     header   src/AfterNightControls/components/AnFloatingToolbar.h
@@ -3504,6 +3508,8 @@ sources Test_Widgets
     header   src/AfterNightControls/components/AnKeyHint.h
     header   src/AfterNightControls/components/AnLabeledField.h
     header   src/AfterNightControls/components/AnSegmentedControl.h
+    header   src/AfterNightControls/components/AnFoldingGridLayout.h
+    header   src/AfterNightControls/components/AnSideBySideLayout.h
     header   src/AfterNightControls/components/AnSnackbar.h
     header   src/AfterNightControls/components/AnStageList.h
     header   src/AfterNightControls/components/AnSwitch.h

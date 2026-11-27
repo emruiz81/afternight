@@ -18,6 +18,7 @@
 #include "controls/ProcessPageLayout.h"
 #include "controls/ViewChrome.h"
 #include "widgets/ImageViewWidget.h"
+#include "theme/AnDesignTokens.h"
 #include "theme/AnimationUtils.h"
 
 #include <QAction>
@@ -433,6 +434,74 @@ TEST(ProcessPageLayout, AFieldStatedWiderThanItNeedsGivesWayInANarrowColumn)
         EXPECT_LE(spin->mapTo(page->bodyContent(), QPoint(spin->width(), 0)).x(), page->body()->viewport()->width())
             << "a field lies past the column";
     }
+    process.reset();
+}
+
+// A combo box the column gives less than its longest item elides it, and then needs the room of its elided item and no
+// more: Qt keeps the least it measured with its items - here asked for before the page is shown, as a layout asks - and
+// that least would have held the controls as wide as the item.
+TEST(ProcessPageLayout, AnElidedComboBoxNeedsNoMoreRoomThanItsElidedItem)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{.groups = 1});
+    auto* const group = process->findChild<QGroupBox*>(QStringLiteral("group1"));
+    ASSERT_NE(group, nullptr);
+    ASSERT_NE(group->layout(), nullptr);
+    auto* const combo = new QComboBox(group);
+    combo->addItem(QStringLiteral("A choice whose text runs far wider than the column it is chosen in, by a long way"));
+    const int longest = combo->minimumSizeHint().width();
+    group->layout()->addWidget(combo);
+    process->show();
+    pumpQuietly();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    const int column = page->body()->viewport()->width();
+    ASSERT_GT(longest, column) << "the item fits the column: the case shows nothing";
+    EXPECT_EQ(combo->sizeAdjustPolicy(), QComboBox::AdjustToMinimumContentsLengthWithIcon) << "the box elides its item";
+    EXPECT_LE(page->bodyContent()->minimumSizeHint().width(), column) << "the controls are wider than the column";
+    EXPECT_GE(combo->width(), combo->sizeHint().width()) << "the box is narrower than its elided item";
+    EXPECT_LE(combo->mapTo(page->bodyContent(), QPoint(combo->width(), 0)).x(), column)
+        << "the box lies past the column";
+    process.reset();
+}
+
+// A field stated wider than it needs - a line edit, as a spin box - gives way to what it needs before the controls'
+// margins fall under the interface's smallest gap: stated two pixels short of what the column holds without them, the
+// margins alone would leave a pixel at each side, and a font whose text runs wider than the interface's (DejaVu)
+// brought a page's rows there.
+TEST(ProcessPageLayout, AFieldGivesWayBeforeTheControlsMarginsFallUnderTheSmallestGap)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{.groups = 1});
+    auto* const group = process->findChild<QGroupBox*>(QStringLiteral("group1"));
+    ASSERT_NE(group, nullptr);
+    ASSERT_NE(group->layout(), nullptr);
+    auto* const field = new QLineEdit(group);
+    group->layout()->addWidget(field);
+    process->show();
+    pumpQuietly();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    const int column = page->body()->viewport()->width();
+    const int margin = group->parentWidget()->layout()->contentsMargins().left();
+    const int inner = field->mapTo(page->bodyContent(), QPoint(0, 0)).x() - margin;
+    ASSERT_GT(margin, 0) << "the controls have no margins to give way";
+
+    field->setMinimumWidth(column - 2 * inner - 2);
+    field->updateGeometry();
+    pumpQuietly();
+    pumpQuietly();
+    const int smallest = an::ui::tokens().spacing.xs;
+    EXPECT_EQ(field->minimumWidth(), field->minimumSizeHint().width()) << "the field keeps the width it is stated";
+    const QPoint at = group->mapTo(page->bodyContent(), QPoint(0, 0));
+    EXPECT_GE(at.x(), smallest) << "the controls lie closer to the column's side than the smallest gap";
+    EXPECT_GE(column - at.x() - group->width(), smallest) << "and at the other side";
     process.reset();
 }
 

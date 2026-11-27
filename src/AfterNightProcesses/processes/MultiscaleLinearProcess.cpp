@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "MultiscaleLinearProcess.h"
+#include "components/AnSideBySideLayout.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "processes/PointwiseProcessUtils.h"
@@ -1071,6 +1072,9 @@ std::unique_ptr<an::ui::ProcessPageLayout> MultiscaleLinearProcess::makePageLayo
                                        m_ui.layerInspectorGroup);
     m_ui.layerHeaderLayout->removeWidget(m_ui.layerNameLabel);
     m_ui.layerInspectorLayout->insertWidget(0, m_ui.layerNameLabel);
+    // Its switch and its two buttons side by side where the column holds them; a font that draws them wider stands them
+    // one under another.
+    an::ui::standSideBySideWhereItFits(*m_ui.layerHeaderLayout);
 
     // The global settings without the scroll area the window gives them, and without the least size it sets for its
     // wider pane: the page's body scrolls, and a column never scrolls sideways.

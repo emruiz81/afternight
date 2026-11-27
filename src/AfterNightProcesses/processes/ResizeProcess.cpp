@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "ResizeProcess.h"
+#include "components/AnFoldingGridLayout.h"
 #include "controls/ProcessButtonIcons.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ImageViewControl.h"
@@ -119,6 +120,12 @@ std::unique_ptr<an::ui::ProcessPageLayout> ResizeProcess::makePageLayout()
         if (auto* const column = qobject_cast<QBoxLayout*>(layout()))
         {
             an::ui::processes::wrapRowUnder(*column, {m_ui.newSizeLbl, m_ui.newSize});
+        }
+        // The sizes under their headings beside Width and Height where the column holds them; a font that draws them
+        // wider than the column stands each of Width and Height over its fields.
+        if (auto* const sizes = findChild<QGridLayout*>(QStringLiteral("gridLayout")); sizes != nullptr)
+        {
+            an::ui::foldWhereItDoesNotFit(*sizes, 1);
         }
     }
     return ImageProcessControl::makePageLayout();

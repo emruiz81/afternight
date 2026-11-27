@@ -652,7 +652,11 @@ TEST(ProxyStyleObservatory, AComboBoxsListShowsEveryItemWhole)
                     }
                     else
                     {
-                        EXPECT_GE(first, place.left() + textLeft) << items[row].toStdString();
+                        // A glyph whose ink starts left of its pen - DejaVu's "T" - marks the pixel before the text's
+                        // place: the row is where it should be, and the font draws there.
+                        const int bearing =
+                            static_cast<int>(std::floor((std::min)(metrics.leftBearing(items[row].front()), 0.0)));
+                        EXPECT_GE(first, place.left() + textLeft + bearing) << items[row].toStdString();
                         EXPECT_LE(first, place.left() + textLeft + 3)
                             << items[row].toStdString() << " starts " << first - place.left() << " px into its row";
                     }

@@ -2494,7 +2494,14 @@ palette's field 240 px and an icon under 1100; Project Home's image columns then
 the name keeping 96 px, and its storage buttons lie one over the other. Under 820 px of height the readout's Image card
 starts folded, and under 720 the Astrometry card too, until a person's own folds are kept. In a column narrower than
 its longest item a process's combo box elides its chosen item, its list showing each whole; the readout's plot
-resolution goes under the tools; a page's canvas view takes a small preview's least (240 x 180). At 1920 x 1080 and
+resolution goes under the tools; a page's canvas view takes a small preview's least (240 x 180). A font that draws text
+wider than the design's - DejaVu Sans, which a Linux without Noto falls back to - grows no column either: a page's side
+margins give way down to the smallest gap and then its fields do, a field a builder stated wider than it needs taking
+its own least and a combo box eliding where that narrows it; and the rows and grids such a font draws wider than their
+column stand one part under another where they do not fit beside it (`AnSideBySideLayout`, `AnFoldingGridLayout`) -
+Image Integration's run sheet foot, whose list then scrolls its rows, Rotate's angle, Multiscale Linear Transform's
+layer header, Pixel Math's options and formats, NB Color Mapper's output options, Resize's sizes, the drawing toolbar's
+file buttons and an extension's card. At 1920 x 1080 and
 1536 x 864 nothing scrolls but a task's body - Home may scroll down at 1536 x 864, at the maintainer's word - and a
 full page fits the centre: Image Integration Lite and Image List Analyzer read across two columns on their pages
 (Lite's dataset over its frames beside its setup over its settings; the Analyzer's images beside the image chosen),

@@ -36,6 +36,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
@@ -58,6 +59,12 @@ namespace an::ui
 
 namespace
 {
+
+/// Set on a combo box the body elided: it takes the room its elided item needs.
+constexpr const char* kElidedComboProperty = "anPageComboElided";
+
+/// Set on a combo box whose items are shorter than an elided box: it keeps them whole and is not elided.
+constexpr const char* kWholeComboProperty = "anPageComboWhole";
 
 [[nodiscard]] QString translated(const char* text)
 {
@@ -1516,7 +1523,8 @@ struct ProcessPageLayout::Impl : public QObject
         }
     }
 
-    /// The controls' side margins give way when the controls would be wider than the body.
+    /// The controls' side margins give way when the controls would be wider than the body, down to the interface's
+    /// smallest gap; past it the controls give way themselves.
     void bodyResized()
     {
         if (controlsLayout == nullptr || fitting)
@@ -1533,36 +1541,72 @@ struct ProcessPageLayout::Impl : public QObject
         {
             controlsLayout->setContentsMargins(side, current.top(), side, current.bottom());
         }
+        // Whether the controls leave less than the smallest gap at the column's sides: their margins have given way as
+        // far as they may.
+        const bool tooWide = least > available - 2 * tokens().spacing.xs;
         // A combo box the body gives less than its longest item - a narrow column's - elides its chosen one, its list
-        // showing each whole, and takes its row's rest.
+        // showing each whole, and takes its row's rest; so does every one where the controls are too wide, unless its
+        // items are shorter than an elided box would be.
         if (available > 0 && body->widget() != nullptr)
         {
             bool elided = false;
             for (QComboBox* const combo : body->widget()->findChildren<QComboBox*>())
             {
+                const bool shown = combo->isVisibleTo(body);
                 const QComboBox::SizeAdjustPolicy policy = combo->sizeAdjustPolicy();
-                const bool squeezed =
-                    combo->isVisibleTo(body) && combo->width() > 0 && combo->width() < combo->sizeHint().width();
+                const bool squeezed = shown && combo->width() > 0 && combo->width() < combo->sizeHint().width();
                 if ((policy == QComboBox::AdjustToContents || policy == QComboBox::AdjustToContentsOnFirstShow) &&
-                    (squeezed || (least > available && combo->sizeHint().width() > available * 2 / 3)))
+                    (squeezed || (shown && tooWide && !combo->property(kWholeComboProperty).toBool())))
                 {
+                    const int whole = combo->sizeHint().width();
+                    const int length = combo->minimumContentsLength();
                     combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
                     combo->setMinimumContentsLength(parts::kPageComboLeastCharacters);
+                    if (!squeezed && combo->sizeHint().width() >= whole)
+                    {
+                        combo->setMinimumContentsLength(length);
+                        combo->setSizeAdjustPolicy(policy);
+                        combo->setProperty(kWholeComboProperty, true);
+                        continue;
+                    }
                     QSizePolicy sizing = combo->sizePolicy();
                     sizing.setHorizontalPolicy(QSizePolicy::Expanding);
                     combo->setSizePolicy(sizing);
+                    combo->setProperty(kElidedComboProperty, true);
                     elided = true;
                 }
-            }
-            // A spin box stated wider than it needs - a process's builder states its least width in pixels; its own is
-            // its widest value's - gives way to what it needs where the controls are wider than the body even without
-            // their side margins.
-            if (least > available)
-            {
-                for (QAbstractSpinBox* const field : body->widget()->findChildren<QAbstractSpinBox*>())
+                // An elided box needs the room of its elided item and no more. Qt keeps the least it measured before
+                // the box elided - its longest item's, once it had its items - which would hold the row as wide as
+                // before; a least its builder stated holds where it is the smaller.
+                if (combo->property(kElidedComboProperty).toBool())
                 {
-                    const int needs = field->minimumSizeHint().width();
-                    if (field->isVisibleTo(body) && needs > 0 && field->minimumWidth() > needs)
+                    const int shows = combo->sizeHint().width();
+                    const int least =
+                        combo->minimumWidth() > 0 ? combo->minimumWidth() : combo->minimumSizeHint().width();
+                    if (least > shows)
+                    {
+                        combo->setMinimumWidth(shows);
+                        elided = true;
+                    }
+                }
+            }
+            // A field stated wider than it needs - a process's builder states its least width in pixels; a spin box's
+            // own is its widest value's, a line edit's a few characters', a combo box's its item's - gives way to what
+            // it needs where the controls are too wide.
+            if (tooWide)
+            {
+                for (QWidget* const field : body->widget()->findChildren<QWidget*>())
+                {
+                    int needs = 0;
+                    if (qobject_cast<QAbstractSpinBox*>(field) != nullptr || qobject_cast<QLineEdit*>(field) != nullptr)
+                    {
+                        needs = field->minimumSizeHint().width();
+                    }
+                    else if (const auto* const combo = qobject_cast<QComboBox*>(field); combo != nullptr)
+                    {
+                        needs = combo->sizeHint().width();
+                    }
+                    if (needs > 0 && field->isVisibleTo(body) && field->minimumWidth() > needs)
                     {
                         field->setMinimumWidth(needs);
                         elided = true;

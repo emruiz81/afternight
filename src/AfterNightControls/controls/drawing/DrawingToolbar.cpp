@@ -4,6 +4,7 @@
 #include "stdafx.hpp"
 #include "controls/drawing/DrawingToolbar.h"
 
+#include "components/AnSideBySideLayout.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QButtonGroup>
@@ -248,7 +249,9 @@ DrawingToolbar::DrawingToolbar(QWidget* parent) : QWidget(parent)
     mainLayout->addWidget(m_previewGroupBox);
 
     m_fileGroupBox = new QGroupBox(tr("Mask File"), this);
-    auto* fileLayout = new QHBoxLayout(m_fileGroupBox);
+    // Import and Export side by side where the column holds them; a font that draws them wider stands them one under
+    // the other.
+    auto* fileLayout = new an::ui::AnSideBySideLayout(m_fileGroupBox);
     fileLayout->setContentsMargins(t.spacing.md, t.spacing.sm, t.spacing.md, t.spacing.md);
     fileLayout->setSpacing(t.spacing.sm);
     m_importMaskButton = new QPushButton(tr("Import Mask..."), m_fileGroupBox);

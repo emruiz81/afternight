@@ -14,6 +14,7 @@
 
 #include "app/ApplicationStorage.h"
 #include "components/AnStageList.h"
+#include "fixtures/ClippedControls.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "processes/ImageIntegration/tabs/CalibrationTab.h"
@@ -601,7 +602,8 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     pump();
     EXPECT_EQ(QDir::cleanPath(edit->text()), QDir::cleanPath(folder.path())) << "the field is the job's output folder";
     // A path is long and the column narrow: the field has the foot's whole width, the button that chooses the folder
-    // standing beside the label above it, and the field says the whole path when it is pointed at.
+    // standing beside the label above it - under the label, at its right, where a font draws the label wider than the
+    // room beside the button - and the field says the whole path when it is pointed at.
     const auto* const label = foot->findChild<QLabel*>(QStringLiteral("label"));
     ASSERT_NE(label, nullptr);
     EXPECT_EQ(edit->width(), foot->width() - 2 * an::ui::parts::kStageColumnFootInset)
@@ -612,7 +614,17 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     EXPECT_LE(buttonAt.bottom(), fieldAt.top()) << "the button is above the field";
     EXPECT_LE(labelAt.bottom(), fieldAt.top()) << "and so is the label";
     EXPECT_GT(buttonAt.left(), labelAt.left()) << "the button at the label's right";
-    EXPECT_TRUE(buttonAt.top() <= labelAt.bottom() && labelAt.top() <= buttonAt.bottom()) << "in the label's row";
+    const bool beside =
+        label->sizeHint().width() + an::ui::parts::kStageColumnFootGap + browse->minimumSizeHint().width() <=
+        foot->width() - 2 * an::ui::parts::kStageColumnFootInset;
+    if (beside)
+    {
+        EXPECT_TRUE(buttonAt.top() <= labelAt.bottom() && labelAt.top() <= buttonAt.bottom()) << "in the label's row";
+    }
+    else
+    {
+        EXPECT_GT(buttonAt.top(), labelAt.bottom()) << "under the label the font draws wider than the room beside it";
+    }
     EXPECT_EQ(edit->toolTip(), QDir::toNativeSeparators(folder.path()));
 
     const QList<QAbstractButton*> buttons = list->footButtons();
@@ -669,6 +681,69 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
         offered.append(entryText(*entry));
     }
     EXPECT_TRUE(offered.contains(QStringLiteral("Save Preset..."))) << offered.join(QStringLiteral(", ")).toStdString();
+}
+
+// The column keeps the design's width whatever the font. Where a font draws a row of the foot wider than the column -
+// DejaVu does, and the suites' box font - its two acts stand one under the other, and the output folder's button stands
+// under its label: where text is measured as the interface measures it, each control of the foot has the room its
+// text needs. Under any font, an act given a text that its row cannot hold beside its neighbour, though the foot holds
+// it alone, stands over its neighbour, and the column is as wide as before.
+TEST_F(StageList, TheFootGivesItsControlsTheRoomTheirTextNeedsInTheColumnsWidth)
+{
+    static_cast<void>(openAsPage());
+    StageListNavigator* const list = stages();
+    ASSERT_NE(list, nullptr);
+    QWidget* const foot = list->foot();
+    ASSERT_NE(foot, nullptr);
+    const auto* const label = foot->findChild<QLabel*>(QStringLiteral("label"));
+    ASSERT_NE(label, nullptr);
+    const QList<QAbstractButton*> buttons = list->footButtons();
+    ASSERT_EQ(buttons.size(), 5);
+    const auto squeezed = [&]() {
+        QStringList found;
+        for (const QAbstractButton* button : buttons)
+        {
+            if (button->width() < button->minimumSizeHint().width())
+            {
+                found.append(QStringLiteral("%1 (%2 < %3)")
+                                 .arg(button->text())
+                                 .arg(button->width())
+                                 .arg(button->minimumSizeHint().width()));
+            }
+        }
+        if (label->width() < label->sizeHint().width())
+        {
+            found.append(
+                QStringLiteral("%1 (%2 < %3)").arg(label->text()).arg(label->width()).arg(label->sizeHint().width()));
+        }
+        return found.join(QStringLiteral(", "));
+    };
+    EXPECT_EQ(list->column()->width(), an::ui::parts::kStageColumnWidth);
+    if (an::tests::look::textIsMeasured())
+    {
+        EXPECT_EQ(squeezed(), QString());
+    }
+
+    // A text the foot's row cannot hold beside the act's neighbour, though the foot holds it alone.
+    const int room = an::ui::parts::kStageColumnWidth - 2 * an::ui::parts::kStageColumnPaddingHorizontal -
+                     2 * an::ui::parts::kStageColumnFootInset;
+    QAbstractButton* const import = buttons[0];
+    const int beside = an::ui::parts::kStageColumnFootGap + buttons[1]->minimumSizeHint().width();
+    QString text = QStringLiteral("Import");
+    while (import->minimumSizeHint().width() + beside <= room && text.size() < 60)
+    {
+        text += QStringLiteral(" now");
+        import->setText(text);
+    }
+    if (import->minimumSizeHint().width() > room)
+    {
+        GTEST_SKIP() << "no text of this font is too wide beside its neighbour and no wider than the foot";
+    }
+    pump();
+    pump();
+    EXPECT_GT(buttons[1]->y(), import->geometry().bottom()) << "Export stands under " << text.toStdString();
+    EXPECT_GE(import->width(), import->minimumSizeHint().width()) << text.toStdString();
+    EXPECT_EQ(list->column()->width(), an::ui::parts::kStageColumnWidth);
 }
 
 // A side panel is an aside - the frame pages' and the calibration's - that opens at the aside's width, and the

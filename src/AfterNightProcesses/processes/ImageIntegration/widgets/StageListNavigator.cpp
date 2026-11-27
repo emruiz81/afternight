@@ -5,6 +5,7 @@
 
 #include "processes/ImageIntegration/widgets/StageListNavigator.h"
 
+#include "components/AnSideBySideLayout.h"
 #include "components/AnStageList.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/ComponentParts.h"
@@ -12,7 +13,6 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QFontMetrics>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -159,7 +159,9 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
                     parts::kStageColumnGap);
     auto* output = new QVBoxLayout();
     keepItsOwnSizes(output, 0, 0, 0, 0, parts::kStageColumnFootGap);
-    auto* outputRow = new QHBoxLayout();
+    // The label and its button side by side where the column holds them; a font that draws the label wider than the
+    // room beside the button stands the button under it.
+    auto* outputRow = new an::ui::AnSideBySideLayout();
     keepItsOwnSizes(outputRow, 0, 0, 0, 0, parts::kStageColumnFootGap);
     if (foot.outputLabel != nullptr)
     {
@@ -169,7 +171,7 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
     if (foot.outputBrowse != nullptr)
     {
         foot.outputBrowse->setParent(m_foot);
-        outputRow->addWidget(foot.outputBrowse);
+        outputRow->addWidget(foot.outputBrowse, 0, Qt::AlignRight);
     }
     output->addLayout(outputRow);
     if (foot.outputEdit != nullptr)
@@ -183,8 +185,14 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
     }
     footLayout->addLayout(output);
 
-    auto* acts = new QGridLayout();
+    // Two acts side by side in each of two rows, where the column holds them; a font that draws one wider than its half
+    // of the column stands that row's two one under the other, the column keeping its width.
+    auto* acts = new QVBoxLayout();
     keepItsOwnSizes(acts, 0, 0, 0, 0, parts::kStageColumnFootGap);
+    auto* projectActs = new an::ui::AnSideBySideLayout();
+    keepItsOwnSizes(projectActs, 0, 0, 0, 0, parts::kStageColumnFootGap);
+    auto* listActs = new an::ui::AnSideBySideLayout();
+    keepItsOwnSizes(listActs, 0, 0, 0, 0, parts::kStageColumnFootGap);
     QPushButton* const importButton =
         makeFootButton(tr("Import..."), QStringLiteral("stageFootImport"), foot.importProject, m_foot);
     QPushButton* const exportButton =
@@ -217,11 +225,13 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
     {
         presetsButton->setMenu(foot.presets);
     }
-    acts->addWidget(importButton, 0, 0);
-    acts->addWidget(exportButton, 0, 1);
-    acts->addWidget(recentButton, 1, 0);
-    acts->addWidget(presetsButton, 1, 1);
-    acts->addWidget(resetButton, 2, 0, 1, 2);
+    projectActs->addWidget(importButton, 1);
+    projectActs->addWidget(exportButton, 1);
+    listActs->addWidget(recentButton, 1);
+    listActs->addWidget(presetsButton, 1);
+    acts->addLayout(projectActs);
+    acts->addLayout(listActs);
+    acts->addWidget(resetButton);
     footLayout->addLayout(acts);
     m_footButtons = {importButton, exportButton, recentButton, presetsButton, resetButton};
     columnLayout->addWidget(m_foot);

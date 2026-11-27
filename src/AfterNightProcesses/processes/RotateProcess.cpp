@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "RotateProcess.h"
+#include "components/AnSideBySideLayout.h"
 #include "controls/ProcessButtonIcons.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ImageViewControl.h"
@@ -73,6 +74,9 @@ RotateProcess::RotateProcess(ImageViewControl* control) : ImageProcessControl(co
     setProcessDescription(QStringLiteral("Rotate the image and optionally crop or resize the resulting frame."));
     m_ui.groupBoxRot->setFlat(true);
     m_ui.groupBox->setFlat(true);
+    // The angle and Resize image side by side where the column holds them; a font that draws them wider than a page's
+    // column stands them one under another.
+    an::ui::standSideBySideWhereItFits(*m_ui.resizeImage);
 
     this->setAttribute(Qt::WA_DeleteOnClose);
 

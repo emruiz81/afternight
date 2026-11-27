@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "PixelMathProcess.h"
+#include "components/AnSideBySideLayout.h"
 #include "controls/ImageViewControl.h"
 #include "controls/PixelMathVocabulary.h"
 #include "controls/ProcessPageLayout.h"
@@ -19,8 +20,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <initializer_list>
 #include <memory>
 #include <random>
+#include <utility>
 
 namespace
 {
@@ -381,20 +384,29 @@ void PixelMathProcess::arrangeForPage()
     }
     m_ui.verticalLayout->insertWidget(m_ui.verticalLayout->indexOf(m_ui.horizontalLayout_2) + 1, reference);
 
-    // The Settings group's row of sizes and formats wraps: the colour space and the format on a row of their own.
+    // The Settings group's row of sizes and formats wraps: the colour space and the format on a row of their own, each
+    // beside its label, the format under the colour space where a font draws the two wider than the column.
     if (auto* settings = qobject_cast<QBoxLayout*>(m_ui.groupBox->layout()))
     {
-        auto* formats = new QHBoxLayout();
+        auto* formats = new an::ui::AnSideBySideLayout();
         formats->setObjectName(QStringLiteral("formatsLayout"));
-        for (QWidget* widget : std::initializer_list<QWidget*>{m_ui.label_6, m_ui.colorSpaceSelector, m_ui.label_8,
-                                                               m_ui.colorFormatSelector})
+        settings->insertLayout(settings->indexOf(m_ui.horizontalLayout_10) + 1, formats);
+        for (const auto& [label, selector] : std::initializer_list<std::pair<QWidget*, QWidget*>>{
+                 {m_ui.label_6, m_ui.colorSpaceSelector}, {m_ui.label_8, m_ui.colorFormatSelector}})
         {
-            m_ui.horizontalLayout_10->removeWidget(widget);
-            formats->addWidget(widget);
+            auto* labelled = new QHBoxLayout();
+            formats->addLayout(labelled);
+            for (QWidget* widget : {label, selector})
+            {
+                m_ui.horizontalLayout_10->removeWidget(widget);
+                labelled->addWidget(widget);
+            }
         }
         formats->addStretch(1);
-        settings->insertLayout(settings->indexOf(m_ui.horizontalLayout_10) + 1, formats);
     }
+    // The three options of the run side by side where the column holds them, one under another where a font draws them
+    // wider.
+    an::ui::standSideBySideWhereItFits(*m_ui.horizontalLayout_6);
 }
 
 void PixelMathProcess::on_useSingleRGBKExpression_clicked(Qt::CheckState state)
